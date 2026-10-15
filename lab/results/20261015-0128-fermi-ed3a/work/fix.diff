@@ -1,0 +1,158 @@
+diff --git a/crates/universe/examples/stagger.rs b/crates/universe/examples/stagger.rs
+new file mode 100644
+index 00000000..f5b85a6e
+--- /dev/null
++++ b/crates/universe/examples/stagger.rs
+@@ -0,0 +1,125 @@
++//! The birth stagger, measured (lab run 20261015-0128-fermi-ed3a): the first-kick wave of the ladder's belt, with the
++//! birth grid staggered over one step (`ES_STAGGER`, patch in work/patch.diff) against the shipped grid, flown as the
++//! page flies it (frames of 1/60 s at rtf 100, a 12 ms engine budget), the player coasting at Home. Rows (frame,
++//! presented game-s, engine ms, events, lag s) go to a CSV for the wave windows; the summary holds the frame profile,
++//! the kicks/events per body per game-second, refusals and memory (Linux VmRSS/VmHWM).
++//!
++//! cargo run --release -p emergent-universe --example stagger [-- <N> <page seconds> <out.csv> [<rtf> [<budget ms>]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::io::Write;
++use std::time::{Duration, Instant};
++
++/// (VmRSS, VmHWM) in bytes from /proc/self/status (Linux; the lab's house memory instrument).
++fn rss() -> (u64, u64) {
++    let Ok(s) = std::fs::read_to_string("/proc/self/status") else { return (0, 0) };
++    let mut out = (0u64, 0u64);
++    for line in s.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            out.0 = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        } else if let Some(v) = line.strip_prefix("VmHWM:") {
++            out.1 = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    out
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(220.0);
++    let out = args.get(3).cloned().unwrap_or_else(|| format!("stagger_{n}.csv"));
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let frames = (seconds * 60.0) as usize;
++    let stagger = std::env::var_os("ES_STAGGER").is_some();
++    let (_, rss0) = rss();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (now1, hwm1) = rss();
++    let bodies = p.u.n_bodies();
++    println!(
++        "stagger={stagger} rung N={n} ({bodies} bodies), coast, rtf {rtf}, {seconds} s of page time, budget {budget_ms} ms; build {build:.2} s, rss {:.0} MB hwm {:.0} MB",
++        now1 as f64 / 1e6, hwm1 as f64 / 1e6
++    );
++    let mut rows: Vec<(usize, f64, f64, u64, f64)> = Vec::new();
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    let mut last_stats = p.u.stats;
++    let mut alive = true;
++    let mut ran = 0usize;
++    let mut path = std::fs::File::create(&out).unwrap();
++    writeln!(path, "frame,game_s,ms,events,lag_s").unwrap();
++    for f in 0..frames {
++        if f == 60 {
++            late_stats = Some((p.u.stats, p.u.now));
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        let row = (f, frame.presented as f64 * TICK_SECONDS, took, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS);
++        writeln!(path, "{},{:.3},{:.4},{},{}", row.0, row.1, row.2, row.3, row.4).unwrap();
++        rows.push(row);
++        last_stats = p.u.stats;
++        ran += 1;
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    drop(path);
++    let (now2, hwm2) = rss();
++    let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.2).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut ev: Vec<f64> = late.iter().map(|r| r.3 as f64).collect();
++    ev.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = late.iter().filter(|r| r.2 > budget_ms).count();
++    let lag = late.iter().map(|r| r.4).fold(0.0, f64::max);
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let (kicks, evs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events());
++    let per = |x: u64| x as f64 / bodies as f64 / game_s;
++    let (mut refusals, mut dead) = (0u64, 0usize);
++    for i in 0..bodies {
++        let r = p.u.rec(i);
++        refusals += r.refusals;
++        dead += (!r.alive) as usize;
++    }
++    // The wave windows: events bucketed by presented game-s (250-s windows), the peak windows named.
++    let mut windows: Vec<(usize, u64)> = Vec::new();
++    for r in &rows {
++        let w = (r.1 / 250.0) as usize;
++        while windows.len() <= w {
++            windows.push((windows.len(), 0));
++        }
++        windows[w].1 += r.3;
++    }
++    let mut top: Vec<_> = windows.clone();
++    top.sort_by_key(|w| std::cmp::Reverse(w.1));
++    println!(
++        "frames {ran} (of {frames}); engine ms p50 {:.3} p99 {:.3} max {:.3}; over {budget_ms} ms: {over}; worst lag {lag:.3} s; events/frame p50 {} p99 {} max {}",
++        pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), pct(&ev, 0.5), pct(&ev, 0.99), pct(&ev, 1.0)
++    );
++    println!(
++        "game {game_s:.0} s: kicks {kicks} ({:.3e}/body/game-s), events {evs} ({:.3e}/body/game-s); refusals held {refusals}, dead {dead}, player alive {alive}; held scans max {}",
++        per(kicks), per(evs), p.u.held_scans()
++    );
++    println!(
++        "memory: rss {:.0} MB (build {:.0} MB), hwm {:.0} MB, {:.0} B a body from the build; dashboard bytes/body {}; catalogue {}",
++        now2 as f64 / 1e6, now1 as f64 / 1e6, hwm2 as f64 / 1e6, (now1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live()
++    );
++    print!("top event windows (250 game-s): ");
++    for w in top.iter().take(6) {
++        print!("[{:.0}-{:.0}k: {}] ", w.0 as f64 * 0.25, (w.0 as f64 + 1.0) * 0.25, w.1);
++    }
++    println!();
++    let _ = std::fs::write(format!("{out}.done"), format!("rows {}\n", rows.len()));
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..dde8c3c0 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -649,7 +649,21 @@ impl Work<'_, '_> {
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+         self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
+-        insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
++        // ES_STAGGER (lab run 20261015-0128-fermi-ed3a, default unset = shipped verbatim): stagger the birth grid of
++        // the root doll's ships over one step, so the first-kick wave arrives spread (bf21's generation choice). The
++        // offset is a pure function of the body's id (no new state); the kick's weight is unchanged, only its time.
++        let off = if t == 0
++            && self.rec.kind == crate::body::Kind::Ship
++            && std::env::var_os("ES_STAGGER").is_some()
++        {
++            let mut z = (self.i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
++            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++            (((z ^ (z >> 31)) >> 33) as u128 * (2 * half) as u128 >> 31) as i64
++        } else {
++            0
++        };
++        insert(&mut self.rec.plan, Item { t: t + half + off, what: What::Kick(0) });
+         self.plan_terminal(t)
+     }
+ 

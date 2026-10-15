@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place (`predictions.md` pre-registered, `dossier.md`, `regen.sh` ~6 min, `wiki/birth-stagger.md`, `work/patch.diff` + CSVs; tree carries the patch for `run.sh` to save).
+
+**The claim:** staggering the belt's birth grid over one step — an id-derived offset of each root-doll ship's first kick, ~10 lines, byte-identical when off, ~0 bits and ±1% memory — flattens the first-kick wave **16.7–17.7×** (belt_first width ×20.3; at 3×10⁵ late frames 459→71, p99 12.03→9.95 ms), the trains never re-form a spike (the plateau sits on the measured steady stream, ~25 events/game-s), so at 10⁹ the birth phase costs the steady stream instead of 26× it — deleting the birth multiple that survives even the 0.11 µs key-arm kick; honest misses: the wave-2 ratio caps at the control's own spike-to-steady ratio (~3×, not the predicted ≥10×), and the worst lag/frame at 10⁵–3×10⁵ is the opening exodus, identical in both arms.

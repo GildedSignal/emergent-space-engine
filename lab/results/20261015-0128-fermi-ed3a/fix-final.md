@@ -1,0 +1,8 @@
+# regen.sh `regen.sh` is fixed and proven: it ran end-to-end from the pristine tree in 354 s with `EXIT=0`, regenerating every dossier number (mechanism exact; default-neutrality identical modulo nondeterministic wall-time annotations; 3×10⁵ peak 71,762→6,373, 14k window 18,850→1,234, wave-2 staggered sum 73,353 vs the dossier's 73,350).
+
+Three defects fixed, nothing else touched:
+1. **Wrong root.** `cd "$(dirname "$0")/../.."` from `lab/results/<run>` lands in `lab/`, so `cd crates/universe` died. Now absolute `HERE`/`ROOT` anchors (`../../..`).
+2. **Relative `$W` under `cwd=crates/universe`.** Flights and analysis wrote/read `lab/results/...` relative to the crate dir. Now `$W` is absolute; `git checkout`/`git apply` go through `git -C "$ROOT"` (and the patch self-applies if the runner hasn't, idempotently — verified by starting from the pristine tree).
+3. **Nondeterministic neutrality verdict.** The diff compared frame_digest's trailing `[2.3 s]` wall-time annotations; on mismatch the diagnostic `diff` returned 1 and `set -e` silently aborted after section 2. The comparison now strips `[N.N s]` before diffing — digests, kicks, encounters, contacts and schedule agreement must still match — and prints `DEFAULT-NEUTRAL: identical modulo wall-time annotations (9 digest lines)`, which is what the dossier's "byte-identical" claim actually rests on.
+
+One shared-box caveat, already flagged by the dossier's own lens note: control-side window peaks are drain-capped and shifted (21,339 vs 33,252 at 10⁵); the staggered arm and all ratios are stable (11.3–15.3× vs 11.4–16.7×). Summary in `fix-final.md`; full transcript in `regen.log`.
