@@ -1,0 +1,27 @@
+== build ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unused variable: `mx`
+   --> crates/universe/examples/arc_pin.rs:216:34
+    |
+216 |     let (dem, pro, ns, p50, p99, mx) = lazy_counters();
+    |                                  ^^ help: if this is intentional, prefix it with an underscore: `_mx`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `o`
+   --> crates/universe/examples/arc_pin.rs:149:39
+    |
+149 |                     Trajectory::Cycle(o) => {
+    |                                       ^ help: if this is intentional, prefix it with an underscore: `_o`
+
+warning: `emergent-universe` (example "arc_pin") generated 2 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.34s
+== freeze a private binary (contamination defense) ==
+== the matrix (belt serial, comet ladder parallel) ==
+pinned_total_B 1196768 per_body_B 9498.2 bodies 126 bpb_engine 170289 mints kick 73343 kickless 0 demotions 73343 promotions 699986 promote_us p50 5.02 p99 94.78 total_s 274.23 | passage: dem 64316 pro 467110 p50 608.40 p99 915.05 total_s 271.73
+arm ctl N=100 stargraze cut=32000 seed=1 rtf=1000
+pinned_total_B 2134024664 per_body_B 12125140.1 bodies 176 bpb_engine 163970 mints kick 90560 kickless 0 demotions 0 promotions 0 promote_us p50 0.00 p99 0.00 total_s 0.00 | passage: dem 0 pro 0 p50 0.00 p99 0.00 total_s 0.00
+MATRIX DONE
+REGEN DONE

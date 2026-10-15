@@ -1,0 +1,20 @@
+== launch the comet ladder (parallel) ==
+== belt: the regen gaps and anchors (serial, inside the comet window) ==
+arm ctl N=10000 burn cut=20000 seed=1 rtf=1000
+pinned_total_B 15812504 per_body_B 1569.3 bodies 10076 bpb_engine 1748 mints kick 42144 kickless 0 demotions 0 promotions 0 promote_us p50 0.00 p99 0.00 total_s 0.00 | passage: dem 0 pro 0 p50 0.00 p99 0.00 total_s 0.00
+arm variant N=10000 coast cut=26000 seed=1 rtf=1000
+pinned_total_B 6611360 per_body_B 656.1 bodies 10076 bpb_engine 1009 mints kick 50723 kickless 0 demotions 50723 promotions 1092378 promote_us p50 5.03 p99 67.15 total_s 25.80 | passage: dem 570 pro 46987 p50 355.27 p99 595.86 total_s 19.10
+arm variant N=10000 coast cut=48000 seed=1 rtf=1000
+pinned_total_B 86944 per_body_B 8.6 bodies 10076 bpb_engine 1008 mints kick 94518 kickless 0 demotions 94518 promotions 2078952 promote_us p50 3.90 p99 44.14 total_s 39.47 | passage: dem 1318 pro 89230 p50 327.88 p99 409.26 total_s 30.11
+arm variant N=100000 coast cut=48000 seed=1 rtf=1000
+pinned_total_B 86944 per_body_B 0.9 bodies 100076 bpb_engine 993 mints kick 274518 kickless 0 demotions 274518 promotions 2798952 promote_us p50 4.24 p99 10.05 total_s 48.78 | passage: dem 1318 pro 89230 p50 331.78 p99 595.78 total_s 34.20
+== the shipped-ctl comet contrast, last and best-effort (rss ~2.8 GB: the ruin case) ==
+arm variant N=100 stargraze cut=32000 seed=1 rtf=1000
+pinned_total_B 2655768 per_body_B 15089.6 bodies 176 bpb_engine 161340 mints kick 90560 kickless 0 demotions 90560 promotions 726102 promote_us p50 5.00 p99 116.77 total_s 373.95 | passage: dem 84162 pro 559125 p50 610.13 p99 915.59 total_s 371.74
+arm variant N=100 stargraze cut=48000 seed=1 rtf=1000
+pinned_total_B 2645664 per_body_B 15032.2 bodies 176 bpb_engine 240578 mints kick 135125 kickless 0 demotions 135125 promotions 1105057 promote_us p50 3.82 p99 94.33 total_s 492.78 | passage: dem 126098 pro 837697 p50 607.10 p99 912.01 total_s 490.22
+arm variant N=50 mixed cut=48000 seed=1 rtf=1000
+pinned_total_B 1196768 per_body_B 9498.2 bodies 126 bpb_engine 170289 mints kick 73343 kickless 0 demotions 73343 promotions 699986 promote_us p50 5.02 p99 94.78 total_s 274.23 | passage: dem 64316 pro 467110 p50 608.40 p99 915.05 total_s 271.73
+arm ctl N=100 stargraze cut=32000 seed=1 rtf=1000
+pinned_total_B 2134024664 per_body_B 12125140.1 bodies 176 bpb_engine 163970 mints kick 90560 kickless 0 demotions 0 promotions 0 promote_us p50 0.00 p99 0.00 total_s 0.00 | passage: dem 0 pro 0 p50 0.00 p99 0.00 total_s 0.00
+MATRIX DONE
