@@ -1,0 +1,4 @@
+Working...
+`work/patch.diff` matches the tree bit-for-bit (`0885af2b…`). Everything is in place — 33 identity-verified flights, pre-registered predictions, fixed regen, resolved wiki conflict.
+
+**The claim:** the bounded cache's burn knee is a measured law — ratio exactly 1.000 at cap 1.31×N on both 10⁵ and 2×10⁵, 7.0–8.5 below it, degenerating toward the seam's ~12 reads per demotion — with the mechanism pinned (mints are `apply`'s per-kick walk, not the resolver; the scan's re-reads, share growing 26%→71% with N, are the bill; extra promotions = hit deficit exactly) and the admission family (`ES_RETAIN_ONCE`) built, measured, and refuted, so the burn-safe rule is cap = min(~1.3× working set, memory budget) and below the knee the +14–30% wall tax on the scan's own O(N) work is the cheapest fence at 10⁹.
