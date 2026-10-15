@@ -1,0 +1,4 @@
+Working...
+Regen verifies end-to-end (~80 s, deterministic, identical numbers), all artifacts in place, no repo files touched outside the run folder.
+
+**Claim:** the player-in-band scan ruin is structural — the shipped radial index bins octaves of radius and cannot cut a thin belt shell — and a kinetic candidate index on the law's own birth constants (mean longitude sorted within a×mean-anomaly×e buckets, every key exactly linear or constant between kicks, eccentric widening per bucket) answers the scan with **zero misses and a measured 24–53× cut** (candidates 100,000→1,899 at 10⁵, 1M→19,050 at 10⁶; capture 30.3→0.58 ms; held set 0.08–0.82 GB against the 11.2 GB OOM plateau), its maintenance riding the kick rebind that already happens, while a naive longitude sort misses 61–92% of truth hits and is refuted.
