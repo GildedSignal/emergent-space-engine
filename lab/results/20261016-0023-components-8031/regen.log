@@ -1,0 +1,32 @@
+--- sampler table ---
+arm          prec_pass  per_pass    adv_med  adv_worst    per_med  per_worst cross_med
+--------------------------------------------------------------------------------------
+frozen-m8       0.9961    0.9570   2.68e-05   1.29e-02   6.63e-05   1.22e-02        19
+frozen-m16      1.0000    0.9961   5.66e-06   4.78e-03   1.52e-05   4.67e-03        38
+frozen-m32      1.0000    1.0000   1.35e-06   5.56e-04   3.68e-06   5.52e-04        78
+mid-m16         0.9961    0.4688   7.04e-06   1.09e-02   1.14e-03   6.78e-02       nan
+agm-m2          1.0000    0.4570   1.38e-16   8.25e-16   1.15e-03   7.95e-02       nan
+agm-m8          1.0000    0.4570   1.38e-16   8.25e-16   1.15e-03   7.95e-02       nan
+agm-m16         1.0000    0.4570   1.38e-16   8.25e-16   1.15e-03   7.95e-02       nan
+
+port validation: {
+--- port validation ---
+port validation: {
+ "p20.0_e0.2": {
+  "advance_rel_diff": 1.8884599825813972e-13,
+  "period_rel_diff": 8.015882884546292e-15
+ },
+ "p30.0_e0.5": {
+  "advance_rel_diff": 1.6570154217466948e-13,
+  "period_rel_diff": 4.077712545877222e-15
+--- capture/isco/crossings ---
+capture misclassified: 2 isco: {'bound_case_pass': True, 'plunge_case_pass': True}
+crossings medians (agm): {'agm-m2': 4, 'agm-m8': 18, 'agm-m16': 38}
+repeat spread: {'frozen-m16_max_cycle_spread_8seeds': 0.0}
+--- compile control (agm, from invariants) ---
+sampler agm advance worst: 8.251785717184872e-16
+--- held-out ---
+  p8.5_e0.9 {'frozen-m8': 'NOCYCLE', 'frozen-m16': 'NOCYCLE', 'frozen-m32': 'NOCYCLE', 'mid': {'advance': 0.12385833318827418, 'period': 0.261475217143492}, 'invL': {'advance': 0.39188562041368474, 'period': 0.12443244272552824}, 'agm': {'advance': 9.269030494505908e-15, 'period': 0.43980735642217056}}
+  p1000.0_e0.69 {'frozen-m8': 1.9861320676012455e-06, 'frozen-m16': 3.645871848402961e-07, 'frozen-m32': 1.2259417623710593e-07, 'mid': {'advance': 3.6139902518124626e-07, 'period': 0.0004784888861503988}, 'invL': {'advance': 1.0852477622179734e-05, 'period': 0.00046799278389494036}, 'agm': {'advance': 2.818664458513823e-16, 'period': 0.00047885045823081973}}
+  p10.0_e0.05 {'frozen-m8': 0.0014039457273399315, 'frozen-m16': 0.0005272573195748072, 'frozen-m32': 0.0001457483029914117, 'mid': {'advance': 0.00011721383084767182, 'period': 0.00043002145180380687}, 'invL': {'advance': 0.16974989523774553, 'period': 0.16929549982556788}, 'agm': {'advance': 1.7878432183498462e-16, 'period': 0.0005472994337152795}}
+  p100.0_e0.7 {'frozen-m8': 2.5204801645172896e-05, 'frozen-m16': 5.663744481621692e-06, 'frozen-m32': 1.279589259048001e-06, 'mid': {'advance': 4.159453367364302e-05, 'period': 0.005158798451672345}, 'invL': {'advance': 0.0011535205916152896, 'period': 0.004041089700731944}, 'agm': {'advance': 0.0, 'period': 0.005200609302265406}}

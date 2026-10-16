@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place and verified: `predictions.md` (pre-registered), `work/binet_refit.py` (self-contained, stdlib), `work/metrics.json`, `dossier.md`, `regen.sh` (regenerates every number in ~110 s, verified end-to-end), and `wiki/binet-cells.md`.
+
+**Claim:** the binet cell's first-order near-circular error is deleted not by a better band centre but by removing the centre from the dynamics — the cycle's frequency compiled from its own two turning points (exact cubic + AGM, ~30 flops once per cycle) makes the advance exact to 8×10⁻¹⁶ at every m, collapsing m from an accuracy dial (frozen needs m=32) to a pure cost dial (m=2: 4 crossings/cycle, 19.5× fewer events), while the page's literal refit trades the e=0 family for a collapsed period (0.47 pass) and the compiled-frequency law's own honest residual is the O(e²u) cosine-shape period (0.457 pass, worst 8×10⁻²) — the cycle's next word is Darwin's shape, priced and one row away.
