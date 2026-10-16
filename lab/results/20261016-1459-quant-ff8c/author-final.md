@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place. Final summary:
+
+**Claim:** `apply`'s position walk — kick-jet's named-but-unbuilt −13% lever — is deleted exactly by `ES_POS_CARRY` (~55 lines) as **two** duplicates (a rebound body carries the state `rebind` just bound, verified bit-for-bit on 130,434 rebinds with 0 mismatches; an unrebound body's cache is already the walk's result), cutting the stage −84…87% (0.78–0.99 s → 0.115–0.127 s, belt N=10⁵ through the first wave, ≈−12.7% of the event cycle = 5ade's pricing) with digests identical on that flight, all 13 `ladder_digest` cases × 4 schedules, all 8 `frame_digest` flights × 4 schedules, and against pristine main; the surviving stage is the one-time birth walk (100,075 walks = one per body), now named as the next lever alongside the planet-doll centre chain.

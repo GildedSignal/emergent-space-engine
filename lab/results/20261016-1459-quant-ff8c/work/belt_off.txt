@@ -1,0 +1,29 @@
+arm on=false verify=false N=100000 game_s=20000 frames=1521 wall=9.03s bodies=100076
+digest a287f479117d38794e2ba924ea7908ba1e6712f59dd53c890fa66a9a990d55e9
+kicks 131537 boundaries 31291 opens 100167 refused 0 lost 28
+stage rekey (all deadlines)                  calls      1521 ns     90031442 ns/call  59192.3
+stage   position walk (root_state_raw)       calls    160963 ns    796866118 ns/call   4950.6
+stage apply (whole)                          calls    162899 ns    986887477 ns/call   6058.3
+stage requeue                                calls    345507 ns    131269038 ns/call    379.9
+stage process (whole)                        calls    162851 ns   6481439238 ns/call  39799.8
+stage   fit: bind_surface (kicks, hand-outs) calls    131450 ns   2596411466 ns/call  19752.1
+stage take_due                               calls    114331 ns      2140411 ns/call     18.7
+stage prune                                  calls      1521 ns     66517574 ns/call  43732.8
+stage encounters: capture (cheap half)       calls      1936 ns    199782249 ns/call 103193.3
+stage encounters: held scans answered        calls      1936 ns    977119684 ns/call 504710.6
+stage item: kick (Wisdom-Holman)             calls     31470 ns   1358467527 ns/call  43167.1
+stage item: kick (clock)                     calls     99712 ns   4443684394 ns/call  44565.2
+stage item: kick at a changeover level       calls       259 ns     85970828 ns/call 331933.7
+stage item: boundary                         calls     31291 ns    595486146 ns/call  19030.6
+stage item: open                             calls        91 ns      1431901 ns/call  15735.2
+stage item: crash                            calls        28 ns       205366 ns/call   7334.5
+stage fleet: battle run_to                   calls      3257 ns     13648688 ns/call   4190.6
+stage fleet: advance (whole item)            calls      3257 ns     18496060 ns/call   5678.9
+stage hand-out (a member made a body)        calls        48 ns     25785142 ns/call 537190.5
+stage   hand-out: pull planets and moons     calls        48 ns         5473 ns/call    114.0
+stage   hand-out: bind (the member as a tube) calls        48 ns     17911427 ns/call 373154.7
+stage   hand-out: first plan (replan)        calls        48 ns      7107469 ns/call 148072.3
+stage   fit again: the coarser word (bind_surface) calls        32 ns      8345367 ns/call 260792.7
+ROOT total 0.797 s, 4950.6 ns/call, 160963 calls, 1.61 walks/kick
+kick_clock total 4.444 s over 99712 kicks = 44.6 us/kick
+carry hits 0 skips 0 walks 0 mismatch 0 walk_err 0

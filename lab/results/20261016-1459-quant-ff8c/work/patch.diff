@@ -1,0 +1,382 @@
+diff --git a/crates/universe/examples/pos_carry.rs b/crates/universe/examples/pos_carry.rs
+new file mode 100644
+index 00000000..85e9264f
+--- /dev/null
++++ b/crates/universe/examples/pos_carry.rs
+@@ -0,0 +1,53 @@
++//! `apply`'s position walk (stage ROOT) against the carried state (`ES_POS_CARRY`): one belt
++//! flight (the plane with N more ships, the player coasting) through the first kick wave and past
++//! it, with the stage profile, the carry's counters and the digest at the canonical cut. Run the
++//! same command with and without `ES_POS_CARRY`/`ES_POS_VERIFY` in the environment and diff.
++//!
++//! cargo run --release -p emergent-universe --features prof --example pos_carry [-- <N> <game seconds> <rtf>]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1000.0);
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    let (on, verify) = emergent_universe::universe::pos_carry();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let t0 = Instant::now();
++    let mut frames = 0usize;
++    let (mut stage_ns, mut stage_calls) = ([0u64; emergent_universe::prof::N], [0u64; emergent_universe::prof::N]);
++    for _ in 0..400_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        let start = Instant::now();
++        let _ = emergent_universe::prof::take();
++        p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, cut);
++        let (ns, calls) = emergent_universe::prof::take();
++        for k in 0..emergent_universe::prof::N {
++            stage_ns[k] += ns[k];
++            stage_calls[k] += calls[k];
++        }
++        frames += 1;
++    }
++    p.u.settle(cut);
++    let wall = t0.elapsed().as_secs_f64();
++    println!("arm on={on} verify={verify} N={n} game_s={:.0} frames={frames} wall={wall:.2}s bodies={}", seconds * rtf, p.u.n_bodies());
++    println!("digest {}", p.u.digest());
++    println!("kicks {} boundaries {} opens {} refused {} lost {}", p.u.stats.kicks, p.u.stats.boundaries, p.u.stats.opens, p.u.stats.refused, p.u.stats.lost);
++    for k in 0..emergent_universe::prof::N {
++        if stage_calls[k] > 0 {
++            println!("stage {:38} calls {:>9} ns {:>12} ns/call {:>8.1}", emergent_universe::prof::NAMES[k], stage_calls[k], stage_ns[k], stage_ns[k] as f64 / stage_calls[k] as f64);
++        }
++    }
++    let kicks = stage_calls[emergent_universe::prof::P_KICK_CLOCK].max(1);
++    println!("ROOT total {:.3} s, {:.1} ns/call, {} calls, {:.2} walks/kick", stage_ns[emergent_universe::prof::ROOT] as f64 / 1e9, stage_ns[emergent_universe::prof::ROOT] as f64 / stage_calls[emergent_universe::prof::ROOT].max(1) as f64, stage_calls[emergent_universe::prof::ROOT], stage_calls[emergent_universe::prof::ROOT] as f64 / kicks as f64);
++    println!("kick_clock total {:.3} s over {} kicks = {:.1} us/kick", stage_ns[emergent_universe::prof::P_KICK_CLOCK] as f64 / 1e9, kicks, stage_ns[emergent_universe::prof::P_KICK_CLOCK] as f64 / 1e3 / kicks as f64);
++    use std::sync::atomic::Ordering::Relaxed;
++    println!("carry hits {} skips {} walks {} mismatch {} walk_err {}", emergent_universe::universe::POS_HITS.load(Relaxed), emergent_universe::universe::POS_SKIPS.load(Relaxed), emergent_universe::universe::POS_WALKS.load(Relaxed), emergent_universe::universe::POS_MISMATCH.load(Relaxed), emergent_universe::universe::POS_WALK_ERR.load(Relaxed));
++}
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..db71200e 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -182,6 +182,21 @@ pub fn root_state_raw(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2])>
+     root_state_with(ctx, i, t, false)
+ }
+ 
++/// The position half of [`root_state_raw`] for a body whose state at `t` is already in hand
++/// (`state`, in the units of `doll`): what a freshly bound tube holds at its own event tick, so
++/// only the doll chain above it is walked. The arithmetic is `root_state_with`'s own half,
++/// operation for operation.
++pub fn root_pos_from(ctx: &Ctx, doll: u16, state: (V2, V2), t: Tick) -> Res<[f64; 2]> {
++    let k = 2f64.powi(-(ctx.dolls[doll as usize].shift as i32));
++    let (p, _) = state;
++    let mut pos = [to_f64(p[0]) * k, to_f64(p[1]) * k];
++    if let Some(c) = ctx.dolls[doll as usize].centre {
++        let (cp, _) = root_state_with(ctx, c, t, false)?;
++        pos = [pos[0] + cp[0], pos[1] + cp[1]];
++    }
++    Ok(pos)
++}
++
+ fn root_state_with(ctx: &Ctx, i: usize, t: Tick, ramp: bool) -> Res<([f64; 2], [f64; 2])> {
+     let (b, p, v) = if ramp {
+         ramped(ctx, i, t)?
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..5c9b02c8 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -56,6 +56,10 @@ pub struct Update {
+     pub retired: Vec<Segment>,
+     /// A compiled entry to put in the catalogue (the rec's tube key is then set by the owner).
+     pub new_entry: Option<Arc<Entry>>,
++    /// When the item rebound the body: its state in the doll's units at the new binding's event
++    /// tick, which the binding holds bit for bit (`bind.rs`) — the half of the position walk
++    /// (`root_state_raw` at `rec.b.event_time`) that the resolver already computed.
++    pub state: Option<(V2, V2)>,
+     pub kind: Resolved,
+ }
+ 
+@@ -336,6 +340,7 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    state: Option<(V2, V2)>,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -354,6 +359,7 @@ impl Work<'_, '_> {
+ 
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
++        let carried = scalars(&exact)?;
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
+         let old = &self.rec.b;
+@@ -375,6 +381,7 @@ impl Work<'_, '_> {
+             impact: None,
+         };
+         self.new_entry = Some(bound.entry.clone());
++        self.state = Some(carried);
+         self.rec.plan.retain(|item| item.what != What::Crash);
+         self.plan_terminal(t)?;
+         Ok(bound)
+@@ -826,7 +833,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, state: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -861,24 +868,24 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, state: w.state, kind }
+ }
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, state: None };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, state: w.state, kind: Resolved::Open }
+ }
+ 
+ /// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, state: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+@@ -910,7 +917,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     if res.is_err() {
+         w.rec.refusals += 1;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, state: w.state, kind: Resolved::Open }
+ }
+ 
+ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..e2ffd2b5 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -38,6 +38,28 @@ use crate::fleet::{Fleet, Leaver};
+ use crate::num::{Error, Res, Tick};
+ use crate::step::{self, Resolved, Update};
+ use crate::world::{DollRec, Mass, Unit};
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++/// `ES_POS_CARRY` deletes `apply`'s position walk where its value is already in hand: a rebound
++/// body carries the state its binding holds at the event tick (bit for bit, `bind.rs`), and a
++/// body nothing rebound still has the same binding at the same event tick, so the cache is the
++/// walk's exact result. `ES_POS_VERIFY` turns the carry on and re-walks every hit to compare.
++/// Neither set: the engine is what it was.
++pub fn pos_carry() -> (bool, bool) {
++    static G: std::sync::LazyLock<(bool, bool)> = std::sync::LazyLock::new(|| {
++        let verify = std::env::var("ES_POS_VERIFY").is_ok();
++        (verify || std::env::var("ES_POS_CARRY").is_ok(), verify)
++    });
++    *G
++}
++
++/// The carry's counters, for the benches (zero cost when the gate is off).
++pub static POS_HITS: AtomicU64 = AtomicU64::new(0);
++pub static POS_SKIPS: AtomicU64 = AtomicU64::new(0);
++pub static POS_WALKS: AtomicU64 = AtomicU64::new(0);
++pub static POS_MISMATCH: AtomicU64 = AtomicU64::new(0);
++pub static POS_WALK_ERR: AtomicU64 = AtomicU64::new(0);
++static POS_SAID: AtomicBool = AtomicBool::new(false);
+ use emergent_space::{
+     binding::Trajectory,
+     events::Calendar,
+@@ -187,6 +209,9 @@ pub struct Universe {
+     observer: [f64; 2],
+     /// Cached positions in root units (for deadlines only; never an outcome).
+     pos: Vec<[f64; 2]>,
++    /// The event tick each cached position was read at: a binding's position at its own event
++    /// tick never changes, so an item that did not rebind the body can skip the walk entirely.
++    pos_tick: Vec<Tick>,
+     pub stats: Stats,
+     pub inputs: Vec<(Tick, u8)>,
+     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+@@ -258,6 +283,7 @@ impl Universe {
+             player: None,
+             observer: [0.0; 2],
+             pos: Vec::new(),
++            pos_tick: Vec::new(),
+             stats: Stats::default(),
+             inputs: Vec::new(),
+             handouts: VecDeque::new(),
+@@ -477,6 +503,7 @@ impl Universe {
+         let n = self.bodies.len();
+         self.lanes = Lanes { planets: self.kinds(Kind::Planet), moons: self.kinds(Kind::Moon) };
+         self.pos = vec![[0.0; 2]; n];
++        self.pos_tick = vec![Tick::MIN; n];
+         self.body_cap = n + self.fleets.iter().map(|f| f.n_members).sum::<usize>();
+         self.ship_ticks = Calendar::new(self.body_cap + self.fleets.len());
+         self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
+@@ -657,6 +684,8 @@ impl Universe {
+         }
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
++        let doll = upd.rec.b.doll;
++        let state = upd.state;
+         self.radial.note(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), &upd.rec.b);
+         self.bodies.put(i, upd.rec);
+         if self.info[i].kind == Kind::Ship {
+@@ -670,7 +699,38 @@ impl Universe {
+         // thing `apply` did after a player item, bought nothing.
+         if Some(i) != self.player {
+             let t_walk = crate::prof::t();
+-            if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
++            let (on, verify) = pos_carry();
++            if on {
++                if let Some(st) = state {
++                    POS_HITS.fetch_add(1, Ordering::Relaxed);
++                    if let Ok(p) = crate::observe::root_pos_from(&self.ctx(), doll, st, t) {
++                        self.pos[i] = p;
++                        self.pos_tick[i] = t;
++                        if verify {
++                            match crate::observe::root_state_raw(&self.ctx(), i, t) {
++                                Ok((w, _)) if w == p => {}
++                                Ok((w, _)) => {
++                                    POS_MISMATCH.fetch_add(1, Ordering::Relaxed);
++                                    if !POS_SAID.swap(true, Ordering::Relaxed) {
++                                        eprintln!("ES_POS_CARRY mismatch body {i} t {t}: walk {w:?} carry {p:?}");
++                                    }
++                                }
++                                Err(_) => {
++                                    POS_WALK_ERR.fetch_add(1, Ordering::Relaxed);
++                                }
++                            }
++                        }
++                    }
++                } else if self.pos_tick[i] != t {
++                    POS_WALKS.fetch_add(1, Ordering::Relaxed);
++                    if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
++                        self.pos[i] = p;
++                        self.pos_tick[i] = t;
++                    }
++                } else {
++                    POS_SKIPS.fetch_add(1, Ordering::Relaxed);
++                }
++            } else if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+                 self.pos[i] = p;
+             }
+             crate::prof::add(crate::prof::ROOT, t_walk);
+@@ -894,6 +954,7 @@ impl Universe {
+             let i = self.bodies.push(rec);
+             self.info.push(BodyInfo { kind: Kind::Ship, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: Some((f as u16, l.member as u16)), born: l.tick });
+             self.pos.push([0.0; 2]);
++            self.pos_tick.push(Tick::MIN);
+             Ok(i)
+         })();
+         match made {
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..029e330c 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -1,4 +1,5 @@
+-//! Deterministic kick replay on the plane's own scene, without changing its resolver.
++//! Print-only census of the kick's key displacement (lab run 20261016-1459-spacex-7fd2).
++//! Observation sits after the resolver; no engine path is touched.
+ use super::{script, Session};
+ use emergent_space::{
+     binding::Trajectory,
+@@ -39,6 +40,20 @@ impl Shapes {
+     }
+ }
+ 
++/// One resolved kick's compiled key, with the body's previous key's index (run's census).
++#[derive(Clone)]
++struct Row {
++    body: usize,
++    made: bool,
++    t: i64,
++    p_sig: i64,
++    p_exp: i16,
++    k: u64,
++    k_exp: i16,
++    gap: bool,
++    knots: Option<usize>,
++}
++
+ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     samples.sort_by(f64::total_cmp);
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+@@ -55,6 +70,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let mut rows: Vec<Row> = Vec::new();
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
+@@ -88,6 +104,23 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
++                if let Some(key) = e.trajectory.key() {
++                    let knots = match &e.trajectory {
++                        Trajectory::Cycle(c) => Some(c.shape().knots().len()),
++                        _ => None,
++                    };
++                    rows.push(Row {
++                        body: i,
++                        made: i < made_n,
++                        t: item.t,
++                        p_sig: key.periapsis.significand(),
++                        p_exp: key.periapsis.exponent(),
++                        k: key.k,
++                        k_exp: key.k_exponent,
++                        gap: key.gap.is_some(),
++                        knots,
++                    });
++                }
+             }
+             digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
+@@ -96,6 +129,22 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         frames = n;
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
++    let census_rows = std::env::var("ES_KICK_DUMP").ok().filter(|v| !v.is_empty());
++    if let Some(path) = &census_rows {
++        let mut out = String::from("{\"rows\":[");
++        for (j, r) in rows.iter().enumerate() {
++            if j > 0 {
++                out.push(',');
++            }
++            out.push_str(&format!(
++                "{{\"body\":{},\"made\":{},\"t\":{},\"p_sig\":{},\"p_exp\":{},\"k\":{},\"k_exp\":{},\"gap\":{},\"knots\":{}}}",
++                r.body, r.made, r.t, r.p_sig, r.p_exp, r.k, r.k_exp, r.gap,
++                r.knots.map(|x| x as i64).unwrap_or(-1)
++            ));
++        }
++        out.push_str("]}\n");
++        std::fs::write(path, out).map_err(|e| format!("dump: {e}"))?;
++    }
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+@@ -103,6 +152,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "key_census": {"rows": rows.len(), "dump": census_rows.is_some()},
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
