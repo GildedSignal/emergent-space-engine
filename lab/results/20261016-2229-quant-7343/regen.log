@@ -1,0 +1,79 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: unused import: `Held`
+  --> crates/universe/examples/read_split.rs:12:48
+   |
+12 | use emergent_universe::encounter::{Encounters, Held, PlayerNeighbourhood, ENCOUNTER_LOG2};
+   |                                                ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (example "read_split") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.85s
+=== 10^4 seed 1 (tuned)
+warning: unused import: `Held`
+  --> crates/universe/examples/read_split.rs:12:48
+   |
+12 | use emergent_universe::encounter::{Encounters, Held, PlayerNeighbourhood, ENCOUNTER_LOG2};
+   |                                                ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+{"n": 10000, "seed": 1, "bodies": 10028, "belt": 9700, "locals": 300, "t": 256}
+{"probe": "lo", "body": 4553, "r": 172219415.5733, "fallback": true, "kept": 0, "candidates": 9714, "distinct_entries": 9714, "encounters": 0, "capture_us": 1631.8, "reuse_us": 2521.90, "answer_us": 36970.9, "memo_ns": 144, "us_per_read": 3.805937821700638, "ns": {"binding": 60101, "traj": 3279439, "orbit": 3608680, "readout": 3598958, "cart": 3706419, "pred": 172783}, "cart_p50": 3636, "cart_p99": 4801, "cart_addr_order": 3662}
+{"probe": "lo", "warm_p50_ns": 3284, "knots_mean": 7.2, "crossings_mean": 3.4, "cycles_sampled": 101}
+{"probe": "mid", "body": 7923, "r": 233698914.9932, "fallback": true, "kept": 0, "candidates": 9714, "distinct_entries": 9714, "encounters": 0, "capture_us": 960.4, "reuse_us": 2176.03, "answer_us": 36974.1, "memo_ns": 233, "us_per_read": 3.8062720815318096, "ns": {"binding": 62802, "traj": 3268332, "orbit": 3609236, "readout": 3612025, "cart": 3672787, "pred": 189169}, "cart_p50": 3619, "cart_p99": 4303, "cart_addr_order": 3629}
+{"probe": "mid", "warm_p50_ns": 3205, "knots_mean": 7.3, "crossings_mean": 3.6, "cycles_sampled": 101}
+{"probe": "hi", "body": 2330, "r": 295409230.3133, "fallback": true, "kept": 0, "candidates": 9714, "distinct_entries": 9714, "encounters": 0, "capture_us": 1415.5, "reuse_us": 2089.07, "answer_us": 37122.2, "memo_ns": 87, "us_per_read": 3.8215199711756225, "ns": {"binding": 71935, "traj": 3425649, "orbit": 3718885, "readout": 3699706, "cart": 3836990, "pred": 191158}, "cart_p50": 3672, "cart_p99": 6536, "cart_addr_order": 3655}
+{"probe": "hi", "warm_p50_ns": 3283, "knots_mean": 7.1, "crossings_mean": 3.3, "cycles_sampled": 101}
+{"scalar_mul_ns": 3.27, "sink": 0}
+=== 10^4 seed 2 (held out)
+warning: unused import: `Held`
+  --> crates/universe/examples/read_split.rs:12:48
+   |
+12 | use emergent_universe::encounter::{Encounters, Held, PlayerNeighbourhood, ENCOUNTER_LOG2};
+   |                                                ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+{"n": 10000, "seed": 2, "bodies": 10028, "belt": 9700, "locals": 300, "t": 256}
+{"probe": "lo", "body": 8670, "r": 169828956.5397, "fallback": false, "kept": 1055, "candidates": 1054, "distinct_entries": 1054, "encounters": 0, "capture_us": 342.3, "reuse_us": 321.92, "answer_us": 4164.7, "memo_ns": 166, "us_per_read": 3.9513576850094876, "ns": {"binding": 48857, "traj": 3163769, "orbit": 3504512, "readout": 3491646, "cart": 3559899, "pred": 155357}, "cart_p50": 3499, "cart_p99": 4356, "cart_addr_order": 3480}
+{"probe": "lo", "warm_p50_ns": 3181, "knots_mean": 8.5, "crossings_mean": 5.6, "cycles_sampled": 11}
+{"probe": "mid", "body": 5751, "r": 233044306.8954, "fallback": true, "kept": 0, "candidates": 9714, "distinct_entries": 9714, "encounters": 0, "capture_us": 1678.0, "reuse_us": 2434.98, "answer_us": 37197.8, "memo_ns": 197, "us_per_read": 3.829301832406835, "ns": {"binding": 59473, "traj": 3288365, "orbit": 3610267, "readout": 3614935, "cart": 3678564, "pred": 173225}, "cart_p50": 3621, "cart_p99": 4289, "cart_addr_order": 3642}
+{"probe": "mid", "warm_p50_ns": 3180, "knots_mean": 7.4, "crossings_mean": 3.7, "cycles_sampled": 101}
+{"probe": "hi", "body": 3647, "r": 294140735.5857, "fallback": true, "kept": 0, "candidates": 9714, "distinct_entries": 9714, "encounters": 0, "capture_us": 1441.8, "reuse_us": 2181.22, "answer_us": 37714.8, "memo_ns": 143, "us_per_read": 3.8825220300597074, "ns": {"binding": 58704, "traj": 3263566, "orbit": 3603003, "readout": 3618028, "cart": 3684644, "pred": 169976}, "cart_p50": 3624, "cart_p99": 4657, "cart_addr_order": 3680}
+{"probe": "hi", "warm_p50_ns": 3302, "knots_mean": 7.4, "crossings_mean": 3.7, "cycles_sampled": 101}
+{"scalar_mul_ns": 3.27, "sink": 0}
+=== 10^5 seed 1
+warning: unused import: `Held`
+  --> crates/universe/examples/read_split.rs:12:48
+   |
+12 | use emergent_universe::encounter::{Encounters, Held, PlayerNeighbourhood, ENCOUNTER_LOG2};
+   |                                                ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+{"n": 100000, "seed": 1, "bodies": 100028, "belt": 99700, "locals": 300, "t": 256}
+{"probe": "lo", "body": 38349, "r": 170837713.6132, "fallback": true, "kept": 0, "candidates": 99714, "distinct_entries": 99714, "encounters": 0, "capture_us": 20169.1, "reuse_us": 33938.71, "answer_us": 401529.3, "memo_ns": 322, "us_per_read": 4.026810086848386, "ns": {"binding": 82868, "traj": 3543774, "orbit": 4078691, "readout": 3877194, "cart": 3921604, "pred": 194991}, "cart_p50": 3790, "cart_p99": 5113, "cart_addr_order": 3852}
+{"probe": "lo", "warm_p50_ns": 3384, "knots_mean": 7.3, "crossings_mean": 3.6, "cycles_sampled": 1028}
+{"probe": "mid", "body": 12672, "r": 233135498.4111, "fallback": true, "kept": 0, "candidates": 99714, "distinct_entries": 99714, "encounters": 0, "capture_us": 16050.0, "reuse_us": 29868.12, "answer_us": 398263.9, "memo_ns": 303, "us_per_read": 3.994062007340995, "ns": {"binding": 81232, "traj": 3407604, "orbit": 3749036, "readout": 3719984, "cart": 3817381, "pred": 211537}, "cart_p50": 3688, "cart_p99": 5771, "cart_addr_order": 3748}
+{"probe": "mid", "warm_p50_ns": 3297, "knots_mean": 7.4, "crossings_mean": 3.6, "cycles_sampled": 1028}
+{"probe": "hi", "body": 27385, "r": 295202012.2321, "fallback": true, "kept": 0, "candidates": 99714, "distinct_entries": 99714, "encounters": 0, "capture_us": 18172.2, "reuse_us": 31796.26, "answer_us": 398861.8, "memo_ns": 238, "us_per_read": 4.000058577531741, "ns": {"binding": 83008, "traj": 3477410, "orbit": 3805346, "readout": 3790104, "cart": 3887881, "pred": 191602}, "cart_p50": 3776, "cart_p99": 5290, "cart_addr_order": 3848}
+{"probe": "hi", "warm_p50_ns": 3394, "knots_mean": 7.3, "crossings_mean": 3.6, "cycles_sampled": 1028}
+{"scalar_mul_ns": 3.46, "sink": 0}
+=== 10^3 seed 1
+warning: unused import: `Held`
+  --> crates/universe/examples/read_split.rs:12:48
+   |
+12 | use emergent_universe::encounter::{Encounters, Held, PlayerNeighbourhood, ENCOUNTER_LOG2};
+   |                                                ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+{"n": 1000, "seed": 1, "bodies": 1028, "belt": 700, "locals": 300, "t": 256}
+{"probe": "lo", "body": 451, "r": 176535300.8541, "fallback": false, "kept": 113, "candidates": 112, "distinct_entries": 112, "encounters": 0, "capture_us": 22.9, "reuse_us": 25.55, "answer_us": 442.3, "memo_ns": 68, "us_per_read": 3.9493392857142853, "ns": {"binding": 34017, "traj": 3265740, "orbit": 3567783, "readout": 3525684, "cart": 3630348, "pred": 159994}, "cart_p50": 3532, "cart_p99": 3845, "cart_addr_order": 3747}
+{"probe": "lo", "warm_p50_ns": 3271, "knots_mean": 8.0, "crossings_mean": 5.0, "cycles_sampled": 2}
+{"probe": "mid", "body": 783, "r": 235203202.1128, "fallback": true, "kept": 0, "candidates": 714, "distinct_entries": 714, "encounters": 0, "capture_us": 116.9, "reuse_us": 200.07, "answer_us": 2867.0, "memo_ns": 137, "us_per_read": 4.015394957983194, "ns": {"binding": 54760, "traj": 3418032, "orbit": 3751716, "readout": 3736607, "cart": 3837138, "pred": 187128}, "cart_p50": 3736, "cart_p99": 4676, "cart_addr_order": 3726}
+{"probe": "mid", "warm_p50_ns": 3361, "knots_mean": 7.5, "crossings_mean": 4.2, "cycles_sampled": 8}
+{"probe": "hi", "body": 811, "r": 296873231.7874, "fallback": false, "kept": 88, "candidates": 87, "distinct_entries": 87, "encounters": 0, "capture_us": 14.5, "reuse_us": 18.63, "answer_us": 379.4, "memo_ns": 200, "us_per_read": 4.360459770114943, "ns": {"binding": 44274, "traj": 3248369, "orbit": 3624168, "readout": 3589208, "cart": 3691167, "pred": 168523}, "cart_p50": 3527, "cart_p99": 5287, "cart_addr_order": 3510}
+{"probe": "hi", "warm_p50_ns": 3381, "knots_mean": 7.0, "crossings_mean": 4.0, "cycles_sampled": 1}
+{"scalar_mul_ns": 3.45, "sink": 0}

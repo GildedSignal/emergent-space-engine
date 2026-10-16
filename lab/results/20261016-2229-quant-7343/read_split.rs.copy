@@ -1,0 +1,231 @@
+//! Decompose the scan answer's per-read cost on shipped code (Quant lens, run 20261016-2229-quant-7343).
+//!
+//! The shipped decision path (`encounter.rs`): `capture` walks the radial window (fallback: every
+//! body), then `answer` reads each candidate (`other.cartesian(t)` — the read) and applies the
+//! exact integer predicate. This probe times the stages separately: the tube solve
+//! (`entry.trajectory.state`), decode (`orbit_state`), the turn+fit (`readout − decode`), the
+//! capture walk (`binding_at`). Print-only: no engine line touched.
+//!
+//! cargo run --release -p emergent-universe --example read_split [-- <N> <reps> <seed>]
+use emergent_lattice::law::hit;
+use emergent_space::orbit::Scalar;
+use emergent_universe::encounter::{Encounters, Held, PlayerNeighbourhood, ENCOUNTER_LOG2};
+use emergent_universe::radial::Window;
+use emergent_universe::num::{sub2, time_of, to_f64};
+use emergent_universe::fleet::Order;
+use emergent_universe::scenario::{ladder_locals, plane_extra};
+use emergent_universe::Config;
+use std::sync::Arc;
+use std::time::Instant;
+
+fn ptile(v: &mut Vec<f64>, p: f64) -> f64 {
+    if v.is_empty() {
+        return f64::NAN;
+    }
+    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    v[(((v.len() - 1) as f64) * p) as usize]
+}
+
+fn main() {
+    let mut it = std::env::args().skip(1);
+    let n: usize = it.next().and_then(|s| s.parse().ok()).unwrap_or(10000);
+    let reps: usize = it.next().and_then(|s| s.parse().ok()).unwrap_or(8);
+    let seed: u64 = it.next().and_then(|s| s.parse().ok()).unwrap_or(1);
+    let t: i64 = 256;
+    let p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+    let base = p.player - n;
+    let locals = ladder_locals(n as u64) as usize;
+    let ctx = p.u.ctx();
+    println!("{{\"n\": {n}, \"seed\": {seed}, \"bodies\": {}, \"belt\": {}, \"locals\": {locals}, \"t\": {t}}}", p.u.n_bodies(), n - locals);
+
+    // Belt bodies (root doll), with their radius at t, in body order.
+    let mut belt: Vec<(usize, f64)> = Vec::new();
+    for k in locals..n {
+        let j = base + k;
+        let Some(b) = ctx.bodies.binding_at(j, t) else { continue };
+        if b.doll != 0 {
+            continue;
+        }
+        let Ok((x, _)) = b.cartesian(t) else { continue };
+        belt.push((j, to_f64(x[0]).hypot(to_f64(x[1]))));
+    }
+    belt.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    if belt.is_empty() {
+        println!("{{\"error\": \"no root-doll belt bodies\"}}");
+        return;
+    }
+    let pick = |p_: f64| belt[(((belt.len() - 1) as f64) * p_) as usize].0;
+    let probes: Vec<(&str, usize)> = vec![("lo", pick(0.02)), ("mid", pick(0.5)), ("hi", pick(0.98))];
+
+    for (name, body) in probes {
+        let me = ctx.bodies.binding_at(body, t).unwrap();
+        let (x, v) = me.cartesian(t).unwrap();
+        let interval = p.u.rec(body).step.max(2);
+        let h = time_of(interval, me.clock_exp).unwrap();
+        let w = Window {
+            r: to_f64(x[0]).hypot(to_f64(x[1])),
+            v: to_f64(v[0]).hypot(to_f64(v[1])),
+            reach_p: to_f64(ctx.info[body].radius),
+            near_log2: ENCOUNTER_LOG2,
+            h: to_f64(h),
+        };
+        let near = ctx.radial.candidates(me.doll, &w);
+        // capture's filter, verbatim (encounter.rs:174-189)
+        let ids: Vec<usize> = near.clone().unwrap_or_else(|| (0..ctx.bodies.len()).collect());
+        let mut candidates: Vec<(usize, emergent_universe::bind::Binding, Scalar)> = Vec::new();
+        for j in ids {
+            if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                continue;
+            }
+            let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
+            if other.doll != me.doll {
+                continue;
+            }
+            let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
+            if reach.is_zero() {
+                continue;
+            }
+            candidates.push((j, other, reach));
+        }
+        let distinct = candidates.iter().map(|c| Arc::as_ptr(&c.1.entry) as usize).collect::<std::collections::BTreeSet<usize>>().len();
+
+        // The shipped path, timed whole: capture (the walk) then answer (the reads).
+        let finder = PlayerNeighbourhood::default();
+        let t0 = Instant::now();
+        let held = finder.capture(&ctx, body, t, interval).unwrap();
+        let capture_us = t0.elapsed().as_secs_f64() * 1e6;
+        let t1 = Instant::now();
+        let found = held.answer();
+        let answer_us = t1.elapsed().as_secs_f64() * 1e6;
+        let t2 = Instant::now();
+        let _memo = held.answer();
+        let memo_ns = t2.elapsed().as_secs_f64() * 1e9;
+        // capture again (same inputs): the reuse path
+        let t3 = Instant::now();
+        let _again = finder.capture(&ctx, body, t, interval).unwrap();
+        let reuse_us = t3.elapsed().as_secs_f64() * 1e6;
+
+        // Stage passes.
+        let cnt = candidates.len().max(1) as f64;
+        let (mut s_orbit, mut s_readout, mut s_cart, mut s_traj, mut s_pred, mut s_bind) = (0u128, 0u128, 0u128, 0u128, 0u128, 0u128);
+        let mut per_cart: Vec<f64> = Vec::new();
+        // per-candidate readouts cached for the predicate pass
+        let mut cached: Vec<(emergent_universe::num::V2, emergent_universe::num::V2)> = Vec::new();
+        let elapsed: Vec<Scalar> = candidates
+            .iter()
+            .map(|(_, b, _)| {
+                let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp).unwrap();
+                b.entry.unit.to_tube(time_of(t, b.clock_exp).unwrap().sub(peri).unwrap()).unwrap()
+            })
+            .collect();
+        for _ in 0..reps {
+            let ta = Instant::now();
+            for (_, b, _) in &candidates {
+                let _ = b.orbit_state(t);
+            }
+            s_orbit += ta.elapsed().as_nanos();
+            let tb = Instant::now();
+            for (_, b, _) in &candidates {
+                let _ = b.readout(t);
+            }
+            s_readout += tb.elapsed().as_nanos();
+            let tc = Instant::now();
+            for (i, (_, b, _)) in candidates.iter().enumerate() {
+                let t0 = Instant::now();
+                let (xj, vj) = b.cartesian(t).unwrap();
+                per_cart.push(t0.elapsed().as_secs_f64() * 1e9);
+                if cached.len() <= i {
+                    cached.push((xj, vj));
+                }
+            }
+            s_cart += tc.elapsed().as_nanos();
+            let td = Instant::now();
+            for (i, (_, b, _)) in candidates.iter().enumerate() {
+                let _ = b.entry.trajectory.state(elapsed[i]);
+            }
+            s_traj += td.elapsed().as_nanos();
+            let te = Instant::now();
+            for (i, (_, _, reach)) in candidates.iter().enumerate() {
+                let (xj, vj) = cached[i];
+                let d = sub2(xj, x).unwrap();
+                let wj = [vj[0].sub(v[0]).unwrap().mul(h).unwrap(), vj[1].sub(v[1]).unwrap().mul(h).unwrap()];
+                let q_exp = reach.exponent() as i32 - 20;
+                let di = [d[0].fixed(-q_exp).unwrap(), d[1].fixed(-q_exp).unwrap()];
+                let wi = [wj[0].fixed(-q_exp).unwrap(), wj[1].fixed(-q_exp).unwrap()];
+                let nr = reach.scale(ENCOUNTER_LOG2).unwrap().fixed(-q_exp).unwrap();
+                let _ = hit(di, wi, nr) && hit(di, wi, reach.fixed(-q_exp).unwrap());
+            }
+            s_pred += te.elapsed().as_nanos();
+            let tf = Instant::now();
+            for (j, _, _) in &candidates {
+                let _ = ctx.bodies.binding_at(*j, t);
+            }
+            s_bind += tf.elapsed().as_nanos();
+        }
+        // Layout control: same reads in Arc-address order.
+        let mut by_addr: Vec<(usize, emergent_universe::bind::Binding, Scalar)> = candidates.clone();
+        by_addr.sort_by_key(|c| Arc::as_ptr(&c.1.entry) as usize);
+        let tg = Instant::now();
+        for (_, b, _) in &by_addr {
+            let _ = b.cartesian(t);
+        }
+        let addr_mean = tg.elapsed().as_secs_f64() * 1e9 / cnt;
+        // Warm-read control: one body's table, re-read until hot; and the table sizes.
+        let wb = &candidates[candidates.len() / 2].1;
+        let mut warm = Vec::new();
+        for _ in 0..512 {
+            let t0 = Instant::now();
+            let _ = wb.cartesian(t);
+            warm.push(t0.elapsed().as_secs_f64() * 1e9);
+        }
+        warm.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let warm_p50 = warm[warm.len() / 2];
+        let (mut knots, mut crossings, mut cycles) = (0usize, 0usize, 0usize);
+        for (_, b, _) in candidates.iter().step_by(97) {
+            if let emergent_space::binding::Trajectory::Cycle(o) = &b.entry.trajectory {
+                knots += o.shape().knots().len();
+                crossings += o.shape().crossings().len();
+                cycles += 1;
+            }
+        }
+
+        let div = (reps as f64 * cnt) / 1e3;
+        println!(
+            "{{\"probe\": \"{name}\", \"body\": {body}, \"r\": {:.4}, \"fallback\": {}, \"kept\": {}, \"candidates\": {}, \"distinct_entries\": {distinct}, \"encounters\": {}, \"capture_us\": {capture_us:.1}, \"reuse_us\": {reuse_us:.2}, \"answer_us\": {answer_us:.1}, \"memo_ns\": {memo_ns:.0}, \"us_per_read\": {}, \"ns\": {{\"binding\": {:.0}, \"traj\": {:.0}, \"orbit\": {:.0}, \"readout\": {:.0}, \"cart\": {:.0}, \"pred\": {:.0}}}, \"cart_p50\": {:.0}, \"cart_p99\": {:.0}, \"cart_addr_order\": {:.0}}}",
+            w.r,
+            near.is_none(),
+            near.as_ref().map_or(0, |v| v.len()),
+            candidates.len(),
+            found.len(),
+            answer_us / cnt,
+            s_bind as f64 / div,
+            s_traj as f64 / div,
+            s_orbit as f64 / div,
+            s_readout as f64 / div,
+            s_cart as f64 / div,
+            s_pred as f64 / div,
+            ptile(&mut per_cart, 0.5),
+            ptile(&mut per_cart, 0.99),
+            addr_mean,
+        );
+        println!(
+            "{{\"probe\": \"{name}\", \"warm_p50_ns\": {warm_p50:.0}, \"knots_mean\": {:.1}, \"crossings_mean\": {:.1}, \"cycles_sampled\": {cycles}}}",
+            knots as f64 / cycles.max(1) as f64,
+            crossings as f64 / cycles.max(1) as f64,
+        );
+    }
+
+    // One checked Scalar mul, priced.
+    let tbl: Vec<Scalar> = (0..64)
+        .map(|i| Scalar::raw(0xdead_beef_0000 + (i as i128) * 7919, -60).unwrap())
+        .collect();
+    let mut sink = 0i128;
+    let n_ops = 200_000;
+    let t0 = Instant::now();
+    for i in 0..n_ops {
+        let r = tbl[i & 63].mul(tbl[(i * 7 + 3) & 63]).unwrap();
+        sink ^= r.fixed(-80).unwrap_or(0);
+    }
+    let ns = t0.elapsed().as_secs_f64() * 1e9 / n_ops as f64;
+    println!("{{\"scalar_mul_ns\": {ns:.2}, \"sink\": {sink}}}");
+}
