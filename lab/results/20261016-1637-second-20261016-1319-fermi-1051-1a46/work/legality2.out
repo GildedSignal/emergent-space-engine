@@ -1,0 +1,28 @@
+== P1: the legality domain, per perturber (r9's own form tau = 3 (m_p/m_host) (a/a_p)^3) ==
+R_H(Home) = 1.098e+06 ru; the Moon's tide line for the
+in-situ locals sits at a = 116333 ru (tau_Moon = tau0), the star's at 168243 ru:
+  tau_Moon(a=166,400) = 0.011 (2.9x over tau0);
+  tau_Moon(a=83,200) = 1.32e-03 (0.4x UNDER)
+  -> the Moon, not the star, draws the line inside the top octave; the checker's Attack-1
+     magnitudes ('1.1-49x over', a=83,200 at 3.9e-3) are mutually inconsistent with any
+     (a/d)^3 scaling (their own two points differ by 45x where the law gives 8x).
+  flight (measured, the runtime flag): in-situ deleted 200/233 = 85.8% (the Moon keeps a > ~116k
+     plus 3 resonant stragglers); the quarter 75/75 spared (co-orbital); the belt 274/712 deleted
+     (the resonance exclusion as frozen — every q/r<=8 within 2% for each of 3 planets — spares
+     more than half the belt: a law choice to revisit, not a tide fact).
+
+== P2: the residual storm, measured (flights/*.txt, this run's instrument) ==
+  shipped (measured 334 @5400gs)         letter N = 6.39e+05   [4fa8/4c22 + this run's OFF]
+  translate (measured 141)               letter N = 2.27e+06   [4534]
+  hybrid delete (MEASURED 131 @5400gs)   letter N = 2.35e+06   [frame 3173, the same beat as OFF's 334]
+  hybrid delete @1900gs (46)             letter N = 3.07e+06   [below the N=0 floor (51)]
+  de-phase (measured 53)                 letter N = 3.01e+06   [4c22]
+  memory wall 6-8 GB at 4.85-5.06 kB/B: 1.19-1.65e6 (b30b) — every arm past it, tie stands
+  the composed candidates adjudicated: 131 measured vs 134 'Moon-corrected' (winner, 2.5% off)
+  vs 83.5 'proportional' (refuted, 57% off): the residual comb is the spared standing set,
+  dominated by the resonant quarter (75) + the Moon-tide top (33) + fleet/plane ships.
+
+== P3: the ledger (measured, 5,400 game-s, N=1000, seed 1) ==
+  kicks 9217 -> 1382 (-85%), events 22219 -> 6580 (-70%)
+  the delete cuts BOTH populations' metronome at once (the comb and the belt stream);
+  the spread arms pay +11-20% for the same storm class.
