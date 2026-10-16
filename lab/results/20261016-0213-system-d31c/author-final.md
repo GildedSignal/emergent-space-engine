@@ -1,0 +1,4 @@
+Working...
+All seven quiet-grid digest pairs bit-identical; run folder complete (predictions, dossier, regen.sh, grid, wiki page, patch snapshot).
+
+**Claim:** the birth plan pass's two planet-read paths are secretly one readout — and flying that unification (`PlanetsAt`, one shared table per pass serving `Ctx::secondaries`' Cartesian reads and `ext::constants`' element reads, digest-identical on all seven flights incl. held-out seed/N, suites 77/0) cuts the pass 32.8–33.9 → 22.5–25.5 µs/body (−31%, flat in N) but kills the page's "≲13" prediction: the second read measures ≤0.4 µs/body, so the pass is no longer reads at all — it is per-body arithmetic (own-state readouts 37%, Hill/cbrt 28%, project math 30%), which names the next rung (one readout for `plan_clock`'s two `readout` calls, or the program-store birth that never runs this pass).

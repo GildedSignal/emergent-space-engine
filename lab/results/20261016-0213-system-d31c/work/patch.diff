@@ -1,0 +1,395 @@
+diff --git a/crates/universe/examples/birth_rail.rs b/crates/universe/examples/birth_rail.rs
+new file mode 100644
+index 00000000..84991c2a
+--- /dev/null
++++ b/crates/universe/examples/birth_rail.rs
+@@ -0,0 +1,34 @@
++//! The birth rail's shared-readout rung (nladder's named next experiment, after 404b/cfe5): the belt is
++//! built (`scenario::plane_extra`, the ladder's own population) and settled to a pre-wave canonical cut,
++//! with `ES_BIRTH_SPLIT` printing the plan pass per body and `ES_PLANETS_AT_T` arming one shared
++//! "planets at t" readout for both read paths (`Ctx::secondaries`/`tide` and `ext::constants`' source).
++//! The digest after the cut must be the same with the memo off and on: the table only re-serves, bit for
++//! bit, reads the live paths would make anyway.
++//!
++//! cargo run --release -p emergent-universe --example birth_rail [-- <N> <seed> [cut_game_seconds]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(10_000);
++    let seed: u64 = std::env::args().nth(2).and_then(|a| a.parse().ok()).unwrap_or(1);
++    let cut_s: f64 = std::env::args().nth(3).and_then(|a| a.parse().ok()).unwrap_or(3_000.0);
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed();
++    let cut = (cut_s / TICK_SECONDS) as i64;
++    let t1 = Instant::now();
++    p.u.settle(cut);
++    let settle = t1.elapsed();
++    println!(
++        "birth_rail: n={n} seed={seed} memo={} build_s={:.2} settle_s={:.2} kicks={} digest={}",
++        emergent_universe::ctx::memo_on(),
++        build.as_secs_f64(),
++        settle.as_secs_f64(),
++        p.u.stats.kicks,
++        p.u.digest()
++    );
++}
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..8b989d2e 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -44,7 +44,95 @@ impl Default for Config {
+         Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, thrust_quantum_log2: 6 }
+     }
+ }
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::time::Instant;
+ 
++/// Print-only birth instrumentation (`ES_BIRTH_SPLIT`, 404b's knob, cfe5's continuation): the accumulators are
++/// armed only inside `Universe::start`'s pass, so flights never accumulate (and the disarmed path is one
++/// relaxed load). `""`/`0`/`off` mean off.
++pub static TIMERS_ARMED: AtomicBool = AtomicBool::new(false);
++pub static T_CONSTANTS: AtomicU64 = AtomicU64::new(0);
++pub static T_PROJECT: AtomicU64 = AtomicU64::new(0);
++pub static T_READOUT: AtomicU64 = AtomicU64::new(0);
++pub static T_SECONDARIES: AtomicU64 = AtomicU64::new(0);
++pub static T_APPLY: AtomicU64 = AtomicU64::new(0);
++
++fn env_on(name: &str) -> bool {
++    matches!(std::env::var(name).as_deref(), Ok(v) if !v.is_empty() && v != "0" && v != "off")
++}
++/// Whether the birth timers print (`ES_BIRTH_SPLIT`).
++pub fn split_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| env_on("ES_BIRTH_SPLIT"));
++    *ON
++}
++/// Whether the shared planets readout is armed (`ES_PLANETS_AT_T`); off is the shipped path verbatim.
++pub fn memo_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| env_on("ES_PLANETS_AT_T"));
++    *ON
++}
++
++#[inline]
++pub(crate) fn add_ns(counter: &AtomicU64, t0: Instant) {
++    if TIMERS_ARMED.load(Ordering::Relaxed) {
++        counter.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    }
++}
++
++/// One source of a doll, read once at one tick: **both projections of the same readout** — the Cartesian
++/// state the forces read ([`Ctx::secondaries`], [`Ctx::tide`]) and the elements the clock reads
++/// ([`ext::constants`](crate::ext::constants)' `source`): `(gm, semi-major axis, period)`, or the refusal
++/// the live path would return (`Err`), replayed bit for bit. A pass that reads every body against the same
++/// sources at the same tick (a birth pass, a same-epoch kick batch) reads them once, not once per body.
++#[derive(Clone, Debug)]
++pub struct PlanetsAt {
++    /// The tick the table was read at; a read at any other tick misses (and falls back to the live path).
++    pub tick: Tick,
++    /// Per doll, in `sources[d]`'s order: the source's id and its Cartesian state as a secondary.
++    pub per_doll: Vec<Vec<(usize, Secondary)>>,
++    /// The clock's projection of the same readouts: `(j, Ok((gm, axis, period)) | Err(reason))`.
++    pub elems: Vec<(usize, Res<(Scalar, Scalar, Scalar)>)>,
++    /// Per doll: the parent's tide — its mass and the centre's position, in the doll's units.
++    pub tide: Vec<Option<(Scalar, V2)>>,
++    /// Per doll: the centre's state (position, velocity) in the parent's units.
++    pub centre: Vec<Option<Res<(V2, V2)>>>,
++}
++
++impl PlanetsAt {
++    /// Read every doll's sources at `t` once, through the same live paths the per-body reads use
++    /// (the table is built before it is armed, so these are the shipped reads verbatim).
++    pub fn build(ctx: &Ctx, t: Tick) -> PlanetsAt {
++        let per_doll = ctx
++            .sources
++            .iter()
++            .map(|src| {
++                src.iter()
++                    .filter_map(|&j| {
++                        let (pos, vel) = ctx.state_of(j, t).ok()?;
++                        Some((j, Secondary { gm: ctx.info[j].gm, pos, vel, edge: ctx.info[j].soi }))
++                    })
++                    .collect()
++            })
++            .collect();
++        let elems = ctx
++            .sources
++            .iter()
++            .flatten()
++            .map(|&j| (j, crate::ext::source_live(ctx, j, t).map(|s| (s.gm, s.axis, s.period))))
++            .collect();
++        let tide = (0..ctx.dolls.len())
++            .map(|d| ctx.tide_live(d as u16, t).ok().flatten())
++            .collect();
++        let centre = (0..ctx.dolls.len())
++            .map(|d| (d != 0).then(|| ctx.centre_live(d as u16, t)))
++            .collect();
++        PlanetsAt { tick: t, per_doll, elems, tide, centre }
++    }
++
++    /// The element projection of source `j` at `self.tick`, if this table holds it.
++    pub fn elem(&self, j: usize, t: Tick) -> Option<Res<(Scalar, Scalar, Scalar)>> {
++        (self.tick == t).then(|| self.elems.iter().find(|&&(k, _)| k == j).map_or(Err(crate::num::Error::Refused("not a source")), |(_, r)| *r))
++    }
++}
+ pub struct Ctx<'a> {
+     pub dolls: &'a [DollRec],
+     pub bodies: &'a dyn BodyStore,
+@@ -54,6 +142,9 @@ pub struct Ctx<'a> {
+     pub cfg: &'a Config,
+     /// Where each doll's bodies can be, by radius: who a scan must read.
+     pub radial: &'a crate::radial::Radial,
++    /// The shared "planets at t" readout, armed only for passes that read the same sources at one tick
++    /// (a birth pass): `None` everywhere else, and the shipped per-body reads run verbatim.
++    pub planets: Option<&'a PlanetsAt>,
+ }
+ 
+ impl Ctx<'_> {
+@@ -77,14 +168,25 @@ impl Ctx<'_> {
+ 
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++        let t0 = Instant::now();
+         let mut out = Vec::new();
+-        for &j in &self.sources[d as usize] {
+-            if j == except {
+-                continue;
++        let hit = self.planets.is_some_and(|p| p.tick == t);
++        if hit {
++            for &(j, s) in &self.planets.unwrap().per_doll[d as usize] {
++                if j != except {
++                    out.push(s);
++                }
++            }
++        } else {
++            for &j in &self.sources[d as usize] {
++                if j == except {
++                    continue;
++                }
++                let (pos, vel) = self.state_of(j, t)?;
++                out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
+             }
+-            let (pos, vel) = self.state_of(j, t)?;
+-            out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
+         }
++        add_ns(&T_SECONDARIES, t0);
+         Ok(out)
+     }
+ 
+@@ -99,6 +201,15 @@ impl Ctx<'_> {
+     /// The parent's tide on doll `d`: the parent's mass (its mantissa included) and the doll centre's
+     /// position in the parent's frame, both in `d`'s units.
+     pub fn tide(&self, d: u16, t: Tick) -> Res<Option<(Scalar, V2)>> {
++        if let Some(p) = self.planets {
++            if p.tick == t {
++                return Ok(p.tide[d as usize]);
++            }
++        }
++        self.tide_live(d, t)
++    }
++
++    fn tide_live(&self, d: u16, t: Tick) -> Res<Option<(Scalar, V2)>> {
+         let doll = &self.dolls[d as usize];
+         let (Some(p), Some(c)) = (doll.parent, doll.centre) else { return Ok(None) };
+         let k = pow2(doll.shift as i32 - self.dolls[p as usize].shift as i32);
+@@ -108,6 +219,17 @@ impl Ctx<'_> {
+ 
+     /// The centre of doll `d` at `t`, in its parent's units (position, velocity).
+     pub fn centre(&self, d: u16, t: Tick) -> Res<(V2, V2)> {
++        if let Some(p) = self.planets {
++            if p.tick == t {
++                if let Some(r) = &p.centre[d as usize] {
++                    return r.clone();
++                }
++            }
++        }
++        self.centre_live(d, t)
++    }
++
++    fn centre_live(&self, d: u16, t: Tick) -> Res<(V2, V2)> {
+         let c = self.dolls[d as usize].centre.ok_or(crate::num::Error::Refused("the root has no centre"))?;
+         self.state_of(c, t)
+     }
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index fda3b93e..aa68dc66 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -124,13 +124,24 @@ pub fn cbrt(x: Scalar) -> Res<Scalar> {
+ }
+ 
+ /// What a source of the doll gives the clock: its semi-major axis and period, in the doll's units.
+-struct Source {
+-    gm: Scalar,
+-    axis: Scalar,
+-    period: Scalar,
++pub(crate) struct Source {
++    pub(crate) gm: Scalar,
++    pub(crate) axis: Scalar,
++    pub(crate) period: Scalar,
+ }
+ 
+ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
++    // The shared "planets at t" readout: the element projection of the same read [`Ctx::secondaries`] serves
++    // in Cartesian form. A miss (no table, another tick) falls through to the live read, bit for bit.
++    if let Some(read) = ctx.planets.and_then(|p| p.elem(j, t)) {
++        let (gm, axis, period) = read?;
++        return Ok(Source { gm, axis, period });
++    }
++    source_live(ctx, j, t)
++}
++
++/// The live read: the source's binding at `t`, its key's shape and its period ([`PlanetsAt::build`] uses this).
++pub(crate) fn source_live(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+     let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
+     let Trajectory::Cycle(c) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
+     let key = c.key();
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..1f34bd22 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -257,11 +257,15 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         names.push(format!("Skimmer {}", k + 1));
+     }
+     // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
++    let t_add = std::time::Instant::now();
+     for k in 0..extra {
+         let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+         names.push(String::new());
+     }
++    if extra > 0 && crate::ctx::split_on() {
++        println!("build: extra={extra} draw_add_us_per={:.2}", t_add.elapsed().as_secs_f64() * 1e6 / extra as f64);
++    }
+     // The fleet: lattice radius of Home's low orbit (7,000 km: 4,740 root units), starting at angle 0.
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..c32fdca2 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -625,14 +625,23 @@ impl Work<'_, '_> {
+     /// is planned at the middle of the first step.
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
++        let timing = crate::ctx::TIMERS_ARMED.load(std::sync::atomic::Ordering::Relaxed);
+         if self.rec.ext.is_none() {
++            let sw = timing.then(std::time::Instant::now);
+             let st = self.rec.b.readout(t)?;
++            crate::ctx::add_ns(&crate::ctx::T_READOUT, sw.unwrap_or_else(|| std::time::Instant::now()));
++            let sw = timing.then(std::time::Instant::now);
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
++            crate::ctx::add_ns(&crate::ctx::T_CONSTANTS, sw.unwrap_or_else(|| std::time::Instant::now()));
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
++        let sw = timing.then(std::time::Instant::now);
+         self.project(t)?;
++        crate::ctx::add_ns(&crate::ctx::T_PROJECT, sw.unwrap_or_else(|| std::time::Instant::now()));
++        let sw = timing.then(std::time::Instant::now);
+         let st = self.rec.b.readout(t)?;
++        crate::ctx::add_ns(&crate::ctx::T_READOUT, sw.unwrap_or_else(std::time::Instant::now));
+         let (x, v) = scalars(&st)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..aaad6c67 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -140,16 +140,16 @@ impl Stats {
+ #[derive(Clone, Copy, Debug)]
+ pub struct OrbitSpec {
+     pub doll: u16,
+-    /// Periapsis radius in the doll's units, and eccentricity in Q48.
+     pub periapsis: Scalar,
+     pub e_q48: u64,
++    /// Whether the orbit runs the other way.
+     pub clockwise: bool,
+-    /// Where periapsis points, in turns (Q32).
+     pub angle: u32,
+     /// Where the body is on its orbit at tick 0: the fraction of the radial period since periapsis, in Q32.
+     pub phase: u32,
+ }
+ 
++
+ pub struct Universe {
+     pub dolls: Vec<DollRec>,
+     pub info: Vec<BodyInfo>,
+@@ -281,7 +281,13 @@ impl Universe {
+     }
+ 
+     pub fn ctx(&self) -> Ctx<'_> {
+-        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, planets: None }
++    }
++
++    /// [`Universe::ctx`] with the shared "planets at t" readout attached, for a pass that reads the same
++    /// sources at one tick (the birth pass): both read paths then share one readout per source.
++    fn ctx_with<'s>(&'s self, planets: &'s crate::ctx::PlanetsAt) -> Ctx<'s> {
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, planets: Some(planets) }
+     }
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+@@ -443,7 +449,7 @@ impl Universe {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+-        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }.tube_unit(i, spec.doll)?;
++        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, planets: None }.tube_unit(i, spec.doll)?;
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+@@ -482,10 +488,41 @@ impl Universe {
+         self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
+         self.waiting = Calendar::new(self.body_cap + self.fleets.len());
+         self.prunable = Calendar::new(self.body_cap + self.fleets.len());
++        // The birth pass is one pass over the same sources at one tick: one shared "planets at t" readout
++        // (`ES_PLANETS_AT_T`) serves both read paths — the forces' Cartesian states and the clock's elements.
++        let tables = crate::ctx::memo_on().then(|| crate::ctx::PlanetsAt::build(&self.ctx(), 0));
++        let split = crate::ctx::split_on();
++        let t_pass = std::time::Instant::now();
++        for c in [&crate::ctx::T_CONSTANTS, &crate::ctx::T_PROJECT, &crate::ctx::T_READOUT, &crate::ctx::T_SECONDARIES, &crate::ctx::T_APPLY] {
++            c.store(0, std::sync::atomic::Ordering::Relaxed);
++        }
++        if split {
++            crate::ctx::TIMERS_ARMED.store(true, std::sync::atomic::Ordering::Relaxed);
++        }
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+-            let upd = step::replan(&self.ctx(), i, rec, 0);
++            let upd = match &tables {
++                Some(p) => step::replan(&self.ctx_with(p), i, rec, 0),
++                None => step::replan(&self.ctx(), i, rec, 0),
++            };
++            let sw = std::time::Instant::now();
+             self.apply(i, upd);
++            crate::ctx::add_ns(&crate::ctx::T_APPLY, sw);
++        }
++        let pass = t_pass.elapsed();
++        crate::ctx::TIMERS_ARMED.store(false, std::sync::atomic::Ordering::Relaxed);
++        if split {
++            let us = |c: &std::sync::atomic::AtomicU64| c.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e3 / n as f64;
++            println!(
++                "birth: n={n} pass_us_per={:.2} replan_us_per={:.2} apply_us_per={:.2} constants_us_per={:.2} project_us_per={:.2} readout_us_per={:.2} secondaries_us_per={:.2}",
++                pass.as_secs_f64() * 1e6 / n as f64,
++                pass.as_secs_f64() * 1e6 / n as f64 - us(&crate::ctx::T_APPLY),
++                us(&crate::ctx::T_APPLY),
++                us(&crate::ctx::T_CONSTANTS),
++                us(&crate::ctx::T_PROJECT),
++                us(&crate::ctx::T_READOUT),
++                us(&crate::ctx::T_SECONDARIES)
++            );
+         }
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
+         // Every ship waits for the target to reach its tick (none is due at the start).
+@@ -517,7 +554,7 @@ impl Universe {
+ 
+     /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+     fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+-        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }, &mut self.fleets)
++        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, planets: None }, &mut self.fleets)
+     }
+ 
+     /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
