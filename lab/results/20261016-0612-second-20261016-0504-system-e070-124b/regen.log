@@ -1,0 +1,42 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 48.18s
+seed 1 done
+seed 2 done
+seed 3 done
+seed 4 done
+seed 5 done
+seed 6 done
+seed 7 done
+seed 8 done
+seed      N | storm fe_max/p99 | noloc fe_max/p99 | belt_fmax loc_fmax verdict | wave frame (t,nd) | argmax frame (t,nd) | kicks st/nl | align
+   1  10000 |      479/332      |      447/242      |    436    334   wave | 461,  25 @f849 | f837: 479,102 |  55985/15785  | ok
+   1 100000 |     4241/2404     |     4227/2280     |   4216    334   wave | 4241,  25 @f849 | f849: 4241,25 | 145985/105785 | ok
+   2  10000 |      689/508      |      431/263      |    645    614   wave | 477, 477 @f849 | f634: 687,42 |  63519/21985  | ok
+   2 100000 |     4343/2417     |     4297/2281     |   3957   3865   wave | 4343, 386 @f849 | f849: 4343,386 | 153519/111985 | ok
+   3  10000 |      689/505      |      441/266      |    581    587  BINDS | 498, 498 @f849 | f634: 689,108 |  65057/20998  | ok
+   3 100000 |     4324/2319     |     4267/2190     |   4015   3942   wave | 4324, 309 @f849 | f849: 4324,309 | 155057/110998 | ok
+   4  10000 |      439/327      |      409/214      |    397    329   wave | 391,  25 @f849 | f837: 439,92 |  53175/15489  | ok
+   4 100000 |     4204/2204     |     4192/2158     |   4179    329   wave | 4204,  25 @f849 | f849: 4204,25 | 143175/105489 | ok
+   5  10000 |      456/329      |      446/236      |    427    330   wave | 456,  29 @f849 | f849: 456,29 |  59214/17697  | ok
+   5 100000 |     4224/2213     |     4214/2185     |   4195    330   wave | 4224,  29 @f849 | f849: 4224,29 | 149214/107697 | ok
+   6  10000 |      687/488      |      449/265      |    566    578  BINDS | 474, 474 @f849 | f634: 674,108 |  62140/21699  | ok
+   6 100000 |     4233/2277     |     4200/2174     |   3851   3876  BINDS | 4233, 382 @f849 | f849: 4233,382 | 152140/111699 | ok
+   7  10000 |      671/459      |      446/247      |    662    584   wave | 481, 481 @f849 | f634: 663,1 |  53833/17690  | ok
+   7 100000 |     4158/2339     |     4123/2222     |   3955   3793   wave | 4158, 203 @f849 | f849: 4158,203 | 143833/107690 | ok
+   8  10000 |      457/337      |      440/234      |    424    339   wave | 447,  23 @f849 | f842: 457,132 |  54129/18379  | ok
+   8 100000 |     4203/2183     |     4196/2168     |   4180    339   wave | 4203,  23 @f849 | f849: 4203,23 | 144129/108379 | ok
+
+locals bind at N=10000: seeds [3, 6] (2/8)
+
+locals bind at N=100000: seeds [6] (1/8)
+
+== stream split (kicks carried by the locals class) ==
+N=10000: s1:72%@4.5e-03  s2:65%@4.6e-03  s3:68%@4.9e-03  s4:71%@4.2e-03  s5:70%@4.6e-03  s6:65%@4.5e-03  s7:67%@4.0e-03  s8:66%@4.0e-03  
+N=100000: s1:28%@4.5e-03  s2:27%@4.6e-03  s3:28%@4.9e-03  s4:26%@4.2e-03  s5:28%@4.6e-03  s6:27%@4.5e-03  s7:25%@4.0e-03  s8:25%@4.0e-03  
+
+== stagger engagement (1e4): moved first kicks, comb, kicks ==
+seed 3 bits 26: firsts 353 moved 311 (88%), median|dt| 91 s p90 207 s | kicks 65057->64849 (-208) | fe_max 689->690 | loc_fmax 587->587 | belt_fmax 581->644
+seed 3 bits 31: firsts 353 moved 311 (88%), median|dt| 4014 s p90 8846 s | kicks 65057->57174 (-7883) | fe_max 689->690 | loc_fmax 587->587 | belt_fmax 581->453
+seed 1 bits 31: firsts 351 moved 311 (89%), median|dt| 4153 s p90 8756 s | kicks 55985->48423 (-7562) | fe_max 479->479 | loc_fmax 334->333 | belt_fmax 436->436
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.05s
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.90s
+OFF_ARM_IDENTICAL
