@@ -1,0 +1,35 @@
+nladder: macOS-only (proc_pid_rusage) - anchor flight refused on Linux, as the dossier states
+== P2: the metronome identity (one lever, not two) ==
+Home a = 1.013e+08 ru; orbit P = 365.435 d
+Moon  a = 2.737e+05 ru; P = 26.26 d (doll's shortest secondary)
+Cinder a = 3.956e+07 ru; P = 89.13 d (root doll's shortest secondary)
+metronome kicks/body/game-s = 2^7/P_Cinder = 1.662e-05  (measured fired kicks 3.55-3.64e-5, gold a9d7; interval P_D/128 with f'(c)
+  absorbs the 89 d vs measured 77.24 d anchor difference, cf45)
+events (kick+boundary)/body/game-s = 3.324e-05 (measured stream 3.55-4.62e-5)
+
+== P3: r9's secular bound on the shipped populations ==
+R_Hill(Home) = 1.098e+06 ru; tau0^(1/3) = 0.153 R_H  (r9: '0.17 Hill radii')
+  octave 0: a in [5200, 10400) ru, a/R_H in [0.005, 0.009), tau at top = 8.50e-07, 100% inside
+  octave 1: a in [10400, 20800) ru, a/R_H in [0.009, 0.019), tau at top = 6.80e-06, 100% inside
+  octave 2: a in [20800, 41600) ru, a/R_H in [0.019, 0.038), tau at top = 5.44e-05, 100% inside
+  octave 3: a in [41600, 83200) ru, a/R_H in [0.038, 0.076), tau at top = 4.35e-04, 100% inside
+  octave 4: a in [83200, 166400) ru, a/R_H in [0.076, 0.152), tau at top = 3.48e-03, 100% inside
+in-situ locals inside the bound: 100%  (prediction >= 90%)
+  median local tau ~ 2.30e-05 = 157x under tau0
+L4/L5 quarter: a = 273684 ru = 0.249 R_H, tau = 1.55e-02 = 4.3x OVER tau0 (resonant with the Moon; law.md excludes resonances)
+belt under Giant's tide: worst tau = 6.27e-05 = 57x under tau0
+belt under Home's tide: worst tau = 3.43e-05 = 105x under tau0
+  adversarial Home mass_log2 = -19: R_H = 8.713e+05 ru, in-situ inside 92%
+  adversarial Home mass_log2 = -18: R_H = 1.098e+06 ru, in-situ inside 100%
+  adversarial Home mass_log2 = -17: R_H = 1.383e+06 ru, in-situ inside 100%
+
+== P4: the wall ladder (measured constants, this composition) ==
+  shipped                      letter N = 6.39e+05
+  translate (335->141)         letter N = 2.27e+06
+  hybrid delete (300->~123)    letter N = 2.76e+06
+  de-phase (334->53)           letter N = 3.01e+06
+  memory wall: 6 GB at 5.06 kB/body -> 1.19e+06 bodies (b30b plateau)
+  memory wall: 8 GB at 4.85 kB/body -> 1.65e+06 bodies (b30b plateau)
+  10^9 neutrality: comb 4.02 ev/game-s vs stream 7.10e+04 ev/game-s -> comb = 0.0057% of the rail
+  the delete lever on the belt (secular-legal, P3): cuts the rail's own constant 2^7/P_D -> kicks only on certificate breaks (cf45: 148x over at flying pace)
+ f58:0.03ms/2ev/lag0.000 f59:0.04ms/2ev/lag0.000 f60:0.03ms/2ev/lag0.000 f61:0.03ms/2ev/lag0.000 f62:11.15ms/31ev/lag1.448 f63:3.78ms/16ev/lag0.000 f64:0.04ms/2ev/lag0.000 f65:0.03ms/2ev/lag0.000 f66:2.14ms/19ev/lag0.000 f67:0.04ms/2ev/lag0.000
