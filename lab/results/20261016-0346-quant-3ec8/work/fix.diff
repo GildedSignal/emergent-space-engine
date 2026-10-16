@@ -1,0 +1,144 @@
+diff --git a/crates/universe/src/bin/pass_bench.rs b/crates/universe/src/bin/pass_bench.rs
+new file mode 100644
+index 00000000..fc3299a4
+--- /dev/null
++++ b/crates/universe/src/bin/pass_bench.rs
+@@ -0,0 +1,35 @@
++//! The birth-pass A/B probe (lab run 20261016-0346-quant-3ec8): builds the plane with the N
++//! ladder's belt (`extra` ships) and prints the whole build wall and the post-`start` digest.
++//! `ES_PASS_SPLIT=1` (read by `Universe::start`) prints the pass's phases; `ES_ONE_READ` selects
++//! the arm (`0`/unset = shipped read-for-read, `1` = one readout serves `plan_clock`'s reads).
++//! Usage: `pass_bench <extra> <seed>`.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn main() {
++    let mut args = std::env::args().skip(1);
++    let extra: usize = args.next().unwrap_or_else(|| "10000".into()).parse().expect("extra (belt N)");
++    let seed: u64 = args.next().unwrap_or_else(|| "1".into()).parse().expect("seed");
++    let arm = std::env::var("ES_ONE_READ").unwrap_or_else(|_| "0".into());
++    let rss = || -> u64 {
++        std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|s| s.lines().find(|l| l.starts_with("VmHWM:")).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok())))
++            .unwrap_or(0)
++    };
++    let t0 = Instant::now();
++    let plane = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, extra).expect("the plane");
++    let build = t0.elapsed();
++    println!(
++        "pass_bench arm={} n={} seed={} build_us={} per_body_us={} peak_rss_kb={} digest={}",
++        arm,
++        extra,
++        seed,
++        build.as_micros(),
++        build.as_micros() as f64 / extra as f64,
++        rss(),
++        plane.u.digest()
++    );
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..8ed7fa2f 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -116,6 +116,13 @@ pub fn aligned(step: i64, t: Tick) -> i64 {
+         stub
+     }
+ }
++/// The one-readout arm of the birth-pass probe: `ES_ONE_READ=1` serves every own-state read of a
++/// clock plan from one `readout`. Default off: the shipped path, read for read.
++fn one_read() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_ONE_READ").is_ok_and(|v| v != "0"));
++    *ON
++}
++
+ 
+ /// The kind of an item, the third part of its canonical key (tick, body, kind): a kick before an impact before
+ /// an open before the boundary, and a scheduled decision after all of them at its tick.
+@@ -609,8 +616,13 @@ impl Work<'_, '_> {
+ 
+     /// Project the energy register onto the constraint `K = 0` at the state read at `t`: `p_t = U_P − H_D`.
+     fn project(&mut self, t: Tick) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
++        self.project_at(t, &self.rec.b.readout(t)?)
++    }
++
++    /// [`project`](Self::project) with the state at `t` already read: the same value (a `readout` is pure),
++    /// so a caller holding the synchronised state pays the walk once, not per site.
++    fn project_at(&mut self, t: Tick, st: &IntegerState) -> Res<()> {
++        let (x, v) = scalars(st)?;
+         let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
+         let u = force::field(&secs, x)?.potential;
+         let hd = force::kepler(x, v, self.tube_mu()?)?;
+@@ -625,14 +637,20 @@ impl Work<'_, '_> {
+     /// is planned at the middle of the first step.
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
++        // One readout serves every read of the synchronised state at `t` (the birth's `pt_exp`, the
++        // projection, the drift fit): `readout` is pure and nothing moves the binding between them. Off
++        // (`ES_ONE_READ=0`, the default), each site reads as shipped.
++        let shared: Option<IntegerState> = if one_read() { Some(self.rec.b.readout(t)?) } else { None };
+         if self.rec.ext.is_none() {
+-            let st = self.rec.b.readout(t)?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+-            let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
++            let ve = match &shared { Some(s) => s.velocity_exponent, None => self.rec.b.readout(t)?.velocity_exponent };
++            let pt_exp = i16::try_from(2 * ve as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
+-        self.project(t)?;
+-        let st = self.rec.b.readout(t)?;
++        let st = match shared {
++            Some(s) => { self.project_at(t, &s)?; s }
++            None => { self.project(t)?; self.rec.b.readout(t)? }
++        };
+         let (x, v) = scalars(&st)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..29e33c98 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -482,18 +482,22 @@ impl Universe {
+         self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
+         self.waiting = Calendar::new(self.body_cap + self.fleets.len());
+         self.prunable = Calendar::new(self.body_cap + self.fleets.len());
++        let (split, t0) = (std::env::var("ES_PASS_SPLIT").is_ok(), std::time::Instant::now());
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+             let upd = step::replan(&self.ctx(), i, rec, 0);
+             self.apply(i, upd);
+         }
++        let plan = t0.elapsed();
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
+         // Every ship waits for the target to reach its tick (none is due at the start).
++        let t1 = std::time::Instant::now();
+         for i in 0..n {
+             if self.info[i].kind == Kind::Ship {
+                 self.requeue(i);
+             }
+         }
++        let requeue = t1.elapsed();
+         let (ctx, fleets) = self.split();
+         for f in fleets.iter_mut() {
+             f.start(&ctx);
+@@ -503,7 +507,16 @@ impl Universe {
+         for f in 0..self.fleets.len() {
+             self.update_fleet_position(f);
+         }
++        let t2 = std::time::Instant::now();
+         self.rekey();
++        if split {
++            eprintln!(
++                "ES_PASS_SPLIT n={n} plan_us={} requeue_us={} rekey_us={}",
++                plan.as_micros(),
++                requeue.as_micros(),
++                t2.elapsed().as_micros()
++            );
++        }
+         Ok(())
+     }
+ 
