@@ -1,0 +1,310 @@
+diff --git a/crates/universe/examples/belt_ladder.rs b/crates/universe/examples/belt_ladder.rs
+new file mode 100644
+index 00000000..58b3060a
+--- /dev/null
++++ b/crates/universe/examples/belt_ladder.rs
+@@ -0,0 +1,170 @@
++//! The flight into the belt (the N ladder's named next rung, ladder.txt: "A flight into the belt is the next
++//! ladder"): the same plane and the same belt as [`nladder`], but the player is born mid-belt (a circular orbit
++//! at 2.5 AU in the root doll), so the neighbourhood scan's radial window covers the belt's whole range and the
++//! scan reads every body of its doll — the standing cost the ladder's 1-AU flights never met.
++//!
++//! Arms: `home` (the shipped player at Home: the control, must reproduce `nladder`'s table), `belt` (the player
++//! mid-belt), `beltburn` (`belt` plus a forward L8 burn from 1 s: the player manufactures its own binding
++//! changes). The run self-fences at 1.9 GB of peak footprint (the box is shared) and prints one `belt:` line.
++//!
++//! cargo run --release -p emergent-universe --example belt_ladder -- <N> <home|belt|beltburn> [<wall s> [<rtf> [<budget ms>]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane_extra, plane_extra_belt_player};
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident now, peak resident) in bytes, from /proc (Linux): the lab box's honest footprint.
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return 0.0;
++    }
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let arm = args.get(2).cloned().unwrap_or_else(|| "belt".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let burn = arm.contains("beltburn");
++    // `beltburnhold`: the word re-issued every 30 frames — a held throttle, the sustained burn a real
++    // player flies (one word alone ends: its program is finite, and the mint stops with it).
++    let hold = arm == "beltburnhold";
++    let hold_every: usize = args.get(7).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let frames = (seconds * 60.0) as usize;
++    let (_, rss0) = footprint();
++    let t0 = Instant::now();
++    let mut p = if arm == "home" {
++        plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap()
++    } else {
++        plane_extra_belt_player(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap()
++    };
++    let build = t0.elapsed().as_secs_f64();
++    let (now1, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    let load = std::fs::read_to_string("/proc/loadavg").unwrap_or_default();
++    println!("belt rung N={n} ({bodies} bodies), arm {arm}, rtf {rtf}, {seconds} s wall; build {build:.2} s, peak footprint {:.0} MB; load {}", rss1 as f64 / 1e6, load.trim());
++    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
++    let (mut held_max, mut truncated, mut fenced) = (0usize, false, false);
++    let mut held_at: Vec<(usize, usize, u64)> = Vec::new(); // (frame, held, rss B) every 30 frames
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    let mut last_stats = p.u.stats;
++    let mut alive = true;
++    let mut ran = 0usize;
++    let mut doll_at: Vec<(usize, u16)> = Vec::new();
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs((seconds + 10.0) as u64) {
++            truncated = true;
++            break;
++        }
++        if footprint().1 > 1_900_000_000 {
++            fenced = true;
++            break;
++        }
++        if f == 60 || (hold && f > 60 && f % hold_every == 0) {
++            if burn {
++                let t = p.u.now;
++                let _ = p.u.input(t, word(1, 8));
++            }
++            late_stats = Some((p.u.stats, p.u.now));
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let took = start.elapsed();
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        held_max = held_max.max(p.u.held_scans());
++        if f % 30 == 0 {
++            held_at.push((f, p.u.held_scans(), footprint().0));
++        }
++        last_stats = p.u.stats;
++        ran += 1;
++        let rec = p.u.rec(p.player);
++        if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
++            doll_at.push((f, rec.b.doll));
++        }
++        if !rec.alive {
++            alive = false;
++            break;
++        }
++    }
++    let (now2, rss2) = footprint();
++    let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut ev: Vec<f64> = late.iter().map(|r| r.2 as f64).collect();
++    ev.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = late.iter().filter(|r| r.1 > budget_ms).count();
++    let lag = late.iter().map(|r| r.3).fold(0.0, f64::max);
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let (kicks, evs, encs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events(), last_stats.encounters - s0.encounters);
++    let per = |x: u64| if game_s > 0.0 { x as f64 / bodies as f64 / game_s } else { 0.0 };
++    let (mut refusals, mut dead) = (0u64, 0usize);
++    for i in 0..bodies {
++        let r = p.u.rec(i);
++        refusals += r.refusals;
++        dead += (!r.alive) as usize;
++    }
++    // The view (one cold gather) only when it fits.
++    let mut cache = ViewCache::default();
++    let (mut cold, mut seen) = (-1.0f64, 0usize);
++    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < (seconds + 5.0) {
++        let tv = Instant::now();
++        seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
++        cold = tv.elapsed().as_secs_f64() * 1e3;
++    }
++    // The answer bill: every held scan answered now, timed (checker 2's ask: the 1e5 answer cost, measured).
++    // `noflush` (any 7th arg) skips it: for mint-count arms whose answer bill is measured elsewhere.
++    let held_flush = if args.get(6).is_some_and(|a| a == "noflush") { 0 } else { p.u.held_scans() };
++    let tf = Instant::now();
++    if held_flush > 0 {
++        p.u.flush_scans();
++    }
++    let flush_ms = tf.elapsed().as_secs_f64() * 1e3;
++    let ans_ms = if held_flush > 0 { flush_ms / held_flush as f64 } else { 0.0 };
++    let (mints, shares) = emergent_universe::encounter::mint_stats();
++    let digest = p.u.digest();
++    let mut worst: Vec<_> = late.clone();
++    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
++    let mut over_at: Vec<usize> = late.iter().filter(|r| r.1 > budget_ms).map(|r| r.0).collect();
++    over_at.truncate(12);
++    let held_tail: Vec<String> = held_at.iter().rev().take(10).rev().map(|h| format!("{}:{}/{}MB", h.0, h.1, h.2 / 1_000_000)).collect();
++    println!(
++        "frames after 1 s: {}  engine ms p50 {:.3} p90 {:.3} p99 {:.3} max {:.3}; over {budget_ms} ms: {over}; worst lag {lag:.3} s; events/frame p50 {} p99 {} max {}; held max {held_max}; encounters logged {encs}; snapshots minted {mints} shared {shares}; flush {flush_ms:.0} ms for {held_flush} scans ({ans_ms:.1} ms/scan)",
++        late.len(), pct(&ms, 0.5), pct(&ms, 0.9), pct(&ms, 0.99), pct(&ms, 1.0), pct(&ev, 0.5), pct(&ev, 0.99), pct(&ev, 1.0)
++    );
++    println!(
++        "game {game_s:.1} s after the first second: kicks {kicks} ({:.3e}/b/gs), events {evs} ({:.3e}/b/gs), refusals {refusals}, dead {dead}, alive(player) {alive}; stats opens {} boundaries {} refused {}",
++        per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.refused - s0.refused
++    );
++    println!("memory: peak {:.0} MB at build, {:.0} MB at end (now {:.0} MB); view cold {cold:.1} ms ({seen} seen); held (frame:count) {held_tail:?}; digest {digest}", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6);
++    println!("frames over (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}; truncated {truncated} fenced {fenced}");
++    println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    println!(
++        "belt: n={n} arm={arm} bodies={bodies} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} held_max={held_max} enc={encs} refusals={refusals} dead={dead} view_cold_ms={cold:.1} truncated={truncated} fenced={fenced} mints={mints} shares={shares} flush_ms={flush_ms:.0} ans_ms={ans_ms:.1} digest={digest}",
++        rss1 as f64 / 1e6, rss2 as f64 / 1e6, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0)
++    );
++    let _ = rss0;
++    let _ = now1;
++    let _ = now2;
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..ef308ef4 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -13,7 +13,8 @@ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+-use std::sync::{Arc, Mutex, OnceLock};
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+@@ -72,10 +73,29 @@ struct Scan {
+     interval: Tick,
+     me: Binding,
+     /// Every body that passed the cheap tests (alive, born, in the player's doll, with a reach), with its binding.
+-    candidates: Vec<(usize, Binding, Scalar)>,
++    /// Held behind an `Arc` so consecutive scans whose candidate set did not change (every binding the same, by
++    /// [`same`]: the belt while only the player is kicked) share one copy instead of minting one per player tick:
++    /// the scan's answer reads only fields `same` compares, so a shared snapshot answers identically to a fresh
++    /// one. The mint is per candidate-set change, not per tick.
++    candidates: Arc<[(usize, Binding, Scalar)]>,
+     found: OnceLock<Vec<Encounter>>,
+ }
+ 
++/// The mint counters (read by the probes): how many scans stored a fresh candidate snapshot, and how many reused
++/// the previous scan's because every entry was the same. Zero reuse is the shipped behaviour.
++pub fn mint_stats() -> (u64, u64) {
++    (MINTED.load(Relaxed), SHARED.load(Relaxed))
++}
++
++static MINTED: AtomicU64 = AtomicU64::new(0);
++static SHARED: AtomicU64 = AtomicU64::new(0);
++/// Off (`SCAN_SHARE=0`) restores the shipped mint: every scan holds its own copy of the candidates.
++fn share_snapshots() -> bool {
++    *SHARE_SNAPSHOTS
++}
++
++static SHARE_SNAPSHOTS: LazyLock<bool> = LazyLock::new(|| std::env::var("SCAN_SHARE").map_or(true, |v| v != "0"));
++
+ impl Scan {
+     fn same_inputs(&self, body: usize, t: Tick, interval: Tick, me: &Binding, candidates: &[(usize, Binding, Scalar)]) -> bool {
+         self.body == body
+@@ -132,7 +152,7 @@ impl Scan {
+         let (t, body) = (self.t, self.body);
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+         let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
+-        for (j, other, reach) in &self.candidates {
++        for (j, other, reach) in self.candidates.iter() {
+             let found = (|| -> Res<Option<bool>> {
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
+@@ -192,7 +212,21 @@ impl Encounters for PlayerNeighbourhood {
+         if let Some(l) = last.as_ref().filter(reusable) {
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+-        let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
++        // The candidate set, shared with the last scan when every entry is the same: the mint becomes one copy
++        // per candidate-set change, not one per scan (the player's ticks alone mint nothing).
++        let snapshot = match (last.as_ref(), share_snapshots()) {
++            (Some(l), true) if l.candidates.len() == candidates.len()
++                && l.candidates.iter().zip(&candidates).all(|(a, b)| a.0 == b.0 && a.2 == b.2 && same(&a.1, &b.1)) =>
++            {
++                SHARED.fetch_add(1, Relaxed);
++                l.candidates.clone()
++            }
++            _ => {
++                MINTED.fetch_add(1, Relaxed);
++                Arc::from(candidates.into_boxed_slice())
++            }
++        };
++        let scan = Arc::new(Scan { body, t, interval, me, candidates: snapshot, found: OnceLock::new() });
+         *last = Some(scan.clone());
+         Some(scan)
+     }
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..ad4c2fe3 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -162,8 +162,10 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+     plane_with_extra(cfg, seed, order, threads, world, extra)
+ }
+ 
+-/// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+-pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++/// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]); `belt_player` puts the player on a circular
++/// orbit at 2.5 AU in the root doll (mid-belt: the named "flight into the belt" ladder arm; a probe population
++/// change only — `false` is the shipped plane, bit for bit).
++fn plane_with_extra_belt(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, belt_player: bool) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -266,19 +268,33 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
+     let fleet = Fleet::new("Armada", home_doll, home, -18, world, r_lat, fleet_angle, order, threads.max(1))?;
+-    // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit).
++    // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit) — or, for the belt
++    // arm, mid-belt on a circular orbit of the star (2.5 AU, root doll), where the neighbourhood scan's window
++    // covers the belt's whole radial range.
+     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units
+-    let player = u.add_body(
+-        Kind::Player,
+-        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
+-        Scalar::raw(34, -10 + 18)?,
+-    )?;
++    let player_spec = if belt_player {
++        OrbitSpec { doll: 0, periapsis: s((5 * AU) / 2), e_q48: 0, clockwise: false, angle: 0x2000_0000, phase: 0 }
++    } else {
++        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 }
++    };
++    let player = if belt_player { u.add_body(Kind::Player, player_spec, Scalar::raw(34, -10)?)? } else { u.add_body(Kind::Player, player_spec, Scalar::raw(34, -10 + 18)?)? };
+     names.push("You".into());
+     let f = u.add_fleet(fleet);
+     u.start()?;
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
+ 
++/// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
++pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_with_extra_belt(cfg, seed, order, threads, world, extra, false)
++}
++
++/// [`plane_extra`] with the player mid-belt (2.5 AU, root doll): the "flight into the belt" ladder arm.
++pub fn plane_extra_belt_player(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_with_extra_belt(cfg, seed, order, threads, world, extra, true)
++}
++
+ // ---- the N ladder's population -------------------------------------------------------------------
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.
