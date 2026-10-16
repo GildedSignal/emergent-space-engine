@@ -1,0 +1,7 @@
+The formatiEverything is in place. Final state of the run folder:
+
+- **23 flights**, all digest-identical to their scene ctl (`table2.py`: zero mismatches)
+- `predictions.md` pre-registered (P1–P5 + dated addendum P6 before the e-knob flights), with two registered failures reported against their forks
+- `dossier.md`, `regen.sh` (anchors verified against the landed table: "anchors + identity OK"), `wiki/nladder.md`, `work/patch.diff` (round-trip-checked), `author-final.md`
+
+**The claim:** b172's silver is closed as a fully-regenerable record — the formation's small-cap revival ends with the first wave recurrence (1.014×dem at 20k → 26.07 at 32k → 29.26 at 48k, all at cap 4,096; the checker's two depth probes land to the digit: 7,928,202 and 13,133,609), the horizon's mint bill is scene-invariant at depth (270,979 = the belt's; "273,200" was loose-sufficient, cap 273,200 holds 1.000/0 evictions), and the matched-fills control kills the angular reading: fills is 616,250 for every form variant (w∈{1,360} × K∈{1,100}) against the belt's 1,658,638 while cap 4,096 holds 1.013 at full angular diffusion, with belt-e lifting fills only to 762,576 and the ratio only to 1.696 — so the intra-wave win is bought by the radius draw (locality dominant, volume minority; the continuous-a cell is the one unflown edge), and the adoption rule splits: a small fixed cap (≤ N/24) for radius-concentrated episodes shorter than one wave recurrence (~27k game-s), the mint bill at every longer horizon in every scene.
