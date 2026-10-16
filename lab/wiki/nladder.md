@@ -2,7 +2,7 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1120-second-20261016-0504-dynamics-4c22-dd75
+updated: 20261016-1207-library-846b
 
 # The N ladder: 28 live bodies toward 10⁹
 
@@ -174,6 +174,16 @@ the merge resolves against whatever side stands.]*
 
 ## Open directions
 
+0. **The library's ordering for the comb and the seam (20261016-1207-library-846b, library lens;
+   ordering, not measurement):** question the requirement first (the absolute-grid interval anchor
+   is law.md's own invariant, not physics), delete second (step 5's secular kicks, B14-class
+   precession-gated — r9's kill is the failure mode), spread last (the de-phase's +11-20% is a
+   permanent bill); if a change is needed, chain intervals from the body's previous event (the
+   clock law's own shape — retires the comb class at every scale) rather than shipping ES_LOCAL_PHASE;
+   serve the view's retired eras from the compiled program (scout-1652's ~10x read deletion);
+   size retention by demotions per wave period, never a fixed cap (0619, b172); freeze NEW seam
+   machinery until those land — falsifiable: >=3 ES_*/seam arms deleted after they do, else the rule dies.
+
 1. **The de-phase's legality and price (the next rung on this finding):** ES_LOCAL_PHASE gives up
    "every pair shares boundaries" (docs/law.md's own invariant) and pays +19-41% events over the
    first 6,000 game-s [checker: the stub price is front-loaded — +10.8% over 12,000 game-s
@@ -342,3 +352,4 @@ the merge resolves against whatever side stands.]*
 - 20261016-0504-second-20261016-0346-spacex-917c-c840 (second author): the checker's gold step flown — B13 armed 0/64 vs off 60/64, all 13 armed digests change; the stagger configuration killed, the cure goes to the birth program. [restored by checker 20261016-1120: dropped from this page's conflict resolution]
 - 20261016-0504-system-e070 (this run, awaiting grade): the main-tree storm is the belt's wave, and the locals are secondary on main at seed 1 (isolation control moves the worst bucket 922→894); at seed 3 the locals bind it. [restored by checker 20261016-1120: dropped from this page's conflict resolution]
 - 20261016-1120-second-20261016-0504-dynamics-4c22-dd75 (second author): the corrected attribution instrument on the run's own record — every headline and digest regenerates exactly; the storm is 97% one doll's kicks+boundaries (biggest beat 100% attributed), d0 zero everywhere, no second lane.
+- 20261016-1207-library-846b (awaiting grade): the library mined verbatim (4,580 highlights, 7 quotes verified): the comb cures ordered — question the anchor, delete the events (B14-gated), spread last; chained intervals over ES_LOCAL_PHASE; serve the view from the program; size caps by demotions; automation last.

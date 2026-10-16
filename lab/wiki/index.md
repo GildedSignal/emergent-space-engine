@@ -5,13 +5,14 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [birth-stagger](birth-stagger.md) | open | 1 | **The stagger is measured and it holds: the first-kick wave flattens 16.7–17.7× at the window |
-| [binet-cells](binet-cells.md) | open | 2 | **The per-band u_k refit is priced on the frozen r1 sampler, and the one-law form is the |
+| [representation-premises](representation-premises.md) | open | 1 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
+| [birth-stagger](birth-stagger.md) | open | 2 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [scan-queue](scan-queue.md) | open | 2 | **The latch's S is decomposed into its two halves on shipped flights, and the cure has its |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [replay-gate](replay-gate.md) | open | 3 | **The gate cannot fail for a law regression, and on main as it stands it certifies the |
+| [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [chaos-shadowing](chaos-shadowing.md) | open | 5 | **The inversion is confirmed on a valid instrument: the shipped dense order's ensemble |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
@@ -28,4 +29,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 71 | **The wave's attendants are decomposed and two of them are exact duplicates, deleted bit for bit: one |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 105 | **The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s |
-| [nladder](nladder.md) | open | 139 | **The locals' storm is measured as a standing comb phase-locked to `aligned`'s absolute power-of-two |
+| [nladder](nladder.md) | open | 140 | **The locals' storm is measured as a standing comb phase-locked to `aligned`'s absolute power-of-two |
