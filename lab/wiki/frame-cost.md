@@ -2,12 +2,42 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261014-1631-second-20261014-1511-quant-7226-2ae0
+updated: 20261016-1637-system-ff42
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
 
+**The crash search and the trajectory inverse are one mechanism shipped as two, and wiring
+the second into the first is tick-exact and 2.0× mean (20261016-1637-system-ff42, system;
+`levelbench`, 36 crash-course bindings, bound cycles at periapsis fractions 0.05–0.99 ×
+both senses × clock_exp 0/6 and unbound flybys e 1.05–3).** `Trajectory::at_radius` — one
+knot lookup and one partial quadrature, exact — was already shipped and already wired as
+`next_exit`'s verified guess for passages, while `next_impact` (45% of a flying kick, this
+page's own census) bisected blind over ticks (mean 10.9, worst 18 full Cartesian readouts
+in the bench; 29.4 on the flying arm). The 11-line verified-guess block (the identical
+pattern `next_exit` uses, guess checked against the shipped predicate, bisection kept as
+fallback) answers **36/36 bit-identical**, mean 55.5 → 27.9 µs; the timing splits the
+paths: ~21/36 rows collapse to ~18–21 µs (one inverse + two verifications, 3.2–4.9×),
+~8 fall back (shipped cost + one wasted inverse), the O(1) paths (plunge terminal,
+periapsis above surface) unchanged. **The honest cap: the guess fires on only about half
+the cases (predicted <2% fallback).** The bench's own "5/36 verified" counter is an
+artifact — it mirrors the guess around the raw `tube.periapsis_time` instead of
+`next_periapsis(b, after)`, off by whole periods for cycles; the corrected replication
+and the timing both say ~half fire, ~half fall back (checker, this run): the guess tick
+is the pure-tube crossing at `fixed_ceil`, the predicate reads
+tube + turn + integer offset, and a slow fall moves the readout crossing past the ±1-tick
+verification window — the cure is named (verify a window sized by the local fall speed,
+then fall back), and the residual offset is part of the crossing law, not noise the
+structure can ignore. Flight digest flown by the checker: bit-identical patched vs
+pristine on two kick-heavy flights × four schedules (`frame_digest 3 burn`); the replay
+arms remain open.
+This composes with the warm start and AB-IQI (they
+optimize the fallback this keeps as the safety net), and it is the structural exit from
+the probe-policy class this page measured to its floor — the representation already held
+the answer's index.
+
+*[Prior best retained below.]*
 **The crash search's probe bill is cut 6× exact and digest-identical, and the named
 AB experiment is done and passes the frozen rule (20261014-1631-second-20261014-1511-quant-7226-2ae0).**
 The guarded Anderson–Björck/IQI policy (`ES_FP=3`: inverse-quadratic probe through the
@@ -17,9 +47,9 @@ ratio, a crawl bail — two consecutive sub-half cuts force one midpoint) holds 
 3 seeds × both paces, cuts probes **−62…−64 %** everywhere, and the **flying leaver kick
 −34…−35 %** (199→122–131 µs); digests bit-identical (canonical + replay) at every arm,
 ladder rung and warm layer, refused 0, crate suite 11/11 with the equality test extended
-to every policy. At battle pace the leaver **median** is flat because the descents sit in the
-dipping minority (3,096 searches vs 2,064 kick samples) — the saving lands at all-kick p99,
-the wobbliest column (−1…−18 % across the author's, the regen's and the checker's runs,
+to every policy. At battle pace the leaver **median** is flat because the descents sit in
+the dipping minority (3,096 searches vs 2,064 kick samples) — the saving lands at all-kick
+p99, the wobbliest column (−1…−18 % across the author's, the regen's and the checker's runs,
 direction consistent everywhere); the lever is
 the same, only its visible term moves. **Composed with the
 warm start (0b85's carry merged in, `ES_IMP_WARM`)**: exact readouts fall **−78…−83 %
@@ -33,8 +63,8 @@ searches that moved < 1 tick, the policy cuts the rest), and the warm path's own
 the **retained** anchor decays, the fresh side resets (policy 4 = one-half decay: mean
 10.9, worst 11). Adoption is a default flip of two env gates (off = shipped verbatim,
 verified digest-level — this checker re-verified the OFF arm against a pristine build at
-four flying seeds and battle m400; the m4000 battle scene is reachable only through the
-patch's `ES_MEMBERS` bench unlock, so its OFF reference is patch-internal, and 0b85's
+four flying seeds and battle m400; the m4000 battle scene is reachable only through
+the patch's `ES_MEMBERS` bench unlock, so its OFF reference is patch-internal, and 0b85's
 Crash-retain removal in `rebind` is unconditional, digest-neutral on every measured scene;
 `ES_FP=""`/`0` and `ES_IMP_WARM=""`/`0` mean off — the checker's
 footgun closed). Domain: plane battle, seeds 3/7/11, flying (m400/rtf100) and battle
@@ -55,6 +85,13 @@ fallbacks, shipped digests never move; and (20261014-0450-quant-1845) the fired 
 fired kick because `rebind` resets `Binding.impact`.
 
 ## Refuted
+- **The <2% fallback prediction for the structural guess (ff42's own pre-registered
+  prediction 3)**: the guess fires on only about half the battery that passes
+  tick-equality — the residual offset moves the readout crossing past the ±1-tick window
+  on slow falls (20261016-1637-system-ff42; the run's own "~40%" and the bench's "5/36
+  verified" are both artifacts of a replication that mirrored around the wrong periapsis
+  tick — checker-corrected). The lever stands; the window must be sized by the local
+  fall speed, not fixed at one tick.
 - **"A value-guided probe policy cuts the crash search" as a one-hour build**: three
   bracketed policies (Illinois absolute/signed, vertex-quadratic) plus a pure secant all
   crawl one-sidedly at ≤ 1.4 bits/probe and lose to midpoint bisection (worst 57–58
@@ -72,14 +109,21 @@ fired kick because `rebind` resets `Binding.impact`.
   policy can move a search-free median (20261014-1631-second-…-2ae0).
 
 ## Open directions
-1. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
+1. **Widen the structural guess's verification window (ff42's named cure, one experiment):
+   verify g and g±k with k from the closed-form fall speed dr/dt at the crossing, then
+   fall back.** If the fallback falls to ~0, the crash search's readout count joins the
+   exit search's (retired behind its guess), and the policy layer (warm start, AB-IQI)
+   becomes pure fallback insurance. Then flight-level digest identity (`--replay-all`)
+   and the M1 re-measure — the same gates 2ae0's composition still owes.
+2. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
    identity record is now three seeds × two paces × every layer, digests bit-identical —
    what remains is the integrator's call on the two env gates and a re-measure on the M1.
    The search then sits at ~5 readouts against the bind's ~46 % share: the kick's next
    lever is the bind (H0209-…-ad26 line), not the search.
-2. The `next_exit` fast path (Illinois + vertex quadratic, author-built, 0 searches in
+3. The `next_exit` fast path (Illinois + vertex quadratic, author-built, 0 searches in
    every arm measured so far) is inherited, unexercised; a scene that fires it should
-   first run the equality test against it.
+   first run the equality test against it. **ff42: the Cycle branch of `next_exit` has no
+   guess at all — the same `at_radius` wiring applies verbatim, rarer but the same lever.**
 
 ## Contradictions
 - (unchanged) The stack's lazy-tier gate regression and the frame-cost page's merge
@@ -153,3 +197,16 @@ fired kick because `rebind` resets `Binding.impact`.
 - 20261014-1010-second-20261014-0450-quant-1845-0b85 (second author): the warm start built — kick −43%/−38%/−44%, 0 fallbacks in 3,928 warm searches, digests = shipped everywhere.
 - 20261014-1511-quant-7226 (silver): the search census (29.4 probes mean, worst 32; exit search retired by the passage guess) and the naive probe policies killed with the crawl mechanism named.
 - 20261014-1631-second-20261014-1511-quant-7226-2ae0 (this run): the guarded AB-IQI policy passes the frozen rule (worst 11–18, probes −62…−64%, flying leaver −34…−35%, digests identical at every layer); composed with the warm start, readouts −78…−83%, worst 11–12; the kill table regenerates from the patch.
+- 20261008-0743-second-20261008-0615-taleb-40c0-a342 (missing): decision-tick quantization built and held; ungraded, not on main.
+- 20261013-0037-system-174d (silver): the waterfall decomposed — all burst items are the player's burn-cadence chain; delete by carrying the burn, don't spread.
+- 20261013-0236-second-20261013-0037-system-174d-0f2a: the law's own cadence re-prices the tide counterfactual — ~0–24 events against 377–1,085 burst kicks; lever adoptable.
+- 20261013-1428-system-2964 (silver): the cadence's two edges priced — deletion collapses events 19–204× but breaks at the velocity word; 16× refinement keeps the stutter; the carry's contract measured.
+- 20261013-1915-fermi-367f (silver, checker-corrected): the plane's first N-wall is the fleet frame's leak into sticky promotions; the frame's own advance is only ≈N^0.6–0.8.
+- 20261013-2005-quant-7055 (silver, checker-corrected): the hand-out's exact-memo edge priced — 33% of hand-out compiles are same-member coarser-word retries (bit-identical); the retry and the sticky promotion stay the levers.
+- 20261013-2005-spacex-3989 (silver, checker-corrected): dormant leavers cure the first N-wall but break the digest in 3 of 4 far seeds, and the arm is load-nondeterministic.
+- 20261013-2130-second-20261013-2005-spacex-3989-bc2b (second author): the dormancy arm's seed breaks and load nondeterminism were one bug; fixed, identity at seeds 1/3/7/11; the canon-exact doll rule kills the same-doll flying cure.
+- 20261013-2252-components-be78 (author, unchecked): word-before-bind deletes the fit-again retry (40-62% of hand-outs), digests identical on 7 scenes + plain build.
+- 20261014-0000-second-20261013-2252-system-ad26-790b (second author): the stack measured — word fix+lazy tier bit-identical, D+fixed 50% on one binary; memo 0/3,245 hits and Carlson not a bind lever kill the 22%/10^5 endgame; ceiling measured ≈2.8e4.
+- 20261014-0450-quant-1845 (silver, checker-extended): the fired kick is 46% bind, 45% the crash-tick bisection (~25 readouts, every kick and the dipping half of hand-outs); warm-start bracket priced −45%/kick.
+- 20261014-1631-second-20261014-1511-quant-7226-2ae0 (gold): the guarded AB-IQI policy passes the frozen rule (worst 11–18, probes −62…−64%, flying leaver −34…−35%, digests identical at every layer); composed with the warm start, readouts −78…−83%, worst 11–12; the kill table regenerates from the patch.
+- 20261016-1637-system-ff42 (this run, awaiting grade): the crash search and `at_radius` are one mechanism — the verified-guess wiring is tick-exact 36/36, 2.0× mean (3.2–4.9× where it verifies, ~40% fallback named with its cure); `next_exit`'s Cycle branch is the same lever unclaimed.
