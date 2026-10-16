@@ -1,0 +1,11 @@
+Working...
+Check complete. `check2.md` written; tree restored to pristine.
+
+**Grade: gold**
+
+**What I did (independent of the author's scripts and the first checker):**
+- **Reproduction:** applied `work/patch.diff` to the pristine tree myself; the delta vs the original run's patch is exactly the ES_ATTRIB dedup (shadowed Vec + second `take()` removed); `analyze.py` byte-identical. Every headline regenerates (334/136/4.02; stag 260/136; phase 53/25; N=0 max 51; 20-s trio identical), and the OFF digests equal `artifacts/runs/nladder/ladder_digests_newpop.txt` bit-for-bit.
+- **Independent parser:** every composition number exact — worst-12 (217.1, d0 0.0, d2+d3 211.0, residue 6.1), worst-6 table, whole flight 23,690 events / 19,702 attributed (83.2%), kicks 9,824 ≈ boundaries 9,711, d3 143. Guards: frame 3173's attribution sums to exactly 334/334; d0 absent from every row of every file; no frame's attribution ever exceeds its events (a live misalignment detector — clean).
+- **Three adversarial flights on my own build:** (1) **N=10⁵** — a decade beyond: stats *and* corrected split bit-identical (177.6/164.9/12.7, same frames); (2) **12,000 game-s** — 2× the horizon: worst-12 98.8% d2+d3, d0 still zero, and a new 333-event beat at 10,576.7 game-s = exactly 2× the 5,288.3 beat period, 100% d2 boundaries (b330) — the standing comb's coherent beat, confirming the mechanism; (3) **burn** — the regime nobody attributed: max 328, worst-12 72.7% d2, residue 27%, d0 carries 40 events. That last one bounds the headline: **the 97%/d0-zero letter is coast-scoped** — it reproduces the page's checker annotation exactly, so the page is faithful and I left it unchanged.
+- **Predictions:** predates the batch (11:24:52 vs 11:25:09) with held-out content the first checker's preview never contained; P2 held stronger (97.2% vs ≥88%), P4's 13.8-vs-15 near-miss is disclosed.
+- **Novelty/goal fit:** no HISTORY/page predecessor for the corrected composition; the run shows a premise of the record wrong (the phantom pull lane) and re-aims the board's first-gap lever at one doll's kicks *and* boundaries — adoptable in the single step of the page correction, which is already drafted and faithful.

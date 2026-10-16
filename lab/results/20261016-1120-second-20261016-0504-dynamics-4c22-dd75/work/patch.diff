@@ -1,0 +1,266 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..438c229e 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,15 +14,33 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++
++fn linux_flag() -> bool {
++    cfg!(target_os = "linux")
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On Linux (the lab's boxes) VmRSS/VmHWM stand in: the resident size alone, the lab's numbers are orders of magnitude.
+ fn footprint() -> (u64, u64) {
++    if linux_flag() {
++        let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++        let mut now = 0u64;
++        let mut peak = 0u64;
++        for line in status.lines() {
++            if let Some(rest) = line.strip_prefix("VmRSS:") {
++                now = rest.trim_end().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1000;
++            } else if let Some(rest) = line.strip_prefix("VmHWM:") {
++                peak = rest.trim_end().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1000;
++            }
++        }
++        return (now, peak);
++    }
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++    extern "C" {
++        fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++    }
+     let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+     if ok != 0 {
+         return (0, 0);
+@@ -55,6 +73,11 @@ fn main() {
+     let bodies = p.u.n_bodies();
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
++    let mut attribs: Vec<[[u64; 4]; 16]> = Vec::new(); // per frame: [doll][Kick,Open,Crash,Boundary] (ES_ATTRIB)
++    if std::env::var_os("ES_ATTRIB").is_some() {
++        emergent_universe::universe::attrib::arm();
++    }
++
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+     let (mut held_max, mut truncated) = (0usize, false);
+@@ -64,7 +87,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(std::env::var("ES_TLIMIT").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0)) {
+             truncated = true;
+             break;
+         }
+@@ -87,6 +110,12 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        // (run 20261016-1120: the original run's patch pushed take() twice per frame — the second
++        // drained zero counters — and shadowed a duplicate Vec, so row i read frame i/2's attribution;
++        // deduplicated here: one take per frame, attribs[i] is frame i.)
++        if emergent_universe::universe::attrib::on() {
++            attribs.push(emergent_universe::universe::attrib::take());
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -156,6 +185,36 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    // the worst EVENT frames' composition (doll x what), and the full per-frame rows when asked
++    let mut by_events: Vec<usize> = (0..rows.len()).collect();
++    by_events.sort_by_key(|&i| std::cmp::Reverse(rows[i].2));
++    for &i in by_events.iter().take(6) {
++        if let Some(a) = attribs.get(i) {
++            let mut parts = Vec::new();
++            for (d, w) in a.iter().enumerate() {
++                let tot: u64 = w.iter().sum();
++                if tot > 0 {
++                    parts.push(format!("d{} k{} o{} c{} b{}", d, w[0], w[1], w[2], w[3]));
++                }
++            }
++            println!("attrib frame {} events {} :: {}", rows[i].0, rows[i].2, parts.join(" | "));
++        }
++    }
++    if std::env::var_os("ES_ROWS").is_some() {
++        for (i, r) in rows.iter().enumerate() {
++            let att = attribs.get(i).map(|a| {
++                let mut s = Vec::new();
++                for (d, w) in a.iter().enumerate() {
++                    let tot: u64 = w.iter().sum();
++                    if tot > 0 {
++                        s.push(format!("{}:{},{},{},{}", d, w[0], w[1], w[2], w[3]));
++                    }
++                }
++                s.join(",")
++            }).unwrap_or_default();
++            println!("row {} {:.1} {:.3} {} {:.3} {}", r.0, r.0 as f64 * rtf / 60.0, r.1, r.2, r.3, att);
++        }
++    }
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..7f3ebc8a 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -330,6 +330,50 @@ pub(crate) fn passage_edge(ctx: &Ctx, doll: u16) -> Option<Scalar> {
+     (doll != 0).then(|| ctx.dolls[doll as usize].edge.scale(2).ok()).flatten()
+ }
+ 
++// ---- lab levers (env-gated, default off; run 20261016-0504-dynamics-4c22) ------------------------
++// The doll-0 clock law chains each kick's time from the kick before it (plan_clock: t + half at the
++// kick's own tick), so a birth-time phase offset persists forever. The interval law instead anchors
++// every interval to the ABSOLUTE power-of-two grid (aligned), so a planet-doll population born at one
++// tick phase-locks to that grid: same step => same kick ticks, forever (a standing comb). The two
++// levers below are the two hypotheses about that comb, both measured in the run's dossier:
++//  - ES_LOCAL_STAGGER: the one-shot spread (the belt wave's cure) applied to a planet-doll ship's
++//    FIRST interval only. Prediction: aligned re-absorbs the offset within one step; the comb returns.
++//  - ES_LOCAL_PHASE: a PERMANENT per-body phase, a constant id-derived fraction of the body's own
++//    step, added to the grid (the body's intervals stay equally spaced; cross-body coincidence breaks).
++//    This gives up "every pair shares boundaries": a law change, priced here for its cost effect only.
++fn env_flag(name: &str) -> bool {
++    name.parse::<bool>().map(|v| v).unwrap_or(false) || std::env::var(name).is_ok_and(|v| v != "0")
++}
++fn local_stagger_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| env_flag("ES_LOCAL_STAGGER"));
++    *ON
++}
++fn local_phase_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| env_flag("ES_LOCAL_PHASE"));
++    *ON
++}
++/// A uniform 64-bit draw from a body id (splitmix64's finalizer): a lever's fraction of one step.
++pub(crate) fn stagger_hash(mut x: u64) -> u64 {
++    x = x.wrapping_add(0x9E3779B97F4A7C15);
++    x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++    x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB);
++    x ^ (x >> 31)
++}
++/// [`aligned`] on the body's own phase-shifted grid: the interval from `t` to the next multiple of
++/// `step` offset by `ph` (the same stub and MIN_STEP join as the absolute grid).
++fn aligned_phase(step: i64, t: Tick, ph: i64) -> i64 {
++    let off = (t - ph).rem_euclid(step);
++    if off == 0 {
++        return step;
++    }
++    let stub = step - off;
++    if stub < MIN_STEP {
++        stub + step
++    } else {
++        stub
++    }
++}
++
+ struct Work<'a, 'c> {
+     ctx: &'a Ctx<'c>,
+     i: usize,
+@@ -540,6 +584,17 @@ impl Work<'_, '_> {
+     /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
+     /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
+     fn plan_interval(&mut self, t: Tick) -> Res<()> {
++        let t = if self.rec.step == 0 && local_stagger_on() && self.rec.b.doll != 0 && matches!(self.rec.kind, Kind::Ship) {
++            // ES_LOCAL_STAGGER: the first interval of a planet-doll ship is planned from a uniform
++            // id-derived fraction of its own step later; aligned() then snaps the second interval
++            // back to the absolute grid (the hypothesis: the comb re-forms within one step).
++            let edge = (self.rec.b.doll != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)).then(|| self.doll().edge);
++            let want = step_for(&self.rec.b, self.ctx.cfg.step_log2, edge)?;
++            let off = ((stagger_hash(self.i as u64) as u128 * want as u128) >> 64) as i64;
++            t + off
++        } else {
++            t
++        };
+         self.plan_interval_inner(t)?;
+         self.plan_terminal(t)
+     }
+@@ -566,7 +621,15 @@ impl Work<'_, '_> {
+             self.rec.step = want;
+         }
+         self.rec.anchor = t;
+-        let mut h = aligned(self.rec.step, t);
++        let mut h = if local_phase_on() && d != 0 && matches!(self.rec.kind, Kind::Ship) {
++            // ES_LOCAL_PHASE: a constant id-derived fraction of the body's OWN step (so it survives
++            // step changes) offsets this body's grid; the interval lengths and the stub rules are
++            // unchanged, only the absolute coincidence of same-step bodies is broken.
++            let ph = ((stagger_hash(self.i as u64) as u128 * self.rec.step as u128) >> 64) as i64;
++            aligned_phase(self.rec.step, t, ph)
++        } else {
++            aligned(self.rec.step, t)
++        };
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..f1fb995b 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -45,6 +45,46 @@ use emergent_space::{
+     Tube,
+ };
+ use std::collections::VecDeque;
++
++/// Lab instrument (run 20261016-0504-dynamics-4c22, env `ES_ATTRIB`): per-frame event attribution
++/// by doll and item kind, atomic counters the example drains each frame. Never read by the engine.
++pub mod attrib {
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++    pub const DOLLS: usize = 16;
++    pub const WHATS: usize = 4; // Kick, Open, Crash, Boundary
++    static ON: AtomicBool = AtomicBool::new(false);
++    static COUNTS: [[AtomicU64; WHATS]; DOLLS] = [[AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)],
++    [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)]];
++    pub fn arm() {
++        ON.store(true, Ordering::Relaxed);
++    }
++    pub fn on() -> bool {
++        ON.load(Ordering::Relaxed)
++    }
++    pub(crate) fn hit(doll: u16, what: u8) {
++        if on() {
++            COUNTS[(doll as usize).min(DOLLS - 1)][(what as usize).min(WHATS - 1)].fetch_add(1, Ordering::Relaxed);
++        }
++    }
++    /// Drain the counters (the caller reads one frame's worth).
++    pub fn take() -> [[u64; WHATS]; DOLLS] {
++        std::array::from_fn(|d| std::array::from_fn(|w| COUNTS[d][w].swap(0, Ordering::Relaxed)))
++    }
++}
+ use std::sync::Arc;
+ use std::time::Instant;
+ 
+@@ -717,6 +757,13 @@ impl Universe {
+     fn resolve_body(&mut self, i: usize) {
+         let Some(key) = self.key_of(i) else { return };
+         let kind = self.info[i].kind;
++        if attrib::on() {
++            let rec0 = self.bodies.rec(i);
++            if let Some(w) = rec0.plan.first().map(|it| it.what) {
++                let cls = match w { What::Kick(_) => 0u8, What::Open(_) => 1, What::Crash => 2, What::Boundary => 3 };
++                attrib::hit(rec0.b.doll, cls);
++            }
++        }
+         let planets = std::mem::take(&mut self.lanes.planets);
+         self.pull(&planets, key);
+         self.lanes.planets = planets;

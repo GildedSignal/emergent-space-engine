@@ -1,0 +1,32 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 21.49s
+BATCH_DONE
+base_n1e3_coast    gs   1898 med   2 p99 136 max 240 ev/gs  5.82 ms_p99  6.20 mean_top10_ms  8.47 envelope [157, 159, 154, 152] worst12(tot,d0,planetdolls,residue) (177.6, 0.0, 164.9, 12.7)
+base_n0_20s        gs   1898 med   2 p99  36 max  51 ev/gs  3.13 ms_p99  2.25 mean_top10_ms  3.74 envelope [45, 33, 29, 26] worst12(tot,d0,planetdolls,residue) (40.6, 0.0, 20.4, 20.2)
+base_n600_20s      gs   1898 med   2 p99 136 max 240 ev/gs  5.82 ms_p99  6.24 mean_top10_ms  8.55 envelope [157, 159, 154, 152] worst12(tot,d0,planetdolls,residue) (177.6, 0.0, 164.9, 12.7)
+base_n1e4_20s      gs   1898 med   2 p99 136 max 240 ev/gs  5.82 ms_p99  5.66 mean_top10_ms  8.02 envelope [157, 159, 154, 152] worst12(tot,d0,planetdolls,residue) (177.6, 0.0, 164.9, 12.7)
+base_n1e3_60s      gs   5898 med   0 p99 136 max 334 ev/gs  4.02 ms_p99  5.83 mean_top10_ms  9.99 envelope [198, 192, 178, 210] worst12(tot,d0,planetdolls,residue) (217.1, 0.0, 211.0, 6.1)
+stag_n1e3_60s      gs   5898 med   0 p99 136 max 260 ev/gs  4.02 ms_p99  5.87 mean_top10_ms  9.34 envelope [180, 188, 178, 195] worst12(tot,d0,planetdolls,residue) (202.4, 0.0, 197.7, 4.8)
+phase_n1e3_60s     gs   5898 med   6 p99  25 max  53 ev/gs  4.78 ms_p99  2.25 mean_top10_ms  4.10 envelope [36, 24, 13, 12] worst12(tot,d0,planetdolls,residue) (32.1, 0.0, 13.8, 18.3)
+phase_n1e4_20s     gs   1898 med  13 p99  26 max  53 ev/gs  8.18 ms_p99  1.69 mean_top10_ms  3.26 envelope [36, 24, 27, 24] worst12(tot,d0,planetdolls,residue) (31.1, 0.0, 13.3, 17.8)
+--- worst-6 composition (fixed instrument), 60-s baseline:
+attrib frame 3173 events 334 :: d2 k76 o0 c0 b255 | d3 k0 o0 c0 b3
+attrib frame 1586 events 251 :: d2 k21 o0 c0 b227 | d3 k0 o0 c0 b3
+attrib frame 793 events 240 :: d2 k26 o0 c0 b197 | d3 k0 o0 c0 b3
+attrib frame 2379 events 229 :: d2 k34 o0 c0 b192 | d3 k0 o0 c0 b3
+attrib frame 396 events 212 :: d2 k30 o0 c0 b166 | d3 k0 o0 c0 b3
+attrib frame 1189 events 207 :: d2 k32 o0 c2 b161 | d3 k0 o0 c0 b3
+--- whole-flight attribution (dolls + kinds):
+base_n1e3_60s events 23690 attributed 19702 (83.2%) by doll {2: 19559, 3: 143}
+base_n0_20s events 5942 attributed 1954 (32.9%) by doll {2: 1907, 3: 47}
+phase_n1e3_60s events 28213 attributed 19839 (70.3%) by doll {2: 19694, 3: 145}
+--- digests (off must equal the record: N=100 4b822570, N=1000 6895ce06, N=3000 ddd5b1cc; stag e5e9bea5 kicks 3750; phase 708f7d82 kicks 3932)
+N=100 coast                  | 4b822570395be973f93d3108c7c81edb | kicks   1530 encounters    128 contacts   0 | 4 schedules agree  [4.7 s]
+N=1000 coast                 | 6895ce0612f6b49c5e021880494a2325 | kicks   3767 encounters    128 contacts   0 | 4 schedules agree  [6.4 s]
+N=3000 coast                 | ddd5b1cc6c1a797f96bc488d28029398 | kicks   3767 encounters    128 contacts   0 | 4 schedules agree  [7.2 s]
+N=100 coast                  | ed1868de348572499bc38ca0f81811c0 | kicks   1523 encounters    128 contacts   0 | 4 schedules agree  [4.7 s]
+N=1000 coast                 | e5e9bea57bd5e25f640a1edd1745ceff | kicks   3750 encounters    128 contacts   0 | 4 schedules agree  [6.5 s]
+N=3000 coast                 | 74ea3711b42b1eeb7e59411265133290 | kicks   3748 encounters    128 contacts   0 | 4 schedules agree  [6.8 s]
+N=100 coast                  | cc915d0c14bc7fe677e2b45ac2e70ae9 | kicks   1575 encounters    128 contacts   0 | 4 schedules agree  [4.8 s]
+N=1000 coast                 | 708f7d821f1da90a39cdc64a5d07ebc4 | kicks   3932 encounters    128 contacts   0 | 4 schedules agree  [6.7 s]
+N=3000 coast                 | a06f71564660aba7a23f274bb7e3ae56 | kicks   3934 encounters    128 contacts   0 | 4 schedules agree  [6.9 s]
+REGEN_DONE
