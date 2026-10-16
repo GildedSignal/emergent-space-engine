@@ -1,0 +1,33 @@
+constants: {
+ "us_event_L": 80.67757009345794,
+ "us_event_M1": 29.3,
+ "W_game_s": 1491.0,
+ "peak_ev_1e5": 487.0,
+ "f1_cap_ev_M1": 409.55631399317406,
+ "b_body_M1": 2443.0,
+ "b_body_thisbox": 2348.0,
+ "b_post_kick": 4750.0,
+ "build_us_M1": 28.7,
+ "build_us_thisbox": 51.08569600511857,
+ "r_doll": 1.6835016835016834e-05,
+ "r_residue": 4.5e-05,
+ "r_plateau": 8.3e-05,
+ "view_us_M1": 13.8
+}
+
+term (break-N, M1-projected)          break-N  gap at 1e9  law / note
+---------------------------------------------------------------------
+view gather (page-side)              1.21e+03    8.26e+05  warm 13.8 us/body M1 (this box 30.6), exp 1.0
+wave, F1 letter (peak)               8.41e+04    1.19e+04  true peak 487 ev/frame at 1e5 budget-free (after2's ~409 was the 12-ms cap); ES_STAGGER /16.7
+wave, throughput (lag)               1.02e+06         983  W=1491 game-s, 29.3 us/event M1
+memory, 4 GiB gate                   1.64e+06         407  2443 B/body standing; post-first-kick 4750 B -> break 1.3e+06
+build (60 s screen)                  2.09e+06        7.97  28.7 us/body M1 (this box 51.1); core-h at 1e9
+steady stream (plateau)              1.64e+07         243  243 cores (this box 670); ed3a rate
+steady stream (residue)              3.03e+07         132  132 cores (this box 363); rate 4.5e-05/b/game-s
+player scan (one held)               5.31e+07        18.8  answer 1700 s at 1e9
+steady stream (doll law)             8.11e+07        49.3  49 cores at 1e9 rtf 100 (this box 136)
+
+composed end state (ES_STAGGER 16.7x, kick at b29a key arm 0.11 us):
+  wave peak at 1e9: 2.67 x the 12 ms budget
+  steady stream at 1e9: 0.19-0.91 cores (of ~4)
+  memory at 1e9: 15.8 GB (driven-belt 126-bit floor) / 5.0 GB (phase-locked 40 bits) vs 6-8 GB
