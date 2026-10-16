@@ -1,0 +1,4 @@
+Working...
+The run is complete. Deliverables in `lab/results/20261016-2138-dynamics-217f/`: `predictions.md` (pre-registered), `dossier.md`, `regen.sh`, `wiki/allocator-ratchet.md` (new topic — no wiki page had ever mentioned rollback/AIMD/stride/regroup), patch = the `ratchet` trajectory example + the default-off `ES_DECAY` arm (OFF digest bit-identical to pre-patch shipped).
+
+**Claim:** the allocator's rollback feedback (`escalation *= 2` per rollback, global, no decay anywhere) is a one-way ratchet: two conflicts latch the forecast margin at ×4 **forever** (frozen through 34,000 chronons while the AIMD stride half self-restores), conflicts self-quench at the derived bound (forecast growth ≥ achievable speed — total under `Law::Relativistic` in every geometry tried), the permanent tax is 77–90 forced-then-avoided merges per stage against 1–2 on the conflict-free twin, and a 10-line decay mirror restores the equilibrium at bit-identical outcome digests.

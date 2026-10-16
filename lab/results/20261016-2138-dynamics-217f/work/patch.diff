@@ -1,0 +1,265 @@
+diff --git a/crates/allocator/examples/ratchet.rs b/crates/allocator/examples/ratchet.rs
+new file mode 100644
+index 00000000..02978cff
+--- /dev/null
++++ b/crates/allocator/examples/ratchet.rs
+@@ -0,0 +1,228 @@
++//! The allocator's rollback feedback, measured as a dynamical system: staged `run_to`
++//! (public API only) on conflict-prone scenes, printing per-stage trajectories of the
++//! ratchet (`speed_escalation`), the partition (regions, merges, splits, merges_avoided),
++//! the conflict process (rollbacks, rollback depth, wasted ops) and throughput.
++//! Outcome digests are printed for cross-arm identity (the certificate guarantees the
++//! union; scheduling changes must never move them).
++//!
++//!     cargo run -p emergent-allocator --release --offline --example ratchet -- [scene] [stages] [step] [seed]
++use emergent_allocator::{scenes, Allocator, Config, Factory, Report};
++use emergent_lattice::{chronon::Chronon, law::Law};
++use std::sync::Arc;
++
++/// A row of dense loose-mixed clusters (self-heating contact-scatter factories), the first
++/// two drifting together; `n` clusters, `per` bodies each, `spacing` units apart.
++fn scatter_row(q: i64, n: i64, per: u64, spacing: i64, seed: u64) -> Vec<emergent_lattice::law::World> {
++    let mut out = Vec::new();
++    for i in 0..n {
++        let w = scenes::loose_mixed(per, q, seed + 3 * i as u64);
++        let drift = if i == 0 { [q / 8, 0] } else if i == 1 { [-q / 8, 0] } else { [0, 0] };
++        out.push(scenes::world(&w, scenes::place(&w, 1 + 100_000 * i as u64, [i * spacing, 0], 1, 1, drift)));
++    }
++    out
++}
++
++/// Control: Pass-only islands (no contact response, no post-anchor acceleration), same layout.
++fn pass_row(q: i64, n: i64, per: u64, spacing: i64, seed: u64) -> Vec<emergent_lattice::law::World> {
++    use emergent_lattice::{law::Response, worlds};
++    let mut out = Vec::new();
++    for i in 0..n {
++        let w = worlds::random(per, 300, q, 1, seed + 3 * i as u64, Response::Pass);
++        out.push(scenes::world(&w, scenes::place(&w, 1 + 100_000 * i as u64, [i * spacing, 0], 1, 1, [0, 0])));
++    }
++    out
++}
++
++/// Conflict factory: a Fermi cannon — two heavy bouncers closing on a light body between
++/// them multiply its speed by ~2 per bounce until the relativistic cap — aimed down ±x at
++/// quiet target clusters. A target's forecast (grown from its own slow anchor) cannot know
++/// the light is coming before it arrives, so the first crossing of each target is a true
++/// promise break: a conflict, a rollback, one doubling of the global escalation.
++fn cannon(q: i64, targets: i64, dist: i64, seed: u64) -> Vec<emergent_lattice::law::World> {
++    use emergent_lattice::law::{Body, Response, World};
++    let template = World::new(q, None, vec![]).expect("empty template");
++    let mk = |bodies: Vec<Body>| World { bodies, container: None, ..template.clone() };
++    let mut out = Vec::new();
++    for c in 0..1 {
++        let vh = q / 4; // 64 quanta/chronon: forecast growth margin*vh = 128 < c = 256
++        let (r, rl, m, ml) = (2 * q, q / 4, 1 << 14, 1);
++        let cannon = mk(vec![
++            Body::new(1 + 100_000 * c, [0, 0], [0, 0], ml, rl, Response::Bounce),
++            Body::new(2 + 100_000 * c, [-4 * q, 0], [vh, 0], m, r, Response::Bounce),
++            Body::new(3 + 100_000 * c, [4 * q, 0], [-vh, 0], m, r, Response::Bounce),
++        ]);
++        out.push(cannon);
++        let mut rng = emergent_lattice::worlds::Rng(seed + 99 * c);
++        for t in 1..=targets {
++            let dir = if t % 2 == 1 { 1 } else { -1 };
++            let x0 = dir * dist * t;
++            let bodies = (0..8)
++                .map(|i| {
++                    Body::new(
++                        10 + 100_000 * c + 1000 * t as u64 + i,
++                        [x0 + rng.range(-q, q), rng.range(-q, q)],
++                        [rng.range(-2, 2), rng.range(-2, 2)],
++                        1,
++                        q / 4,
++                        Response::Bounce,
++                    )
++                })
++                .collect();
++            out.push(mk(bodies));
++        }
++    }
++    for w in &mut out {
++        w.validate().expect("cannon scene valid");
++        w.check_speed_limit().expect("cannon scene within c");
++    }
++    out
++}
++
++/// Conflict battery: cells `CELL` units apart along x, each a Fermi cannon (light body
++/// between two heavy bouncers closing at `vh`) plus a quiet 8-body target cluster at the
++/// cell centre. Cannon i ignites at ~T_i = 2000·i (heavies start at 576 + vh·T_i quanta):
++/// its light accelerates past the forecast's margin·vmax only after the last anchor, so it
++/// crosses a neighbour cell's true box before any planned merge can catch it — one true
++/// conflict per ignition while margin·E·vh < c.
++fn battery(q: i64, cells: i64, law: Law) -> Vec<emergent_lattice::law::World> {
++    use emergent_lattice::law::{Body, Response, World};
++    let template = World::new(q, None, vec![]).expect("empty template");
++    let mk = |bodies: Vec<Body>| World { bodies, container: None, ..template.clone() };
++    let (vh, cell) = (q / 32, 8000);
++    let mut out = Vec::new();
++    let mut rng = emergent_lattice::worlds::Rng(7);
++    for i in 0..cells {
++        let c = i * cell * q;
++        let d = 576 + vh * 2000 * i;
++        out.push(mk(vec![
++            Body::new(1 + 20 * i as u64, [c, 0], [0, 0], 1, q / 4, Response::Bounce),
++            Body::new(2 + 20 * i as u64, [c - d, 0], [vh, 0], 1 << 14, 2 * q, Response::Bounce),
++            Body::new(3 + 20 * i as u64, [c + d, 0], [-vh, 0], 1 << 14, 2 * q, Response::Bounce),
++        ]));
++        let t: Vec<Body> = (0..8)
++            .map(|j| {
++                Body::new(
++                    100 + 20 * i as u64 + j,
++                    [c + rng.range(-q, q), rng.range(-q, q)],
++                    [rng.range(-2, 2), rng.range(-2, 2)],
++                    1,
++                    q / 4,
++                    Response::Bounce,
++                )
++            })
++            .collect();
++        out.push(mk(t));
++    }
++    scenes::with_law(out, law)
++}
++
++/// Near-target variant: cells 600 units apart, each target cluster midway between cannons
++/// (300 units from each), ignitions at 2000·i. The relativistic light (capped at c) can only
++/// break a promise within its first stride after ignition (~c·stride = 256 units), so only
++/// near targets can conflict at all; the plan (16·E quanta/chronon from the cold anchor)
++/// catches the rest.
++fn battery_near(q: i64, cells: i64, law: Law) -> Vec<emergent_lattice::law::World> {
++    use emergent_lattice::law::{Body, Response, World};
++    let template = World::new(q, None, vec![]).expect("empty template");
++    let mk = |bodies: Vec<Body>| World { bodies, container: None, ..template.clone() };
++    let (vh, cell) = (q / 32, 600);
++    let mut out = Vec::new();
++    for i in 0..cells {
++        let c = i * cell * q;
++        let d = 576 + vh * 2000 * i;
++        out.push(mk(vec![
++            Body::new(1 + 20 * i as u64, [c, 0], [0, 0], 1, q / 4, Response::Bounce),
++            Body::new(2 + 20 * i as u64, [c - d, 0], [vh, 0], 1 << 14, 2 * q, Response::Bounce),
++            Body::new(3 + 20 * i as u64, [c + d, 0], [-vh, 0], 1 << 14, 2 * q, Response::Bounce),
++        ]));
++        let t: Vec<Body> = (0..8)
++            .map(|j| {
++                let mut rng = emergent_lattice::worlds::Rng(7 + 13 * i as u64);
++                Body::new(
++                    100 + 20 * i as u64 + j,
++                    [c + cell * q / 2 + rng.range(-q, q), rng.range(-q, q)],
++                    [rng.range(-2, 2), rng.range(-2, 2)],
++                    1,
++                    q / 4,
++                    Response::Bounce,
++                )
++            })
++            .collect();
++        out.push(mk(t));
++    }
++    scenes::with_law(out, law)
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let (scene, stages, step, seed) = (
++        a.first().cloned().unwrap_or_else(|| "scatter".into()),
++        a.get(1).and_then(|s| s.parse().ok()).unwrap_or(8),
++        a.get(2).and_then(|s| s.parse().ok()).unwrap_or(2000),
++        a.get(3).and_then(|s| s.parse().ok()).unwrap_or(1),
++    );
++    let q = 256;
++    let worlds = match scene.as_str() {
++        "scatter" => scatter_row(q, 6, 48, 1200, seed),
++        "scatter12" => scatter_row(q, 12, 48, 1200, seed),
++        "galaxy" => scenes::galaxy(q, 4, 4, 40, 400, 4, seed),
++        "islands" => scenes::islands(q, seed),
++        "pass" => pass_row(q, 6, 48, 1200, seed),
++        "cannon" => cannon(q, 4, 2000, seed),
++        "battery" => battery(q, 4, Law::Relativistic),
++        "batteryn" => battery(q, 4, Law::Newtonian),
++        "batteryr" => battery_near(q, 4, Law::Relativistic),
++        other => panic!("unknown scene {other}"),
++    };
++    let bodies: usize = worlds.iter().map(|w| w.bodies.len()).sum();
++    let cfg = Config { min_region: std::env::var("ES_MIN_REGION").ok().and_then(|v| v.parse().ok()).unwrap_or(1), ..Config::default() };
++    eprintln!(
++        "scene {scene} seed {seed}: {} worlds, {bodies} bodies, q {q}, window {}, stride {}/{} aimd {} margin {} split_lookahead {} min_region {}, workers {}+{}",
++        worlds.len(), cfg.window, cfg.stride, cfg.stride_max, cfg.aimd, cfg.speed_margin, cfg.split_lookahead, cfg.min_region, cfg.p_workers, cfg.e_workers
++    );
++    println!(
++        "| stage | tick | wall ms | regions | rollbacks | rb/s | escal | stride p50/p99 | merges | splits | avoided | wasted ops | chr/s | util P/E |"
++    );
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let worlds = if scene.starts_with("battery") { worlds } else { scenes::with_law(worlds, Law::Relativistic) };
++    let mut alloc = Allocator::new(worlds, factory, cfg).expect("scene");
++    let (mut prev_rb, mut prev_t) = (0u64, 0u128);
++    for s in 1..=stages {
++        let target = (s as i64) * step;
++        let t0 = std::time::Instant::now();
++        let r: Report = alloc.run_to(target);
++        let wall = t0.elapsed().as_millis();
++        let reg = &r.regions;
++        let rb = reg.rollbacks;
++        let rbdt = (rb - prev_rb) as f64 / ((target as f64 - prev_t as f64) / 1e3).max(1e-9);
++        prev_rb = rb;
++        prev_t = target as u128;
++        let util = |i: usize| r.workers.get(i).map(|w| w.utilisation).unwrap_or(0.0);
++        println!(
++            "| {s} | {target} | {wall} | {} | {rb} | {rbdt:.4} | {:.3} | {:.0}/{:.0} | {} | {} | {} | {} | {:.0} | {:.2}/{:.2} |",
++            alloc.regions(),
++            r.regions.speed_escalation,
++            r.sched.stride_chronons.p50,
++            r.sched.stride_chronons.p99,
++            reg.merges,
++            reg.splits,
++            reg.merges_avoided,
++            reg.wasted_ops,
++            r.sim.region_chronons_per_wall_second,
++            util(0),
++            util(r.workers.len().saturating_sub(1)),
++        );
++        // Keep the table honest: report counters are cumulative snapshots per stage call.
++    }
++    let (d1, d2) = alloc.outcome();
++    println!("outcome: {d1} {d2}");
++    let w = alloc.world();
++    println!(
++        "final: bodies {} tick {} contacts {} wall_momentum [{},{}]",
++        w.bodies.len(),
++        w.tick,
++        w.consumed.len(),
++        w.wall_momentum[0],
++        w.wall_momentum[1]
++    );
++}
+diff --git a/crates/allocator/src/alloc.rs b/crates/allocator/src/alloc.rs
+index 8e8d8dc2..01a629aa 100644
+--- a/crates/allocator/src/alloc.rs
++++ b/crates/allocator/src/alloc.rs
+@@ -437,6 +437,13 @@ fn class_ix(c: Class) -> usize {
+     }
+ }
+ 
++/// ES_DECAY (lab run 20261016-2138-dynamics-217f): halve the global speed escalation at every
++/// conflict-free sync grid, mirroring the rollback's doubling. Off (default) = shipped verbatim.
++fn decay_on() -> bool {
++    static D: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *D.get_or_init(|| std::env::var("ES_DECAY").is_ok_and(|v| !v.is_empty() && v != "0"))
++}
++
+ fn vmax<'a>(bs: impl Iterator<Item = &'a Body>) -> i64 {
+     bs.map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap_or(0)
+ }
+@@ -1132,6 +1139,12 @@ impl<S: Stepper + Send + 'static> State<S> {
+         let new = r.tick;
+         self.set_verified(Some(old), Some(new));
+         self.st.accepted += 1;
++        // ES_DECAY (lab run 20261016-2138-dynamics-217f): the rollback ratchet's missing
++        // restoring force — halve the global speed escalation at every conflict-free sync
++        // grid, mirroring the rollback's doubling. Off (default) = shipped behaviour verbatim.
++        if decay_on() && self.escalation > 1.0 && new % self.sync() == 0 {
++            self.escalation = (self.escalation / 2.0).max(1.0);
++        }
+         self.anchor(id, snap);
+         if let Some(bl) = self.parked_blocked.remove(&id) {
+             for b in &bl {
