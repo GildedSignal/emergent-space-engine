@@ -1,0 +1,141 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..c738c03e 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: the resident set and its high-water mark (kB in /proc/self/status; compressed pages are
++/// not counted here, so this box's numbers are a lower bound on the Mac's footprint).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim().split_whitespace().next().and_then(|k| k.parse().ok()).unwrap_or(0) * 1024;
++        } else if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim().split_whitespace().next().and_then(|k| k.parse().ok()).unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -45,11 +64,12 @@ fn main() {
+     let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let seed: u64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(1);
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..3264017a 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -117,6 +117,44 @@ pub fn aligned(step: i64, t: Tick) -> i64 {
+     }
+ }
+ 
++/// The locals' stagger (lab 20261016-0504-components-4534): 0 = shipped (unset or "0"), 1 = begin-only
++/// (each secondary-doll ship's first plan begins at a hash-spread tick, the block-step grid untouched),
++/// 2 = grid-translate (each such ship's block-step grid is translated by a per-body dyadic offset).
++pub(crate) fn stagger_loc() -> u8 {
++    static MODE: std::sync::LazyLock<u8> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_STAGGER_LOC").ok().and_then(|s| s.parse().ok()).unwrap_or(0)
++    });
++    *MODE
++}
++
++/// Whether this body is of the staggered class: a ship of a secondary doll (the ladder's locals).
++pub(crate) fn staggered(doll: u16, kind: Kind) -> bool {
++    doll != 0 && matches!(kind, Kind::Ship)
++}
++
++/// A per-body dyadic offset, uniform on `[0, step)`: the block-step grid translated by `o`.
++fn stagger_off(i: usize, step: i64) -> Tick {
++    let mut h = (i as u64 ^ 0x9E3779B97F4A7C15).wrapping_mul(0xBF58476D1CE4E5B9);
++    h ^= h >> 27;
++    h = h.wrapping_mul(0x94D049BB133111EB);
++    (h as i64).rem_euclid(step)
++}
++
++/// `aligned` on the body's own translated grid (mode 2): the same block steps and stub rule,
++/// anchored at the body's phase instead of tick 0.
++fn aligned_off(step: i64, t: Tick, off: Tick) -> i64 {
++    let rel = (t - off).rem_euclid(step);
++    if rel == 0 {
++        return step;
++    }
++    let stub = step - rel;
++    if stub < MIN_STEP {
++        stub + step
++    } else {
++        stub
++    }
++}
++
+ /// The kind of an item, the third part of its canonical key (tick, body, kind): a kick before an impact before
+ /// an open before the boundary, and a scheduled decision after all of them at its tick.
+ fn rank(w: What) -> u8 {
+@@ -566,7 +604,11 @@ impl Work<'_, '_> {
+             self.rec.step = want;
+         }
+         self.rec.anchor = t;
+-        let mut h = aligned(self.rec.step, t);
++        let mut h = if stagger_loc() == 2 && staggered(d, self.rec.kind) {
++            aligned_off(self.rec.step, t, stagger_off(self.i, self.rec.step))
++        } else {
++            aligned(self.rec.step, t)
++        };
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..6c9d019f 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -484,7 +484,16 @@ impl Universe {
+         self.prunable = Calendar::new(self.body_cap + self.fleets.len());
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+-            let upd = step::replan(&self.ctx(), i, rec, 0);
++            // Mode 1: the begin-stagger's letter — the first plan of a secondary doll's ship begins at a
++            // hash-spread tick; the block-step grid (mode 2's territory) is untouched.
++            let t0 = if step::stagger_loc() == 1 && step::staggered(rec.b.doll, rec.kind) {
++                let mut h = (i as u64).wrapping_mul(0x9E3779B97F4A7C15);
++                h ^= h >> 31;
++                (h as Tick) & 4095
++            } else {
++                0
++            };
++            let upd = step::replan(&self.ctx(), i, rec, t0);
+             self.apply(i, upd);
+         }
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
