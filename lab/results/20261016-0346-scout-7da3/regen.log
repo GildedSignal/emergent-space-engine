@@ -1,0 +1,40 @@
+stagger=false rung N=100000 (100028 bodies), coast, rtf 1000, 60 s of page time, budget 1000000 ms; build 6.05 s, rss 237 MB hwm 237 MB
+frames 3600 (of 3600); engine ms p50 4.093 p99 95.717 max 301.748; over 1000000 ms: 0; worst lag 0.000 s; events/frame p50 63 p99 1728 max 4243
+game 59000 s: kicks 291059 (4.932e-5/body/game-s), events 582519 (9.870e-5/body/game-s); refusals held 0, dead 0, player alive true; held scans max 0
+memory: rss 478 MB (build 237 MB), hwm 478 MB, 2349 B a body from the build; dashboard bytes/body 1379; catalogue 100076
+top event windows (250 game-s): [14-14k: 45948] [14-14k: 28875] [28-28k: 24412] [28-28k: 22530] [28-28k: 22376] [14-14k: 18853] 
+stagger=true rung N=100000 (100028 bodies), coast, rtf 1000, 60 s of page time, budget 1000000 ms; build 6.08 s, rss 237 MB hwm 237 MB
+frames 3600 (of 3600); engine ms p50 7.804 p99 17.330 max 24.658; over 1000000 ms: 0; worst lag 0.000 s; events/frame p50 132 p99 321 max 455
+game 59000 s: kicks 254735 (4.316e-5/body/game-s), events 459720 (7.790e-5/body/game-s); refusals held 0, dead 0, player alive true; held scans max 0
+memory: rss 479 MB (build 237 MB), hwm 479 MB, 2348 B a body from the build; dashboard bytes/body 1395; catalogue 100076
+top event windows (250 game-s): [40-40k: 2775] [37-37k: 2773] [42-42k: 2746] [59-60k: 2717] [58-58k: 2706] [32-32k: 2700] 
+stagger=false rung N=300000 (300028 bodies), coast, rtf 1000, 60 s of page time, budget 1000000 ms; build 18.95 s, rss 705 MB hwm 705 MB
+frames 3600 (of 3600); engine ms p50 4.368 p99 319.845 max 947.722; over 1000000 ms: 0; worst lag 0.000 s; events/frame p50 64 p99 5287 max 12729
+game 59000 s: kicks 691059 (3.904e-5/body/game-s), events 1382519 (7.810e-5/body/game-s); refusals held 0, dead 0, player alive true; held scans max 0
+memory: rss 1421 MB (build 705 MB), hwm 1421 MB, 2340 B a body from the build; dashboard bytes/body 1377; catalogue 300076
+top event windows (250 game-s): [14-14k: 136713] [14-14k: 85003] [28-28k: 72375] [28-28k: 65681] [28-28k: 65313] [14-14k: 55462] 
+stagger=true rung N=300000 (300028 bodies), coast, rtf 1000, 60 s of page time, budget 1000000 ms; build 17.59 s, rss 705 MB hwm 705 MB
+frames 3600 (of 3600); engine ms p50 14.653 p99 27.237 max 38.702; over 1000000 ms: 0; worst lag 0.000 s; events/frame p50 349 p99 558 max 711
+game 59000 s: kicks 581607 (3.286e-5/body/game-s), events 1013636 (5.726e-5/body/game-s); refusals held 0, dead 0, player alive true; held scans max 0
+memory: rss 1420 MB (build 705 MB), hwm 1420 MB, 2340 B a body from the build; dashboard bytes/body 1393; catalogue 300076
+top event windows (250 game-s): [37-37k: 6366] [40-40k: 6343] [42-42k: 6341] [58-58k: 6334] [50-50k: 6296] [57-57k: 6288] 
+
+== w_100000_off.csv: 3600 frames, game-s 17..60000, events 588464
+  wave 0: game-s 0-2000 events 10594 peak 264/frame @ 1333 | peak ms 32.04 (129 ev, 248.3 us/ev)
+  wave 1: game-s 13000-15000 events 105875 peak 4243/frame @ 14167 | peak ms 301.75 (3831 ev, 78.8 us/ev)
+  wave 2: game-s 26000-30000 events 112265 peak 2223/frame @ 28317 | peak ms 38.58 (2005 ev, 19.2 us/ev)
+  wave 3: game-s 39000-44000 events 115118 peak 1579/frame @ 42483 | peak ms 112.64 (1467 ev, 76.8 us/ev)
+  wave 4: game-s 52000-59000 events 120970 peak 1194/frame @ 56617 | peak ms 24.08 (1083 ev, 22.2 us/ev)
+
+== w_100000_on.csv: 3600 frames, game-s 17..60000, events 465665
+  wave 0: game-s 0-60000 events 465665 peak 455/frame @ 52900 | peak ms 24.66 (381 ev, 64.7 us/ev)
+
+== w_300000_off.csv: 3600 frames, game-s 17..60000, events 1388464
+  wave 0: game-s 13000-15000 events 305875 peak 12729/frame @ 14167 | peak ms 947.72 (12729 ev, 74.5 us/ev)
+  wave 1: game-s 26000-29000 events 307996 peak 6603/frame @ 28317 | peak ms 97.58 (6185 ev, 15.8 us/ev)
+  wave 2: game-s 40000-44000 events 309690 peak 4443/frame @ 42483 | peak ms 344.34 (4175 ev, 82.5 us/ev)
+  wave 3: game-s 54000-58000 events 304013 peak 3437/frame @ 56617 | peak ms 42.54 (3437 ev, 12.4 us/ev)
+
+== w_300000_on.csv: 3600 frames, game-s 17..60000, events 1019581
+  wave 0: game-s 0-60000 events 1019581 peak 711/frame @ 42317 | peak ms 38.70 (642 ev, 60.3 us/ev)
+REGEN-OK
