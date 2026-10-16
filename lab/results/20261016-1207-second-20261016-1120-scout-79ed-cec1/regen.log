@@ -1,0 +1,119 @@
+seeds drawn (letter-pinned) 256 64
+oracle precomputed
+[binet-m8-centre] prec 0.9844 per 0.9570 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 18 nc 0.2000 sf 0.0000 (42.6s)
+[binet-m8-refit] prec 1.0000 per 0.9766 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 18 nc 1.0000 sf 0.0000 (41.8s)
+[binet-m16-centre] prec 0.9961 per 0.9961 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 38 nc 0.2000 sf 0.6667 (79.7s)
+[binet-m16-refit] prec 1.0000 per 1.0000 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 38 nc 1.0000 sf 0.6667 (78.2s)
+[binet-m32-centre] prec 1.0000 per 1.0000 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 77 nc 0.4909 sf 0.8333 (82.2s)
+[binet-m32-refit] prec 1.0000 per 1.0000 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 77 nc 1.0000 sf 0.8333 (81.1s)
+
+== r1v2 verdict (freeze: r1v2-rings-band-constant.md) ==
+binet-m8-centre: FAIL (failed: ['prec', 'period', 'capture', 'nearcirc', 'strongf'])
+  prec      behaviour precession_pass_fraction     0.984375                 >= 0.99  FAIL
+  prog      type      prograde_fraction            1.0                      >= 1.0  PASS
+  period    behaviour period_pass_fraction         0.95703125               >= 0.99  FAIL
+  defl      behaviour deflection_pass_fraction     1.0                      >= 0.99  PASS
+  capture   behaviour capture_misclassified        3                        <= 0  FAIL
+  isco      behaviour isco_correct                 1                        >= 1  PASS
+  shape     type      shape_kept_fraction          1.0                      >= 0.99  PASS
+  repeat    type      cycle_repeat_fraction        1.0                      >= 0.99  PASS
+  cost      cost      crossings_per_cycle          18.0                     <= 512  PASS
+  nearcirc  behaviour nearcircular_pass_fraction   0.2                      >= 0.99  FAIL
+  strongf   behaviour strongfield_pass_fraction    0.0                      >= 1.0  FAIL
+binet-m8-refit: FAIL (failed: ['period', 'capture', 'strongf'])
+  prec      behaviour precession_pass_fraction     1.0                      >= 0.99  PASS
+  prog      type      prograde_fraction            1.0                      >= 1.0  PASS
+  period    behaviour period_pass_fraction         0.9765625                >= 0.99  FAIL
+  defl      behaviour deflection_pass_fraction     1.0                      >= 0.99  PASS
+  capture   behaviour capture_misclassified        3                        <= 0  FAIL
+  isco      behaviour isco_correct                 1                        >= 1  PASS
+  shape     type      shape_kept_fraction          1.0                      >= 0.99  PASS
+  repeat    type      cycle_repeat_fraction        1.0                      >= 0.99  PASS
+  cost      cost      crossings_per_cycle          18.0                     <= 512  PASS
+  nearcirc  behaviour nearcircular_pass_fraction   1.0                      >= 0.99  PASS
+  strongf   behaviour strongfield_pass_fraction    0.0                      >= 1.0  FAIL
+binet-m16-centre: FAIL (failed: ['capture', 'nearcirc', 'strongf'])
+  prec      behaviour precession_pass_fraction     0.99609375               >= 0.99  PASS
+  prog      type      prograde_fraction            1.0                      >= 1.0  PASS
+  period    behaviour period_pass_fraction         0.99609375               >= 0.99  PASS
+  defl      behaviour deflection_pass_fraction     1.0                      >= 0.99  PASS
+  capture   behaviour capture_misclassified        3                        <= 0  FAIL
+  isco      behaviour isco_correct                 1                        >= 1  PASS
+  shape     type      shape_kept_fraction          1.0                      >= 0.99  PASS
+  repeat    type      cycle_repeat_fraction        1.0                      >= 0.99  PASS
+  cost      cost      crossings_per_cycle          38.0                     <= 512  PASS
+  nearcirc  behaviour nearcircular_pass_fraction   0.2                      >= 0.99  FAIL
+  strongf   behaviour strongfield_pass_fraction    0.6666666666666666       >= 1.0  FAIL
+binet-m16-refit: FAIL (failed: ['capture', 'strongf'])
+  prec      behaviour precession_pass_fraction     1.0                      >= 0.99  PASS
+  prog      type      prograde_fraction            1.0                      >= 1.0  PASS
+  period    behaviour period_pass_fraction         1.0                      >= 0.99  PASS
+  defl      behaviour deflection_pass_fraction     1.0                      >= 0.99  PASS
+  capture   behaviour capture_misclassified        3                        <= 0  FAIL
+  isco      behaviour isco_correct                 1                        >= 1  PASS
+  shape     type      shape_kept_fraction          1.0                      >= 0.99  PASS
+  repeat    type      cycle_repeat_fraction        1.0                      >= 0.99  PASS
+  cost      cost      crossings_per_cycle          38.0                     <= 512  PASS
+  nearcirc  behaviour nearcircular_pass_fraction   1.0                      >= 0.99  PASS
+  strongf   behaviour strongfield_pass_fraction    0.6666666666666666       >= 1.0  FAIL
+binet-m32-centre: FAIL (failed: ['capture', 'nearcirc', 'strongf'])
+  prec      behaviour precession_pass_fraction     1.0                      >= 0.99  PASS
+  prog      type      prograde_fraction            1.0                      >= 1.0  PASS
+  period    behaviour period_pass_fraction         1.0                      >= 0.99  PASS
+  defl      behaviour deflection_pass_fraction     1.0                      >= 0.99  PASS
+  capture   behaviour capture_misclassified        3                        <= 0  FAIL
+  isco      behaviour isco_correct                 1                        >= 1  PASS
+  shape     type      shape_kept_fraction          1.0                      >= 0.99  PASS
+  repeat    type      cycle_repeat_fraction        1.0                      >= 0.99  PASS
+  cost      cost      crossings_per_cycle          77.0                     <= 512  PASS
+  nearcirc  behaviour nearcircular_pass_fraction   0.4909090909090909       >= 0.99  FAIL
+  strongf   behaviour strongfield_pass_fraction    0.8333333333333334       >= 1.0  FAIL
+binet-m32-refit: FAIL (failed: ['capture', 'strongf'])
+  prec      behaviour precession_pass_fraction     1.0                      >= 0.99  PASS
+  prog      type      prograde_fraction            1.0                      >= 1.0  PASS
+  period    behaviour period_pass_fraction         1.0                      >= 0.99  PASS
+  defl      behaviour deflection_pass_fraction     1.0                      >= 0.99  PASS
+  capture   behaviour capture_misclassified        3                        <= 0  FAIL
+  isco      behaviour isco_correct                 1                        >= 1  PASS
+  shape     type      shape_kept_fraction          1.0                      >= 0.99  PASS
+  repeat    type      cycle_repeat_fraction        1.0                      >= 0.99  PASS
+  cost      cost      crossings_per_cycle          77.0                     <= 512  PASS
+  nearcirc  behaviour nearcircular_pass_fraction   1.0                      >= 0.99  PASS
+  strongf   behaviour strongfield_pass_fraction    0.8333333333333334       >= 1.0  FAIL
+
+picture: r1v2-picture.png
+done
+m=16 centre: matter L_hat = 4.2261 (GR 4.0) | photon b_hat = 7.2632 (GR 5.1962; sqrt(54)=7.3485)
+m=16 refit: matter L_hat = 4.2261 (GR 4.0) | photon b_hat = 7.2632 (GR 5.1962; sqrt(54)=7.3485)
+m=32 centre: matter L_hat = 4.2495 (GR 4.0) | photon b_hat = 7.3823 (GR 5.1962; sqrt(54)=7.3485)
+m=32 refit: matter L_hat = 4.2495 (GR 4.0) | photon b_hat = 7.3823 (GR 5.1962; sqrt(54)=7.3485)
+m=8: deepest-rotation-band top u_hi=0.18460 -> barrier 6.8205
+m=16: deepest-rotation-band top u_hi=0.17299 -> barrier 7.1480
+m=32: deepest-rotation-band top u_hi=0.17113 -> barrier 7.2054
+== r1v2 execution (freeze: r1v2-rings-band-constant.md) ==
+binet-m8-centre: prec 0.9844 per 0.9570 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 18 nc 0.2000 (worst 2.05e-01) sf 0.0000 throws 0 med 7.91e-04
+binet-m8-refit: prec 1.0000 per 0.9766 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 18 nc 1.0000 (worst 1.87e-14) sf 0.0000 throws 0 med 5.64e-04
+binet-m16-centre: prec 0.9961 per 0.9961 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 38 nc 0.2000 (worst 1.61e-01) sf 0.6667 throws 0 med 1.86e-04
+binet-m16-refit: prec 1.0000 per 1.0000 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 38 nc 1.0000 (worst 1.62e-14) sf 0.6667 throws 0 med 1.51e-04
+binet-m32-centre: prec 1.0000 per 1.0000 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 77 nc 0.4909 (worst 8.85e-02) sf 0.8333 throws 0 med 4.40e-05
+binet-m32-refit: prec 1.0000 per 1.0000 prog 1.0000 defl 1.0000 cap 3 isco 1 shape 1.0000 rep 1.0000 cr 77 nc 1.0000 (worst 1.63e-14) sf 0.8333 throws 0 med 3.85e-05
+== verdicts ==
+binet-m8-centre: FAIL ['prec', 'period', 'capture', 'nearcirc', 'strongf']
+binet-m8-refit: FAIL ['period', 'capture', 'strongf']
+binet-m16-centre: FAIL ['capture', 'nearcirc', 'strongf']
+binet-m16-refit: FAIL ['capture', 'strongf']
+binet-m32-centre: FAIL ['capture', 'nearcirc', 'strongf']
+binet-m32-refit: FAIL ['capture', 'strongf']
+binet-m8-centre longruns: n=32 cycles=10000 worst dphi drift 4.17e-16 worst t drift 2.32e-15 exc 0 | strong: (8.5,0.9):2.9e-03/1.4e-02 (7.7,0.7):4.2e-03/3.1e-03 (6.9,0.3):7.9e-03/2.6e-03 (6.5,0.1):1.4e-02/6.8e-03 (9.5,0.5):1.6e-03/1.1e-03 (12,0.7):1.4e-03/2.1e-03
+binet-m8-refit longruns: n=32 cycles=10000 worst dphi drift 4.22e-16 worst t drift 6.33e-15 exc 0 | strong: (8.5,0.9):2.9e-03/1.4e-02 (7.7,0.7):4.2e-03/3.1e-03 (6.9,0.3):8.0e-03/2.7e-03 (6.5,0.1):1.2e-02/5.2e-03 (9.5,0.5):2.0e-03/1.0e-03 (12,0.7):1.1e-03/1.9e-03
+binet-m16-centre longruns: n=32 cycles=10000 worst dphi drift 5.62e-16 worst t drift 6.45e-15 exc 0 | strong: (8.5,0.9):1.0e-03/3.6e-03 (7.7,0.7):3.2e-03/4.3e-04 (6.9,0.3):2.4e-03/8.5e-04 (6.5,0.1):1.1e-02/6.8e-03 (9.5,0.5):5.7e-04/2.7e-04 (12,0.7):3.9e-04/5.0e-04
+binet-m16-refit longruns: n=32 cycles=10000 worst dphi drift 5.62e-16 worst t drift 6.10e-15 exc 0 | strong: (8.5,0.9):1.0e-03/3.6e-03 (7.7,0.7):3.2e-03/4.3e-04 (6.9,0.3):2.4e-03/8.4e-04 (6.5,0.1):1.1e-02/6.6e-03 (9.5,0.5):4.3e-04/2.8e-04 (12,0.7):4.3e-04/5.0e-04
+binet-m32-centre longruns: n=16 cycles=10000 worst dphi drift 4.21e-16 worst t drift 1.79e-15 exc 0 | strong: (8.5,0.9):2.7e-04/8.7e-04 (7.7,0.7):6.2e-04/1.4e-04 (6.9,0.3):9.5e-04/3.7e-04 (6.5,0.1):2.3e-03/1.4e-03 (9.5,0.5):1.3e-04/6.7e-05 (12,0.7):8.9e-05/1.3e-04
+binet-m32-refit longruns: n=16 cycles=10000 worst dphi drift 9.83e-16 worst t drift 1.04e-14 exc 0 | strong: (8.5,0.9):2.7e-04/8.7e-04 (7.7,0.7):6.2e-04/1.4e-04 (6.9,0.3):9.5e-04/3.7e-04 (6.5,0.1):2.5e-03/1.5e-03 (9.5,0.5):1.4e-04/6.5e-05 (12,0.7):9.7e-05/1.2e-04
+m16-centre {'matter_L_hat': 4.22607421875, 'photon_b_hat': 7.26324462890625}
+m16-refit {'matter_L_hat': 4.22607421875, 'photon_b_hat': 7.26324462890625}
+m32-centre {'matter_L_hat': 4.24951171875, 'photon_b_hat': 7.38226318359375}
+m32-refit {'matter_L_hat': 4.24951171875, 'photon_b_hat': 7.38226318359375}
+m8-rotation-top-threshold 6.820512704860863
+m16-rotation-top-threshold 7.148021037731707
+m32-rotation-top-threshold 7.205357636505623
