@@ -7,6 +7,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 |---|---|---|---|
 | [representation-premises](representation-premises.md) | open | 1 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 1 | **The publisher's conflict handling compounds and has eaten the lab's two most-run |
+| [allocator-ratchet](allocator-ratchet.md) | open | 2 | **The rollback controller has no restoring force, and the conflict process quenches itself |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [birth-stagger](birth-stagger.md) | open | 3 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
@@ -24,8 +25,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
-| [kick-cadence](kick-cadence.md) | open | 47 | **The 10⁹ belt's bill is a crest, not an average, and the engine's own budget makes it a |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
+| [kick-cadence](kick-cadence.md) | open **conflict to resolve** | 50 | **The 10⁹ CPU ledger closes on the measured cadence levers plus a 1.3–2.2× kick-cost |
 | [kick-jet](kick-jet.md) | open | 71 | **The wave's attendants are decomposed and two of them are exact duplicates, deleted bit for bit: one |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |

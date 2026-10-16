@@ -2,11 +2,41 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1835-fermi-4093
+<<<<<<< main
+updated: 20261016-2138-fermi-e7ef
+=======
+updated: 20261016-2138-second-20261016-1835-fermi-4093-9e75
+>>>>>>> 20261016-2138-second-20261016-1835-fermi-4093-9e75
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+
+**The 10⁹ CPU ledger closes on the measured cadence levers plus a 1.3–2.2× kick-cost
+cut (NOT on the 42–56 ns floor), and the kick-cost row is not on its critical path:
+closure is the single product kick-cost ÷ cadence-cut ≤ 1.13 µs at 10⁹
+rtf 100 — with the measured 8× regime split (7f97) and the measured 61% belt delete
+(1a46+RES) today's 104–178-core stream falls to 5.1 (M1 29.3 µs) – 8.65 (x86 50 µs)
+cores — still over the 4-core budget: the REQUIRED kick cost to fit is 23 µs,
+1.3–2.2× under today's, 472× ABOVE the 42–56 ns floor; at the floor itself even
+shipped cadence fits (0.17 cores). Kick cost and cadence are redundant levers, so reading them as two
+independent gaps (the scoreboard's kick row, 10³·³) double-counts (20261016-2138-fermi-e7ef,
+fermi; `ledger.py` arithmetic from page-cited constants, anchored on shipped
+`belt_first`: belt first-kick p50 14,072 game-s → interval 28,144 s against the recorded
+28,141.5, rate×interval = 0.999 kicks/body/interval (the dossier's 1.0004 is a
+transcription), and 4093's measured 69-s crest at 10⁶ regenerating as N·C/0.72 = 69.4 s;
+source-derived: the law's P_D(Cinder) = 3.602e6 s = 0.468 × Cinder's SI Kepler period —
+the doll-clock factor f'(c) ≈ 2.14
+[an inference from ext.rs's Δs law, not read in code]). The two terms that do NOT
+close at 10⁹: the encounter tier on graded levers (62–571 cores; only f0a2's ungraded
+routing closes it, 0.03–0.6) and memory — every generic floor busts the 6-GB budget
+(62 bits → 7.7 GB; 126 → 15.8 GB), while every measured program class fits (0.126-bit
+ship belt and 2.4-bit self-stirred → 0.02–0.3 GB; phase-locked 21–40 bits → 2.6–5.0 GB),
+the shipped 4.85–5.06 kB/B plateau is 808× over, and the
+plateau alone reproduces the ladder's measured memory wall (6–8 GB ÷ plateau =
+1.19–1.65×10⁶ bodies). Consequence: the kick row is a flyability-at-10⁶ lever (b583's
+retired search already halves it), not a 10⁹ blocker; the 10⁹ critical path is the
+compact store's wiring and the encounter routing's grade.**
 
 **The 10⁹ belt's bill is a crest, not an average, and the engine's own budget makes it a
 freeze: a4ed's "belts pass 10⁹ at 10× real time" is a 17–49× clock artifact, and the merged
@@ -36,13 +66,42 @@ at 50 µs — the letter survives only as "passes at ≈1× real time, if de-pha
 order stands corrected against the board: the crest is closed by de-phase/deletion (4fa8's
 chain+stagger, 1a46's hybrid −70–85%, both measured, legality priced) or by kick cost ≤
 ~20 µs at 4 cores; the 50-ns kick floor is the deeper cut but the de-phase is nearer and
-prerequisite anyway. Domain: coast, one seed, one scene (`plane_extra`), shared x86 —
+prerequisite anyway. Domain: one seed, one scene (`plane_extra`), shared x86 —
 orders of magnitude. [checker: the dossier's "freeze measured 29.8 s vs predicted 20.8, 1.4×"
-is invalid — `frame_to` sets target = presented + want each frame, so worst lag is bounded by
-rtf/60: it reads 29.79 at rtf 1800 (N=10⁵ and 3×10⁵ alike, freeze 7 s vs 21 s) and exactly
-60.000 at rtf 3600 with the crest unchanged; the lag metric saturates and does not measure
-the freeze. The freeze stands on the clamp and the delivered rate; its duration is not yet
-directly measured on a clean box.]
+was invalid — worst lag is bounded by rtf/60 and saturates. Second author 20261016-2138-…-9e75
+measured the freeze directly with a deficit/spell instrument (additive `freeze:` print): the
+crest's **spell** (longest run of frames the budget did not deliver) is **≈7 s at 10⁵
+and 21–24 s at 3×10⁵** at real pacing (7.0–7.7 / 20.9–23.5 over five flights — timing-defined
+membership moves a few %), = E_spell·Ĉ/0.72 with same-run constants at **ratio
+1.01–1.04** (Ĉ 49.9–54.7 µs, delivered 13.0–14.3k ev/s ≈ the 0.72/Ĉ ceiling), presented time
+96% frozen inside it; the **deficit integral** (23.1k/42.3k/79.6k game-s) replaces the lag
+(at rtf 3600 the lag prints its 60.000 ceiling while spell and E are unchanged, deficit ×1.88
+≈ rtf); E_spell scales **linearly in N** (3.08–3.09 for 3× bodies ⇒ one crest event per body;
+checker-held-out 2×10⁵: 197,543 = 0.988/body, ratio 2.04), so
+10⁶ is **69–73 s** (cannot fly: build 2.34 GB > cap) and 10⁹ is **19.2–20.3 h** / 176–187
+cores at rtf 100, measured-derived. **The burn inverts the risk: no freeze at all** (spell 0.7 s) — the
+crest breaks the budget instead: 167–178 frames over 12 ms, worst **2.5–2.6 s carrying ~50k
+events at the usual ~50 µs**, truncated run, 5.9 GB — one started item resolves a whole wave
+through the per-item stop's first-item escape (documented worst 1.4 ms). The budget's
+*binding*, not just its rate, is load-bearing: a de-phased crest that arrives as ordinary
+items clamps; one that arrives inside a pulled wave overruns. Checker2 (five arms of its own):
+the law held at 1.01–1.02 everywhere; but every author arm delivered ≤ 1.02 intervals, so
+"per interval" was never observed past one crest — at 70 s rtf 1800 and 160 s rtf 450 a
+second deep clamp begins at presented ≈ 42.2 k game-s (1.5 intervals) in both (rtf 450:
+lag_frames 2,081 ≈ 1.9× one spell, truncated mid-drain by the 55-s guard), so recurrence is
+supported, a full second spell not yet printed; and below rtf ≈ 650 the stream fits the budget
+(p50 2.0 ms at rtf 450). Checker2's own arms correct that last extrapolation: at the player's
+rtf 100 there is **no freeze at all at 3×10⁵** — 160-s and 190-s flights (15.9k/18.9k game-s,
+past the crest's full drain) print deficit 1 game-s, one lag frame, 0 frames over 12 ms, max
+11.99 ms: the crest rides the budget's edge (~240 ev/frame, p90 11.9 ms) without exceeding it.
+The freeze is gated jointly by (N, rtf): onset between rtf 100 and 450 at 3×10⁵, and at rtf 100
+from ~10⁶ up (3.33× the per-frame demand ≈ 800 ev/frame ≫ the ~240–330/frame ceiling, so the
+69–73-s 10⁶ spell stands); 4093's "at any rtf" holds at 10⁹ (density ∝ N), not at 3×10⁵. The
+burn at 5×10⁴ (untested N) confirms the inversion N-linearly — spell and deficit N-independent
+(36 frames/0.6 s/1,521 game-s, as at 3×10⁵), 113 frames over 12 ms, worst 414 ms ≈ 2,581×50/300
+— and `--features prof` fits the cap there, naming the wave's content: ordinary kick items
+(clock 43.3 µs/call, WH 39.6, boundaries 11.8 — the usual mix), closing the dossier's unprofiled
+attribution.]
 
 **3294's record regenerates, its impulses are dimensionless now, and the wave train is off the dial: the belt's fired impulse is 2⁻²³ of the body's own speed (p01 2⁻²⁴, p99 2⁻²⁰, identical at 10⁵), so at the behaviour floor (2–8 kicks/orbit, 553–2,214× coarser) a kick carries ~2¹⁶–2¹⁸ word units — binding (<1 unit) sits 2⁷× finer than the grid, 16–18 octaves finer than the floor, so the gate cannot bind anywhere the behaviour gates pass (checker-corrected from the dossier's "9–11 octaves", which was the floor-kick/grid-kick ratio) — while staggering each body's first clock begin by hash(id) (constants-only, genesis-time, ~15 lines) flattens the standing train to uniform — **[checker2: this flattening was already measured and published by 20261015-0128-fermi-ed3a (`birth-stagger` page: wave-1 window 16.7–17.7×, later trains at the steady stream, "the two levers are independent multipliers", ES_STAGGER patch, default-off); f82a re-derives it at the law level (plan_clock, all dolls) and adds the canonical-cut digest protocol — a replication, not a first]** (wave-1 central-50% 246.6 s → 13,904.8 s = 0.49·I; 57× → 1.0×; rate 1.000, interval and impulse distributions unchanged) and deletes the tail at 10⁵ (max 18.3 → 11.9 ms, over 1 → 0, held 152 → 1, lag 8.7 → 0.0 s; checker: at 10⁵ burn the worst frame drops 820 → 35.5 ms, 23×, while the held pile stays — it is the player's doll's, not the belt's) — the wave tail is a free genesis-alignment lever, no…
 
@@ -66,6 +125,11 @@ directly measured on a clean box.]
 
 ## Refuted
 
+- **The kick's 42–56 ns floor as a 10⁹ requirement** (the scoreboard's kick row read as
+  an independent 10³·³ gap beside cadence): closure is one product (cost ÷ cut ≤ 1.13 µs
+  at 10⁹ rtf 100); every measured-lever configuration closes at 9–23 µs, and at the
+  floor even shipped cadence fits (0.17 cores). The floor matters for 10⁶ flyability,
+  not for 10⁹ (20261016-2138-fermi-e7ef).
 - The single-constant synodic ("one clock") cadence rule: killed by its own pre-registered falsifier, off by 3 octaves (1db4).
 - Conjunction-scheduled kick cadence with a zero-kick secular kernel, belt regime (06a8).
 - Per-body self-triggered cadence (jerk/impulse triggers) in the belt/moon regime: no transfer or 1.4–30× over-spend; phase-cancellation mechanism (0713).
@@ -93,6 +157,10 @@ directly measured on a clean box.]
   crest that the budget clamps (delivered 11.1–13.2k events/s against the 14.4k/s ceiling
   at 3×10⁵; ≥ 19.3 h at 10⁹, kicks-only floor),
   not a passing average (20261016-1835-fermi-4093).**
+- **a9d7's record sentence "the rate is trivially affordable" (memory-h-live L314), as a
+  statement about what the player feels: true of the average only — at 10⁹ rtf 100 the crest
+  needs ~185 cores sustained or the measured ~20-h freeze per 2.814e4-game-s interval
+  (20261016-1835-fermi-4093; directly measured by 20261016-2138-second-…-9e75).**
 - **The wave train as a third output of the Δs dial (3294's "cadence, kick cost, wave tail and scar rate are one dial"): refuted in its tail third — the train is genesis phase-lock, deleted at genesis by a per-body hash stagger without touching rate, interval or impulse content (f82a; already measured by 20261015-0128-fermi-ed3a, `birth-stagger`). Kick cost and scar rate remain the dial's.**
 - **The sub-quantum kick regime at the flown grid (this page's "the sigma-delta carry" as a living belt mechanism, and any "accumulator absorbs the belt's kicks" adoption): measured absent — fire rate 1.000 with impulses ≥ 2⁷ units on four arms; nothing accumulates between grid kicks anywhere in the flown plane (3294). The accumulator remains law (it engages at finer Δs or weaker tides by construction), but the shipped grid never enters its regime.**
 
@@ -161,3 +229,6 @@ directly measured on a clean box.]
 - 20261015-0724-system-3294 (this run, awaiting grade): no sub-quantum regime anywhere in the flown plane — fire rate 1.000, impulses ≥ 2⁷ units, four arms; the belt interval is the doll grid (28,141.5 s median); the train genesis-locked (50% of fires in 0.9% of the interval) and shearing 3× per wave; cadence, kick cost, wave tail and scar rate are one dial spanning ~4 orders at 10⁹.
 - 20261015-1338-second-20261015-0724-system-3294-f82a (awaiting grade): 3294's record regenerates to the digit; belt impulses 2⁻²³ of speed (fire-gate cannot bind before the behaviour gates); staggered genesis flattens the train (57×→1.0×) and deletes the 10⁵ tail for free.
 - 20261016-1835-fermi-4093 (fermi, this run): the crest, not the average — belt silent
+- 20261016-2138-fermi-e7ef (fermi, this run): the 10⁹ CPU ledger closes on measured levers (kick 9–23 µs suffices, floor irrelevant at 10⁹); encounters-on-graded-levers and memory floors do not close; the ladder wall = 6–8 GB ÷ plateau, exactly.
+- 20261016-1835-fermi-4093 (silver): the crest, not the average — belt silent below 11.4 k game-s, first kicks at ≈ interval/2, the budget clamps at ~230 events/frame; a4ed's 10⁹-passing sentence is a 17–49× clock artifact; N1's 20-s window is pre-crest.
+- 20261016-2138-second-20261016-1835-fermi-4093-9e75 (this run): the freeze measured directly — spell 7.0–7.1/21.9–22.1 s at 10⁵/3×10⁵, law ratio 1.01–1.04, deficit replaces the saturated lag, crest linear in N (3.08–3.09), 10⁶ = 72–73 s, 10⁹ = 20.1–20.3 h / 185–187 cores at rtf 100; the burn arm has no freeze — the crest overruns the budget instead (max ~2.5 s, truncated, 5.9 GB).
