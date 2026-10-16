@@ -1,0 +1,121 @@
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/lattice)
+   Compiling emergent-lattice-event v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/lattice-event)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unused import: `to_f64`
+ --> crates/universe/examples/stagger_probe.rs:9:40
+  |
+9 | use emergent_universe::num::{from_f64, to_f64};
+  |                                        ^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unnecessary parentheses around block return value
+   --> crates/universe/examples/stagger_probe.rs:176:9
+    |
+176 |         ((s >> 11) as f64 / (1u64 << 53) as f64)
+    |         ^                                      ^
+    |
+    = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+    |
+176 -         ((s >> 11) as f64 / (1u64 << 53) as f64)
+176 +         (s >> 11) as f64 / (1u64 << 53) as f64
+    |
+
+warning: `emergent-universe` (example "stagger_probe") generated 2 warnings (run `cargo fix --example "stagger_probe"` to apply 2 suggestions)
+    Finished `release` profile [optimized + debuginfo] target(s) in 20.35s
+Updated 1 path from the index
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.64s
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unused import: `to_f64`
+ --> crates/universe/examples/stagger_probe.rs:9:40
+  |
+9 | use emergent_universe::num::{from_f64, to_f64};
+  |                                        ^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unnecessary parentheses around block return value
+   --> crates/universe/examples/stagger_probe.rs:176:9
+    |
+176 |         ((s >> 11) as f64 / (1u64 << 53) as f64)
+    |         ^                                      ^
+    |
+    = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+    |
+176 -         ((s >> 11) as f64 / (1u64 << 53) as f64)
+176 +         (s >> 11) as f64 / (1u64 << 53) as f64
+    |
+
+warning: `emergent-universe` (example "stagger_probe") generated 2 warnings (run `cargo fix --example "stagger_probe"` to apply 2 suggestions)
+    Finished `release` profile [optimized + debuginfo] target(s) in 16.51s
+--- off vs pristine (the off arm must be bit-identical):
+OFF ARM: bit-identical to pristine
+--- armed vs pristine (the stagger armed changes the digests):
+1,13c1,13
+< N=100 coast                  | 4b822570395be973f93d3108c7c81edb | kicks   1530 encounters    128 contacts   0 | 4 schedules agree 
+< N=100 forward L8             | 9e46f10fe28eecb4cb8d2f991246a8d1 | kicks   2767 encounters   3945 contacts   0 | 4 schedules agree 
+< N=100 key mashing            | bab8d6f504185d61e5473bb316a16c63 | kicks   3372 encounters   8891 contacts   0 | 4 schedules agree 
+< N=1000 coast                 | 6895ce0612f6b49c5e021880494a2325 | kicks   3767 encounters    128 contacts   0 | 4 schedules agree 
+< N=1000 forward L8            | 8eb769bd2cb7d6a560cddbdf84330948 | kicks   5004 encounters   3945 contacts   0 | 4 schedules agree 
+< N=1000 key mashing           | 484ccce0c893d61c5738a5e5a861e64d | kicks   4723 encounters   8891 contacts   0 | 4 schedules agree 
+< N=3000 coast                 | ddd5b1cc6c1a797f96bc488d28029398 | kicks   3767 encounters    128 contacts   0 | 4 schedules agree 
+< N=3000 forward L8            | 69d7abbbf88fec35d713b5763f780e95 | kicks   5004 encounters   3945 contacts   0 | 4 schedules agree 
+< N=3000 key mashing           | 253d8aed3c9469679b97dbc7a6738b54 | kicks   4723 encounters   8891 contacts   0 | 4 schedules agree 
+< N=1000 coast through the wave | df0e87cdf72c2b105f41b6afce06711b | kicks  32537 encounters    934 contacts   0 | 4 schedules agree 
+< N=3000 coast through the wave | d2632de90255f5c10de9fd7372a3790d | kicks  34537 encounters    934 contacts   0 | 4 schedules agree 
+< N=1000 belt crossing L10     | ef19d3de1d269d64f0846134717ebda0 | kicks  38106 encounters    789 contacts   0 | 4 schedules agree 
+< N=3000 belt crossing L10     | 4995f38448103cc20232d292eb40a84b | kicks  40106 encounters    789 contacts   0 | 4 schedules agree 
+---
+> N=100 coast                  | 3d70e734517ac3cd015c28b0eb5a0624 | kicks   1530 encounters    128 contacts   0 | 4 schedules agree 
+> N=100 forward L8             | c6d70ea8a01f65fcd5d61620424179d0 | kicks   2767 encounters   3945 contacts   0 | 4 schedules agree 
+> N=100 key mashing            | f7ef42f8afc1cd69fea3065f8bdcb49e | kicks   3372 encounters   8891 contacts   0 | 4 schedules agree 
+> N=1000 coast                 | c939618898122ff6ab5a3d96930a7ed4 | kicks   3767 encounters    128 contacts   0 | 4 schedules agree 
+> N=1000 forward L8            | 569f84900007d103f5a139f5ec545fdd | kicks   5004 encounters   3945 contacts   0 | 4 schedules agree 
+> N=1000 key mashing           | e35f597cb5f717f1db4f625205b74ca3 | kicks   4723 encounters   8891 contacts   0 | 4 schedules agree 
+> N=3000 coast                 | a49391b4a3bb1fa5acab908c139c75bf | kicks   3767 encounters    128 contacts   0 | 4 schedules agree 
+> N=3000 forward L8            | 1d0dc0fb84cd91a382d5ed27f1cf5d00 | kicks   5004 encounters   3945 contacts   0 | 4 schedules agree 
+> N=3000 key mashing           | 0ea684944a41e81a7f17762c115d3997 | kicks   4723 encounters   8891 contacts   0 | 4 schedules agree 
+> N=1000 coast through the wave | a2e233babfbb61c2d7b474fe6428de1b | kicks  31973 encounters    934 contacts   0 | 4 schedules agree 
+> N=3000 coast through the wave | c532d7c926e971b71790ef711b5a2b35 | kicks  32420 encounters    934 contacts   0 | 4 schedules agree 
+> N=1000 belt crossing L10     | 48de514e21c881d37784b9aa83e03dcb | kicks  37649 encounters    789 contacts   0 | 4 schedules agree 
+> N=3000 belt crossing L10     | a071c6894d32d4e69f755723a8cabf20 | kicks  38362 encounters    789 contacts   0 | 4 schedules agree 
+armed digest cases changed: 13
+B13 off:    B13 FAIL assists: 60/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 2.12e-2 ΔL 2.12e-2; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13)
+B13 armed:  B13 FAIL assists: 60/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 2.12e-2 ΔL 2.12e-2; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13)
+B14 off:    B14 FAIL timeout: 60.0 s over the 60 s limit
+B14 armed:  B14 FAIL timeout: 60.0 s over the 60 s limit
+== B13-class probe: the assist at the reference exit (law-off vs law-armed vs RK4 reference) ==
+seed   q(r)     v_inf      ref ΔE   off err  armed err      ref ΔL   off err  armed err
+      [ref E_h drift exit->0.2P: 6.98e-03 of the assist]
+   0   3.68  6.50e-05   2.741e-09  1.09e-01   1.05e-01   3.330e+04  5.05e-01   4.99e-01  
+      [ref E_h drift exit->0.2P: 2.81e-03 of the assist]
+   1  17.13  4.88e-05  -1.401e-09  6.98e-02   6.84e-02  -1.680e+04  2.53e-01   2.57e-01  
+      [ref E_h drift exit->0.2P: 5.57e-03 of the assist]
+   2   2.47  5.72e-05   2.504e-09  9.62e-02   9.35e-02   3.046e+04  5.25e-01   5.20e-01  
+      [ref E_h drift exit->0.2P: 2.16e-03 of the assist]
+   3   2.53  2.99e-05  -1.833e-09  5.76e-02   5.52e-02  -2.206e+04  1.83e-01   1.87e-01  
+      [ref E_h drift exit->0.2P: 4.14e-01 of the assist]
+   4   1.26  4.73e-05   4.224e-07      LOST       LOST  -2.802e+05      LOST       LOST  
+      [ref E_h drift exit->0.2P: 1.22e+00 of the assist]
+   5   1.29  6.06e-05  -3.454e-09      LOST       LOST  -4.115e+04  6.06e-01   6.05e-01  
+      [ref E_h drift exit->0.2P: 9.71e-02 of the assist]
+   6  40.38  1.83e-05   1.444e-10  2.35e-01   2.15e-01   1.918e+03  7.04e-01   6.43e-01  
+      [ref E_h drift exit->0.2P: 4.08e-02 of the assist]
+   7  15.43  6.51e-05  -6.526e-10  3.47e-02   2.87e-02  -7.727e+03  4.72e-01   4.91e-01  
+threshold flips (off -> armed at 1e-2): 0
+
+== B14-class probe: apsidal precession (rad/planet-period) and class at 1.5 R_H, 10 planet periods ==
+seed   a/H   e0 pro      rate off   rate armed     rate ref |a-off|/ref  esc o/a/r
+   0  0.70 0.00 true      none         none         none             nan T/T/T
+   1  0.51 0.15 false  -3.25116e-02 -3.13735e-02 -3.89476e-02    2.92e-02 F/F/F
+   2  0.60 0.30 true      none         none         none             nan T/T/T
+   3  0.83 0.00 false      none         none         none             nan T/T/T
+   4  0.28 0.15 true   8.90574e-01  8.88009e-01  8.71163e-01    2.94e-03 F/F/F
+   5  0.50 0.30 false  -1.38457e-01 -1.37918e-01 -1.48761e-01    3.62e-03 F/F/F
+   6  0.36 0.00 true      none         none         none             nan F/F/F
+   7  0.72 0.15 false      none         none         none             nan F/F/F

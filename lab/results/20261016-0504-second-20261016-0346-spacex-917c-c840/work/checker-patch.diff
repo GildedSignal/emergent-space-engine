@@ -1,0 +1,377 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..28a30c4f 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,24 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+-}
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
++    // Linux fallback: VmRSS now, VmHWM peak, from /proc/self/status (kB).
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(rest) = line.strip_prefix("VmRSS:") {
++            now = rest.trim_end().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1000;
++        } else if let Some(rest) = line.strip_prefix("VmHWM:") {
++            peak = rest.trim_end().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1000;
++        }
++    }
++    if now == 0 {
+         return (0, 0);
+     }
+-    (buf[9], buf[30])
++    (now, peak)
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -64,7 +68,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(std::env::var("ES_TLIMIT").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0)) {
+             truncated = true;
+             break;
+         }
+@@ -156,6 +160,12 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    if std::env::var_os("ES_ROWS").is_some() {
++        // every frame's (frame, game-s presented, ms, events, lag s): the wave's window profile
++        for r in &rows {
++            println!("row {} {:.1} {:.3} {} {:.3}", r.0, r.0 as f64 * rtf / 60.0, r.1, r.2, r.3);
++        }
++    }
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+diff --git a/crates/universe/examples/stagger_probe.rs b/crates/universe/examples/stagger_probe.rs
+new file mode 100644
+index 00000000..994caf84
+--- /dev/null
++++ b/crates/universe/examples/stagger_probe.rs
+@@ -0,0 +1,259 @@
++//! The stagger's legality probe (run 20261016-0504-second-…-spacex-917c-c840): the B13/B14-class
++//! scenes of `xtask behave`'s plane adapter, built through the same public API (copied from
++//! xtask/src/behave/plane.rs `build_scene`), flown to fixed times with the ship's state printed at
++//! full precision (hex bits), so ES_STAGGER=1 vs unset can be diffed exactly.
++//! Modes: `flyby` (8 assists over the gate's parameter ranges) and `moon` (8 Hill births,
++//! 0.2-0.9 R_H, e0 <= 0.3, pro/retro; prints the planetocentric apsidal series' rate, hill.rs's
++//! estimator verbatim, plus the escape class at 1.5 R_H). Scene = JUPITER (mu 1e-3, sep 5.27e8).
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::{from_f64, to_f64};
++use emergent_universe::observe;
++use emergent_universe::scenario::{AU, STAR_RADIUS};
++use emergent_universe::world::Mass;
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++use std::f64::consts::TAU;
++
++const MU: f64 = 1e-3;
++const SEP: f64 = 5.27e8;
++const PLANET_RADIUS: f64 = 4.84e4;
++const STEP_LOG2: i32 = 7;
++
++fn period() -> f64 {
++    TAU * SEP.powf(1.5) // Ω⁻¹ = 2π·sep^{3/2} with G = M_total = 1
++}
++fn omega() -> f64 {
++    SEP.powf(-1.5)
++}
++/// Barycentric judge-units positions at t (restricted.rs's scene: ccw from (sep(1−μ), 0)).
++fn planet(t: f64) -> [f64; 2] {
++    let (s, c) = (omega() * t).sin_cos();
++    [SEP * (1.0 - MU) * c, SEP * (1.0 - MU) * s]
++}
++fn star(t: f64) -> [f64; 2] {
++    let (s, c) = (omega() * t).sin_cos();
++    [-SEP * MU * c, -SEP * MU * s]
++}
++fn star_vel(t: f64) -> [f64; 2] {
++    let (s, c) = (omega() * t).sin_cos();
++    [-SEP * MU * omega() * s, SEP * MU * omega() * c]
++}
++fn soi() -> f64 {
++    SEP * (MU / 3.0).powf(1.0 / 3.0)
++}
++fn hill() -> f64 {
++    soi()
++}
++
++/// plane.rs's build_scene, verbatim in substance: star, planet on a circle, ship bare at doll 0.
++fn build_scene(ship: [f64; 4]) -> Option<(Universe, usize)> {
++    let to_root = 1.0 / (1.0 - MU);
++    let mass = Mass::of(from_f64(MU / (1.0 - MU))).ok()?;
++    let cfg = Config { step_log2: STEP_LOG2, ..Config::default() };
++    let mut u = Universe::new(from_f64(STAR_RADIUS as f64 * (SEP * to_root / AU as f64).min(1.0)), cfg);
++    u.threads = 1;
++    let planet_id = u
++        .add_body(
++            Kind::Planet,
++            OrbitSpec { doll: 0, periapsis: from_f64(SEP * to_root), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            Scalar::ZERO,
++        )
++        .ok()?;
++    let surface = from_f64(PLANET_RADIUS * to_root).scale(-mass.octave).ok()?;
++    u.add_doll("planet", planet_id, mass, surface).ok()?;
++    let (sp, sv) = (star(0.0), star_vel(0.0));
++    let id = u
++        .add_body_state(
++            Kind::Ship,
++            0,
++            [from_f64((ship[0] - sp[0]) * to_root), from_f64((ship[1] - sp[1]) * to_root)],
++            [from_f64(ship[2] - sv[0]), from_f64(ship[3] - sv[1])],
++            Scalar::ZERO,
++        )
++        .ok()?;
++    u.start().ok()?;
++    Some((u, id))
++}
++
++fn hex(s: &[f64]) -> String {
++    s.iter().map(|x| format!("{:016x}", x.to_bits())).collect::<Vec<_>>().join(" ")
++}
++
++/// The ship's barycentric judge-units state at tick (plane.rs's readback, verbatim in substance).
++fn state_at(u: &mut Universe, id: usize, t: f64) -> Option<[f64; 4]> {
++    let to_root = 1.0 / (1.0 - MU);
++    let tick = (t * to_root).round() as i64;
++    u.settle(tick);
++    if !u.bodies().alive(id) {
++        return None;
++    }
++    let (pos, vel) = observe::root_state(&u.ctx(), id, tick).ok()?;
++    let (sp, sv) = (star(t), star_vel(t));
++    Some([pos[0] / to_root + sp[0], pos[1] / to_root + sp[1], vel[0] + sv[0], vel[1] + sv[1]])
++}
++
++/// The planet's barycentric velocity at t.
++fn planet_vel(t: f64) -> [f64; 2] {
++    let (s, c) = (omega() * t).sin_cos();
++    [-SEP * (1.0 - MU) * omega() * s, SEP * (1.0 - MU) * omega() * c]
++}
++
++/// assist.rs's flyby start (q planet radii, v_inf, psi), verbatim in substance: planetocentric
++/// hyperbola at 1.5 R_SOI, made barycentric with the planet's own position and velocity.
++fn flyby_start(q: f64, v_inf: f64, psi: f64) -> [f64; 4] {
++    let (mu, q) = (MU, q * PLANET_RADIUS);
++    let e = 1.0 + q * v_inf * v_inf / mu;
++    let p = q * (1.0 + e);
++    let r = 1.5 * soi();
++    let nu = -((p / r - 1.0) / e).acos();
++    let angle = psi + (-1.0 / e).acos() + nu;
++    let h = (mu * p).sqrt();
++    let (radial, along) = (mu / h * e * nu.sin(), h / r);
++    let (s, c) = angle.sin_cos();
++    let (pp, pv) = (planet(0.0), planet_vel(0.0));
++    [
++        pp[0] + r * c,
++        pp[1] + r * s,
++        pv[0] + radial * c - along * s,
++        pv[1] + radial * s + along * c,
++    ]
++}
++
++/// hill.rs's moon birth, verbatim in substance: a in metres-of-sep units (caller passes a/HILL).
++fn moon_start(a_over_hill: f64, phase: f64, e0: f64, prograde: bool) -> [f64; 4] {
++    let a = a_over_hill * hill();
++    let (s, c) = phase.sin_cos();
++    let (r, v) = (
++        a * (1.0 - e0),
++        (MU * (1.0 + e0) / (a * (1.0 - e0))).sqrt() * if prograde { 1.0 } else { -1.0 },
++    );
++    let (pp, pv) = (planet(0.0), planet_vel(0.0));
++    [pp[0] + r * c, pp[1] + r * s, pv[0] - v * s, pv[1] + v * c]
++}
++
++/// hill.rs's apsidal-rate estimator on the planetocentric series, verbatim in substance.
++fn apsidal_rate(times: &[f64], states: &[[f64; 4]]) -> Option<(f64, f64)> {
++    let mut varpi: Vec<f64> = Vec::new();
++    for (&t, s) in times.iter().zip(states) {
++        let p = planet(t);
++        let w = [s[0] - p[0], s[1] - p[1], s[2], s[3]];
++        let (r2, v2, rv) = (w[0] * w[0] + w[1] * w[1], w[2] * w[2] + w[3] * w[3], w[0] * w[2] + w[1] * w[3]);
++        let k = v2 - MU / r2.sqrt();
++        let (ex, ey) = (k * w[0] - rv * w[2], k * w[1] - rv * w[3]);
++        if !(ex.hypot(ey) > 1e-9 * MU) {
++            return None;
++        }
++        let ang = ey.atan2(ex);
++        let Some(&last) = varpi.last() else {
++            varpi.push(ang);
++            continue;
++        };
++        let mut jump = (ang - last) % TAU;
++        if jump > std::f64::consts::PI {
++            jump -= TAU;
++        } else if jump < -std::f64::consts::PI {
++            jump += TAU;
++        }
++        if jump.abs() > std::f64::consts::FRAC_PI_2 {
++            return None;
++        }
++        varpi.push(last + jump);
++    }
++    let u: Vec<f64> = times.iter().map(|&t| t / period()).collect();
++    let n = u.len() as f64;
++    let (mu_, mv) = (u.iter().sum::<f64>() / n, varpi.iter().sum::<f64>() / n);
++    let (num, den) = (
++        u.iter().zip(&varpi).map(|(a, b)| (a - mu_) * (b - mv)).sum::<f64>(),
++        u.iter().map(|a| (a - mu_) * (a - mu_)).sum::<f64>(),
++    );
++    Some((num / den, varpi.last().copied()? - varpi[0]))
++}
++
++/// A tiny deterministic LCG (the probe's own draws; the gate's stream is its own).
++fn lcg(seed: u64) -> impl FnMut() -> f64 {
++    let mut s = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++    move || {
++        s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        ((s >> 11) as f64 / (1u64 << 53) as f64)
++    }
++}
++
++fn main() {
++    let mode = std::env::args().nth(1).unwrap_or_else(|| "flyby".into());
++    let armed = std::env::var_os("ES_STAGGER").is_some_and(|v| v != "0");
++    println!("probe mode={mode} stagger={armed} step_log2={STEP_LOG2} mu={MU} sep={SEP} P={}", period());
++    match mode.as_str() {
++        "flyby" => {
++            let mut rng = lcg(0x5EED_0001);
++            for i in 0..8 {
++                let q = 1.2 * (50.0f64 / 1.2).powf(rng());
++                let v_inf = 1.67e-5 + (6.7e-5 - 1.67e-5) * rng();
++                let psi = TAU * rng();
++                let ship = flyby_start(q, v_inf, psi);
++                let Some((mut u, id)) = build_scene(ship) else {
++                    println!("flyby {i} q={q:.2}r v_inf={v_inf:.3e} psi={psi:.3} BUILD-REFUSED");
++                    continue;
++                };
++                let st0 = state_at(&mut u, id, 0.0).unwrap();
++                print!("flyby {i} q={q:.2}r v_inf={v_inf:.3e} psi={psi:.3} start {}", hex(&st0));
++                for frac in [0.2f64, 0.4, 0.6, 0.8, 1.0] {
++                    let t = frac * period();
++                    match state_at(&mut u, id, t) {
++                        Some(s) => {
++                            // heliocentric E and L (assist.rs's formulas)
++                            let (sp, sv) = (star(t), star_vel(t));
++                            let (rx, ry) = (s[0] - sp[0], s[1] - sp[1]);
++                            let (vx, vy) = (s[2] - sv[0], s[3] - sv[1]);
++                            let e_h = (vx * vx + vy * vy) / 2.0 - (1.0 - MU) / (rx * rx + ry * ry).sqrt();
++                            let l_h = rx * vy - ry * vx;
++                            print!(" t{frac:.1} {} E={:016x} L={:016x}", hex(&s), e_h.to_bits(), l_h.to_bits());
++                        }
++                        None => print!(" t{frac:.1} LOST"),
++                    }
++                }
++                println!();
++            }
++        }
++        "moon" => {
++            let mut rng = lcg(0x5EED_0002);
++            for i in 0..8 {
++                let a_h = 0.2 + 0.7 * rng();
++                let e0 = [0.0f64, 0.15, 0.3][i % 3];
++                let pro = i % 2 == 0;
++                let phase = TAU * rng();
++                let ship = moon_start(a_h, phase, e0, pro);
++                let Some((mut u, id)) = build_scene(ship) else {
++                    println!("moon {i} a={a_h:.3}H e0={e0} pro={pro} BUILD-REFUSED");
++                    continue;
++                };
++                let n_per = 10; // planet periods (the frozen gate flies 50; the plane times out there)
++                let samples: Vec<f64> = (1..=n_per * 64).map(|j| j as f64 * period() / 64.0).collect();
++                let mut states = Vec::with_capacity(samples.len());
++                let mut lost = false;
++                for &t in &samples {
++                    match state_at(&mut u, id, t) {
++                        Some(s) => states.push(s),
++                        None => {
++                            lost = true;
++                            break;
++                        }
++                    }
++                }
++                let escaped = samples.iter().zip(&states).any(|(&t, s)| {
++                    let p = planet(t);
++                    ((s[0] - p[0]).hypot(s[1] - p[1])) > 1.5 * hill()
++                });
++                for (j, (&t, s)) in samples.iter().zip(&states).enumerate() {
++                    println!("raw {i} {j} {t:.6e} {}", hex(s));
++                }
++                match (lost, apsidal_rate(&samples[..states.len()], &states)) {
++                    (false, Some((rate, adv))) => println!(
++                        "moon {i} a={a_h:.3}H e0={e0:.2} pro={pro} phase={phase:.3} n={} escaped={escaped} rate={:.9e} rad/P advance={:.6} end {}",
++                        states.len(), rate, adv, hex(&states[states.len() - 1])
++                    ),
++                    _ => println!("moon {i} a={a_h:.3}H e0={e0:.2} pro={pro} phase={phase:.3} lost={lost} states={} escaped={escaped}", states.len()),
++                }
++            }
++        }
++        _ => eprintln!("modes: flyby | moon"),
++    }
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..21fbe7e4 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -330,6 +330,20 @@ pub(crate) fn passage_edge(ctx: &Ctx, doll: u16) -> Option<Scalar> {
+     (doll != 0).then(|| ctx.dolls[doll as usize].edge.scale(2).ok()).flatten()
+ }
+ 
++/// Whether ES_STAGGER is armed: ship birth kicks are spread over one step (read once).
++fn stagger_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var_os("ES_STAGGER").is_some_and(|v| v != "0"));
++    *ON
++}
++/// A uniform 64-bit draw from a body id (splitmix64's finalizer): the stagger's fraction of a step.
++fn stagger_hash(mut x: u64) -> u64 {
++    x = x.wrapping_add(0x9E3779B97F4A7C15);
++    x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++    x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB);
++    x ^ (x >> 31)
++}
++
+ struct Work<'a, 'c> {
+     ctx: &'a Ctx<'c>,
+     i: usize,
+@@ -625,7 +639,8 @@ impl Work<'_, '_> {
+     /// is planned at the middle of the first step.
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
+-        if self.rec.ext.is_none() {
++        let first = self.rec.ext.is_none();
++        if first {
+             let st = self.rec.b.readout(t)?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+@@ -649,7 +664,15 @@ impl Work<'_, '_> {
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+         self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
+-        insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
++        // ES_STAGGER (default off): a SHIP's first clock kick is offset by a uniform id-derived fraction of one
++        // step, so a population born at one tick does not kick as one wave (the belt's first-kick wave). Only the
++        // item's time moves; the kick's weight, the step, the readouts and the player are untouched.
++        let off = if first && stagger_on() && self.rec.kind == Kind::Ship {
++            ((stagger_hash(self.i as u64) as u128 * (2 * half) as u128) >> 64) as i64
++        } else {
++            0
++        };
++        insert(&mut self.rec.plan, Item { t: t + half + off, what: What::Kick(0) });
+         self.plan_terminal(t)
+     }
+ 
