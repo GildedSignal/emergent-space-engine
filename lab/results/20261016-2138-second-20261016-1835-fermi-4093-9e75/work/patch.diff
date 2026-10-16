@@ -1,0 +1,113 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..22044cb8 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,6 +14,7 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+@@ -21,13 +22,35 @@ extern "C" {
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    unsafe {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr());
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        // Linux: resident pages now, and the kernel's high-water mark for the peak.
++        let now = std::fs::read_to_string("/proc/self/statm")
++            .ok()
++            .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++            .map(|pages| pages * 4096)
++            .unwrap_or(0);
++        let peak = std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|s| {
++                s.lines()
++                    .find(|l| l.starts_with("VmHWM:"))
++                    .and_then(|l| l.split_whitespace().nth(1).and_then(|kb| kb.parse::<u64>().ok()))
++            })
++            .map(|kb| kb * 1024)
++            .unwrap_or(0);
++        (now, peak)
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -54,7 +77,7 @@ fn main() {
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
+-    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
++    let mut rows: Vec<(usize, f64, u64, f64, f64)> = Vec::new(); // frame, ms, events, deficit game-s (target-presented), presented advance game-s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+     let (mut held_max, mut truncated) = (0usize, false);
+@@ -86,7 +109,7 @@ fn main() {
+                 stage_calls[k] += calls[k];
+             }
+         }
+-        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS, frame.ticks as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -156,6 +179,40 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    // The freeze, measured directly. `frame_to` sets target = presented + want each frame, so the per-frame lag
++    // (target - presented) can never exceed rtf/60 and saturates whenever any frame stalls: it does not measure a
++    // freeze. These do: the deficit integral (game-seconds of presented time the budget did not deliver, summed
++    // over every frame after the first second) and the longest clamped spell (a maximal run of consecutive frames
++    // with a positive deficit) with its own event count and engine time. spell_frames/60 is the spell's wall length
++    // under the game's real 60-fps pacing (per-frame work is budget-capped, so pacing does not change it).
++    let mut deficit_s = 0.0f64;
++    let (mut lag_frames, mut lag_events, mut lag_ms) = (0usize, 0u64, 0.0f64);
++    let mut spell = (0usize, 0usize, 0u64, 0.0f64, 0.0f64); // len, at frame, events, ms, presented advance game-s
++    let mut run = (0usize, 0usize, 0u64, 0.0f64, 0.0f64);
++    for r in late.iter() {
++        if r.3 > 0.0 {
++            deficit_s += r.3;
++            lag_frames += 1;
++            lag_events += r.2;
++            lag_ms += r.1;
++            if run.0 == 0 {
++                run.1 = r.0;
++            }
++            run = (run.0 + 1, run.1, run.2 + r.2, run.3 + r.1, run.4 + r.4);
++        } else {
++            if run.0 > spell.0 {
++                spell = run;
++            }
++            run = (0, 0, 0, 0.0, 0.0);
++        }
++    }
++    if run.0 > spell.0 {
++        spell = run;
++    }
++    println!(
++        "freeze: lag_frames={lag_frames} deficit_s={deficit_s:.0} spell_at={} spell_frames={} spell_wall_s={:.1} spell_events={} spell_presented_s={:.1} spell_ms={:.0} spell_us_per_ev={:.1} lag_events={lag_events} lag_ms={lag_ms:.0}",
++        spell.1, spell.0, spell.0 as f64 / 60.0, spell.2, spell.4, spell.3, spell.3 * 1e3 / spell.2.max(1) as f64
++    );
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()

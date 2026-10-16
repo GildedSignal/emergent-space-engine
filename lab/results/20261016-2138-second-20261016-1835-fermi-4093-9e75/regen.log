@@ -1,0 +1,20 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.25s
+== The freeze, measured directly (spell = longest run of frames with target-presented > 0; wall at the game's real 60-fps pacing = frames/60) ==
+arm                   ran spell@ spellF wall s E_spell present Ĉ µs/ev E·Ĉ/0.72 ratio deficit s lag(°)
+F1 1e5 coast 1800    2400    497    428    7.1   96995    1461    51.6      7.0  1.02     22812  29.14
+    window: game 47388 s, kicks 273274, boundaries 172132, events 446314; deficit frames 922 in total (the spell is 46% of them; delivered at real pacing 13661 ev/s)
+F2 3e5 coast 1800    2400    500   1253   20.9  298465    1623    49.9     20.7  1.01     41891  29.77
+    window: game 28309 s, kicks 344017, boundaries 321770, events 666441; deficit frames 1511 in total (the spell is 83% of them; delivered at real pacing 14281 ev/s)
+F4 3e5 coast 3600    1800    293   1411   23.5  304515    1851    54.7     23.1  1.02     85048  60.00
+    window: game 19352 s, kicks 329792, boundaries 29801, events 359699; deficit frames 1516 in total (the spell is 93% of them; delivered at real pacing 12958 ev/s)
+
+== N-scaling: E_spell(3e5)/E_spell(1e5) = 3.08 (belt bodies x3.00) — one crest event per body, linear ==
+10^6 (cannot fly: build alone 2,340 B/B = 2.34 GB > the 2-GB process cap) = 3.33x F2: E ~= 994883, spell 69 s per 28,141.5-game-s interval
+10^9: E ~= 9.95e+08, CPU 49645 s per crest -> freeze 19.2 h of clamped presented time per interval, or 1.8 cores sustained at rtf 1 (18 at rtf 10, 176 at rtf 100)
+
+== The metric replaces the lag: at rtf 3600 the lag prints its ceiling 60.000 (= rtf/60) while E(3600)/E(1800) = 1.020, spell 23.5 s vs 20.9 s (rtf-independent), deficit ratio 2.03 (= rtf ratio 2.00) ==
+
+== F3 burn arm: the freeze is ABSENT — the crest breaks the budget instead ==
+    spell 36 frames = 0.6 s, E_spell 1870, deficit 1561 game-s (coast: 22.1 s, 299,138, 42,364)
+    frames over 12 ms: 174, p99 463 ms, max 2581 ms; truncated=true at 1453/2400 frames; memory 705 -> 5875 MB (19582 B/B); held_max 1655
+    worst frame: 2581 ms carrying the crest's events at the usual cost — one started item resolved a whole wave; the budget's per-item stop (first item always runs, margin = recent item cost, shipped worst case 1.4 ms) cannot see inside it
