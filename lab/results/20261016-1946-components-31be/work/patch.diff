@@ -1,0 +1,179 @@
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..158b80ad 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -197,3 +197,174 @@ impl Encounters for PlayerNeighbourhood {
+         Some(scan)
+     }
+ }
++
++/// A print-only instrument (no behaviour change): one scan answer, measured and decomposed.
++/// Replicates `capture`'s candidate walk and `compute`'s reads exactly (same filters, same
++/// exact predicate), then computes, in float, the sound mean-longitude band cut the radial
++/// certificate's own argument implies: a pair can meet only if the mean-longitude
++/// difference, swept by the mean motions over the interval, comes within the equation of
++/// centre `max|ν−M|(e)` of both bodies of a whole turn. `hit ∧ ¬pass` is reported: it must
++/// stay zero (the cut is a necessary condition).
++#[doc(hidden)]
++pub fn belt_answer_probe(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick, tag: &str) {
++    let Some(me) = ctx.bodies.binding_at(body, t) else {
++        println!("{{\"probe\":\"{tag}\",\"err\":\"no binding\"}}");
++        return;
++    };
++    let (Ok((x, v)), Ok(h)) = (me.cartesian(t), time_of(interval, me.clock_exp)) else {
++        println!("{{\"probe\":\"{tag}\",\"err\":\"no read\"}}");
++        return;
++    };
++    let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
++    let (r_p, v_p) = (norm(x), norm(v));
++    let w = Window { r: r_p, v: v_p, reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
++    let near = ctx.radial.candidates(me.doll, &w);
++    let near_len = near.as_ref().map_or(0, |ids| ids.len());
++    let mut candidates: Vec<(usize, Binding, Scalar)> = Vec::new();
++    for j in near.map_or_else(
++        || Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>,
++        |ids| Box::new(ids.into_iter()) as Box<dyn Iterator<Item = usize>>,
++    ) {
++        if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
++            continue;
++        }
++        let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++        if other.doll != me.doll {
++            continue;
++        }
++        let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
++        if reach.is_zero() {
++            continue;
++        }
++        candidates.push((j, other, reach));
++    }
++    // The shipped answer half, timed: read every candidate, exact predicate on each.
++    let mut rows: Vec<([f64; 2], [f64; 2], f64, bool)> = Vec::with_capacity(candidates.len()); // x, v, reach, hit
++    let (mut encounters, mut contacts) = (0usize, 0usize);
++    let t0 = std::time::Instant::now();
++    for (_j, other, reach) in &candidates {
++        let found = (|| -> Res<Option<bool>> {
++            let (xj, vj) = other.cartesian(t)?;
++            let d = sub2(xj, x)?;
++            let wv = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
++            let q_exp = reach.exponent() as i32 - 20;
++            let (di, wi) = (integers(d, q_exp)?, integers(wv, q_exp)?);
++            if !hit(di, wi, reach.scale(ENCOUNTER_LOG2)?.fixed(-q_exp)?) {
++                return Ok(None);
++            }
++            rows.push((
++                [to_f64(xj[0]), to_f64(xj[1])],
++                [to_f64(vj[0]), to_f64(vj[1])],
++                to_f64(*reach),
++                true,
++            ));
++            Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
++        })();
++        if let Ok(Some(contact)) = found {
++            encounters += 1;
++            contacts += contact as usize;
++        }
++    }
++    let per_read_ns = t0.elapsed().as_nanos() as f64 / candidates.len().max(1) as f64;
++    // Float analysis: Newtonian elements, μ from the near-circular population's median.
++    let mut vm: Vec<f64> = rows
++        .iter()
++        .map(|(xj, vj, _, _)| (vj[0] * vj[0] + vj[1] * vj[1]) * xj.hypotf())
++        .collect();
++    vm.sort_by(|a, b| a.total_cmp(b));
++    let mu = vm.get(vm.len() / 2).copied().unwrap_or(1.0).max(1e-30);
++    let els = |x: [f64; 2], v: [f64; 2]| -> (f64, f64, f64) {
++        let r = x[0].hypot(x[1]);
++        let v2 = v[0] * v[0] + v[1] * v[1];
++        let rv = x[0] * v[0] + x[1] * v[1];
++        let c = (v2 - mu / r) / mu;
++        let (ex, ey) = (c * x[0] - rv / mu * v[0], c * x[1] - rv / mu * v[1]);
++        let e = ex.hypot(ey);
++        let a = 1.0 / (2.0 / r - v2 / mu);
++        let n = (mu / (a * a * a)).sqrt();
++        let hh = (mu * a * (1.0 - e * e)).sqrt().max(1e-30);
++        let cosv = ((x[0] * ex + x[1] * ey) / (r * e.max(1e-12))).clamp(-1.0, 1.0);
++        let sinv = (x[0] * v[1] - x[1] * v[0]) / (r * hh);
++        let nu = sinv.atan2(cosv);
++        let ee = 2.0 * ((1.0 - e).sqrt() * (nu / 2.0).sin()).atan2((1.0 + e).sqrt() * (nu / 2.0).cos());
++        let m = ee - e * ee.sin();
++        (e, ey.atan2(ex) + m, n)
++    };
++    let nu_max = |e: f64| -> f64 {
++        let mut best = 0.0f64;
++        for k in 0..128 {
++            let m = k as f64 / 128.0 * std::f64::consts::TAU;
++            let mut ee = m;
++            for _ in 0..20 {
++                ee -= (ee - e * ee.sin() - m) / (1.0 - e * ee.cos());
++            }
++            let nu = 2.0 * ((1.0 + e).sqrt() * (ee / 2.0).sin()).atan2((1.0 - e).sqrt() * (ee / 2.0).cos());
++            best = best.max((nu - m).abs());
++        }
++        best
++    };
++    let (xf, vf) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
++    let (e_p, lam_p, n_p) = els(xf, vf);
++    let tau = std::f64::consts::TAU;
++    let wrap = |a: f64| -> f64 {
++        let a = a.rem_euclid(tau);
++        if a > std::f64::consts::PI { a - tau } else { a }
++    };
++    let (mut pass, mut hits_passed) = (0usize, 0usize);
++    let (mut es, mut ds, mut true_gaps) = (Vec::new(), Vec::new(), Vec::new());
++    let mut pass_hit_rows: Vec<(f64, f64)> = Vec::new(); // (d, margin) for hits
++    for (xj, vj, reach, is_hit) in &rows {
++        let (e_j, lam_j, n_j) = els(*xj, *vj);
++        let d0 = wrap(lam_j - lam_p);
++        let dn = n_j - n_p;
++        let (lo, hi) = (d0 + dn.min(0.0) * to_f64(h), d0 + dn.max(0.0) * to_f64(h));
++        let d = if lo <= 0.0 && hi >= 0.0 { 0.0 } else { wrap(lo).abs().min(wrap(hi).abs()) };
++        let dv = ((vj[0] - vf[0]).powi(2) + (vj[1] - vf[1]).powi(2)).sqrt();
++        let rmin = xj[0].hypot(xj[1]).min(r_p);
++        let margin = nu_max(e_j) + nu_max(e_p) + (1024.0 * reach + dv * to_f64(h)) / rmin;
++        let p = d <= margin;
++        pass += p as usize;
++        hits_passed += (is_hit && !p) as usize;
++        if *is_hit {
++            pass_hit_rows.push((d, margin));
++        }
++        es.push(e_j);
++        ds.push(d);
++        true_gaps.push((xj[1].atan2(xj[0]) - xf[1].atan2(xf[0])).abs().rem_euclid(tau).min(
++            ((xj[1].atan2(xj[0]) - xf[1].atan2(xf[0])).abs().rem_euclid(tau) - tau).abs(),
++        ));
++    }
++    let q = |mut a: Vec<f64>, p: f64| -> f64 {
++        if a.is_empty() {
++            return 0.0;
++        }
++        a.sort_by(|x, y| x.total_cmp(y));
++        a[(((a.len() - 1) as f64) * p).round() as usize]
++    };
++    println!(
++        "{{\"probe\":\"{tag}\",\"doll\":{},\"bodies\":{},\"cands\":{},\"near_len\":{},\"reads\":{},\"enc\":{},\"contact\":{},\"per_read_us\":{:.3},\"h_s\":{:.4},\"pass\":{},\"pass_frac\":{:.5},\"hits_passed\":{},\"e_p\":{:.4},\"e50\":{:.4},\"e90\":{:.4},\"emax\":{:.4},\"d_min\":{:.3e},\"d1\":{:.3e},\"d50\":{:.3e},\"gap_min\":{:.3e},\"gap50\":{:.3e},\"r_p\":{:.1},\"hit_rows\":\"{:?}\"}}",
++        me.doll,
++        ctx.bodies.len(),
++        candidates.len(),
++        near_len,
++        rows.len(),
++        encounters,
++        contacts,
++        per_read_ns / 1e3,
++        to_f64(h),
++        pass,
++        pass as f64 / rows.len().max(1) as f64,
++        hits_passed,
++        e_p,
++        q(es.clone(), 0.5),
++        q(es.clone(), 0.9),
++        q(es.clone(), 1.0),
++        q(ds.clone(), 0.0),
++        q(ds.clone(), 0.01),
++        q(ds.clone(), 0.5),
++        q(true_gaps.clone(), 0.0),
++        q(true_gaps.clone(), 0.5),
++        r_p,
++        pass_hit_rows
++    );
++}
