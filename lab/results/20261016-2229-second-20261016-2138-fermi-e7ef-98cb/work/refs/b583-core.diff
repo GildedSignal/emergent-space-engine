@@ -1,0 +1,142 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..6b9bd0da 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -61,7 +61,7 @@ impl Trajectory {
+             Self::Plunge(p) => p.orbit_state(time),
+         }
+     }
+-    fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
++    pub fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
+         match self {
+             Self::Cycle(c) => c.at_radius(r),
+             Self::Passage(p) => p.at_radius(r),
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..1e81cd7c 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -44,6 +44,7 @@ use emergent_space::{
+     binding::{IntegerState, Trajectory},
+     orbit::Scalar,
+ };
++use std::sync::atomic::{AtomicU64, Ordering};
+ use std::sync::Arc;
+ 
+ pub const MIN_STEP: i64 = 2 * 64;
+@@ -254,7 +255,16 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+ }
+ 
+ /// The tick of the tube's next periapsis passage at or after `after`, if it has one.
+-fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
++pub fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
++    Ok(periapsis_epoch(b, after)?
++        .map(|at| i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis")))
++        .transpose()?)
++}
++
++/// The tube's next periapsis at or after `after` as the doll's time, unrounded: the epoch every
++/// mirror around a periapsis must use (`next_periapsis` is its ceiling, and a rounded epoch
++/// moves a mirrored crossing by up to a tick).
++fn periapsis_epoch(b: &Binding, after: Tick) -> Res<Option<Scalar>> {
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+     let at = match &b.entry.trajectory {
+@@ -272,7 +282,7 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+             peri
+         }
+     };
+-    Ok(Some(i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis"))?))
++    Ok(Some(at))
+ }
+ 
+ /// The impact the tube holds: the first tick at or after `after` where it is below `surface` (the doll's units). That is
+@@ -282,6 +292,15 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// found by bisection on that branch: the answer is the same however far ahead it is. None when the periapsis is above the
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
++///
++/// The trajectory already holds this question's inverse ([`Trajectory::at_radius`]: a knot lookup and
++/// one partial quadrature, exact): the outbound crossing's offset from the periapsis, mirrored to the
++/// inbound fall this bracket covers around the unrounded periapsis epoch. The predicate reads the
++/// turned tube plus its integer offset, so the readout's crossing sits within
++/// `‖offset‖ + a few quanta` of `|dr/dt|` per tick of the tube's — both closed-form — and that whole
++/// window is verified against the predicate itself, exactly as `next_exit` verifies its passage
++/// guess: the answer is the bisection's answer whatever the guess does, and the bisection stays as
++/// the fallback.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
+@@ -306,6 +325,44 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     if !inside(hi)? {
+         return Ok(None);
+     }
++    // The structural guess: the tube's own crossing, mirrored. `g` is the first tick at or after
++    // the tube's crossing (the mirror is exact in the integer law); the readout's crossing lies
++    // within `window` ticks either side (the offset's reach over the fall speed, both known), so
++    // the walk verifies `g, g±1, …, g±window` against the predicate and accepts the first tick
++    // that is inside with its predecessor outside — the bisection's answer, by the branch's
++    // monotonicity. Nothing outside the window is trusted: a miss falls through to the bisection.
++    if let (Some(peri), Some((off, at))) = (
++        periapsis_epoch(b, after)?,
++        b.entry.unit.to_tube(surface).ok().and_then(|r| b.entry.trajectory.at_radius(r).ok()),
++    ) {
++        let guess = b.to_doll(off).ok().and_then(|off| peri.sub(off).ok()).and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok()).and_then(|t| i64::try_from(t).ok());
++        if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
++            if let Some(k) = crossing_window(b, &at) {
++                let (mut reads, mut hit) = (0u32, None);
++                'walk: for d in 0..=k {
++                    for t in [Some(g + d), (d > 0).then_some(g - d)].into_iter().flatten() {
++                        if t <= lo || t > hi {
++                            continue;
++                        }
++                        reads += 1;
++                        if inside(t)? {
++                            reads += 1;
++                            if !inside(t - 1)? {
++                                hit = Some(t);
++                                break 'walk;
++                            }
++                        }
++                    }
++                }
++                IMPACT_WINDOW_READOUTS.fetch_add(reads as u64, Ordering::Relaxed);
++                if let Some(t) = hit {
++                    IMPACT_GUESS_FIRES.fetch_add(1, Ordering::Relaxed);
++                    return Ok(Some(t));
++                }
++                IMPACT_GUESS_FALLBACKS.fetch_add(1, Ordering::Relaxed);
++            }
++        }
++    }
+     while hi - lo > 1 {
+         let mid = lo + (hi - lo) / 2;
+         if inside(mid)? {
+@@ -317,6 +374,28 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     Ok(Some(hi))
+ }
+ 
++/// The crash search's structural guess, instrumented for the bench and the kick replay: how often
++/// the verified window answered (fires), how often it missed and the bisection ran (fallbacks),
++/// and the readouts the window spent. Counters only; never an outcome.
++pub static IMPACT_GUESS_FIRES: AtomicU64 = AtomicU64::new(0);
++pub static IMPACT_GUESS_FALLBACKS: AtomicU64 = AtomicU64::new(0);
++pub static IMPACT_WINDOW_READOUTS: AtomicU64 = AtomicU64::new(0);
++
++/// How many ticks either side of the tube's crossing the readout's crossing can sit: the integer
++/// offset's L1 reach (an upper bound on its radial effect) plus the turn's few quanta, over the
++/// crossing's closed-form fall speed `|dr/dt|` per tick, capped where a grazing fall would make
++/// the walk dearer than the bisection it saves.
++fn crossing_window(b: &Binding, at: &emergent_space::orbit::OrbitState) -> Option<i64> {
++    const CAP: i64 = 8;
++    let reach = (b.residual.position[0].unsigned_abs() + b.residual.position[1].unsigned_abs()).saturating_add(8);
++    let reach = Scalar::raw(reach.min(i64::MAX as u128) as i128, b.units.0 as i32).ok()?;
++    let fall = b.to_doll(at.radial_velocity).ok()?.abs().mul(time_of(1, b.clock_exp).ok()?).ok()?;
++    if fall.is_zero() {
++        return None;
++    }
++    Some((reach.div(fall).ok()?.fixed_ceil(0).ok()? as i64).saturating_add(1).min(CAP))
++}
++
+ /// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
+ /// and `t`: a clock reads its tube's length. `shift` is the doll's clock exponent.
+ pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar> {
