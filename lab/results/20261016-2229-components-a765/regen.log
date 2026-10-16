@@ -1,0 +1,20 @@
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+   Compiling emergent-shipmem v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/shipmem)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 45.57s
+== clean anchor (seed 1) ==
+kick_us made    {"median": 36.399, "p99": 61.193, "samples": 137}
+kick_us leavers {"median": 208.54, "p99": 384.117, "samples": 535}
+memo            {"cycle_rebinds": 653, "exact_hit_rate": 0.0, "exact_shapes": 653, "quantized_hit_rate": 0.9356814701378254, "quantized_shapes": 42}
+== audited rebind decomposition (ES_FLOOR_AUDIT=1) ==
+seed  1: calls 1467  fit_key 4.53 us  compile 65.28 us  tail 3.27 us  proto 2.34 us  rebind_mean 73.08 us
+          bit-agree 1003  bit-disagree 464 (sub-quantum 464, quantum-level 0)  exact_bigint_path 0  circular 0  passages 66
+          distinct exact keys 836 / distinct 2^-20-census keys 811
+seed  7: calls 1737  fit_key 4.42 us  compile 56.08 us  tail 3.03 us  proto 2.28 us  rebind_mean 63.52 us
+          bit-agree 1091  bit-disagree 646 (sub-quantum 646, quantum-level 0)  exact_bigint_path 0  circular 0  passages 55
+          distinct exact keys 961 / distinct 2^-20-census keys 937
+seed 42: calls 1349  fit_key 4.42 us  compile 53.30 us  tail 3.12 us  proto 2.31 us  rebind_mean 60.85 us
+          bit-agree 802  bit-disagree 547 (sub-quantum 547, quantum-level 0)  exact_bigint_path 0  circular 0  passages 55
+          distinct exact keys 767 / distinct 2^-20-census keys 744

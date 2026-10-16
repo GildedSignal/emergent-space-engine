@@ -1,0 +1,12 @@
+Working...
+**Grade: gold** — written to `lab/results/20261016-2229-components-a765/check2.md`, blind to checker 1 (never opened `check.md`; the page annotations I saw incidentally on the proposed wiki page were re-derived from my own runs before use).
+
+**Reproduction (exact).** Applied `work/patch.diff` myself, rebuilt, ran the dossier's commands: every counter bit-identical across three independent executions — calls 1,467/1,737/1,349, agree 2,896, disagree 1,657 all sub-quantum, passages 66/55/55, memo 0.0%/93.57%.
+
+**Adversarial arms (mine, outside both authors' sets).** Seeds 2026/777/5/13, rtf 300 (2,536 calls), 30 s flight → 11,382 more rebinds: `disagree_quantum=0`, `proto_errors=0`, `exact_path=0`, compile share 82.4–87.1% on every arm. Patched vs unpatched binaries: clean-bench digest identical. Code-verified: shipped root search is a 128-step bisection + `root_witness` (binding.rs:255–272); the prototype's key tail is verbatim the shipped tail.
+
+**Flaws found (reporting, not measurement).** regen.sh's printed tail subtracts the prototype from a total that excludes it — true tail 5.4–5.7 µs, rebind mean 57–77 µs, compile share 82–87% (not 85–90%); the dossier's passage share is off 10× (≈16 µs, not 1.3–1.6); prediction 1 is labelled "held" though all its pre-registered bands missed. No conclusion changes; I corrected the stale bands still standing in the page's Refuted/Open sections, fixed Open-2's ~7.5 µs → ~10 µs, added a checker-2 bracket, and reconciled the 93.6% vs 12db's 98% quantized hit (flight length: 96.0% on my 30 s arm).
+
+**Why gold.** The premise correction is real and new: the board's ~50 ns floor is the write floor; the arithmetic floor is ~6 µs derived term-by-term; the record's three floors (b063/1e74/fa08) are reconciled for the first time; the fit side is measured dead (6%, bisection 3%, Newton key-equal at the law's quantum on 25,660 rebinds over 14 arms). Adoption is one step (wire cd6e's verified Carlson compile). Prediction deaths (3, 4) were pre-registered and honestly disclosed — the 1 Oct precedent bars gold only for failures reported as held. Noted as missed: compile-dominance itself was already the record's reading (0ccd 53–71%, 0083, 30e1, cd6e's e-monotone wall) — the novelty is the floor reconciliation and population share, and the realizable wiring gain is 4–8×, not the floor's 10–12×.
+
+Tree restored clean (`git status` shows only untracked `lab/results/`).

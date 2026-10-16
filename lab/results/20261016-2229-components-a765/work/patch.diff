@@ -1,0 +1,358 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..4b657aed 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -194,6 +194,7 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let vr = dot(p, v)?.div(r)?;
+     let vt = p[0].mul(v[1])?.sub(p[1].mul(v[0])?)?.div(r)?;
+     if crate::inverse::circular(state) {
++        floor_audit::circular();
+         return Ok((OrbitKey::new(r, 1 << 48)?, r, vt < Scalar::ZERO, false));
+     }
+     let kinetic = vr.mul(vr)?.div(lapse)?.add(vt.mul(vt)?)?;
+@@ -209,6 +210,7 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     // defines the boundary quantization when an adapter perturbs E by less
+     // than the retained shape quantum; do not manufacture a radial cycle.
+     if alpha.abs() < Scalar::power_of_two(-48) {
++        floor_audit::exact();
+         return Ok((crate::inverse::fit(state)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+     }
+     let disc = Scalar::ONE.sub(q.mul(Scalar::integer(12))?)?;
+@@ -229,6 +231,7 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+         .sub(Scalar::ONE)?
+         .add(q.scale(1)?.mul(minimum)?)?;
+     if q > Scalar::power_of_two(-10) && barrier.abs() < Scalar::power_of_two(-24) {
++        floor_audit::exact();
+         return Ok((crate::inverse::fit(state)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+     }
+     if barrier.is_positive() {
+@@ -417,6 +420,59 @@ impl Rebinding {
+         Ok(fit)
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        if !floor_audit::on() {
++            return Self::from_state_plain(state, event_time, passage_edge);
++        }
++        let t0 = std::time::Instant::now();
++        let tk = std::time::Instant::now();
++        let fitted = fit_key(state, true);
++        floor_audit::stage(0, tk);
++        let (key, r, clockwise, incoming) = match fitted {
++            Ok(v) => v,
++            Err(e) => {
++                floor_audit::note_err();
++                return Err(e);
++            }
++        };
++        let tc = std::time::Instant::now();
++        let trajectory = if key.periodic() {
++            Trajectory::Cycle(Orbit::compile(key)?)
++        } else {
++            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++        };
++        floor_audit::stage(1, tc);
++        let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        if incoming {
++            offset = offset.negate();
++            sample.reflect();
++        }
++        let (p, _) = state.components()?;
++        let at = angle(p[0], p[1])?;
++        let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
++        let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
++        let mut fit = Self {
++            trajectory,
++            periapsis_time: event_time.sub(offset)?,
++            periapsis_angle,
++            clockwise,
++            residual: Residual {
++                position: [0; 2],
++                velocity: [0; 2],
++            },
++            event_time,
++            units: (state.length_exponent, state.velocity_exponent),
++        };
++        fit.residual = Residual::between(state, fit.decoded_event()?);
++        floor_audit::stage(2, t0);
++        // The floor prototype, on the same state: closed-form prefix + Newton for the
++        // turning root (no 128-step bisection, no root_witness), verbatim key tail.
++        let tp = std::time::Instant::now();
++        let proto = fit_key_proto(state);
++        let proto_ns = tp.elapsed().as_nanos() as u64;
++        floor_audit::note(key.periodic(), &proto, &key, proto_ns);
++        Ok(fit)
++    }
++    fn from_state_plain(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
+         let trajectory = if key.periodic() {
+             Trajectory::Cycle(Orbit::compile(key)?)
+@@ -521,3 +577,229 @@ mod tests {
+         }
+     }
+ }
++
++/// The floor prototype of [`fit_key`]: the same closed-form prefix, barrier refusal and
++/// key tail, with the turning root from 8 Newton steps on the critical-region seed (the
++/// seed `root_witness` uses) instead of the 128-step bisection plus witness. Disagreement
++/// with `fit_key` can only come from the root's ulp-level rounding moving the 48-bit key
++/// word (lab run 20261016-2229-components-a765).
++fn fit_key_proto(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
++    let (p, v) = state.components()?;
++    let r = norm(p)?;
++    let u = r.reciprocal()?;
++    let lapse = Scalar::ONE.sub(u.scale(1)?)?;
++    if !lapse.is_positive() {
++        return Err(Error::NoBoundOrbit);
++    }
++    let vr = dot(p, v)?.div(r)?;
++    let vt = p[0].mul(v[1])?.sub(p[1].mul(v[0])?)?.div(r)?;
++    if crate::inverse::circular(state) {
++        return Ok((OrbitKey::new(r, 1 << 48)?, r, vt < Scalar::ZERO, false));
++    }
++    let kinetic = vr.mul(vr)?.div(lapse)?.add(vt.mul(vt)?)?;
++    let den = lapse.sub(kinetic)?;
++    if !den.is_positive() || vt.is_zero() {
++        return Err(Error::NoBoundOrbit);
++    }
++    let angular = r.mul(vt)?;
++    let l2 = angular.mul(angular)?.div(den)?;
++    let q = l2.reciprocal()?;
++    let alpha = kinetic.sub(u.scale(1)?.mul(lapse)?)?.div(den)?.mul(l2)?;
++    if alpha.abs() < Scalar::power_of_two(-48) {
++        return crate::inverse::fit(state).map(|k| (k, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
++    }
++    let disc = Scalar::ONE.sub(q.mul(Scalar::integer(12))?)?;
++    if !disc.is_positive() {
++        return Err(Error::NoBoundOrbit);
++    }
++    let root = disc.sqrt()?;
++    let uc = Scalar::integer(2).div(Scalar::ONE.add(root)?)?;
++    let minimum = Scalar::ONE.add(root)?.div(q.mul(Scalar::integer(6))?)?;
++    let poly = |z: Scalar| -> Result<Scalar> { alpha.add(z.scale(1)?)?.sub(z.mul(z)?)?.add(q.scale(1)?.mul(z.mul(z)?.mul(z)?)?) };
++    let slope = |z: Scalar| -> Result<Scalar> { Scalar::integer(2).sub(z.scale(1)?)?.add(q.mul(Scalar::integer(6))?.mul(z.mul(z)?)?) };
++    let inverse = minimum.reciprocal()?;
++    let barrier = alpha
++        .mul(inverse)?
++        .mul(inverse)?
++        .add(inverse.scale(1)?)?
++        .sub(Scalar::ONE)?
++        .add(q.scale(1)?.mul(minimum)?)?;
++    if q > Scalar::power_of_two(-10) && barrier.abs() < Scalar::power_of_two(-24) {
++        return crate::inverse::fit(state).map(|k| (k, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
++    }
++    if barrier.is_positive() {
++        return Err(Error::NoBoundOrbit);
++    }
++    let at_c = poly(uc)?;
++    let zp = if at_c <= Scalar::ZERO {
++        if at_c.abs() > Scalar::power_of_two(-56) {
++            return Err(Error::NoBoundOrbit);
++        }
++        uc
++    } else {
++        // Concave cubic on [uc, minimum]: the tangent at a point left of the root crosses
++        // zero left of the root, so Newton from the critical-region seed rises monotonically.
++        let lo = uc;
++        let curvature = Scalar::ONE.sub(q.mul(Scalar::integer(6))?.mul(lo)?)?;
++        let mut z = if curvature.is_positive() {
++            let seed = lo.add(poly(lo)?.div(curvature)?.sqrt()?)?;
++            if seed > lo && seed < minimum { seed } else { lo.add(minimum)?.scale(-1)? }
++        } else {
++            lo.add(minimum)?.scale(-1)?
++        };
++        for _ in 0..8 {
++            let d = slope(z)?;
++            if d.is_zero() {
++                break;
++            }
++            let next = z.sub(poly(z)?.div(d)?)?;
++            if next <= lo || next >= minimum || next == z {
++                break;
++            }
++            z = next;
++        }
++        z
++    };
++    let rp = l2.div(zp)?;
++    let compact = rp.reciprocal()?;
++    let d = zp.reciprocal()?;
++    let b = Scalar::ONE.add(compact.scale(1)?)?;
++    let discriminant = b.mul(b)?.sub(compact.mul(Scalar::integer(16))?.mul(compact.add(d)?)?)?;
++    let k = compact.add(d)?.scale(1)?.div(b.add(discriminant.sqrt()?)?)?;
++    let word = u64::try_from(k.fixed(48)?).map_err(|_| Error::Range)?.min(1 << 48);
++    if k >= Scalar::power_of_two(-28) && k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
++        return Err(Error::Range);
++    }
++    let scaled = k < Scalar::power_of_two(-28);
++    let full_k = k;
++    let mut k = word;
++    if alpha.is_zero() {
++        k = 1 << 47;
++    } else if alpha.is_positive() {
++        k = k.min((1 << 47) - 1);
++    } else {
++        k = k.max((1 << 47) + 1);
++    }
++    let key = if scaled { OrbitKey::scaled(rp, full_k)? } else { OrbitKey::new(rp, k)? };
++    if alpha.is_positive() && key.needs_gap()? {
++        let (q, k) = (key.compactness()?, key.shape()?);
++        let one_minus_2q = Scalar::ONE.sub(q.scale(1)?)?;
++        let tn = k.mul(one_minus_2q)?.mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
++        let gap = tn.mul(den)?.div(lapse.mul(lapse)?)?;
++        return Ok((key.with_gap(gap)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
++    }
++    Ok((key, r, vt < Scalar::ZERO, vr < Scalar::ZERO))
++}
++
++/// Floor-audit instrument (lab run 20261016-2229-components-a765): stage timings of the
++/// rebind on real kick states, plus the prototype's key agreement and the exact-vs-law-
++/// quantum key census. Enabled by ES_FLOOR_AUDIT=1; zero cost otherwise.
++pub mod floor_audit {
++    use std::cell::RefCell;
++    use std::collections::HashSet;
++    use std::time::Instant;
++
++    #[derive(Default)]
++    struct Acc {
++        ns: [u64; 8],
++        calls: u64,
++        errs: u64,
++        agree: u64,
++        disagree: u64,
++        agree_quant: u64,
++        disagree_quant: u64,
++        proto_err: u64,
++        circular: u64,
++        exact: u64,
++        passage: u64,
++        keys_exact: HashSet<(i64, i16, u64, i16, u8)>,
++        keys_quant: HashSet<(i64, i16, u64, i16)>,
++    }
++    thread_local! {
++        static ACC: RefCell<Acc> = RefCell::new(Acc::default());
++    }
++    fn enabled() -> bool {
++        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++        *ON.get_or_init(|| std::env::var_os("ES_FLOOR_AUDIT").is_some())
++    }
++    pub fn on() -> bool {
++        enabled()
++    }
++    pub fn stage(i: usize, t: Instant) {
++        if enabled() {
++            ACC.with(|a| a.borrow_mut().ns[i] += t.elapsed().as_nanos() as u64);
++        }
++    }
++    pub fn circular() {
++        if enabled() {
++            ACC.with(|a| a.borrow_mut().circular += 1);
++        }
++    }
++    pub fn exact() {
++        if enabled() {
++            ACC.with(|a| a.borrow_mut().exact += 1);
++        }
++    }
++    pub fn note_err() {
++        if enabled() {
++            ACC.with(|a| a.borrow_mut().errs += 1);
++        }
++    }
++    /// One rebind: the shipped key, the prototype's outcome on the same state, the
++    /// prototype's nanoseconds. The quantum census drops 20 bits of the periapsis
++    /// significand and 24 of the key mantissa: the law's own 2^-20 relative tolerance.
++    pub fn note(periodic: bool, proto: &crate::Result<(super::OrbitKey, super::Scalar, bool, bool)>, key: &super::OrbitKey, proto_ns: u64) {
++        if !enabled() {
++            return;
++        }
++        ACC.with(|a| {
++            let mut a = a.borrow_mut();
++            a.calls += 1;
++            a.passage += u64::from(!periodic);
++            a.ns[5] += proto_ns;
++            a.keys_exact.insert((
++                key.periapsis.significand(),
++                key.periapsis.exponent(),
++                key.k,
++                key.k_exponent,
++                u8::from(key.gap.is_some()),
++            ));
++            a.keys_quant.insert((
++                key.periapsis.significand() >> 20,
++                key.periapsis.exponent(),
++                key.k >> 24,
++                key.k_exponent,
++            ));
++            let quant = |k: &super::OrbitKey| (
++                k.periapsis.significand() >> 20,
++                k.periapsis.exponent(),
++                k.k >> 24,
++                k.k_exponent,
++            );
++            match proto {
++                Ok((pk, _, _, _)) if pk == key => a.agree += 1,
++                Ok((pk, _, _, _)) => {
++                    a.disagree += 1;
++                    if quant(pk) == quant(key) {
++                        a.agree_quant += 1;
++                    } else {
++                        a.disagree_quant += 1;
++                    }
++                }
++                Err(_) => a.proto_err += 1,
++            }
++        });
++    }
++    pub fn json() -> String {
++        ACC.with(|a| {
++            let a = a.borrow();
++            format!(
++                "{{\"calls\": {}, \"fit_errors\": {}, \"proto_errors\": {}, \"agree\": {}, \"disagree\": {}, \"circular\": {}, \"exact_path\": {}, \"passages\": {}, \"distinct_exact_keys\": {}, \"distinct_quantized_keys\": {}, \"agree_quantum\": {}, \"disagree_quantum\": {}, \"ns_fit_key\": {}, \"ns_compile\": {}, \"ns_phase_residual\": {}, \"ns_proto\": {}}}",
++                a.calls, a.errs, a.proto_err, a.agree, a.disagree, a.circular, a.exact, a.passage,
++                a.keys_exact.len(), a.keys_quant.len(),
++                a.agree_quant, a.disagree_quant,
++                a.ns[0], a.ns[1], a.ns[2], a.ns[5]
++            )
++        })
++    }
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..742d5c85 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -222,8 +222,21 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>,
+ }
+ 
+ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
++    let t_audit = if emergent_space::binding::floor_audit::on() { Some(std::time::Instant::now()) } else { None };
++    let bound = bind_surface_inner(exact, t, clock_exp, edge, unit, surface, t_audit.is_some());
++    if let Some(t0) = t_audit {
++        emergent_space::binding::floor_audit::stage(7, t0);
++    }
++    bound
++}
++
++fn bind_surface_inner(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>, _audit: bool) -> Res<Bound> {
+     let t_fit = crate::prof::t();
+-    let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
++    let bound = bind_in(exact, t, clock_exp, edge, unit, surface);
++    if _audit {
++        // keep the prof accounting identical to the plain path
++    }
++    let bound = bound?;
+     crate::prof::add(crate::prof::FIT, t_fit);
+     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..e493057b 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -107,5 +107,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+     }))?);
++    if emergent_space::binding::floor_audit::on() {
++        println!("\"floor_audit\": {}", emergent_space::binding::floor_audit::json());
++    }
+     Ok(u8::from(refused != 0))
+ }
