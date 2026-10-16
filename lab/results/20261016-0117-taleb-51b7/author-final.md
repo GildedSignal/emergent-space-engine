@@ -1,0 +1,4 @@
+Working...
+Run complete: the ladder's named next rung ("a flight into the belt") is flown on merged main, with the ruin mapped, separated, and fenced — dossier, pre-registered predictions, a verified `regen.sh` (234 s, `REGEN-DONE`), and the nladder wiki page (all three merge conflicts resolved additively, result folded in) are in `lab/results/20261016-0117-taleb-51b7/`.
+
+**Claim, one sentence:** with the player mid-belt on merged main, the quiet belt and the entire first-kick wave mint **zero** neighbourhood scans (the encounter instrument is cadence-off at belt radii — enc = 0, the player flies blind), while a burn mints exactly one scan per player binding change, each pinning every candidate's binding — 11.3 MB marginal at 10⁵ (113 B/body), p50 29-30 ms standing, 1.92 GB in 2.5 s of burn — so `SCAN_BACKLOG`'s count cap can never engage before memory kills the machine (23 GB at 10⁵, 240 GB at the 10⁹ goal), and any budget-bitten frame wall-couples the digest.
