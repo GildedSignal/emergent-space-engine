@@ -1,0 +1,323 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..9c4f911f 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,22 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: the resident set and its high-water mark (kB fields of /proc/self/status). Orders of magnitude, as the lab reads them.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        } else if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -119,7 +137,8 @@ fn main() {
+         refusals += r.refusals;
+         dead += (!r.alive) as usize;
+     }
+-    // the view: one gather from a cold cache and one from the warm one, wall (skipped when the run is near its 60 s).
++    // census: reads of the compiled tables by reader, writes by kind; a snapshot before the view's gathers.
++    let (r0, w) = emergent_universe::census::report();
+     let mut cache = ViewCache::default();
+     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
+     // (a cold gather costs about 30 us a body: it runs only when it fits in the run's 60 s)
+@@ -133,6 +152,8 @@ fn main() {
+             warm = tv.elapsed().as_secs_f64() * 1e3;
+         }
+     }
++    let (r1, _) = emergent_universe::census::report();
++    let st = emergent_universe::census::standing(&p.u);
+     println!(
+         "frames after 1 s: {}  engine ms p50 {:.3} p90 {:.3} p99 {:.3} max {:.3}; over {budget_ms} ms: {over}; frames behind: {late_frames_lagging}, worst lag {lag:.3} s; events/frame p50 {} p99 {} max {}; scans held max {held_max}",
+         late.len(), pct(&ms, 0.5), pct(&ms, 0.9), pct(&ms, 0.99), pct(&ms, 1.0), pct(&ev, 0.5), pct(&ev, 0.99), pct(&ev, 1.0)
+@@ -141,7 +162,11 @@ fn main() {
+         "game {game_s:.1} s after the first second: kicks {kicks} ({:.3e}/body/game-s), events {evs} ({:.3e}/body/game-s), stats {{opens {}, boundaries {}, handoffs {}, lost {}, refused {}, slices {}}}; refusals held {refusals}, dead {dead}, alive(player) {alive}",
+         per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.handoffs - s0.handoffs, last_stats.lost - s0.lost, last_stats.refused - s0.refused, last_stats.slices - s0.slices
+     );
+-    println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end (now {:.0} MB); {:.0} B a body from the build; dashboard bytes/body {}; view gather {cold:.1} ms cold, {warm:.1} ms warm ({seen} seen); catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
++    let (rt, wt): (u64, u64) = (r1.iter().sum(), w.iter().sum());
++    println!(
++        "census: writes {} (retries {}); reads {rt} = {:.2} a write: kick {} crash {} plan {} rebind {} clock {} other {} view {}; the two gathers added {} reads; standing: {} bodies {} cycles, {} knots, {} crossings, {} B compiled ({:.0} B/body, {:.0} B/cycle)",
++        wt, w[1], rt as f64 / wt.max(1) as f64, r1[0], r1[1], r1[2], r1[4], r1[5], r1[6], r1[3], r1[3] - r0[3], st[0], st[1], st[2], st[3], st[4], st[4] as f64 / st[0].max(1) as f64, st[4] as f64 / st[1].max(1) as f64
++    );
+     if emergent_universe::prof::ENABLED {
+         println!("stages (µs per frame, calls per frame, ns per call), over the {} frames:", late.len());
+         for k in 0..emergent_universe::prof::N {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..c07fbe4f 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -115,6 +115,7 @@ pub struct Binding {
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    crate::census::read();
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+@@ -243,6 +244,7 @@ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<S
+     };
+     let t_again = crate::prof::t();
+     let again = bind_in(coarser, t, clock_exp, edge, unit, surface);
++    crate::census::write(1);
+     crate::prof::add(crate::prof::FIT2, t_again);
+     again
+ }
+@@ -258,6 +260,7 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
++    crate::census::write(0);
+     let input = in_tube_units(exact, unit)?;
+     let time = unit.to_tube(time_of(t, clock_exp)?)?;
+     let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..7d6d54d2
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,98 @@
++//! Read/write census of the compiled cycle (lab run 20261016-1946-system-5d50).
++//!
++//! The standing question: is a body's compiled trajectory (the knot table) *state* (read
++//! many times between writes) or a *transient of the event that wrote it* (read O(1)
++//! times, at the next event)? Every panel read of a compiled table goes through
++//! [`crate::bind::decode`]; every fresh table is written by [`crate::bind::bind_in`].
++//! Thread-safe statics, zero cost when not reported; the tags name the reader.
++
++use std::cell::Cell;
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// A kick's own readout of the state it is about to change (`Work::kick`).
++pub const R_KICK: usize = 0;
++/// `next_impact`'s surface search (the crash check after a kick or boundary).
++pub const R_CRASH: usize = 1;
++/// Event planning that reads the table (`next_periapsis`, `next_exit`).
++pub const R_PLAN: usize = 2;
++/// The view: the retarded-time gather and the HUD's clock read.
++pub const R_VIEW: usize = 3;
++/// The rebind itself reading the old binding's clock (`orbit_state` for τ).
++pub const R_BIND: usize = 4;
++/// Clock reads between events (`proper_since`, the player's clock-stepped path).
++pub const R_TAU: usize = 5;
++/// Anything else (genesis, doll creation, captures, hand-outs' reads).
++pub const R_OTHER: usize = 6;
++pub const READERS: usize = 7;
++
++pub const READER_NAMES: [&str; READERS] = [
++    "kick readout", "crash search", "plan", "view", "rebind tau", "clock", "other",
++];
++
++/// A fresh compiled cycle standing in a binding (`bind_in`).
++pub const W_BIND: usize = 0;
++/// The coarser-word second fit of the same bind (the retry).
++pub const W_RETRY: usize = 1;
++pub const WRITERS: usize = 2;
++
++static READS: [AtomicU64; READERS] = [const { AtomicU64::new(0) }; READERS];
++static WRITES: [AtomicU64; WRITERS] = [const { AtomicU64::new(0) }; WRITERS];
++
++thread_local! {
++    static READER: Cell<usize> = const { Cell::new(R_OTHER) };
++}
++
++/// Run `f` with every `decode` it performs counted under `reader`.
++pub fn with<R>(reader: usize, f: impl FnOnce() -> R) -> R {
++    struct Reset(usize);
++    impl Drop for Reset {
++        fn drop(&mut self) {
++            READER.with(|r| r.set(self.0));
++        }
++    }
++    let old = READER.with(|r| r.replace(reader));
++    let guard = Reset(old);
++    let out = f();
++    drop(guard);
++    out
++}
++
++/// Called by `decode` only: one panel read of a compiled table.
++pub(crate) fn read() {
++    let r = READER.with(|c| c.get());
++    READS[r.min(READERS - 1)].fetch_add(1, Ordering::Relaxed);
++}
++/// What the bindings hold at this instant: (bodies, bound cycles, knots, crossings, bytes of
++/// compiled table: knots and crossing words). Passages and plunges hold their own arcs, counted
++/// as bodies only.
++pub fn standing(u: &crate::universe::Universe) -> [usize; 5] {
++    let n = u.n_bodies();
++    let (mut cycles, mut knots, mut crossings) = (0usize, 0usize, 0usize);
++    for i in 0..n {
++        if let emergent_space::binding::Trajectory::Cycle(o) = &u.rec(i).b.entry.trajectory {
++            cycles += 1;
++            knots += o.shape().knots().len();
++            crossings += o.shape().crossings().len();
++        }
++    }
++    let bytes = knots * std::mem::size_of::<emergent_space::orbit::Knot>() + crossings * std::mem::size_of::<usize>();
++    [n, cycles, knots, crossings, bytes]
++}
++
++/// Called by `bind_in` (W_BIND) and its coarser retry (W_RETRY).
++pub(crate) fn write(retry: usize) {
++    WRITES[retry.min(WRITERS - 1)].fetch_add(1, Ordering::Relaxed);
++}
++
++/// The census so far: (reads by reader, writes by kind).
++pub fn report() -> ([u64; READERS], [u64; WRITERS]) {
++    let mut r = [0_u64; READERS];
++    let mut w = [0_u64; WRITERS];
++    for i in 0..READERS {
++        r[i] = READS[i].load(Ordering::Relaxed);
++    }
++    for i in 0..WRITERS {
++        w[i] = WRITES[i].load(Ordering::Relaxed);
++    }
++    (r, w)
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..bf770589 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -2,7 +2,7 @@
+ pub mod bind;
+ pub mod body;
+ pub mod ctx;
+-pub mod dash;
++pub mod census;
+ pub mod encounter;
+ pub mod ext;
+ pub mod fleet;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..c3680411 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -200,7 +200,7 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
+ 
+ /// [`next_exit`], with or without the passage's analytic guess (the bisection alone is the reference the guess must equal).
+ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Option<Tick>> {
+-    let outside = |t: Tick| -> Res<bool> { Ok(b.orbit_state(t)?.radius >= edge) };
++    let outside = |t: Tick| -> Res<bool> { Ok(crate::census::with(crate::census::R_PLAN, || b.orbit_state(t))?.radius >= edge) };
+     if outside(after)? {
+         return Ok(Some(after));
+     }
+@@ -288,7 +288,7 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+     }
+     // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
+-    let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface) };
++    let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&crate::census::with(crate::census::R_CRASH, || b.readout(t))?)?.0)? < surface) };
+     if inside(after)? {
+         return Ok(Some(after));
+     }
+@@ -320,7 +320,9 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+ /// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
+ /// and `t`: a clock reads its tube's length. `shift` is the doll's clock exponent.
+ pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar> {
+-    let tau = b.orbit_state(t)?.proper_time.sub(b.orbit_state(since.max(b.event_time))?.proper_time)?;
++    let tau = crate::census::with(crate::census::R_TAU, || -> Res<Scalar> {
++        b.orbit_state(t)?.proper_time.sub(b.orbit_state(since.max(b.event_time))?.proper_time)
++    })?;
+     Ok(tau.scale(-(shift as i32))?)
+ }
+ 
+@@ -358,7 +360,7 @@ impl Work<'_, '_> {
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let tau = crate::census::with(crate::census::R_BIND, || -> Res<Scalar> { old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time) })?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+@@ -404,7 +406,7 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
++        let st = crate::census::with(crate::census::R_KICK, || self.rec.b.readout(t))?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+@@ -475,7 +477,7 @@ impl Work<'_, '_> {
+         if l >= LEVELS {
+             return Ok(());
+         }
+-        let st = self.rec.b.readout(t)?;
++        let st = crate::census::with(crate::census::R_PLAN, || self.rec.b.readout(t))?;
+         let (x, v) = scalars(&st)?;
+         if l > 0 && self.maybe_capture(t, &st, x)? {
+             return Ok(());
+@@ -609,7 +611,7 @@ impl Work<'_, '_> {
+ 
+     /// Project the energy register onto the constraint `K = 0` at the state read at `t`: `p_t = U_P − H_D`.
+     fn project(&mut self, t: Tick) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
++        let st = crate::census::with(crate::census::R_TAU, || self.rec.b.readout(t))?;
+         let (x, v) = scalars(&st)?;
+         let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
+         let u = force::field(&secs, x)?.potential;
+@@ -626,13 +628,13 @@ impl Work<'_, '_> {
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
+         if self.rec.ext.is_none() {
+-            let st = self.rec.b.readout(t)?;
++            let st = crate::census::with(crate::census::R_TAU, || self.rec.b.readout(t))?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
+         self.project(t)?;
+-        let st = self.rec.b.readout(t)?;
++        let st = crate::census::with(crate::census::R_TAU, || self.rec.b.readout(t))?;
+         let (x, v) = scalars(&st)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..874e82d7 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -258,10 +258,11 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+ }
+ 
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
++    crate::census::with(crate::census::R_VIEW, || gather_in(u, names, cache.as_deref_mut()))
++}
++
++fn gather_in(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+     let ctx = u.ctx();
+-    if let Some(c) = cache.as_mut() {
+-        c.readouts = 0;
+-    }
+     let p = u.player()?;
+     let t_now = u.now;
+     let rec = u.rec(p);
