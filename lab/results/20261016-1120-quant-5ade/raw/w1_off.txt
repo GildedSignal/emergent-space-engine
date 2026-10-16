@@ -1,0 +1,27 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-3/release/examples/waveprobe 100000 13000 15000`
+waveprobe: N=100000 carry=false build_s=4.28 wave_s=5.39 hwm_mib=535
+wave: kicks=102800 boundaries=3061 other_events=14 digest=0d8ced8083d2796323e19890afa76df19b0742b81620caa880b235d35969e04a
+sources: calls=308343 distinct=299446 worst_multiplicity=255 repeat_share=0.029
+stage                          ms        calls    ns/call   per_kick
+rekey (all deadlines)            49.02          2 24511808.0     0.000
+position walk (root_state_raw)    390.57     105681    3695.8     1.028
+apply (whole)                   535.24     105875    5055.4     1.030
+requeue                          96.52     205865     468.8     2.003
+process (whole)                4582.91     105875   43286.1     1.030
+fit: bind_surface (kicks, hand-outs)   1871.31     102799   18203.6     1.000
+take_due                          1.91     100028      19.1     0.973
+encounters: capture (cheap half)     19.57        194  100891.3     0.002
+encounters: held scans answered     71.04        194  366202.3     0.002
+item: kick (Wisdom-Holman)      118.88       3070   38722.9     0.030
+item: kick (clock)             4401.43      99710   44142.3     0.970
+item: kick at a changeover level      7.05         20  352324.0     0.000
+item: boundary                   57.68       3061   18843.9     0.030
+item: open                        0.22         14   15771.8     0.000
+walk: sources read (ctx state_of)   1078.10     308343    3496.4     2.999
+walk: own readout at a kick     405.81     102800    3947.6     1.000
+walk: decode inside bind_in     348.98     102799    3394.8     1.000
+walk: tau, orbit_state(t) in rebind    349.54     102799    3400.3     1.000
+walk: tau, orbit_state(anchor) in rebind    350.44     102799    3409.0     1.000
+rebind (whole)                 2623.85     102799   25524.0     1.000
+us_per_kick: total_wave_cpu=52.44 kick_clock_ms=4401.4 fit_ms=1871.3

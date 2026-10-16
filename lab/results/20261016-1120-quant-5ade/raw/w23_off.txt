@@ -1,0 +1,26 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-3/release/examples/waveprobe 100000 70000 150000`
+waveprobe: N=100000 carry=false build_s=4.31 wave_s=28.05 hwm_mib=1605
+wave: kicks=389200 boundaries=420419 other_events=11 digest=0789136370007234d1ec61d565def7850938b1b96db5bed37fe486ae5759cdee
+sources: calls=1165747 distinct=820618 worst_multiplicity=322 repeat_share=0.296
+stage                          ms        calls    ns/call   per_kick
+rekey (all deadlines)            48.74          2 24370556.5     0.000
+position walk (root_state_raw)   3610.63     801885    4502.7     2.060
+apply (whole)                  4395.98     809630    5429.6     2.080
+requeue                         335.60     909684     368.9     2.337
+process (whole)               19532.95     809630   24125.8     2.080
+fit: bind_surface (kicks, hand-outs)   6923.04     389211   17787.4     1.000
+take_due                         10.03     581062      17.3     1.493
+encounters: capture (cheap half)    873.42       7745  112772.2     0.020
+encounters: held scans answered   2407.04       7745  310786.1     0.020
+item: kick (Wisdom-Holman)     4346.69     121168   35873.2     0.311
+item: kick (clock)            11737.75     268032   43792.3     0.689
+item: boundary                 3466.72     420430    8245.7     1.080
+walk: sources read (ctx state_of)   3976.70    1165747    3411.3     2.995
+walk: own readout at a kick    1469.70     389200    3776.2     1.000
+walk: decode inside bind_in    1321.09     389211    3394.3     1.000
+walk: tau, orbit_state(t) in rebind   1297.04     389211    3332.5     1.000
+walk: tau, orbit_state(anchor) in rebind   1308.03     389211    3360.7     1.000
+walk: boundary_clock readout   1160.26     299173    3878.2     0.769
+rebind (whole)                 9708.27     389211   24943.5     1.000
+us_per_kick: total_wave_cpu=72.08 kick_clock_ms=11737.7 fit_ms=6923.0
