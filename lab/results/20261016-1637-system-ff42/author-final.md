@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place: `predictions.md` (pre-registered, with the missed fallback rate named), `dossier.md`, `bench.txt`/`diag.txt`, `work/patch.diff` (3 files: the `pub` on `Trajectory::at_radius`, the 11-line verified-guess block in `next_impact`, the bench), `regen.sh`, and the folded `wiki/frame-cost.md` page.
+
+**Claim:** the plane's crash search and the compiled trajectory's inverse are one mechanism shipped as two — `at_radius` is exact, already compiled into every tube and already wired as `next_exit`'s verified guess for passages, and wiring the same 11-line pattern into `next_impact` (45% of a flying kick) answers all 36 crash-course cases tick-identically at 2.0× mean (3.2–4.9× where it verifies), with the measured ~40% fallback (vs the predicted <2%) being a residual-offset window artifact whose cure is named, and the flight-level digest the one unflown adoption gate.

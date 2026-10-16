@@ -1,0 +1,42 @@
+case                        peri/surf   answer  ref_probes  guess_reads   ref_us  patched_us
+cycle f=0.05 cw=false             NaN Some(   99327)           0            0     25.90      23.15
+cycle f=0.05 cw=true              NaN Some(   99327)           0            0     38.58      37.02
+cycle f=0.1 cw=false           0.0723 Some(    1558)          11            4  58359.47   21183.62
+cycle f=0.1 cw=true            0.0723 Some(    1558)          11            4  59087.70   20983.92
+cycle f=0.2 cw=false           0.1774 Some(  100360)          18            4  90459.93  104552.62
+cycle f=0.2 cw=true            0.1774 Some(  100360)          18            4  90888.30  102894.82
+cycle f=0.3 cw=false           0.2784 Some(    1580)          12            4  64401.30   76730.95
+cycle f=0.3 cw=true            0.2784 Some(    1580)          12            4  64211.97   76851.77
+cycle f=0.4 cw=false           0.3789 Some(  101789)          18            4  90869.68   17907.65
+cycle f=0.4 cw=true            0.3789 Some(  101789)          18            4  89080.48   18095.70
+cycle f=0.5 cw=false           0.4791 Some(    1603)          12            4  61264.12   19276.65
+cycle f=0.5 cw=true            0.4791 Some(    1603)          12            4  60830.50   19307.15
+cycle f=0.6 cw=false           0.5793 Some(  103292)          18            4  89030.55   18142.03
+cycle f=0.6 cw=true            0.5793 Some(  103292)          18            4  89081.50   18082.97
+cycle f=0.7 cw=false           0.6794 Some(    1628)          12            4  61328.53   19473.65
+cycle f=0.7 cw=true            0.6794 Some(    1628)          12            4  61354.15   19303.85
+cycle f=0.8 cw=false           0.7795 Some(  104910)          18            4  88915.50   18194.42
+cycle f=0.8 cw=true            0.7795 Some(  104910)          18            4  91407.50   19086.85
+cycle f=0.9 cw=false           0.8796 Some(    1654)          12            4  61756.53   74187.20
+cycle f=0.9 cw=true            0.8796 Some(    1654)          12            4  62095.05   76532.88
+cycle f=0.95 cw=false          0.9296 Some(  106276)          17            4  86619.75   18573.25
+cycle f=0.95 cw=true           0.9296 Some(  106276)          17            4  85412.52   18661.10
+cycle f=0.99 cw=false          0.9696 Some(    1668)          12            4  63330.45   19880.92
+cycle f=0.99 cw=true           0.9696 Some(    1668)          12            4  61878.90   19693.50
+flyby e=1.05 b=80              0.6969 Some(    4628)          14            2  68475.20   17291.00
+flyby e=1.05 b=95              0.8462 Some(    4687)          13            2  62622.18   17122.03
+flyby e=1.05 b=120             1.0954 None           0            0   4586.60    5163.80
+flyby e=1.2 b=80               0.7671 Some(      41)           7            2  33864.88   17088.10
+flyby e=1.2 b=95               0.9171 Some(      42)           7            4  33866.07   41208.62
+flyby e=1.2 b=120              1.1672 None           0            0   4587.68    4610.65
+flyby e=1.5 b=80               0.7817 Some(    1933)          12            2  58052.32   17180.20
+flyby e=1.5 b=95               0.9318 Some(    1967)          12            2  57799.07   17075.55
+flyby e=1.5 b=120              1.1818 None           0            0   4583.27    4596.25
+flyby e=3 b=80                 0.7885 Some(      24)           6            4  29356.53   35962.65
+flyby e=3 b=95                 0.9386 None           2            0   5367.45    6003.30
+flyby e=3 b=120                1.1886 None           0            0   4573.07    4582.82
+
+cases 36 (bound+unbound, both senses, clock_exp 0 and 6), mismatches 0
+verified structural guess: 5/36 (13.9%)
+mean probes: reference 10.9, guess path 2.94 readouts
+mean per call: reference 55.5 us, patched 27.9 us -> 2.0x

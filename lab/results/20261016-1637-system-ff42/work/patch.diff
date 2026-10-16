@@ -1,0 +1,245 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..6b9bd0da 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -61,7 +61,7 @@ impl Trajectory {
+             Self::Plunge(p) => p.orbit_state(time),
+         }
+     }
+-    fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
++    pub fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
+         match self {
+             Self::Cycle(c) => c.at_radius(r),
+             Self::Passage(p) => p.at_radius(r),
+diff --git a/crates/universe/examples/levelbench.rs b/crates/universe/examples/levelbench.rs
+new file mode 100644
+index 00000000..bdca2114
+--- /dev/null
++++ b/crates/universe/examples/levelbench.rs
+@@ -0,0 +1,185 @@
++//! Is the crash search structure-blind? `step::next_impact` ("the first tick at or after `after`
++//! below `surface`") ships as a bisection over ticks where every probe is a full Cartesian readout,
++//! while the compiled trajectory already holds the inverse (`Trajectory::at_radius`: one knot lookup
++//! and one partial quadrature, exact). This bench binds crash-course orbits (bound cycles and
++//! passages, periapsis fractions across the surface), then answers the same question two ways:
++//!
++//! - `reference`: an inline copy of the shipped bisection (the pristine cost and the probe count);
++//! - `shipped`: `step::next_impact` as patched (the verified structural guess, bisection fallback).
++//!
++//! It asserts tick equality of the patched answer against the reference on every case, replicates
++//! the guess path to count verifications and fallbacks, and prints per-call cost and probes.
++use emergent_space::binding::{IntegerState, Trajectory};
++use emergent_space::orbit::Scalar;
++use emergent_universe::bind::{bind_surface, Binding, Kick};
++use emergent_universe::num::time_of;
++use emergent_universe::step::{next_impact, next_periapsis};
++use emergent_universe::world::Unit;
++use std::time::Instant;
++
++const LE: i32 = -34; // positions: n·2^-34 (doll M = 1)
++const VE: i32 = -60; // velocities: n·2^-60 (c = 1)
++
++/// A bound orbit started at apoapsis `r0`, Newtonian-shape target periapsis `rp` (the exact GR
++/// periapsis the binding's key reports is what classifies the case), either sense.
++fn bound_state(r0: f64, rp: f64, cw: bool) -> IntegerState {
++    let a = 0.5 * (r0 + rp);
++    let v = (2.0 / r0 - 1.0 / a).sqrt();
++    IntegerState {
++        position: [(r0 * 2f64.powi(-LE)) as i64, 0],
++        velocity: [0, (v * 2f64.powi(-VE)) as i64 * if cw { -1 } else { 1 }],
++        length_exponent: LE as i16,
++        velocity_exponent: VE as i16,
++    }
++}
++
++/// An unbound flyby (the clock test's construction): at `r0`, impact parameter `b`, nominal `e > 1`.
++fn flyby_state(r0: f64, b: f64, e: f64) -> IntegerState {
++    let f = 1.0 - 2.0 / r0;
++    let vt = b * (e * e - 1.0).sqrt() * f / (r0 * e);
++    let vr = (f * (f - vt * vt - f * f / (e * e))).sqrt();
++    IntegerState {
++        position: [(r0 * 2f64.powi(-LE)) as i64, 0],
++        velocity: [-(vr * 2f64.powi(-VE)) as i64, (vt * 2f64.powi(-VE)) as i64],
++        length_exponent: LE as i16,
++        velocity_exponent: VE as i16,
++    }
++}
++
++fn f64_of(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++fn inside(b: &Binding, surface: Scalar, t: i64) -> bool {
++    let (x, _) = b.cartesian(t).unwrap();
++    let n = x[0].mul(x[0]).unwrap().add(x[1].mul(x[1]).unwrap()).unwrap().sqrt().unwrap();
++    n < surface
++}
++
++/// The shipped bisection, verbatim, with its probe count.
++fn reference(b: &Binding, surface: Scalar, after: i64) -> (Option<i64>, u32) {
++    if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
++        return (b.terminal_tick().unwrap().map(|t| t.max(after)), 0);
++    }
++    let mut probes = 1;
++    if inside(b, surface, after) {
++        return (Some(after), probes);
++    }
++    if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r >= surface)) {
++        return (None, 0);
++    }
++    let Some(tp) = next_periapsis(b, after).unwrap() else { return (None, 0) };
++    let whole = match &b.entry.trajectory {
++        Trajectory::Cycle(c) => c.period().unwrap(),
++        Trajectory::Passage(p) => p.duration().unwrap(),
++        Trajectory::Plunge(_) => unreachable!(),
++    };
++    let half = i64::try_from(b.to_doll(whole.scale(-1).unwrap()).unwrap().fixed_ceil(-(b.clock_exp as i32)).unwrap()).unwrap();
++    let (mut lo, mut hi) = (after.max(tp.saturating_sub(half)), tp);
++    if !inside(b, surface, hi) {
++        probes += 1;
++        return (None, probes);
++    }
++    while hi - lo > 1 {
++        let mid = lo + (hi - lo) / 2;
++        probes += 1;
++        if inside(b, surface, mid) {
++            hi = mid;
++        } else {
++            lo = mid;
++        }
++    }
++    (Some(hi), probes)
++}
++
++fn main() {
++    if std::env::args().nth(1).as_deref() == Some("diag") { diag(); return; }
++    let surface_f = 100.0;
++    let surface = Scalar::integer(100);
++    let mut rows: Vec<(String, f64, Option<i64>, u32, u32, f64, f64)> = Vec::new();
++    let (mut mismatches, mut total) = (0u32, 0u32);
++
++    let mut cases: Vec<(String, IntegerState, i16)> = Vec::new();
++    for (i, frac) in [0.05f64, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99].iter().enumerate() {
++        for cw in [false, true] {
++            cases.push((format!("cycle f={frac} cw={cw}"), bound_state(2000.0, surface_f * frac, cw), if i % 2 == 0 { 0 } else { 6 }));
++        }
++    }
++    for (i, e) in [1.05f64, 1.2, 1.5, 3.0].iter().enumerate() {
++        for bb in [80.0f64, 95.0, 120.0] {
++            cases.push((format!("flyby e={e} b={bb}"), flyby_state(1500.0, bb, *e), if i % 2 == 0 { 0 } else { 6 }));
++        }
++    }
++
++    for (name, st, clock_exp) in cases {
++        let bound = match bind_surface(st, 0, clock_exp, None, Unit::ONE, Some(surface)) {
++            Ok(b) => b,
++            Err(_) => continue,
++        };
++        let b = Binding { doll: 0, tube: bound.tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: 0, kick: Kick::NONE, impact: None };
++        let ratio = b.entry.trajectory.key().and_then(|k| b.to_doll(k.periapsis).ok()).map(f64_of).unwrap_or(f64::NAN) / surface_f;
++        let after = 0i64;
++        let (ans_ref, probes_ref) = reference(&b, surface, after);
++        let ans_ship = next_impact(&b, surface, after).unwrap();
++        total += 1;
++        if ans_ref != ans_ship {
++            mismatches += 1;
++            println!("MISMATCH {name}: reference {ans_ref:?} shipped {ans_ship:?}");
++        }
++        // The guess path replicated, for counting: on success two verification readouts.
++        let tp = b.tube.periapsis_time.get() as i64;
++        let guess = b.entry.unit.to_tube(surface).ok()
++            .and_then(|r| b.entry.trajectory.at_radius(r).ok())
++            .and_then(|(off, _)| b.to_doll(off).ok())
++            .and_then(|off| time_of(tp, b.clock_exp).ok().and_then(|p| p.sub(off).ok()))
++            .and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok())
++            .and_then(|t| i64::try_from(t).ok());
++        let guess_reads = match (guess, ans_ref) {
++            (Some(g), Some(a)) if g == a => 2,   // verified: the two predicate readouts
++            (Some(_), Some(_)) => 4,             // tried, fell back to the bisection
++            _ => 0,                              // never proposed (the pure-tube crossing unseen)
++        };
++        let n = 40;
++        let t0 = Instant::now();
++        for _ in 0..n {
++            std::hint::black_box(reference(&b, surface, after));
++        }
++        let ns_ref = t0.elapsed().as_nanos() as f64 / n as f64;
++        let t1 = Instant::now();
++        for _ in 0..n {
++            std::hint::black_box(next_impact(&b, surface, after));
++        }
++        let ns_ship = t1.elapsed().as_nanos() as f64 / n as f64;
++        rows.push((name, ratio, ans_ref, probes_ref, guess_reads, ns_ref, ns_ship));
++    }
++
++    println!("case                        peri/surf   answer  ref_probes  guess_reads   ref_us  patched_us");
++    let (mut sr, mut ss, mut pr, mut gr, mut k, mut verified) = (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
++    for (name, ratio, ans, probes, reads, ns_ref, ns_ship) in &rows {
++        println!("{name:<27} {ratio:9.4} {ans:>8?} {probes:11} {reads:12} {ns_ref:9.2} {ns_ship:10.2}");
++        sr += *ns_ref; ss += *ns_ship; pr += *probes as f64; gr += *reads as f64;
++        if *reads == 2 { verified += 1.0; }
++        k += 1.0;
++    }
++    println!();
++    println!("cases {total} (bound+unbound, both senses, clock_exp 0 and 6), mismatches {mismatches}");
++    println!("verified structural guess: {verified:.0}/{k:.0} ({:.1}%)", 100.0 * verified / k);
++    println!("mean probes: reference {:.1}, guess path {:.2} readouts", pr / k, gr / k);
++    println!("mean per call: reference {:.1} us, patched {:.1} us -> {:.1}x", sr / k / 1000.0, ss / k / 1000.0, sr / ss);
++}
++
++#[allow(dead_code)]
++fn diag() {
++    let surface = Scalar::integer(100);
++    let st = bound_state(2000.0, 40.0, false);
++    let bound = bind_surface(st, 0, 0, None, Unit::ONE, Some(surface)).unwrap();
++    let b = Binding { doll: 0, tube: bound.tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: 0, event_time: 0, kick: Kick::NONE, impact: None };
++    println!("trajectory {:?}", std::mem::discriminant(&b.entry.trajectory));
++    let tp = next_periapsis(&b, 0).unwrap();
++    println!("next_periapsis(0) = {:?}, tube periapsis_time = {}", tp, b.tube.periapsis_time.get());
++    for t in [0i64, tp.unwrap_or(1) - 2000, tp.unwrap_or(1), tp.unwrap_or(1) + 2000] {
++        let r = b.orbit_state(t).map(|s| f64_of(s.radius));
++        println!("t={t}: radius = {:?}", r);
++    }
++    println!("reference = {:?}, shipped = {:?}", reference(&b, surface, 0), next_impact(&b, surface, 0));
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..dcf36da5 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -254,7 +254,7 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+ }
+ 
+ /// The tick of the tube's next periapsis passage at or after `after`, if it has one.
+-fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
++pub fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+     let at = match &b.entry.trajectory {
+@@ -306,6 +306,27 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     if !inside(hi)? {
+         return Ok(None);
+     }
++    // The trajectory's own inverse answers this bracket's question in one solve (`at_radius`: a knot
++    // lookup and one partial quadrature): the outbound crossing's time offset from the periapsis,
++    // mirrored to the inbound fall this bracket covers (reflection is exact in the integer law).
++    // Verified against the predicate itself, exactly as `next_exit` verifies its passage guess, and
++    // the bisection below stays as the fallback, so the answer is the bisection's answer whatever
++    // the guess does: the guess only spends less to reach it.
++    let guess = b
++        .entry
++        .unit
++        .to_tube(surface)
++        .ok()
++        .and_then(|r| b.entry.trajectory.at_radius(r).ok())
++        .and_then(|(off, _)| b.to_doll(off).ok())
++        .and_then(|off| time_of(tp, b.clock_exp).ok().and_then(|p| p.sub(off).ok()))
++        .and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok())
++        .and_then(|t| i64::try_from(t).ok());
++    if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
++        if inside(g)? && !inside(g - 1)? {
++            return Ok(Some(g));
++        }
++    }
+     while hi - lo > 1 {
+         let mid = lo + (hi - lo) / 2;
+         if inside(mid)? {
