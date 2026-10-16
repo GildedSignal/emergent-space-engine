@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261016-2229-scout-ab3d/`: `predictions.md` (pre-registered), `falsifier.rs` + `run.jsonl` (32 rows, 26 scenes, zero misses), `dossier.md`, `regen.sh` (verified end-to-end), `wiki/scan-queue.md` (result folded in).
+
+**Claim:** the player's in-belt scan answer walk (418 ms at 10⁵, the latch that freezes the drain) closes with a sound two-stage angular certificate — mean-longitude window with per-body exact anomaly margins, then the equation-of-center series at 35–50 ns a candidate — measured at 1.6–1.7 ms at 10⁵ rock radii and 5.0 ms at the shipped 12,850-km radii under the float-then-exact composition, both under the 6-ms bar with zero missed hits in every scene, while at 10⁶ the shipped radii are unmeetable by any filter (the truth itself is 0.53%·N encounters a scan, 22 ms of exact readouts) — the operating point, not the finder, is the wall.
