@@ -1,0 +1,175 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e402e00d 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,22 +14,35 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++#[cfg(target_os = "macos")]
++mod foot {
++    extern "C" {
++        pub fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++    }
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++    let ok = unsafe { foot::proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+     if ok != 0 {
+         return (0, 0);
+     }
+     (buf[9], buf[30])
+ }
+ 
++/// Linux port (print-only: this box has no `proc_pid_rusage`; the footprint columns are the M1's instrument).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let read = |k: &str| std::fs::read_to_string("/proc/self/status").ok().and_then(|s| {
++        s.lines().find(|l| l.starts_with(k)).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++    });
++    (read("VmRSS").map_or(0, |v| v * 1024), read("VmHWM").map_or(0, |v| v * 1024))
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..a38c2b67 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -8,6 +8,22 @@ use crate::num::{scale2, Res, Tick, V2};
+ use crate::world::{pow2, DollRec, Unit};
+ use emergent_space::orbit::Scalar;
+ 
++/// The per-`(doll, tick)` ring of perturber states (`ES_SEC_CACHE`): the most recent ticks
++/// read by `Ctx::secondaries`, per thread (an event's resolution is a pure function of its
++/// own record and the sources, so a thread-private reuse changes no bit).
++type SecRing = Vec<(u16, Tick, Vec<(usize, crate::force::Secondary)>)>;
++thread_local! {
++    static SEC_CACHE: std::cell::RefCell<SecRing> = const { std::cell::RefCell::new(Vec::new()) };
++}
++
++/// `ES_SEC_CACHE` set (not `0`/empty) turns the per-tick reuse of perturber states on; off is the
++/// shipped path verbatim.
++fn sec_cache_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_SEC_CACHE").is_ok_and(|v| !v.is_empty() && v != "0"));
++    *ON
++}
++
+ /// What never changes about a body.
+ #[derive(Clone, Copy, Debug)]
+ pub struct BodyInfo {
+@@ -76,7 +92,42 @@ impl Ctx<'_> {
+     }
+ 
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
++    ///
++    /// With `ES_SEC_CACHE` set, the unfiltered source states are kept per `(doll, tick)` in a
++    /// small per-thread ring: `state_of(j, t)` is a pure function of `j`'s append-only binding
++    /// history at a fixed tick, so an entry at `t` is the same values every time it is read
++    /// (a kick's tick is at or after its present; history a reader still needs is never pruned).
++    /// Bodies that kick at the same tick — the belt's comb — then read the perturbers once.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++        if sec_cache_on() {
++            let hit = SEC_CACHE.with(|c| {
++                c.borrow()
++                    .iter()
++                    .find(|e| e.0 == d && e.1 == t)
++                    .map(|e| e.2.iter().filter(|&&(j, _)| j != except).map(|&(_, s)| s).collect::<Vec<_>>())
++            });
++            if let Some(out) = hit {
++                crate::prof::count(crate::prof::SEC_HIT);
++                return Ok(out);
++            }
++        }
++        if sec_cache_on() {
++            let full: Vec<(usize, Secondary)> = self
++                .sources[d as usize]
++                .iter()
++                .map(|&j| Ok((j, self.state_of(j, t).map(|(pos, vel)| Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi })?)))
++                .collect::<Res<_>>()?;
++            let out = full.iter().filter(|&&(j, _)| j != except).map(|&(_, s)| s).collect();
++            SEC_CACHE.with(|mut c| {
++                let c = &mut *c.borrow_mut();
++                c.retain(|e| !(e.0 == d && e.1 == t));
++                c.push((d, t, full));
++                if c.len() > 16 {
++                    c.remove(0);
++                }
++            });
++            return Ok(out);
++        }
+         let mut out = Vec::new();
+         for &j in &self.sources[d as usize] {
+             if j == except {
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..b2d0a8ea 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -30,7 +30,13 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
++/// The kick's read of the perturbers' states at its tick (`Ctx::secondaries`).
++pub const SEC: usize = 24;
++/// The kick's own tube readout at its tick (`Binding::readout`).
++pub const RDOUT: usize = 25;
++/// A `secondaries` call served from the per-tick cache (counted, no time of its own).
++pub const SEC_HIT: usize = 26;
++pub const N: usize = 27;
+ 
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+@@ -57,6 +63,9 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "  kick: secondaries (perturbers at t)",
++    "  kick: own readout at t",
++    "  kick: secondaries cache hits",
+ ];
+ 
+ #[cfg(feature = "prof")]
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..d4d8b159 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -404,10 +404,14 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let t_rd = crate::prof::t();
+         let st = self.rec.b.readout(t)?;
++        crate::prof::add(crate::prof::RDOUT, t_rd);
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
++        let t_sec = crate::prof::t();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
++        crate::prof::add(crate::prof::SEC, t_sec);
+         let tide = self.ctx.tide(d, t)?;
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+@@ -657,9 +661,13 @@ impl Work<'_, '_> {
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
++        let t_rd = crate::prof::t();
+         let st = self.rec.b.readout(t)?;
++        crate::prof::add(crate::prof::RDOUT, t_rd);
+         let (x, v) = scalars(&st)?;
++        let t_sec = crate::prof::t();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
++        crate::prof::add(crate::prof::SEC, t_sec);
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+         for (s, &j) in secs.iter().zip(sources) {
