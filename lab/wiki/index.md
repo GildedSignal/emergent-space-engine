@@ -28,4 +28,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 70 | **The shipped compile is timed at the belt's true keys and the batched promotion's belt |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 105 | **The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s |
-| [nladder](nladder.md) | open **conflict to resolve** | 127 | **The named next rung is flown and it splits: the two planet-read paths are one readout and sharing them |
+| [nladder](nladder.md) | open **conflict to resolve** | 131 | **d31c's first named rung is flown and it is a pure deletion: `plan_clock` reads the body's own |
