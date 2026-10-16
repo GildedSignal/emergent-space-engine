@@ -1,0 +1,22 @@
+== build (release, 2 jobs) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+== kick bench: the shipped resolver, two runs (digest must repeat) ==
+digest 09e7816937eb0998
+kick_us(made)  median 34.8 us  p99 50.7 us  (1398 samples)
+kick_us(leavers) median 203.2 us  p99 394.8 us  (955 samples)
+memo: 2262 rebinds, exact_hit_rate 0.0000, quantized_hit_rate 0.9797
+vs docs/representation.md L114 '~50 ns each': 695x at the median
+== the doc's letters under attack ==
+14:   Carrying a pattern forward is addition. Building a new one (at a surprise) means solving an equation. Reading one out (when something is observed) takes a multiply-add. So multiplications, roots and wide integers appear only at surprises and observations.
+67:  - Perturbations (tides, neighbours, inspiral by Peters' formula) are kicks on E and L. A cycle's derivatives are stored with it, so a kick updates the cycle by a multiply-add.
+114:| Tidal kicks, orbit-averaged on stable orbits | ~6×10⁴ per game-second | ~50 ns each, incremental: < 1% of a core |
+32:  - **Binet cells (the primary in-cell solution).** With u = 1/r, the orbit inside band k obeys u″ + (1 − 6M·u_k)·u = M/L² − 3M·u_k². That is a rotation. In integers, Minsky's two-addition map is a rotation conjugated by a shear, so the orbit is a slightly elliptic loop with a bounded ripple; with ε = 2·sin(θ/2) its angle is exactly θ. It preserves area. Precession, the innermost stable orbit (where 1 − 6M·u_k < 0) and plunges all emerge. Light is the same equation without the M/L² term.
+57:  - Each visible tube crosses the observer's past light cone once; Newton's method finds the crossing, starting from the previous frame's. Lensing adds crossings, from each doll's memoized deflection(b).
+== the record inside shipped code ==
+crates/space/ENVELOPE.md:136:  motion is not implemented. It must enter the authoritative dynamics; a constant
+crates/space/ENVELOPE.md:141:  new shape key. Derivative prediction never substitutes for authoritative rebinding.
+crates/space/QUADRATURE.md:139:a multiply-add **prediction**; recompilation remains authoritative. Topology
+crates/space/QUADRATURE.md:141:for authoritative kick reuse is future work for the response compiler.
+20:2. **The cycle is compiled once from (E, L)** (law `space-darwin16-v1`, 30 September; it replaced the in-band area-preserving map, whose band-centre tangents carried a first-order slope error in every cell holding a turning point). GR's radial function R = 2(u − u_a)(u_p − u)(u_3 − u) is factored by its roots, found from (E, L) in integers. In Darwin's phase ψ (u = c + A·cos ψ), dφ/dψ = (2(u_3 − u))^(−1/2), and dt/dψ and dτ/dψ are smooth. Band edges are cuts in ψ (integer atan). Each cut interval is integrated with 4-point Gauss–Legendre panels in integers; the outbound half is computed and the inbound half mirrors it. The exact text is in the `crates/space` docs, and that text is part of this law.
+36:- **Not adopted:** a quantized (E, L) memo for kicks: it re-rounds the orbit at every kick, a random walk (principle 13). **The jet is retired (12 October):** updating a compiled cycle from stored derivatives by a multiply-add carries a one-signed phase error that fails both frozen budgets on every orbit within its margin, and wired into the plane its speed-up cancels the physics (lab golds 20261006-1249-redteam-4978, 20261008-1757-second-…-0ccd-b33f, 20261012-1227-second-…-4808-d617; the adopting run of 6 October had one checker). A kick recompiles its cycle exactly, as the plane does; the kick's cost is the frame-cost bottleneck. Inspiral is not a jet: Peters' a(t) is its generator.
+done
