@@ -1,0 +1,120 @@
+=== 0. patch (five #[ignore] probes + libm dev-dep; NO workspace member) ===
+already applied (this run's own tree)
+=== 1. the deterministic seven: names + messages (corpus drift, B12-false, across_a_kick) ===
+test behave::handoff::tests::the_median_counts_nan_as_infinity_and_takes_the_middle_pair ... ok
+thread 'behave::handoff::tests::the_frozen_list_is_sixteen_distinct_ascending_candidates_and_the_ships_cross_and_converge' panicked at xtask/src/behave/handoff.rs:249:9:
+[10, 8, 8, 14, 16, 30, 22, 22, 12, 34, 42, 8, 28, 12, 12, 22]
+test behave::handoff::tests::the_frozen_list_is_sixteen_distinct_ascending_candidates_and_the_ships_cross_and_converge ... FAILED
+thread 'behave::handoff::tests::the_planted_bounded_law_has_the_planted_error' panicked at xtask/src/behave/handoff.rs:339:13:
+starts at zero and stays small: 1.273822363922925e-5
+test behave::handoff::tests::the_planted_bounded_law_has_the_planted_error ... FAILED
+test behave::handoff::tests::the_ship_is_on_a_circular_barycentric_orbit_at_the_drawn_distance ... ok
+ship 0: 5549 kicks, across a kick 1.0 quanta, over its work 1.60e-8
+thread 'behave::handoff::tests::ships_whose_error_stays_under_the_floor_are_not_judged_on_the_exponent' panicked at xtask/src/behave/handoff.rs:311:13:
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 0 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.000 (limit 0.2), worst 0.000; worst err 2.31e-15 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+test behave::handoff::tests::ships_whose_error_stays_under_the_floor_are_not_judged_on_the_exponent ... FAILED
+thread 'behave::handoff::tests::a_smooth_bounded_error_above_the_floor_is_judged_and_passes_and_a_junk_series_is_judged_and_fails' panicked at xtask/src/behave/handoff.rs:318:9:
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 14 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.191 (limit 0.2), worst 0.623; worst err 2.85e-11 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+test behave::handoff::tests::a_smooth_bounded_error_above_the_floor_is_judged_and_passes_and_a_junk_series_is_judged_and_fails ... FAILED
+test behave::handoff::tests::a_law_that_cannot_answer_or_answers_short_or_junk_fails ... ok
+test behave::handoff::tests::a_slow_leak_far_inside_the_bound_fails_on_the_exponent ... ok
+ship 1: 6531 kicks, across a kick 3.0 quanta, over its work 3.10e-9
+test behave::handoff::tests::the_reference_without_the_conservation_drifts_but_stays_far_inside_the_bound ... ok
+ship 2: 6408 kicks, across a kick 1.0 quanta, over its work 6.55e-9
+thread 'behave::handoff::tests::a_compounding_error_fails_on_the_exponent_though_it_reads_lower_than_a_bounded_one' panicked at xtask/src/behave/handoff.rs:360:9:
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 14 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.416 (limit 0.2), worst 1.654; worst err 9.80e-7 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 14 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.353 (limit 0.2), worst 1.471; worst err 1.27e-5 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+test behave::handoff::tests::a_compounding_error_fails_on_the_exponent_though_it_reads_lower_than_a_bounded_one ... FAILED
+ship 3: 7016 kicks, across a kick 24.4 quanta, over its work 8.41e-8
+thread 'behave::plane::tests::across_a_kick_the_register_and_the_angular_momentum_agree_to_the_post_newtonian_gap' panicked at xtask/src/behave/plane.rs:436:13:
+ship 3: JRun { kicks: 7016, per_kick: 2575847.3203125, across_kick: 24.37109375, across_kick_over_work: 8.409466703853747e-8, along_drift: 2575846.65234375, trend: 7618880.155103069, reach: 45288613.224609375, alive: true }
+test behave::plane::tests::across_a_kick_the_register_and_the_angular_momentum_agree_to_the_post_newtonian_gap ... FAILED
+thread 'behave::events_tests::echo_passes_the_four_events_gates_with_the_evidence_on_each_line' panicked at xtask/src/behave/mod.rs:470:9:
+  left: [("B11", true), ("B12", false), ("B13", true), ("B14", true)]
+ right: [("B11", true), ("B12", true), ("B13", true), ("B14", true)]
+test behave::events_tests::echo_passes_the_four_events_gates_with_the_evidence_on_each_line ... FAILED
+=== 2. the flaky three (load class): pass when run alone ===
+test behave::scale::tests::echo_is_linear_and_the_planted_quadratic_is_not ... FAILED
+test behave::tests::the_other_gates_can_fail_too ... ok
+test behave::tests::each_planted_law_fails_exactly_its_gate ... ok
+=== 3. the corpus census: pristine / ±1 ulp / musl (the machine channel) ===
+kept[ 0] # 32 seedlibm c0 s0 p0: pristine [cr 10 cv true 59.530 Rp] | a+1ulp [cr 38 cv true 4.156 Rp] | a-1ulp [cr 30 cv false 0.040 Rp] | musl [cr 10 cv true 59.530 Rp]
+kept[ 1] # 39 seedlibm c0 s0 p0: pristine [cr 8 cv true 7.546 Rp] | a+1ulp [cr 18 cv true 6.388 Rp] | a-1ulp [cr 26 cv true 7.359 Rp] | musl [cr 8 cv true 7.546 Rp]
+kept[ 2] # 53 seedlibm c0 s0 p0: pristine [cr 8 cv true 77.177 Rp] | a+1ulp [cr 12 cv true 0.331 Rp] | a-1ulp [cr 24 cv true 8.767 Rp] | musl [cr 8 cv true 77.177 Rp]
+kept[ 3] # 57 seedlibm c0 s0 p0: pristine [cr 14 cv true 6.250 Rp] | a+1ulp [cr 24 cv true 7.478 Rp] | a-1ulp [cr 62 cv false 0.454 Rp] | musl [cr 14 cv true 6.250 Rp]
+kept[ 4] # 70 seedlibm c1 s0 p0: pristine [cr 16 cv true 6.014 Rp] | a+1ulp [cr 16 cv true 1.659 Rp] | a-1ulp [cr 14 cv true 6.251 Rp] | musl [cr 12 cv true 4.943 Rp]
+kept[ 5] # 72 seedlibm c0 s0 p0: pristine [cr 30 cv true 3.878 Rp] | a+1ulp [cr 48 cv true 0.820 Rp] | a-1ulp [cr 36 cv true 0.086 Rp] | musl [cr 30 cv true 3.878 Rp]
+kept[ 6] # 78 seedlibm c0 s0 p0: pristine [cr 22 cv true 24.144 Rp] | a+1ulp [cr 28 cv true 0.625 Rp] | a-1ulp [cr 34 cv true 2.329 Rp] | musl [cr 22 cv true 24.144 Rp]
+kept[ 7] # 83 seedlibm c0 s1 p1: pristine [cr 22 cv true 4.520 Rp] | a+1ulp [cr 20 cv true 4.520 Rp] | a-1ulp [cr 22 cv true 4.520 Rp] | musl [cr 20 cv true 4.520 Rp]
+kept[ 8] # 85 seedlibm c0 s0 p0: pristine [cr 12 cv true 32.894 Rp] | a+1ulp [cr 4 cv true 3.427 Rp] | a-1ulp [cr 16 cv true 0.439 Rp] | musl [cr 12 cv true 32.894 Rp]
+kept[ 9] # 88 seedlibm c0 s1 p0: pristine [cr 34 cv true 0.271 Rp] | a+1ulp [cr 8 cv true 1.578 Rp] | a-1ulp [cr 28 cv true 0.199 Rp] | musl [cr 24 cv true 1.578 Rp]
+kept[10] #101 seedlibm c0 s0 p0: pristine [cr 42 cv true 3.644 Rp] | a+1ulp [cr 36 cv true 1.090 Rp] | a-1ulp [cr 34 cv true 10.383 Rp] | musl [cr 42 cv true 3.644 Rp]
+kept[11] #106 seedlibm c0 s0 p1: pristine [cr 8 cv true 6.875 Rp] | a+1ulp [cr 32 cv true 6.875 Rp] | a-1ulp [cr 32 cv true 0.302 Rp] | musl [cr 28 cv true 0.030 Rp]
+kept[12] #138 seedlibm c1 s0 p0: pristine [cr 28 cv false 0.127 Rp] | a+1ulp [cr 22 cv true 3.382 Rp] | a-1ulp [cr 14 cv false 0.014 Rp] | musl [cr 32 cv true 2.275 Rp]
+kept[13] #142 seedlibm c0 s0 p0: pristine [cr 12 cv true 24.432 Rp] | a+1ulp [cr 26 cv true 0.083 Rp] | a-1ulp [cr 32 cv true 4.656 Rp] | musl [cr 12 cv true 24.432 Rp]
+kept[14] #148 seedlibm c0 s0 p0: pristine [cr 12 cv true 18.431 Rp] | a+1ulp [cr 8 cv true 18.431 Rp] | a-1ulp [cr 8 cv true 18.431 Rp] | musl [cr 12 cv true 18.431 Rp]
+kept[15] #159 seedlibm c0 s0 p0: pristine [cr 22 cv true 11.585 Rp] | a+1ulp [cr 36 cv true 0.251 Rp] | a-1ulp [cr 22 cv true 0.263 Rp] | musl [cr 22 cv true 11.585 Rp]
+judged (converged and outside): pristine 14/16, alpha+1ulp 11/16, alpha-1ulp 8/16, musl 15/16; glibc-vs-musl seed sin/cos differ on 4 ships, powf on 2
+=== 4. the selection probe: which ships the failing test judges here ===
+kept[ 0] #32: crossings 10, converged true, closest 59.530 Rp
+  -> the test's filtered#1 (kept index 0): 5549 kicks, across a kick 1.00 quanta, over its work 1.603e-8
+kept[ 1] #39: crossings 8, converged true, closest 7.546 Rp
+  -> the test's filtered#2 (kept index 1): 6531 kicks, across a kick 2.96 quanta, over its work 3.096e-9
+kept[ 2] #53: crossings 8, converged true, closest 77.177 Rp
+  -> the test's filtered#3 (kept index 2): 6408 kicks, across a kick 0.98 quanta, over its work 6.549e-9
+kept[ 3] #57: crossings 14, converged true, closest 6.250 Rp
+  -> the test's filtered#4 (kept index 3): 7016 kicks, across a kick 24.37 quanta, over its work 8.409e-8
+kept[ 4] #70: crossings 16, converged true, closest 6.014 Rp
+  -> the test's filtered#5 (kept index 4): 6548 kicks, across a kick 33.67 quanta, over its work 4.740e-9
+kept[ 5] #72: crossings 30, converged true, closest 3.878 Rp
+  -> the test's filtered#6 (kept index 5): 6249 kicks, across a kick 19.84 quanta, over its work 1.221e-6
+kept[ 6] #78: crossings 22, converged true, closest 24.144 Rp
+kept[ 7] #83: crossings 22, converged true, closest 4.520 Rp
+kept[ 8] #85: crossings 12, converged true, closest 32.894 Rp
+kept[ 9] #88: crossings 34, converged true, closest 0.271 Rp
+kept[10] #101: crossings 42, converged true, closest 3.644 Rp
+kept[11] #106: crossings 8, converged true, closest 6.875 Rp
+kept[12] #138: crossings 28, converged false, closest 0.127 Rp
+kept[13] #142: crossings 12, converged true, closest 24.432 Rp
+kept[14] #148: crossings 12, converged true, closest 18.431 Rp
+kept[15] #159: crossings 22, converged true, closest 11.585 Rp
+=== 5. the ulp-stability control: the failing ship's walk under ±1 ulp ===
+pristine: 7016 kicks, across a kick 24.37 quanta, over its work 8.409e-8
+all+1ulp: 5423 kicks, across a kick 3.17 quanta, over its work 4.563e-9
+all-1ulp: 5424 kicks, across a kick 2.84 quanta, over its work 1.478e-7
+=== 5b. the CR-only seed path (the checker's named missing experiment) ===
+cr_seeds.txt sha256: e370148d3be163d80f88614b50b15630f9039213599d4cef578f7163d7ab5661
+kept[ 0] # 32: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 10 cv true 59.530 Rp judged 1
+kept[ 1] # 39: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 8 cv true 7.546 Rp judged 1
+kept[ 2] # 53: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 8 cv true 77.177 Rp judged 1
+kept[ 3] # 57: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 14 cv true 6.250 Rp judged 1
+kept[ 4] # 70: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 16 cv true 6.014 Rp judged 1
+kept[ 5] # 72: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 30 cv true 3.878 Rp judged 1
+kept[ 6] # 78: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 22 cv true 24.144 Rp judged 1
+kept[ 7] # 83: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 22 cv true 4.520 Rp judged 1
+kept[ 8] # 85: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 12 cv true 32.894 Rp judged 1
+kept[ 9] # 88: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 34 cv true 0.271 Rp judged 0
+kept[10] #101: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 42 cv true 3.644 Rp judged 1
+kept[11] #106: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 8 cv true 6.875 Rp judged 1
+kept[12] #138: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 28 cv false 0.127 Rp judged 0
+kept[13] #142: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 12 cv true 24.432 Rp judged 1
+kept[14] #148: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 12 cv true 18.431 Rp judged 1
+kept[15] #159: glibc-vs-CR ulps r0 v0 cos0 sin0 | CR cr 22 cv true 11.585 Rp judged 1
+CR corpus: 14/16 judged, crossings [10, 8, 8, 14, 16, 30, 22, 22, 12, 34, 42, 8, 28, 12, 12, 22] (frozen at ≥ 20 each; pristine glibc seeds read 14/16 here)
+CR kept[0] (#32, the test's ship 0): 5549 kicks, across a kick 1.00 quanta, over its work 1.603e-8 (≤ 5e-8: pass)
+CR kept[1] (#39, the test's ship 1): 6531 kicks, across a kick 2.96 quanta, over its work 3.096e-9 (≤ 5e-8: pass)
+CR kept[2] (#53, the test's ship 2): 6408 kicks, across a kick 0.98 quanta, over its work 6.549e-9 (≤ 5e-8: pass)
+CR kept[3] (#57, the test's ship 3): 7016 kicks, across a kick 24.37 quanta, over its work 8.409e-8 (> 5e-8: fail)
+=== 6. the freeze-commit control: the same test at c84f5787 (6 Oct) on this box ===
+ship 0: 5549 kicks, across a kick 1.0 quanta, over its work 1.60e-8
+ship 1: 6531 kicks, across a kick 3.0 quanta, over its work 3.10e-9
+ship 2: 6408 kicks, across a kick 1.0 quanta, over its work 6.55e-9
+ship 3: 7016 kicks, across a kick 24.4 quanta, over its work 8.41e-8
+ship 3: JRun { kicks: 7016, per_kick: 2575847.3203125, across_kick: 24.37109375, across_kick_over_work: 8.409466703853747e-8, along_drift: 2575846.65234375, trend: 7618880.155103069, reach: 45288613.224609375, alive: true }
+=== 7. the CR check: glibc vs correctly-rounded on the seeds where musl differs ===
+#70: r=451285545.2182463 alpha=1.2975171250633402 | sin(a): glibc +0 ulp vs CR | cos(a): glibc +0 ulp vs CR | pow(r,-.5): glibc +0 ulp vs CR
+#83: r=450324277.79980177 alpha=0.8902876648963289 | sin(a): glibc +0 ulp vs CR | cos(a): glibc +0 ulp vs CR | pow(r,-.5): glibc +0 ulp vs CR
+#88: r=595592495.5276978 alpha=5.242124434676389 | sin(a): glibc +0 ulp vs CR | cos(a): glibc +0 ulp vs CR | pow(r,-.5): glibc +0 ulp vs CR
+#106: r=464187486.82406807 alpha=4.754168600764855 | sin(a): glibc +0 ulp vs CR | cos(a): glibc +0 ulp vs CR | pow(r,-.5): glibc +0 ulp vs CR
+#138: r=586229743.0611355 alpha=5.302873344746389 | sin(a): glibc +0 ulp vs CR | cos(a): glibc +0 ulp vs CR | pow(r,-.5): glibc +0 ulp vs CR
+REGEN DONE
