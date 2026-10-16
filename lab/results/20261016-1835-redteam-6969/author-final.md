@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261016-1835-redteam-6969/`: `predictions.md` (pre-registered), `eob_flank.py` + `flank.json` (instrument, controls C0 = 2.2×10⁻⁸ vs an independent χ-integral), `dossier.md`, `regen.sh` (verified end-to-end, 20 s), `wiki/representation-premises.md` (result folded in).
+
+**Claim:** The two-body doll's "ν enters only through the energy map" (representation.md L37, law.md L39) is measured false inside 100M — against a 2PN ADM oracle at fixed real invariants the doll over-precesses by +1.2% at p = 30M (ν = 0.25, exactly ν-linear, ≈ 1.8·ν·M/p, and circular binaries at fixed L run +0.11% fast even at 100M) — while in the inspiral band p ≲ 20M no oracle the repo has can vouch for it at all (the 1PN r3 oracle is blind by construction; the 2PN oracle's own ν=0 floor is +11–370%), and B11/r3-v3's tolerance (1% + 16/p) exceeds the effect everywhere, so no existing gate or rung can fail on it.
