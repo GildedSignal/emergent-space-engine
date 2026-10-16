@@ -1,0 +1,23 @@
+X1-relative-motion             256 PASS                10 ms  p99     0.37 ms SMOOTH cores 1.00  
+X1-relative-motion            4096 PASS               200 ms  p99     0.32 ms SMOOTH cores 1.00  
+X1-relative-motion           65536 PASS              6089 ms  p99     0.01 ms SMOOTH cores 0.97  
+X1-relative-motion          262144 FAIL              8000 ms  p99     0.00 ms SMOOTH cores 0.99  wall cap 8 s
+X1-relative-motion         1048576 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X2-horizon                      64 PASS                49 ms  p99     0.24 ms SMOOTH cores 1.00  
+X2-horizon                    4096 PASS               183 ms  p99     0.31 ms SMOOTH cores 1.00  
+X2-horizon                  262144 FAIL              2950 ms  p99     0.01 ms SMOOTH cores 1.00  engine error: resource limit: dense interaction frontier exceeds job capacity
+X2-horizon                16777216 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X3-crowded-axes                256 PASS                 2 ms  p99     0.16 ms SMOOTH cores 1.00  
+X3-crowded-axes               4096 PASS               119 ms  p99     0.00 ms SMOOTH cores 1.00  
+X3-crowded-axes              65536 FAIL              8000 ms  p99     0.00 ms SMOOTH cores 1.00  wall cap 8 s
+X3-crowded-axes             262144 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X4-near-miss-lattice             1 PASS                43 ms  p99     1.64 ms SMOOTH cores 1.00  
+X4-near-miss-lattice             4 PASS               710 ms  p99     1.89 ms SMOOTH cores 1.00  
+X4-near-miss-lattice            16 FAIL              8031 ms  p99     1.79 ms SMOOTH cores 1.00  wall cap 8 s
+X4-near-miss-lattice            64 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C1-packed-stop-cascade          64 PASS                29 ms  p99     0.50 ms SMOOTH cores 1.00  
+C1-packed-stop-cascade         256 PASS               229 ms  p99     0.32 ms SMOOTH cores 1.00  
+C1-packed-stop-cascade        1024 PASS              1362 ms  p99     0.17 ms SMOOTH cores 0.99  
+C1-packed-stop-cascade        4096 FAIL              8194 ms  p99     0.41 ms SMOOTH cores 0.82  wall cap 8 s
+C1-packed-stop-cascade       16384 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+ladder wall time 53.9 s

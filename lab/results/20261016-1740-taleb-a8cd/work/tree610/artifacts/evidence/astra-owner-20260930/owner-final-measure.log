@@ -1,0 +1,90 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.06s
+     Running `target/release/examples/measure`
+machine before
+date: 2026-09-30T12:48:37Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 14:48  1 user, load averages: 6.84 6.52 5.68
+vm_stat: Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                     4032.
+Pages active:                                  77976.
+Pages inactive:                                71350.
+Pages speculative:                              5693.
+Pages throttled:                                   0.
+Pages wired down:                             144027.
+Pages purgeable:                                   0.
+"Translation faults":                    17891894031.
+Pages copy-on-write:                       296703901.
+Pages zero filled:                        4141223420.
+Pages reactivated:                        7189184443.
+Pages purged:                              451130201.
+File-backed pages:                             56423.
+Anonymous pages:                               98596.
+Pages stored in compressor:                  1381600.
+Pages occupied by compressor:                 185260.
+Decompressions:                           8423526973.
+Compressions:                             9065661701.
+Pageins:                                   847762250.
+Pageouts:                                   15363111.
+Swapins:                                   216319755.
+Swapouts:                                  228127683.
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	50%; discharging; 1:49 remaining present: true
+hardware: Model Name: MacBook Air
+hardware: Model Identifier: MacBookAir10,1
+hardware: Chip: Apple M1
+hardware: Total Number of Cores: 8 (4 Performance and 4 Efficiency)
+hardware: Memory: 8 GB
+sampler=behave BOUND_SEED=20260930 keys=256 rounds=16; ns include allocation and drop; no memo
+compile: n=4096 median_ns=21458 p99_ns=53500 max_ns=281916
+compile_per_outbound_interval: n=4096 median_ns=1172 p99_ns=6166 max_ns=16125
+compile_per_full_cycle_band_crossing_nonzero_only: n=4048 median_ns=625 p99_ns=3208 max_ns=16125
+readout_periapsis: n=4096 median_ns=42 p99_ns=167 max_ns=542
+readout_crossing: n=4048 median_ns=166 p99_ns=417 max_ns=8917
+readout_crossing_position_and_velocity: n=4048 median_ns=416 p99_ns=666 max_ns=14917
+readout_interior: n=4096 median_ns=6208 p99_ns=12375 max_ns=549375
+readout_position_and_velocity: n=4096 median_ns=6375 p99_ns=13167 max_ns=53500
+bytes: key=16 tube=16 cycle_header=192 crossing=36; outbound crossings min=0 max=40
+machine after
+date: 2026-09-30T12:48:37Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 14:48  1 user, load averages: 6.84 6.52 5.68
+vm_stat: Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                     5817.
+Pages active:                                  77473.
+Pages inactive:                                69158.
+Pages speculative:                              7405.
+Pages throttled:                                   0.
+Pages wired down:                             142610.
+Pages purgeable:                                   0.
+"Translation faults":                    17891923340.
+Pages copy-on-write:                       296704270.
+Pages zero filled:                        4141231412.
+Pages reactivated:                        7189198356.
+Pages purged:                              451131205.
+File-backed pages:                             58478.
+Anonymous pages:                               95558.
+Pages stored in compressor:                  1384242.
+Pages occupied by compressor:                 186014.
+Decompressions:                           8423540366.
+Compressions:                             9065678208.
+Pageins:                                   847765741.
+Pageouts:                                   15363122.
+Swapins:                                   216319806.
+Swapouts:                                  228127683.
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	50%; discharging; 1:49 remaining present: true
+hardware: Model Name: MacBook Air
+hardware: Model Identifier: MacBookAir10,1
+hardware: Chip: Apple M1
+hardware: Total Number of Cores: 8 (4 Performance and 4 Efficiency)
+hardware: Memory: 8 GB
+
+wall_seconds=1.914 exit=0

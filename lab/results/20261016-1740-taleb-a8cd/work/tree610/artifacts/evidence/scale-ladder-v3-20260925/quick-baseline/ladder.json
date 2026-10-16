@@ -1,0 +1,822 @@
+{
+  "accounting": "Each rung ran in a fresh child process; peak RSS is that process's getrusage maximum. Wall times are single runs. Oracle and correctness checks run after the timed advance and are excluded from advance_ms.",
+  "ladder_seconds": 53.947615792,
+  "manifest": "scenarios/scale-ladder-v3.json",
+  "manifest_blake3": "596740b164f017f8ba771894299b3a97bb7f52745101d39365894dbe5797c86b",
+  "profile": "quick",
+  "provenance": {
+    "hardware": "Apple M1",
+    "law": "es-inertial-causal-v1",
+    "manifest_hash": "378fda05a47846981d32c586995e955643ba753ef91d561816b0a953fc7ba41d",
+    "memory_bytes": "8589934592",
+    "profile": "release",
+    "revision": "3b0f697a58923c1c01a4bc7cf40a2b243a4dfd27",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "unix_seconds": 1790345876,
+    "working_tree_diff_hash": "3ca381fa2c99c4a2c46399950462a14b9f2eaac5b9648e59531043ed029db42f",
+    "working_tree_status": "M AGENTS.md\n M crates/engine/src/runtime.rs\n M crates/law-lab/src/coupled_source_response.rs\n M crates/law-lab/src/lib.rs\n M crates/law-lab/src/orbit_initialization.rs\n M crates/law-lab/src/orbit_reference.rs\n M docs/HANDOFF.md\n M docs/HISTORY.md\n M docs/architecture.md\n M xtask/src/main.rs\n?? artifacts/evidence/orbit-refinement-20260924/\n?? artifacts/evidence/scale-ladder-v1-20260925/\n?? artifacts/evidence/scale-ladder-v2-20260925/\n?? artifacts/evidence/scale-ladder-v3-20260925/\n?? crates/engine/tests/contact_cascade.rs\n?? crates/law-lab/examples/orbit_failure_diagnosis.rs\n?? crates/law-lab/examples/orbit_reinitialize.rs\n?? crates/law-lab/src/orbit_newtonian_control.rs\n?? docs/laws/orbit-refinement-20260924.md\n?? docs/test-ladder.md\n?? scenarios/scale-ladder-v1.json\n?? scenarios/scale-ladder-v2.json\n?? scenarios/scale-ladder-v3.json\n?? xtask/src/ladder.rs"
+  },
+  "rows": [
+    {
+      "aabb_compares": 3882,
+      "advance_ms": 9.912666,
+      "certified_rejections": 3667,
+      "child_wall_s": 0.055302709,
+      "cores_available": 8,
+      "cores_used": 1.0000336942654982,
+      "correctness": {
+        "engine_contacts": 1,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 1,
+        "oracle_ms": 0.147875
+      },
+      "descriptions": 256,
+      "events": 1,
+      "limiter": null,
+      "operations": 14056,
+      "pairs_per_description": 15.1640625,
+      "param": {
+        "bodies": 256,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 4046848,
+      "rss_per_description": 15808.0,
+      "rung": 0,
+      "setup_ms": 1.4315,
+      "size": 256.0,
+      "slices": 586,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 586,
+        "frames_over_target": 0,
+        "max_ms": 0.3895,
+        "p50_ms": 0.00075,
+        "p95_ms": 0.17066700744628907,
+        "p99_ms": 0.3674169921875,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 0.3895
+    },
+    {
+      "aabb_compares": 266727,
+      "advance_ms": 199.594167,
+      "certified_rejections": 262910,
+      "child_wall_s": 0.375741833,
+      "cores_available": 8,
+      "cores_used": 0.9999741124699302,
+      "correctness": {
+        "engine_contacts": 16,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 16,
+        "oracle_ms": 2.1441670000000004
+      },
+      "descriptions": 4096,
+      "events": 16,
+      "limiter": null,
+      "operations": 654087,
+      "pairs_per_description": 65.118896484375,
+      "param": {
+        "bodies": 4096,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 17448960,
+      "rss_per_description": 4260.0,
+      "rung": 1,
+      "setup_ms": 31.717875,
+      "size": 4096.0,
+      "slices": 27254,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 27254,
+        "frames_over_target": 0,
+        "max_ms": 1.0309169921875,
+        "p50_ms": 0.0005410000085830689,
+        "p95_ms": 0.004541999816894531,
+        "p99_ms": 0.31975,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 1.0309169999999999
+    },
+    {
+      "aabb_compares": 17191613,
+      "advance_ms": 6089.3958330000005,
+      "certified_rejections": 17130544,
+      "child_wall_s": 6.534300792,
+      "cores_available": 8,
+      "cores_used": 0.9741388411397759,
+      "correctness": {
+        "engine_contacts": 257,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": null,
+        "oracle_contacts": 257,
+        "oracle_ms": 41.238791
+      },
+      "descriptions": 65536,
+      "events": 257,
+      "limiter": null,
+      "operations": 36607450,
+      "pairs_per_description": 262.3231964111328,
+      "param": {
+        "bodies": 65536,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 174899200,
+      "rss_per_description": 2668.75,
+      "rung": 2,
+      "setup_ms": 314.819792,
+      "size": 65536.0,
+      "slices": 1525311,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 1525311,
+        "frames_over_target": 251,
+        "max_ms": 28.650375,
+        "p50_ms": 0.00045800000429153443,
+        "p95_ms": 0.001625,
+        "p99_ms": 0.007041999816894531,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 28.650375
+    },
+    {
+      "aabb_compares": 119995934,
+      "advance_ms": 8000.023375,
+      "certified_rejections": 119516458,
+      "child_wall_s": 10.006523875,
+      "cores_available": 8,
+      "cores_used": 0.9920039764883813,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": false,
+        "first_extra": [],
+        "first_missing": [
+          [
+            41,
+            129223
+          ],
+          [
+            107,
+            110753
+          ],
+          [
+            219,
+            112125
+          ],
+          [
+            235,
+            223815
+          ],
+          [
+            308,
+            39073
+          ]
+        ],
+        "grid_oracle_equals_brute_force": null,
+        "oracle_contacts": 1155,
+        "oracle_ms": 239.541625
+      },
+      "descriptions": 262144,
+      "events": 0,
+      "limiter": "wall cap 8 s",
+      "operations": 246148608,
+      "pairs_per_description": 457.74816131591797,
+      "param": {
+        "bodies": 262144,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 528531456,
+      "rss_per_description": 2016.1875,
+      "rung": 3,
+      "setup_ms": 1371.402708,
+      "size": 262144.0,
+      "slices": 10256192,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 10256192,
+        "frames_over_target": 0,
+        "max_ms": 4.136625,
+        "p50_ms": 0.0004169999957084656,
+        "p95_ms": 0.0007919999957084656,
+        "p99_ms": 0.00175,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 4.136625
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 4,
+      "size": 1048576.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X1-relative-motion"
+    },
+    {
+      "aabb_compares": 4768,
+      "advance_ms": 49.267417,
+      "certified_rejections": 4767,
+      "child_wall_s": 0.165608208,
+      "cores_available": 8,
+      "cores_used": 1.0000118333786405,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 0,
+        "oracle_ms": 1.202875
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": null,
+      "operations": 95567,
+      "pairs_per_description": 1.1640625,
+      "param": {
+        "bodies": 4096,
+        "horizon": 64
+      },
+      "peak_rss_bytes": 13991936,
+      "rss_per_description": 3416.0,
+      "rung": 0,
+      "setup_ms": 20.862292,
+      "size": 64.0,
+      "slices": 3982,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 3982,
+        "frames_over_target": 0,
+        "max_ms": 0.26491598510742187,
+        "p50_ms": 0.002165999889373779,
+        "p95_ms": 0.00625,
+        "p99_ms": 0.24404200744628907,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X2-horizon",
+      "worst_slice_ms": 0.264916
+    },
+    {
+      "aabb_compares": 266727,
+      "advance_ms": 182.59029099999998,
+      "certified_rejections": 262910,
+      "child_wall_s": 0.3303995,
+      "cores_available": 8,
+      "cores_used": 0.9986292206522636,
+      "correctness": {
+        "engine_contacts": 16,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 16,
+        "oracle_ms": 2.1856660000000003
+      },
+      "descriptions": 4096,
+      "events": 16,
+      "limiter": null,
+      "operations": 654087,
+      "pairs_per_description": 65.118896484375,
+      "param": {
+        "bodies": 4096,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 17481728,
+      "rss_per_description": 4268.0,
+      "rung": 1,
+      "setup_ms": 19.484292,
+      "size": 4096.0,
+      "slices": 27254,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 27254,
+        "frames_over_target": 0,
+        "max_ms": 1.0520830078125,
+        "p50_ms": 0.0005,
+        "p95_ms": 0.0044580001831054684,
+        "p99_ms": 0.307375,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X2-horizon",
+      "worst_slice_ms": 1.052083
+    },
+    {
+      "aabb_compares": 5524728,
+      "advance_ms": 2950.2391660000003,
+      "certified_rejections": 1807697,
+      "child_wall_s": 3.285395167,
+      "cores_available": 8,
+      "cores_used": 0.9966717389853809,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": false,
+        "first_extra": [],
+        "first_missing": [
+          [
+            19,
+            1231
+          ],
+          [
+            27,
+            1850
+          ],
+          [
+            35,
+            987
+          ],
+          [
+            35,
+            1723
+          ],
+          [
+            40,
+            2149
+          ]
+        ],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 234,
+        "oracle_ms": 82.37908300000001
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": "engine error: resource limit: dense interaction frontier exceeds job capacity",
+      "operations": 19567920,
+      "pairs_per_description": 1348.810546875,
+      "param": {
+        "bodies": 4096,
+        "horizon": 262144
+      },
+      "peak_rss_bytes": 589119488,
+      "rss_per_description": 143828.0,
+      "rung": 2,
+      "setup_ms": 22.134125,
+      "size": 262144.0,
+      "slices": 815330,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 815330,
+        "frames_over_target": 0,
+        "max_ms": 1.2889580078125,
+        "p50_ms": 0.004083000183105469,
+        "p95_ms": 0.007791999816894531,
+        "p99_ms": 0.011166000366210937,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "X2-horizon",
+      "worst_slice_ms": 1.288958
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 16777216.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X2-horizon"
+    },
+    {
+      "aabb_compares": 8128,
+      "advance_ms": 2.444334,
+      "certified_rejections": 8128,
+      "child_wall_s": 0.055366083,
+      "cores_available": 8,
+      "cores_used": 0.9994542480692082,
+      "correctness": {
+        "brute_force_confirms_zero": true,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 256,
+      "events": 0,
+      "limiter": null,
+      "operations": 20619,
+      "pairs_per_description": 31.75,
+      "param": {
+        "bodies": 256,
+        "horizon": 8192
+      },
+      "peak_rss_bytes": 3735552,
+      "rss_per_description": 14592.0,
+      "rung": 0,
+      "setup_ms": 0.7624580000000001,
+      "size": 256.0,
+      "slices": 860,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 860,
+        "frames_over_target": 0,
+        "max_ms": 0.16554200744628905,
+        "p50_ms": 0.0005419999957084656,
+        "p95_ms": 0.0024579999446868897,
+        "p99_ms": 0.15608399963378905,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 0.165542
+    },
+    {
+      "aabb_compares": 2096128,
+      "advance_ms": 118.849916,
+      "certified_rejections": 2096128,
+      "child_wall_s": 0.214121,
+      "cores_available": 8,
+      "cores_used": 0.9999081530692879,
+      "correctness": {
+        "brute_force_confirms_zero": true,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": null,
+      "operations": 4278283,
+      "pairs_per_description": 511.75,
+      "param": {
+        "bodies": 4096,
+        "horizon": 131072
+      },
+      "peak_rss_bytes": 16662528,
+      "rss_per_description": 4068.0,
+      "rung": 1,
+      "setup_ms": 12.432667,
+      "size": 4096.0,
+      "slices": 178262,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 178262,
+        "frames_over_target": 0,
+        "max_ms": 0.19766700744628907,
+        "p50_ms": 0.000375,
+        "p95_ms": 0.000625,
+        "p99_ms": 0.0015829999446868896,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 0.197667
+    },
+    {
+      "aabb_compares": 186806841,
+      "advance_ms": 8000.047917,
+      "certified_rejections": 186806841,
+      "child_wall_s": 8.487607042,
+      "cores_available": 8,
+      "cores_used": 0.9974451506775893,
+      "correctness": {
+        "brute_force_confirms_zero": null,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 65536,
+      "events": 0,
+      "limiter": "wall cap 8 s",
+      "operations": 374859264,
+      "pairs_per_description": 2850.4461822509766,
+      "param": {
+        "bodies": 65536,
+        "horizon": 2097152
+      },
+      "peak_rss_bytes": 252723200,
+      "rss_per_description": 3856.25,
+      "rung": 2,
+      "setup_ms": 144.517875,
+      "size": 65536.0,
+      "slices": 15619136,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 15619136,
+        "frames_over_target": 0,
+        "max_ms": 1.2716669921875,
+        "p50_ms": 0.000375,
+        "p95_ms": 0.000625,
+        "p99_ms": 0.0007080000042915344,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 1.2716669999999999
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 262144.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X3-crowded-axes"
+    },
+    {
+      "aabb_compares": 1,
+      "advance_ms": 43.494499999999995,
+      "certified_rejections": 122,
+      "child_wall_s": 0.055334417,
+      "cores_available": 8,
+      "cores_used": 0.9999885042936463,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 2,
+      "events": 0,
+      "limiter": null,
+      "operations": 822,
+      "pairs_per_description": 0.5,
+      "param": {
+        "lanes_per_axis": 1,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 2850816,
+      "rss_per_description": 1425408.0,
+      "rung": 0,
+      "setup_ms": 0.232375,
+      "size": 1.0,
+      "slices": 35,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 35,
+        "frames_over_target": 0,
+        "max_ms": 1.636625,
+        "p50_ms": 1.2668330078125,
+        "p95_ms": 1.58225,
+        "p99_ms": 1.636625,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 1.636625
+    },
+    {
+      "aabb_compares": 22,
+      "advance_ms": 710.336084,
+      "certified_rejections": 1671,
+      "child_wall_s": 0.760992583,
+      "cores_available": 8,
+      "cores_used": 0.999967502706789,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 8,
+      "events": 0,
+      "limiter": null,
+      "operations": 12213,
+      "pairs_per_description": 2.75,
+      "param": {
+        "lanes_per_axis": 4,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 4702208,
+      "rss_per_description": 587776.0,
+      "rung": 1,
+      "setup_ms": 0.042583,
+      "size": 4.0,
+      "slices": 509,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 509,
+        "frames_over_target": 0,
+        "max_ms": 1.956125,
+        "p50_ms": 1.344,
+        "p95_ms": 1.83725,
+        "p99_ms": 1.8880419921875,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 1.956125
+    },
+    {
+      "aabb_compares": 376,
+      "advance_ms": 8031.210166999999,
+      "certified_rejections": 20531,
+      "child_wall_s": 8.089594958,
+      "cores_available": 8,
+      "cores_used": 0.9972611640658613,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 32,
+      "events": 0,
+      "limiter": "wall cap 8 s",
+      "operations": 135168,
+      "pairs_per_description": 11.75,
+      "param": {
+        "lanes_per_axis": 16,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 26476544,
+      "rss_per_description": 827392.0,
+      "rung": 2,
+      "setup_ms": 0.151291,
+      "size": 16.0,
+      "slices": 5632,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 5632,
+        "frames_over_target": 1,
+        "max_ms": 6.2582080078125,
+        "p50_ms": 1.4225830078125,
+        "p95_ms": 1.6665,
+        "p99_ms": 1.791625,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 6.258208000000001
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 64.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X4-near-miss-lattice"
+    },
+    {
+      "aabb_compares": 4200,
+      "advance_ms": 29.255875,
+      "certified_rejections": 3656,
+      "child_wall_s": 2.246726917,
+      "cores_available": 8,
+      "cores_used": 1.0000042726460925,
+      "correctness": {
+        "audit_contacts": 30,
+        "audit_equal": true,
+        "budget_64_digest_equal": true,
+        "engine_contacts": 30,
+        "replay_equal": true,
+        "stopped_bodies": 48
+      },
+      "descriptions": 64,
+      "events": 30,
+      "limiter": null,
+      "operations": 37587,
+      "pairs_per_description": 65.625,
+      "param": {
+        "bodies": 64,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 4587520,
+      "rss_per_description": 71680.0,
+      "rung": 0,
+      "setup_ms": 0.427958,
+      "size": 64.0,
+      "slices": 1567,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 1567,
+        "frames_over_target": 0,
+        "max_ms": 0.7635,
+        "p50_ms": 0.0035,
+        "p95_ms": 0.031291000366210936,
+        "p99_ms": 0.5030419921875,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 0.7635
+    },
+    {
+      "aabb_compares": 65322,
+      "advance_ms": 229.002916,
+      "certified_rejections": 60982,
+      "child_wall_s": 0.821122833,
+      "cores_available": 8,
+      "cores_used": 1.0000047335641786,
+      "correctness": {
+        "budget_64_digest_equal": true,
+        "replay_equal": true,
+        "stopped_bodies": 199
+      },
+      "descriptions": 256,
+      "events": 129,
+      "limiter": null,
+      "operations": 571860,
+      "pairs_per_description": 255.1640625,
+      "param": {
+        "bodies": 256,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 8830976,
+      "rss_per_description": 34496.0,
+      "rung": 1,
+      "setup_ms": 1.581959,
+      "size": 256.0,
+      "slices": 23828,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 23828,
+        "frames_over_target": 0,
+        "max_ms": 0.921,
+        "p50_ms": 0.003165999889373779,
+        "p95_ms": 0.004625,
+        "p99_ms": 0.320875,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 0.921
+    },
+    {
+      "aabb_compares": 1008116,
+      "advance_ms": 1361.957542,
+      "certified_rejections": 987803,
+      "child_wall_s": 4.041123125,
+      "cores_available": 8,
+      "cores_used": 0.9934781065296968,
+      "correctness": {
+        "replay_equal": true,
+        "stopped_bodies": 863
+      },
+      "descriptions": 1024,
+      "events": 569,
+      "limiter": null,
+      "operations": 4128088,
+      "pairs_per_description": 984.48828125,
+      "param": {
+        "bodies": 1024,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 25886720,
+      "rss_per_description": 25280.0,
+      "rung": 2,
+      "setup_ms": 4.5432500000000005,
+      "size": 1024.0,
+      "slices": 172004,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 172004,
+        "frames_over_target": 1,
+        "max_ms": 5.1253330078125,
+        "p50_ms": 0.00329200005531311,
+        "p95_ms": 0.004415999889373779,
+        "p99_ms": 0.16929200744628906,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 5.125333
+    },
+    {
+      "aabb_compares": 4359723,
+      "advance_ms": 8193.616457999999,
+      "certified_rejections": 4286899,
+      "child_wall_s": 8.394049167,
+      "cores_available": 8,
+      "cores_used": 0.8205354783766717,
+      "correctness": {},
+      "descriptions": 4096,
+      "events": 468,
+      "limiter": "wall cap 8 s",
+      "operations": 9500160,
+      "pairs_per_description": 1064.385498046875,
+      "param": {
+        "bodies": 4096,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 67567616,
+      "rss_per_description": 16496.0,
+      "rung": 3,
+      "setup_ms": 18.630166,
+      "size": 4096.0,
+      "slices": 395840,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 395840,
+        "frames_over_target": 83,
+        "max_ms": 137.708453125,
+        "p50_ms": 0.0021670000553131105,
+        "p95_ms": 0.006791999816894531,
+        "p99_ms": 0.40595901489257813,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 137.708459
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 4,
+      "size": 16384.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    }
+  ],
+  "schema": 3
+}

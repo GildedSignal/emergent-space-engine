@@ -1,0 +1,712 @@
+{
+  "accounting": "Each rung ran in a fresh child process; peak RSS is that process's getrusage maximum. Wall times are single runs. Oracle and correctness checks run after the timed advance and are excluded from advance_ms.",
+  "ladder_seconds": 90.160673916,
+  "manifest": "scenarios/scale-ladder-v2.json",
+  "manifest_blake3": "16d8cd8ae42da67c51b284f458e99ef7fd7eea851043cfcff952ad4fd6955ff9",
+  "profile": "quick",
+  "provenance": {
+    "hardware": "Apple M1",
+    "law": "es-inertial-causal-v1",
+    "manifest_hash": "378fda05a47846981d32c586995e955643ba753ef91d561816b0a953fc7ba41d",
+    "memory_bytes": "8589934592",
+    "profile": "release",
+    "revision": "3b0f697a58923c1c01a4bc7cf40a2b243a4dfd27",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "unix_seconds": 1790345741,
+    "working_tree_diff_hash": "3ca381fa2c99c4a2c46399950462a14b9f2eaac5b9648e59531043ed029db42f",
+    "working_tree_status": "M AGENTS.md\n M crates/engine/src/runtime.rs\n M crates/law-lab/src/coupled_source_response.rs\n M crates/law-lab/src/lib.rs\n M crates/law-lab/src/orbit_initialization.rs\n M crates/law-lab/src/orbit_reference.rs\n M docs/HANDOFF.md\n M docs/HISTORY.md\n M docs/architecture.md\n M xtask/src/main.rs\n?? artifacts/evidence/orbit-refinement-20260924/\n?? artifacts/evidence/scale-ladder-v1-20260925/\n?? artifacts/evidence/scale-ladder-v2-20260925/\n?? crates/engine/tests/contact_cascade.rs\n?? crates/law-lab/examples/orbit_failure_diagnosis.rs\n?? crates/law-lab/examples/orbit_reinitialize.rs\n?? crates/law-lab/src/orbit_newtonian_control.rs\n?? docs/laws/orbit-refinement-20260924.md\n?? docs/test-ladder.md\n?? scenarios/scale-ladder-v1.json\n?? scenarios/scale-ladder-v2.json\n?? xtask/src/ladder.rs"
+  },
+  "rows": [
+    {
+      "aabb_compares": 3882,
+      "advance_ms": 10.644125,
+      "certified_rejections": 3667,
+      "child_wall_s": 0.0503695,
+      "cores_available": 8,
+      "cores_used": 0.9811045999553742,
+      "correctness": {
+        "engine_contacts": 1,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 1,
+        "oracle_ms": 0.15375
+      },
+      "descriptions": 256,
+      "events": 1,
+      "limiter": null,
+      "operations": 14056,
+      "pairs_per_description": 15.1640625,
+      "param": {
+        "bodies": 256,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 4063232,
+      "rss_per_description": 15872.0,
+      "rung": 0,
+      "setup_ms": 1.668458,
+      "size": 256.0,
+      "slices": 0,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 586,
+        "max_ms": 0.524083,
+        "p50_ms": 0.000791,
+        "p95_ms": 0.181625,
+        "p99_ms": 0.394458,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 0.0
+    },
+    {
+      "aabb_compares": 266727,
+      "advance_ms": 209.02354200000002,
+      "certified_rejections": 262910,
+      "child_wall_s": 0.380694667,
+      "cores_available": 8,
+      "cores_used": 0.9807077137751306,
+      "correctness": {
+        "engine_contacts": 16,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 16,
+        "oracle_ms": 2.474333
+      },
+      "descriptions": 4096,
+      "events": 16,
+      "limiter": null,
+      "operations": 654087,
+      "pairs_per_description": 65.118896484375,
+      "param": {
+        "bodies": 4096,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 17547264,
+      "rss_per_description": 4284.0,
+      "rung": 1,
+      "setup_ms": 19.763708,
+      "size": 4096.0,
+      "slices": 7,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.297584,
+        "p50_ms": 0.002,
+        "p95_ms": 0.192917,
+        "p99_ms": 0.21675,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 105.388708
+    },
+    {
+      "aabb_compares": 17191613,
+      "advance_ms": 6650.165125,
+      "certified_rejections": 17130544,
+      "child_wall_s": 7.169038083,
+      "cores_available": 8,
+      "cores_used": 0.9669827559357033,
+      "correctness": {
+        "engine_contacts": 257,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": null,
+        "oracle_contacts": 257,
+        "oracle_ms": 92.57116599999999
+      },
+      "descriptions": 65536,
+      "events": 257,
+      "limiter": null,
+      "operations": 36607450,
+      "pairs_per_description": 262.3231964111328,
+      "param": {
+        "bodies": 65536,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 170475520,
+      "rss_per_description": 2601.25,
+      "rung": 2,
+      "setup_ms": 362.88237499999997,
+      "size": 65536.0,
+      "slices": 366,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.017792,
+        "p50_ms": 0.001834,
+        "p95_ms": 0.002042,
+        "p99_ms": 0.002208,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 2957.545583
+    },
+    {
+      "aabb_compares": 95190363,
+      "advance_ms": 8002.329790999999,
+      "certified_rejections": 94810186,
+      "child_wall_s": 10.232218333,
+      "cores_available": 8,
+      "cores_used": 0.8867742501666163,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": false,
+        "first_extra": [],
+        "first_missing": [
+          [
+            41,
+            129223
+          ],
+          [
+            107,
+            110753
+          ],
+          [
+            219,
+            112125
+          ],
+          [
+            235,
+            223815
+          ],
+          [
+            308,
+            39073
+          ]
+        ],
+        "grid_oracle_equals_brute_force": null,
+        "oracle_contacts": 1155,
+        "oracle_ms": 315.73412499999995
+      },
+      "descriptions": 262144,
+      "events": 0,
+      "limiter": "wall cap 8 s",
+      "operations": 196348000,
+      "pairs_per_description": 363.1224174499512,
+      "param": {
+        "bodies": 262144,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 527695872,
+      "rss_per_description": 2013.0,
+      "rung": 3,
+      "setup_ms": 1620.048666,
+      "size": 262144.0,
+      "slices": 1963,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.020458999999999998,
+        "p50_ms": 0.002042,
+        "p95_ms": 0.0022919999999999998,
+        "p99_ms": 0.002417,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 1668.693583
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 4,
+      "size": 1048576.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X1-relative-motion"
+    },
+    {
+      "aabb_compares": 4768,
+      "advance_ms": 52.871625,
+      "certified_rejections": 4767,
+      "child_wall_s": 0.161237875,
+      "cores_available": 8,
+      "cores_used": 0.9884886269336342,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 0,
+        "oracle_ms": 1.283458
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": null,
+      "operations": 95567,
+      "pairs_per_description": 1.1640625,
+      "param": {
+        "bodies": 4096,
+        "horizon": 64
+      },
+      "peak_rss_bytes": 13975552,
+      "rss_per_description": 3412.0,
+      "rung": 0,
+      "setup_ms": 19.771333,
+      "size": 64.0,
+      "slices": 1,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.287334,
+        "p50_ms": 0.0022500000000000003,
+        "p95_ms": 0.252,
+        "p99_ms": 0.273708,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X2-horizon",
+      "worst_slice_ms": 3.8665420000000004
+    },
+    {
+      "aabb_compares": 266727,
+      "advance_ms": 199.380291,
+      "certified_rejections": 262910,
+      "child_wall_s": 0.326836292,
+      "cores_available": 8,
+      "cores_used": 0.9963422111767306,
+      "correctness": {
+        "engine_contacts": 16,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 16,
+        "oracle_ms": 2.443917
+      },
+      "descriptions": 4096,
+      "events": 16,
+      "limiter": null,
+      "operations": 654087,
+      "pairs_per_description": 65.118896484375,
+      "param": {
+        "bodies": 4096,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 17498112,
+      "rss_per_description": 4272.0,
+      "rung": 1,
+      "setup_ms": 18.135833,
+      "size": 4096.0,
+      "slices": 7,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.226042,
+        "p50_ms": 0.001916,
+        "p95_ms": 0.199792,
+        "p99_ms": 0.214,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X2-horizon",
+      "worst_slice_ms": 100.056459
+    },
+    {
+      "aabb_compares": 5524728,
+      "advance_ms": 3735.05625,
+      "certified_rejections": 1807697,
+      "child_wall_s": 4.490291875,
+      "cores_available": 8,
+      "cores_used": 0.9448958098020612,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": false,
+        "first_extra": [],
+        "first_missing": [
+          [
+            19,
+            1231
+          ],
+          [
+            27,
+            1850
+          ],
+          [
+            35,
+            987
+          ],
+          [
+            35,
+            1723
+          ],
+          [
+            40,
+            2149
+          ]
+        ],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 234,
+        "oracle_ms": 103.358834
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": "engine error: resource limit: dense interaction frontier exceeds job capacity",
+      "operations": 19548000,
+      "pairs_per_description": 1348.810546875,
+      "param": {
+        "bodies": 4096,
+        "horizon": 262144
+      },
+      "peak_rss_bytes": 497827840,
+      "rss_per_description": 121540.0,
+      "rung": 2,
+      "setup_ms": 18.403042000000003,
+      "size": 262144.0,
+      "slices": 195,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.520292,
+        "p50_ms": 0.001917,
+        "p95_ms": 0.207167,
+        "p99_ms": 0.219417,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "X2-horizon",
+      "worst_slice_ms": 67.71625
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 16777216.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X2-horizon"
+    },
+    {
+      "aabb_compares": 8128,
+      "advance_ms": 2.1874580000000003,
+      "certified_rejections": 8128,
+      "child_wall_s": 0.055328208,
+      "cores_available": 8,
+      "cores_used": 0.9975048663791486,
+      "correctness": {
+        "brute_force_confirms_zero": true,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 256,
+      "events": 0,
+      "limiter": null,
+      "operations": 20619,
+      "pairs_per_description": 31.75,
+      "param": {
+        "bodies": 256,
+        "horizon": 8192
+      },
+      "peak_rss_bytes": 3719168,
+      "rss_per_description": 14528.0,
+      "rung": 0,
+      "setup_ms": 0.63375,
+      "size": 256.0,
+      "slices": 0,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 860,
+        "max_ms": 0.155167,
+        "p50_ms": 0.000458,
+        "p95_ms": 0.0020829999999999998,
+        "p99_ms": 0.135292,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 0.0
+    },
+    {
+      "aabb_compares": 2096128,
+      "advance_ms": 102.9235,
+      "certified_rejections": 2096128,
+      "child_wall_s": 0.214603083,
+      "cores_available": 8,
+      "cores_used": 0.995205176660335,
+      "correctness": {
+        "brute_force_confirms_zero": true,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": null,
+      "operations": 4278283,
+      "pairs_per_description": 511.75,
+      "param": {
+        "bodies": 4096,
+        "horizon": 131072
+      },
+      "peak_rss_bytes": 13877248,
+      "rss_per_description": 3388.0,
+      "rung": 1,
+      "setup_ms": 9.480333,
+      "size": 4096.0,
+      "slices": 43,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.785625,
+        "p50_ms": 0.001791,
+        "p95_ms": 0.155458,
+        "p99_ms": 0.181834,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 2.562209
+    },
+    {
+      "aabb_compares": 144253605,
+      "advance_ms": 8001.064541,
+      "certified_rejections": 144253605,
+      "child_wall_s": 8.279671375,
+      "cores_available": 8,
+      "cores_used": 0.8367905252721796,
+      "correctness": {
+        "brute_force_confirms_zero": null,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 65536,
+      "events": 0,
+      "limiter": "wall cap 8 s",
+      "operations": 289748000,
+      "pairs_per_description": 2201.1353302001953,
+      "param": {
+        "bodies": 65536,
+        "horizon": 2097152
+      },
+      "peak_rss_bytes": 168984576,
+      "rss_per_description": 2578.5,
+      "rung": 2,
+      "setup_ms": 170.45670800000002,
+      "size": 65536.0,
+      "slices": 2897,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 2000,
+        "max_ms": 0.016917,
+        "p50_ms": 0.001959,
+        "p95_ms": 0.002167,
+        "p99_ms": 0.002333,
+        "verdict": "SMOOTH"
+      },
+      "status": "FAIL",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 561.5526669999999
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 262144.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X3-crowded-axes"
+    },
+    {
+      "aabb_compares": 1,
+      "advance_ms": 47.199290999999995,
+      "certified_rejections": 122,
+      "child_wall_s": 0.055489125,
+      "cores_available": 8,
+      "cores_used": 0.98035370912669,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 2,
+      "events": 0,
+      "limiter": null,
+      "operations": 822,
+      "pairs_per_description": 0.5,
+      "param": {
+        "lanes_per_axis": 1,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 2850816,
+      "rss_per_description": 1425408.0,
+      "rung": 0,
+      "setup_ms": 0.310625,
+      "size": 1.0,
+      "slices": 0,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 35,
+        "max_ms": 2.515416,
+        "p50_ms": 1.361875,
+        "p95_ms": 1.629084,
+        "p99_ms": 2.515416,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 0.0
+    },
+    {
+      "aabb_compares": 22,
+      "advance_ms": 920.001583,
+      "certified_rejections": 1671,
+      "child_wall_s": 0.97192475,
+      "cores_available": 8,
+      "cores_used": 0.9696744184841255,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 8,
+      "events": 0,
+      "limiter": null,
+      "operations": 12213,
+      "pairs_per_description": 2.75,
+      "param": {
+        "lanes_per_axis": 4,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 4734976,
+      "rss_per_description": 591872.0,
+      "rung": 1,
+      "setup_ms": 0.044875,
+      "size": 4.0,
+      "slices": 0,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 509,
+        "max_ms": 4.202708,
+        "p50_ms": 1.6932500000000001,
+        "p95_ms": 2.670667,
+        "p99_ms": 3.2672909999999997,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 0.0
+    },
+    {
+      "aabb_compares": 376,
+      "advance_ms": 11032.202125,
+      "certified_rejections": 19935,
+      "child_wall_s": 11.082898375,
+      "cores_available": 8,
+      "cores_used": 0.8292519386740297,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 32,
+      "events": 0,
+      "limiter": "wall cap 8 s",
+      "operations": 122200,
+      "pairs_per_description": 11.75,
+      "param": {
+        "lanes_per_axis": 16,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 17907712,
+      "rss_per_description": 559616.0,
+      "rung": 2,
+      "setup_ms": 0.128834,
+      "size": 16.0,
+      "slices": 1,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 925,
+        "max_ms": 28.797708,
+        "p50_ms": 1.8402500000000002,
+        "p95_ms": 4.459833,
+        "p99_ms": 8.631667,
+        "verdict": "JANK"
+      },
+      "status": "FAIL",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 9031.656542
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 64.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X4-near-miss-lattice"
+    },
+    {
+      "aabb_compares": 4200,
+      "advance_ms": 29.215583,
+      "certified_rejections": 3656,
+      "child_wall_s": 2.660306416,
+      "cores_available": 8,
+      "cores_used": 0.9460362300488749,
+      "correctness": {
+        "audit_contacts": 30,
+        "audit_equal": true,
+        "budget_64_digest_equal": true,
+        "engine_contacts": 30,
+        "replay_equal": true,
+        "stopped_bodies": 48
+      },
+      "descriptions": 64,
+      "events": 30,
+      "limiter": null,
+      "operations": 37587,
+      "pairs_per_description": 65.625,
+      "param": {
+        "bodies": 64,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 4571136,
+      "rss_per_description": 71424.0,
+      "rung": 0,
+      "setup_ms": 1.30975,
+      "size": 64.0,
+      "slices": 0,
+      "smoothness": {
+        "frame_operations": 24,
+        "frames": 1567,
+        "max_ms": 0.7747080000000001,
+        "p50_ms": 0.003375,
+        "p95_ms": 0.036333,
+        "p99_ms": 0.45508400000000004,
+        "verdict": "SMOOTH"
+      },
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 0.0
+    },
+    {
+      "child_wall_s": 44.020886709,
+      "limiter": "killed after 44 s (setup, oracle or checks exceeded the outer limit)",
+      "rung": 1,
+      "size": 256.0,
+      "status": "FAIL",
+      "track": "C1-packed-stop-cascade"
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 2,
+      "size": 1024.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 4096.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 4,
+      "size": 16384.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    }
+  ],
+  "schema": 2
+}

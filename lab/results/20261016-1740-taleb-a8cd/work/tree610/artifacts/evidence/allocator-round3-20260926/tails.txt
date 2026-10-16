@@ -1,0 +1,16 @@
+load before: 19:45  up 18 days,  9:20, 1 user, load averages: 5.99 5.82 5.49
+thermal before: Note: No thermal warning level has been recorded | Note: No performance warning level has been recorded | Note: No CPU power status has been recorded
+heavy tail: relativistic gas 8192 + 96 islands of 40 (20 for micro rows), 3 P + 4 E workers, 120 Hz, 600 chronons/s target, 4 s each
+| configuration              | frame max ms | small misses | small latency p50 / p99 ms | giant p99 ms | lock wait p99 / hold p99 ms | hold max | steals | switches | region-chr/s | present/s | rollbacks | ineligible | stride | regions |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| round 2 (all off)          |  0.14 |    179 |   1.00 /  37.81 |    0.0 |  0.763 /  0.175 |  2.903 |     0 |    103 |    3715 |   376 |   0 |     0 |   32 |  97 |
+| + shared-coalesce finality |  0.16 |    179 |   0.88 /  30.40 |    0.0 |  0.736 /  0.161 |  2.706 |     0 |    101 |    3707 |   376 |   0 |     0 |   32 |  97 |
+|   (queues without lanes)   |  0.17 |    185 |   1.85 /   9.39 |    0.0 |  0.039 /  0.078 |  2.682 |    66 |    458 |    3685 |   368 |   0 |     0 |   32 |  97 |
+| + SITA lanes               |  0.04 |      0 |   0.81 /  41.40 |    5.4 |  0.793 /  0.156 |  0.306 |     0 |    101 |    3717 |   376 |   0 |     0 |   32 |  97 |
+| + queues & stealing        |  0.09 |      0 |   1.21 /  11.15 |    5.4 |  0.024 /  0.059 |  0.173 |    63 |    466 |    3723 |   376 |   0 |     0 |   32 |  97 |
+| + AIMD strides             |  0.06 |      0 |   2.49 /  10.91 |    5.4 |  0.062 /  0.061 |  2.986 |   257 |   1202 |    7502 |   380 |   0 |     0 |  256 |  97 |
+| + eligibility & hysteresis |  0.07 |      0 |   2.38 /  11.16 |    5.5 |  0.099 /  0.064 |  3.064 |   286 |   1192 |    7501 |   380 |   0 |     0 |  256 |  97 |
+| all, islands 20, min 32    |  0.14 |    161 |   0.79 /   1.43 |    5.7 |  0.000 /  0.030 |  0.070 |    79 |      2 |     710 |   400 |   0 |     0 |  256 |   2 |
+| all, islands 20, min 8     |  0.06 |    160 |   0.81 /  14.91 |    5.4 |  0.159 /  0.087 |  1.460 |   309 |   1243 |    8630 |   400 |   0 |     0 |  256 |  97 |
+load after: 19:46  up 18 days,  9:20, 1 user, load averages: 4.78 5.53 5.40
+thermal after: Note: No thermal warning level has been recorded | Note: No performance warning level has been recorded | Note: No CPU power status has been recorded

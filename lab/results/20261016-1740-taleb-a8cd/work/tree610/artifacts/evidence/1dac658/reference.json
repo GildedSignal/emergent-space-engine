@@ -1,0 +1,91 @@
+{
+  "events": [
+    {
+      "detail": "signal 93d8be0d6410ceb1764d65653ddc1ca719c9d264916644ea062af231ab2ed91c",
+      "id": "9f6069ac6fd8af5cb26c4113678314d18acebd4307baec26aa848f52d0088c8d",
+      "kind": "signal_emitted",
+      "predecessors": [
+        "93d8be0d6410ceb1764d65653ddc1ca719c9d264916644ea062af231ab2ed91c"
+      ],
+      "subjects": [
+        1,
+        2
+      ],
+      "tick": 0
+    },
+    {
+      "detail": "causal reception",
+      "id": "3c5faba39ae277ddb5421a6c59e572d716000d11a4bb77a5c309eae4913e605e",
+      "kind": "signal_arrived",
+      "predecessors": [
+        "93d8be0d6410ceb1764d65653ddc1ca719c9d264916644ea062af231ab2ed91c"
+      ],
+      "subjects": [
+        1,
+        2
+      ],
+      "tick": 14
+    },
+    {
+      "detail": "segments 1:0",
+      "id": "2a25ea422ae2129d325be2a0395253b276928d8b1a8ed4271cc4e49809126f89",
+      "kind": "contact",
+      "predecessors": [],
+      "subjects": [
+        2,
+        3
+      ],
+      "tick": 43
+    },
+    {
+      "detail": "signal 12276ee1b88111332cd28396f1efc21713d79333f6597365b1db52839aeff888",
+      "id": "ec33a85bd97073ead3d38b492ec09ada832022bfbe2f08c96ca43be08c44b3dd",
+      "kind": "signal_emitted",
+      "predecessors": [
+        "12276ee1b88111332cd28396f1efc21713d79333f6597365b1db52839aeff888"
+      ],
+      "subjects": [
+        2,
+        1
+      ],
+      "tick": 43
+    },
+    {
+      "detail": "causal reception",
+      "id": "c94fad4ea05a819e5a85911a0912cdc8f78636f9539b9bff3b08d8bd8bce34fe",
+      "kind": "signal_arrived",
+      "predecessors": [
+        "12276ee1b88111332cd28396f1efc21713d79333f6597365b1db52839aeff888"
+      ],
+      "subjects": [
+        2,
+        1
+      ],
+      "tick": 71
+    }
+  ],
+  "history_hash": "94032cfe6f1f58e91f0e9079bc5e21fe0b6401acaef86d698135dfefc11cefc3",
+  "metrics": {
+    "broadphase_boxes": 16,
+    "broadphase_pairs": 12,
+    "certified_rejections": 8,
+    "committed_events": 3,
+    "exact_leaf_queries": 4,
+    "scans": 4,
+    "search_operations": 6
+  },
+  "provenance": {
+    "hardware": "Apple M1",
+    "law": "es-inertial-causal-v1",
+    "manifest_hash": "378fda05a47846981d32c586995e955643ba753ef91d561816b0a953fc7ba41d",
+    "memory_bytes": "8589934592",
+    "profile": "release",
+    "revision": "1dac6586e3cb30592abb775ba2a844d7d0e2d189",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "unix_seconds": 1789196501,
+    "working_tree_diff_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+    "working_tree_status": ""
+  },
+  "scenario": "causal-relay-v1",
+  "status": "PASS"
+}

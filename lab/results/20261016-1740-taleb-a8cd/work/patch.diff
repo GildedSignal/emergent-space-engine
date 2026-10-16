@@ -1,0 +1,168 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e29c906e..9f7fdfcc 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -219,6 +219,19 @@ version = "0.2.189"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+ 
++[[package]]
++name = "libm"
++version = "0.2.16"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
++
++[[package]]
++name = "libmprobe"
++version = "0.1.0"
++dependencies = [
++ "libm",
++]
++
+ [[package]]
+ name = "log"
+ version = "0.4.34"
+@@ -397,6 +410,7 @@ dependencies = [
+  "emergent-space",
+  "emergent-universe",
+  "libc",
++ "libm",
+  "num-traits",
+  "serde",
+  "serde_json",
+diff --git a/Cargo.toml b/Cargo.toml
+index 841beeef..64caa881 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -1,6 +1,6 @@
+ [workspace]
+ resolver = "2"
+-members = ["crates/lattice", "crates/lattice-event", "crates/lattice-metal", "crates/allocator", "crates/engine", "crates/space", "crates/shipmem", "crates/encounters", "crates/universe", "xtask"]
++members = ["crates/lattice", "crates/lattice-event", "crates/lattice-metal", "crates/allocator", "crates/engine", "crates/space", "crates/shipmem", "crates/encounters", "crates/universe", "xtask", "lab/results/20261016-1740-taleb-a8cd/work"]
+ 
+ [workspace.package]
+ version = "0.1.0"
+diff --git a/xtask/Cargo.toml b/xtask/Cargo.toml
+index 64224451..bf878471 100644
+--- a/xtask/Cargo.toml
++++ b/xtask/Cargo.toml
+@@ -18,3 +18,6 @@ serde_json.workspace = true
+ blake3.workspace = true
+ libc = "0.2"
+ num-traits.workspace = true
++
++[dev-dependencies]
++libm = "0.2.11"
+diff --git a/xtask/src/behave/handoff.rs b/xtask/src/behave/handoff.rs
+index fcc26869..f2d04009 100644
+--- a/xtask/src/behave/handoff.rs
++++ b/xtask/src/behave/handoff.rs
+@@ -428,4 +428,55 @@ mod tests {
+         assert_eq!(median(vec![f64::NAN, f64::NAN, 1.0]), f64::INFINITY);
+         assert_eq!(median(vec![]), f64::INFINITY);
+     }
++    /// Lab probe (20261016-1740-taleb-a8cd, Taleb): the frozen corpus's knife edges, per ship.
++    /// Arms: pristine (this machine's system libm through `ship`), the drawn angle ±1 ulp, and the
++    /// same seed built through musl (the `libm` crate). The module's own doc: the search "moves
++    /// with the last bit of the arithmetic (one ship in 40 of a rerun changes)" — this measures how
++    /// far the frozen 16 sit from their (crossings, converged, closest) knife edges on this box,
++    /// and whether another libm's last ulp moves them across.
++    #[test]
++    #[ignore = "lab probe a8cd: the frozen corpus's ulp and libm census"]
++    fn lab_corpus_ulp_libm_census() {
++        let scene = JUPITER;
++        let draws = sample::handoffs(sample::HANDOFF_KEPT.iter().max().map_or(0, |m| m + 1));
++        let musl_ship = |side: f64, k: f64, alpha: f64| {
++            let r = scene.sep * (1.0 + side * scene.hill() / scene.sep * k);
++            let v = libm::pow(r, -0.5);
++            [r * libm::cos(alpha), r * libm::sin(alpha), -v * libm::sin(alpha), v * libm::cos(alpha)]
++        };
++        let ulp = |a: f64, d: i64| f64::from_bits((a.to_bits() as i64 + d) as u64);
++        let show = |a: &Option<Assessed>| match a {
++            Some(x) => format!("cr {} cv {} {:.3} Rp", x.crossings, x.converged, x.closest / scene.planet_radius),
++            None => "gave up".to_string(),
++        };
++        let judged = |a: &Option<Assessed>| matches!(a, Some(x) if x.converged && x.closest >= scene.planet_radius);
++        let pristine_arm = |p: &Kept| Some(Assessed { crossings: p.crossings, converged: p.converged, closest: p.closest });
++        let (mut trig_ships, mut pow_ships, mut counts) = (0usize, 0usize, [0usize; 4]);
++        for (rank, &i) in sample::HANDOFF_KEPT.iter().enumerate() {
++            let (side, k, alpha) = draws[i];
++            let r = scene.sep * (1.0 + side * scene.hill() / scene.sep * k);
++            let (c, s, p) = (libm::cos(alpha) != alpha.cos(), libm::sin(alpha) != alpha.sin(), libm::pow(r, -0.5) != r.powf(-0.5));
++            trig_ships += (c || s) as usize;
++            pow_ships += p as usize;
++            let pristine = &kept()[rank];
++            let same = Assessed { crossings: pristine.crossings, converged: pristine.converged, closest: pristine.closest };
++            let arms = [
++                pristine_arm(pristine),
++                assess(&scene, ship(&scene, side, k, ulp(alpha, 1))),
++                assess(&scene, ship(&scene, side, k, ulp(alpha, -1))),
++                if c || s || p { assess(&scene, musl_ship(side, k, alpha)) } else { Some(same) },
++            ];
++            for (j, a) in arms.iter().enumerate() {
++                counts[j] += judged(a) as usize;
++            }
++            println!(
++                "kept[{rank:2}] #{i:3} seedlibm c{} s{} p{}: pristine [{}] | a+1ulp [{}] | a-1ulp [{}] | musl [{}]",
++                c as u8, s as u8, p as u8, show(&arms[0]), show(&arms[1]), show(&arms[2]), show(&arms[3])
++            );
++        }
++        println!(
++            "judged (converged and outside): pristine {}/16, alpha+1ulp {}/16, alpha-1ulp {}/16, musl {}/16; glibc-vs-musl seed sin/cos differ on {} ships, powf on {}",
++            counts[0], counts[1], counts[2], counts[3], trig_ships, pow_ships
++        );
++    }
+ }
+diff --git a/xtask/src/behave/plane.rs b/xtask/src/behave/plane.rs
+index 0789f30c..6223620b 100644
+--- a/xtask/src/behave/plane.rs
++++ b/xtask/src/behave/plane.rs
+@@ -551,4 +551,48 @@ mod tests {
+         exps.sort_by(f64::total_cmp);
+         println!("step {step}, planet radius /{shrink}: {} judged, {lost} lost; median exponent {:.3} (all {:.2?}); worst error {worst:.2e}; {:.1} s", exps.len(), exps.get(exps.len() / 2).copied().unwrap_or(f64::NAN), exps, wall.elapsed().as_secs_f64());
+     }
++
++    /// Lab probe (20261016-1740-taleb-a8cd, Taleb): the failure anatomy of `across_a_kick…` on
++    /// this box — every frozen ship's oracle fields (this machine's `assess`), which ships the
++    /// test's `closest >= planet_radius` filter takes here, and each taken ship's J walk. The
++    /// integer law is machine-portable; this separates "which ships get judged" from "what the law
++    /// did".
++    #[test]
++    #[ignore = "lab probe a8cd: the across_a_kick selection and J walks"]
++    fn lab_across_a_kick_selection() {
++        use super::super::handoff;
++        use super::super::sample;
++        let scene = JUPITER;
++        let mut taken = 0;
++        for (i, k) in handoff::kept().iter().enumerate() {
++            println!(
++                "kept[{i:2}] #{}: crossings {}, converged {}, closest {:.3} Rp",
++                sample::HANDOFF_KEPT[i], k.crossings, k.converged, k.closest / scene.planet_radius
++            );
++            if k.closest >= scene.planet_radius && taken < 6 {
++                taken += 1;
++                let r = j_run(k.ship, 6, 40.0, false);
++                println!(
++                    "  -> the test's filtered#{taken} (kept index {i}): {} kicks, across a kick {:.2} quanta, over its work {:.3e}",
++                    r.kicks, r.across_kick, r.across_kick_over_work
++                );
++            }
++        }
++    }
++
++    /// Lab probe (20261016-1740-taleb-a8cd): is the failing ship's J walk stable against the last
++    /// bit of its seed? `j_run` is integer arithmetic throughout, so the only cross-machine channel
++    /// into it is the f64 seed's quantization at scene build. If ±1 ulp on every seed component
++    /// leaves the walk unchanged, no libm can move this test's outcome between machines.
++    #[test]
++    #[ignore = "lab probe a8cd: the failing ship's seed-ulp stability"]
++    fn lab_across_a_kick_ulp_stability() {
++        use super::super::handoff;
++        let ulp4 = |s: [f64; 4], d: i64| s.map(|x| f64::from_bits((x.to_bits() as i64 + d) as u64));
++        let k = &handoff::kept()[3]; // candidate #57, this test's ship 3 on this box
++        for (name, ship) in [("pristine", k.ship), ("all+1ulp", ulp4(k.ship, 1)), ("all-1ulp", ulp4(k.ship, -1))] {
++            let r = j_run(ship, 6, 40.0, false);
++            println!("{name}: {} kicks, across a kick {:.2} quanta, over its work {:.3e}", r.kicks, r.across_kick, r.across_kick_over_work);
++        }
++    }
+ }

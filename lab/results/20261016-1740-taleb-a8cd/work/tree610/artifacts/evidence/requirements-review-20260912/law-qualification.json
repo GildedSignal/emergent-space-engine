@@ -1,0 +1,3236 @@
+{
+  "candidates": [
+    {
+      "evidence": [
+        "Executed 463248 finite-map steps across 18 orbit/quantum/orientation scenarios.",
+        "The source tree is a monopole quadtree with an explicit analytic truncation bound. It is not FMM; floating arithmetic error is not formally certified.",
+        "The stationary source is an external fixed field in both orbit experiments. The separate direct backreaction experiment does not grant either map dynamic coupled-source support.",
+        "Neither orbital step count nor elapsed simulated time is an integrated billion-year/billion-ship qualification."
+      ],
+      "gates": [
+        {
+          "id": "orbit_stability",
+          "passed": true,
+          "reason": "All frozen regular/eccentric orbit, period, energy, angular momentum and radial envelope gates must pass; analytic Kepler formulas are independent diagnostics, not the canonical law."
+        },
+        {
+          "id": "angular_isotropy",
+          "passed": true,
+          "reason": "Same initial orbit rotated by 0, pi/8 and pi/4, with every frozen quantum included."
+        },
+        {
+          "id": "quantum_refinement",
+          "passed": true,
+          "reason": "Compare q,q/2,q/4 radial envelopes and drift; no chaotic coordinate-equality requirement."
+        },
+        {
+          "id": "stationary_clock",
+          "passed": false,
+          "reason": "Newtonian time has d_tau/d_t=1 and fails the stationary relativistic-clock gate."
+        },
+        {
+          "id": "source_tree_bound",
+          "passed": true,
+          "reason": "12 direct/tree queries; 85 accepted monopole nodes; worst observed error/bound=3.105381e-2. Analytic truncation plus floating diagnostic padding; not a certified FMM."
+        },
+        {
+          "id": "source_backreaction",
+          "passed": true,
+          "reason": "Direct two-way source experiment: star acceleration 0.0625 for one ship and 4 for 64; total pair-force residual 0. This source evaluator is not dynamically coupled into either stationary orbit map."
+        },
+        {
+          "id": "causal_dynamic_sources",
+          "passed": false,
+          "reason": "Counterexample: source mu 1->2 at t=0; radius=4; query t=0.015625 < arrival 0.0625 responds by 6.250000000000e-2. Static formulas lack retarded source histories and coupled field evolution."
+        },
+        {
+          "id": "source_change_light_cone",
+          "passed": false,
+          "reason": "Two-sided first gate for any causal candidate. Instantaneous maps ignore time: pre t=0.015625 (passed=false) and post t=0.125 (passed=true) both respond by 6.250000000000e-2. Zero pre-cone influence and nonzero post-cone influence are both required."
+        },
+        {
+          "id": "retarded_two_way_backreaction",
+          "passed": false,
+          "reason": "Present-state two-body Euler uses the other body's current mass. Pre-cone trajectory influence 1.525878906250e-5 (passed=false); post 1.525878906250e-5 (passed=true). Instantaneous coupling fails the retarded two-way gate on the pre-cone side."
+        },
+        {
+          "id": "well_posed_exterior",
+          "passed": false,
+          "reason": "No infinite-universe source measure, initial field or certified tail is specified. Adding a unit source outside the finite r<8 laboratory changes acceleration at r=1 by 4.444444444444e-3; omitting it cannot be certified. A finite authoritative massive root is the next allowed model, not an implicit infinity."
+        },
+        {
+          "id": "compact_field_certification",
+          "passed": false,
+          "reason": "The 1/r Newtonian map has a singular r=0 force and no light deflection, horizon or stationary compact-field branch evaluator. Measured: acceleration at r_s=2μ/c²=0.00048828125 is 4.194304000000e6 (finite=true); there is no absorbing compact map."
+        },
+        {
+          "id": "terminating_exact_branches",
+          "passed": false,
+          "reason": "Both maps and root calculations use f64 candidates. The crossing cap terminates with an error, not a certified result; no exact arithmetic/enclosure verifier exists for these physical laws. They cannot define production branch truth."
+        }
+      ],
+      "id": "stationary-verlet-q-v1",
+      "metrics": [
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00006454708067860082
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00003227199982802631
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00006465414248058021
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.000046061717277723346
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00013904049308503146
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00006951439580328458
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00017978253769768138
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.00009597878177491914
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000060502106116958195
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.000030251557774103132
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00009206181151699688
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.000036512948347056096
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": true,
+          "scenario": "regular_q0",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.00020120646238974693
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "regular_q0",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.00007853838696807327
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00003381151047809894
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.000016905440872960753
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00004847408217767413
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.000011064114054049057
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000025227695432492243
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00001261371200059845
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00003415496325565037
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.000011019587285221455
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000013153969251143587
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 6.5769622895151e-6
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.0000262866831454156
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 8.46497283413239e-6
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": true,
+          "scenario": "regular_q1",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.000015932182238276305
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "regular_q1",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.000020657541226955352
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 9.042561598615606e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 4.521307754856707e-6
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.000012780042139004522
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 9.307869491159693e-6
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000020794176767015828
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.000010396949865515744
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.000023909368270791376
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 8.492900127721192e-6
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000020524353910705608
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00001026202525931288
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.000021608868633671285
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 8.5106507428101e-6
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": true,
+          "scenario": "regular_q2",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.000025985050832066925
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "regular_q2",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.000011751615168400222
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.000016180060302906085
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation0",
+          "threshold": 0.00013909416135720164,
+          "unit": "relative",
+          "value": 0.00003381151047809894
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.000145627574442031
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation1",
+          "threshold": 0.00028808098617006295,
+          "unit": "relative",
+          "value": 0.000025227695432492243
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.00007199773797217368
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation2",
+          "threshold": 0.0001310042122339164,
+          "unit": "relative",
+          "value": 0.000013153969251143587
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.00004764404974744174
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation0",
+          "threshold": 0.00007762302095619788,
+          "unit": "relative",
+          "value": 9.042561598615606e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.000011901660322388707
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation1",
+          "threshold": 0.000060455390864984486,
+          "unit": "relative",
+          "value": 0.000020794176767015828
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 8.265056798073545e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation2",
+          "threshold": 0.00003630793850228717,
+          "unit": "relative",
+          "value": 0.000020524353910705608
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00006464005422780826
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000011381912287947658
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00007790367864313197
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00004637192144674174
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00010330610487050471
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00004556744217311216
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00016049278993146565
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00006369025875785361
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00004644270117488929
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000011428708263983754
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 8.841129516268253e-6
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00001597348326198844
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": true,
+          "scenario": "eccentric_q0",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.000024376595088304587
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "eccentric_q0",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.00005686340369561542
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00002451704059387065
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00002302635869113414
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.00004794679735353746
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00003338192665003348
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.000020240520254315044
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 7.223893603734084e-6
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.000024577563586314355
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 7.412289962260843e-6
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.000023706953237722155
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000011769242540193718
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.000028902411165043773
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.000022631159415142932
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": true,
+          "scenario": "eccentric_q1",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.000015765130824740847
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "eccentric_q1",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 4.276520339555607e-6
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.000014811891008784713
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 6.080630597317526e-6
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 8.606949528644492e-6
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 6.0896218951889125e-6
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.00001583332417931536
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 7.028371369408388e-6
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.000014708701813859193
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 9.635117185213815e-6
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.000015502301213001605
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 5.510649620058773e-6
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.000023634666622029954
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 9.646669483887038e-6
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": true,
+          "scenario": "eccentric_q2",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 2.910810489920035e-6
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "eccentric_q2",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 1.0214331705306466e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.000029956881289594506
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation0",
+          "threshold": 0.0001392801084556165,
+          "unit": "relative",
+          "value": 0.00002451704059387065
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.0001359152263451513
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation1",
+          "threshold": 0.00021661220974100942,
+          "unit": "relative",
+          "value": 0.000020240520254315044
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.00002006128164877552
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation2",
+          "threshold": 0.00010288540234977858,
+          "unit": "relative",
+          "value": 0.000023706953237722155
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.00003933984782489297
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation0",
+          "threshold": 0.0000590340811877413,
+          "unit": "relative",
+          "value": 0.000014811891008784713
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 9.868861772455162e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation1",
+          "threshold": 0.00005048104050863009,
+          "unit": "relative",
+          "value": 0.00001583332417931536
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 6.69361947119862e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation2",
+          "threshold": 0.00005741390647544431,
+          "unit": "relative",
+          "value": 0.000015502301213001605
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": false,
+          "scenario": "stationary_clock_r0.4",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 0.0006105379407885803
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": false,
+          "scenario": "stationary_clock_r1",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 0.00024417043460056576
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": false,
+          "scenario": "stationary_clock_r1.6",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 0.0001525995339338726
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": false,
+          "scenario": "stationary_clock_r4",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 0.00006103701900883607
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[0.123, 0.789]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.004522565785286755
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[3.0, 2.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.0010314404392682574
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[10.0, -1.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.00037202653751388515
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[-80.0, 50.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.00003973723503918301
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[0.123, 0.789]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.008822753302482061
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[3.0, 2.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.019176477474610355
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[10.0, -1.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 8.706834498127909e-15
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[-80.0, 50.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 4.0134453226251254e-14
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[0.123, 0.789]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.02569680845332632
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[3.0, 2.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.031053807065009018
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[10.0, -1.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.011837108207521388
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[-80.0, 50.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.0044883563412301455
+        },
+        {
+          "name": "fleet_acceleration_scaling_error",
+          "passed": true,
+          "scenario": "backreaction",
+          "threshold": 1e-12,
+          "unit": "relative",
+          "value": 0.0
+        },
+        {
+          "name": "total_force_residual",
+          "passed": true,
+          "scenario": "backreaction",
+          "threshold": 1e-12,
+          "unit": "force",
+          "value": 0.0
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": false,
+          "scenario": "mass_change_before_lightcone",
+          "threshold": 0.0,
+          "unit": "acceleration_or_clock_rate",
+          "value": 0.0625
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "mass_change_after_lightcone",
+          "threshold": 0.0,
+          "unit": "acceleration_or_clock_rate",
+          "value": 0.0625
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": false,
+          "scenario": "instantaneous_two_body_precone",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0000152587890625
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "instantaneous_two_body_precone",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0000152587890625
+        }
+      ],
+      "status": "FAIL",
+      "version": 1
+    },
+    {
+      "evidence": [
+        "Executed 463248 finite-map steps across 18 orbit/quantum/orientation scenarios.",
+        "The source tree is a monopole quadtree with an explicit analytic truncation bound. It is not FMM; floating arithmetic error is not formally certified.",
+        "The stationary source is an external fixed field in both orbit experiments. The separate direct backreaction experiment does not grant either map dynamic coupled-source support.",
+        "Neither orbital step count nor elapsed simulated time is an integrated billion-year/billion-ship qualification."
+      ],
+      "gates": [
+        {
+          "id": "orbit_stability",
+          "passed": false,
+          "reason": "All frozen regular/eccentric orbit, period, energy, angular momentum and radial envelope gates must pass; analytic Kepler formulas are independent diagnostics, not the canonical law."
+        },
+        {
+          "id": "angular_isotropy",
+          "passed": false,
+          "reason": "Same initial orbit rotated by 0, pi/8 and pi/4, with every frozen quantum included."
+        },
+        {
+          "id": "quantum_refinement",
+          "passed": false,
+          "reason": "Compare q,q/2,q/4 radial envelopes and drift; no chaotic coordinate-equality requirement."
+        },
+        {
+          "id": "stationary_clock",
+          "passed": true,
+          "reason": "Compare piecewise lapse against sqrt(1-2mu/(c²r)); this tests the chosen stationary lapse, not full Schwarzschild spatial geometry or dynamic GR."
+        },
+        {
+          "id": "source_tree_bound",
+          "passed": true,
+          "reason": "12 direct/tree queries; 85 accepted monopole nodes; worst observed error/bound=3.105381e-2. Analytic truncation plus floating diagnostic padding; not a certified FMM."
+        },
+        {
+          "id": "source_backreaction",
+          "passed": true,
+          "reason": "Direct two-way source experiment: star acceleration 0.0625 for one ship and 4 for 64; total pair-force residual 0. This source evaluator is not dynamically coupled into either stationary orbit map."
+        },
+        {
+          "id": "causal_dynamic_sources",
+          "passed": false,
+          "reason": "Counterexample: source mu 1->2 at t=0; radius=4; query t=0.015625 < arrival 0.0625 responds by 6.098118758713e-5. Static formulas lack retarded source histories and coupled field evolution."
+        },
+        {
+          "id": "source_change_light_cone",
+          "passed": false,
+          "reason": "Two-sided first gate for any causal candidate. Instantaneous maps ignore time: pre t=0.015625 (passed=false) and post t=0.125 (passed=true) both respond by 6.098118758713e-5. Zero pre-cone influence and nonzero post-cone influence are both required."
+        },
+        {
+          "id": "retarded_two_way_backreaction",
+          "passed": false,
+          "reason": "Present-state two-body Euler uses the other body's current mass. Pre-cone trajectory influence 1.525878906250e-5 (passed=false); post 1.525878906250e-5 (passed=true). Instantaneous coupling fails the retarded two-way gate on the pre-cone side."
+        },
+        {
+          "id": "well_posed_exterior",
+          "passed": false,
+          "reason": "No infinite-universe source measure, initial field or certified tail is specified. Adding a unit source outside the finite r<8 laboratory changes acceleration at r=1 by 4.444444444444e-3; omitting it cannot be certified. A finite authoritative massive root is the next allowed model, not an implicit infinity."
+        },
+        {
+          "id": "compact_field_certification",
+          "passed": false,
+          "reason": "The finite r>=1/16 lapse laboratory does not reach the compact radius 2mu/c²=0.00048828125 (domain miss=true), and its Euclidean spatial metric is not Schwarzschild/Kerr. No compact-field certification is inferred from clock agreement."
+        },
+        {
+          "id": "terminating_exact_branches",
+          "passed": false,
+          "reason": "Both maps and root calculations use f64 candidates. The crossing cap terminates with an error, not a certified result; no exact arithmetic/enclosure verifier exists for these physical laws. They cannot define production branch truth."
+        }
+      ],
+      "id": "stationary-shell-lapse-q-v1",
+      "metrics": [
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 2.055713001486938e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00009567199246669592
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.03114708061456062
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q0_rotation0",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.021181452464112516
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 3.970727625340829e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.0000836165511448761
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.023436891528840542
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q0_rotation1",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.01298673691838692
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 1.603051395905086e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00008905234902939458
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.023435801071429063
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q0_rotation2",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.014009728977143698
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": false,
+          "scenario": "regular_q0",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.013264454132937975
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "regular_q0",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 2.367676229435743e-6
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 7.542169603961205e-7
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00002011780734697287
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.02343259015913901
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q1_rotation0",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.013506537242212069
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": false,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.015512070961867243
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00009608665105685167
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.02343199833849119
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q1_rotation1",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.01436717206270366
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 1.0054020747437642e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00005469407284518071
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.023432689293921394
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q1_rotation2",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.011887067631499493
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": false,
+          "scenario": "regular_q1",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.01967109148923296
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": false,
+          "scenario": "regular_q1",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.015511316744906847
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 6.693836992439922e-7
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00004889053741759627
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.023436959581384142
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q2_rotation0",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.031936552554633346
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": false,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.015512327528015608
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00001891155114041324
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.023435673153981318
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q2_rotation1",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.015919611560248903
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": false,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.015512499747443951
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.001,
+          "unit": "relative",
+          "value": 0.00003121405998203871
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.023427491944302936
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "regular_q2_rotation2",
+          "threshold": 0.01,
+          "unit": "relative",
+          "value": 0.010270997827754202
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": false,
+          "scenario": "regular_q2",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.016171312972112162
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": false,
+          "scenario": "regular_q2",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.015511830363744707
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": false,
+          "scenario": "regular_q0-q1_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.007714490455421608
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation0",
+          "threshold": 0.000014111426002973878,
+          "unit": "relative",
+          "value": 7.542169603961205e-7
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.00004505851331759736
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": false,
+          "scenario": "regular_q0-q1_rotation1",
+          "threshold": 0.00001794145525068166,
+          "unit": "relative",
+          "value": 0.015512070961867243
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.000022369508075104072
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q0-q1_rotation2",
+          "threshold": 0.000013206102791810173,
+          "unit": "relative",
+          "value": 1.0054020747437642e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 7.988127162295022e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation0",
+          "threshold": 0.000011508433920792241,
+          "unit": "relative",
+          "value": 6.693836992439922e-7
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.000014885426689703607
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation1",
+          "threshold": 0.031034141923734486,
+          "unit": "relative",
+          "value": 0.015512327528015608
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "regular_q1-q2_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.00004022113279800177
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": false,
+          "scenario": "regular_q1-q2_rotation2",
+          "threshold": 0.00001201080414948753,
+          "unit": "relative",
+          "value": 0.015512499747443951
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 4.7894734768586385e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.0001227540054230997
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.07187108405778808
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q0_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.038135882700358836
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": false,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.020033941833635466
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000040947028316145536
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.11092221311901174
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q0_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.026263231764646067
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 4.4029344210525356e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.0000771138320096554
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.07187433127518683
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q0_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.03880136952060531
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": false,
+          "scenario": "eccentric_q0",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.38583642501660004
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": false,
+          "scenario": "eccentric_q0",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.020029538899214414
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 5.112101337550827e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.0000388495991316576
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.07187384757293325
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q1_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.038025678568149424
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.0057834340457770155
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00005458512363608011
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.07187501244652839
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q1_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.038271805332467324
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 2.283270070242493e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000045868223262432835
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.071868800907253
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q1_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.03803141192434745
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": false,
+          "scenario": "eccentric_q1",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.18508918508875627
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": false,
+          "scenario": "eccentric_q1",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 0.005781150775706773
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 2.8707370274065695e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00001625829763999975
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.07187344470821544
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q2_rotation0",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.03810353456416249
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 2.3889205496329026e-6
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.000011664180287170084
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.07186809044171749
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q2_rotation1",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.038210481211370606
+        },
+        {
+          "name": "maximum_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 8.35331284787061e-7
+        },
+        {
+          "name": "maximum_angular_momentum_drift",
+          "passed": true,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.005,
+          "unit": "relative",
+          "value": 0.00001941463784173945
+        },
+        {
+          "name": "radial_envelope_error",
+          "passed": false,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "semimajor_axis",
+          "value": 0.07187432434456653
+        },
+        {
+          "name": "revolution_period_error",
+          "passed": false,
+          "scenario": "eccentric_q2_rotation2",
+          "threshold": 0.02,
+          "unit": "relative",
+          "value": 0.03834710192530988
+        },
+        {
+          "name": "rotated_final_radius_spread",
+          "passed": false,
+          "scenario": "eccentric_q2",
+          "threshold": 0.002,
+          "unit": "length",
+          "value": 0.005876513868197097
+        },
+        {
+          "name": "rotated_energy_drift_spread",
+          "passed": true,
+          "scenario": "eccentric_q2",
+          "threshold": 0.002,
+          "unit": "relative",
+          "value": 2.0354057426195088e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.000023596771158429508
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation0",
+          "threshold": 0.000019578946953717278,
+          "unit": "relative",
+          "value": 5.112101337550827e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": false,
+          "scenario": "eccentric_q0-q1_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 0.03904720067248335
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation1",
+          "threshold": 0.040077883667270935,
+          "unit": "relative",
+          "value": 0.0057834340457770155
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 5.940124396863755e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q0-q1_rotation2",
+          "threshold": 0.000018805868842105074,
+          "unit": "relative",
+          "value": 2.283270070242493e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation0",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 7.4704584108187255e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation0",
+          "threshold": 0.000020224202675101655,
+          "unit": "relative",
+          "value": 2.8707370274065695e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation1",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 6.922004810894222e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation1",
+          "threshold": 0.01157686809155403,
+          "unit": "relative",
+          "value": 2.3889205496329026e-6
+        },
+        {
+          "name": "quantum_radial_envelope_change",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation2",
+          "threshold": 0.003,
+          "unit": "length",
+          "value": 6.024418093886208e-6
+        },
+        {
+          "name": "refined_energy_drift",
+          "passed": true,
+          "scenario": "eccentric_q1-q2_rotation2",
+          "threshold": 0.000014566540140484988,
+          "unit": "relative",
+          "value": 8.35331284787061e-7
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": true,
+          "scenario": "stationary_clock_r0.4",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 3.5576117237701155e-6
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": true,
+          "scenario": "stationary_clock_r1",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 9.501950795076652e-7
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": true,
+          "scenario": "stationary_clock_r1.6",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 2.2387950526780998e-7
+        },
+        {
+          "name": "proper_time_rate_error",
+          "passed": true,
+          "scenario": "stationary_clock_r4",
+          "threshold": 0.00001,
+          "unit": "d_tau/d_t",
+          "value": 5.95501268296772e-8
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[0.123, 0.789]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.004522565785286755
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[3.0, 2.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.0010314404392682574
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[10.0, -1.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.00037202653751388515
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_0_target_[-80.0, 50.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.00003973723503918301
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[0.123, 0.789]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.008822753302482061
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[3.0, 2.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.019176477474610355
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[10.0, -1.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 8.706834498127909e-15
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_1_target_[-80.0, 50.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 4.0134453226251254e-14
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[0.123, 0.789]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.02569680845332632
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[3.0, 2.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.031053807065009018
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[10.0, -1.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.011837108207521388
+        },
+        {
+          "name": "tree_error_to_bound",
+          "passed": true,
+          "scenario": "source_fixture_2_target_[-80.0, 50.0]",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 0.0044883563412301455
+        },
+        {
+          "name": "fleet_acceleration_scaling_error",
+          "passed": true,
+          "scenario": "backreaction",
+          "threshold": 1e-12,
+          "unit": "relative",
+          "value": 0.0
+        },
+        {
+          "name": "total_force_residual",
+          "passed": true,
+          "scenario": "backreaction",
+          "threshold": 1e-12,
+          "unit": "force",
+          "value": 0.0
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": false,
+          "scenario": "mass_change_before_lightcone",
+          "threshold": 0.0,
+          "unit": "acceleration_or_clock_rate",
+          "value": 0.000060981187587128005
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "mass_change_after_lightcone",
+          "threshold": 0.0,
+          "unit": "acceleration_or_clock_rate",
+          "value": 0.000060981187587128005
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": false,
+          "scenario": "instantaneous_two_body_precone",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0000152587890625
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "instantaneous_two_body_precone",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0000152587890625
+        }
+      ],
+      "status": "FAIL",
+      "version": 1
+    },
+    {
+      "evidence": [
+        "Research kernel es-causal-retarded-monopole-v0 is isolated from es-inertial-causal-v1.",
+        "First gate is the two-sided source-change light-cone falsifier; no orbit map is tuned.",
+        "Retarded 3D-planar monopole with exact rational cones is not G2, GR, FMM, or delayed-Newton promotion.",
+        "Certified queries require a declared-complete finite root plus a sound omitted-tail enclosure, or fail closed.",
+        "Compact radius r_s=2μ/c² has exact Interior/OnHorizon/Exterior membership. On/inside r_s is absorbing capture, never NaN or Newton through r=0. That is not Schwarzschild/Kerr certification.",
+        "Kernel predicates (cone, compact class, capture, certified exterior) terminate in one rational comparison or fail closed. Curved-null geodesic branches are unsupported; terminating_exact_branches stays failed.",
+        "Exterior contract variants include Unspecified; default research root is FiniteAuthoritativeRoot { support_radius: Ratio { numer: 16, denom: 1 }, declared_complete: false, omitted_tail: None }.",
+        "source_change_light_cone is the first gate; it passed before any orbit work was attempted.",
+        "law=es-causal-retarded-monopole-v0 c=64 exterior=finite-root-incomplete"
+      ],
+      "gates": [
+        {
+          "id": "research_manifest_isolated",
+          "passed": true,
+          "reason": "New fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "source_change_light_cone",
+          "passed": true,
+          "reason": "FIRST GATE. Source μ 1→2 at t=0, query r=4. Pre t=1/64 influence 0.000000000000e0; post t=1/8 influence 6.250000000000e-2. Instantaneous maps fail pre-cone; a null kernel fails post-cone."
+        },
+        {
+          "id": "causal_dynamic_sources",
+          "passed": true,
+          "reason": "Same two-sided retarded-source measurement as source_change_light_cone. Passing this kernel gate is not production gravity."
+        },
+        {
+          "id": "closed_light_cone_equality",
+          "passed": true,
+          "reason": "On-cone t=r/c is a finite exact branch: the change is visible."
+        },
+        {
+          "id": "compact_vs_far_domain",
+          "passed": true,
+          "reason": "Compact r=2μ/c²=1/2048 is refused; far r=4 remains evaluable. This does not certify compact gravity."
+        },
+        {
+          "id": "huge_mass_ratio_causality",
+          "passed": true,
+          "reason": "μ 1e9→2e9: r=4 is compact and refused; far r=1e6 still has zero pre-cone influence and nonzero post-cone influence."
+        },
+        {
+          "id": "moving_source_retarded_position",
+          "passed": true,
+          "reason": "Source jumps (0,0)→(1,0) at t=0 with subluminal separation from genesis. Query (4,0) uses retarded position, not present position, until the new cone arrives."
+        },
+        {
+          "id": "exterior_source_light_cone",
+          "passed": true,
+          "reason": "Unit source at r=16, query r=1: pre t=15/256 no influence, post t=15/32 influence. Listing it is still not a certified infinite exterior."
+        },
+        {
+          "id": "exterior_manifest_isolated",
+          "passed": true,
+          "reason": "New finite-exterior fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "incomplete_omit_r16",
+          "passed": true,
+          "reason": "declared_complete=false with no omitted-tail bound: certified query at r=1 fails closed. Listed-only evaluation would silently omit the unit source at r=16."
+        },
+        {
+          "id": "false_complete_omit_r16",
+          "passed": true,
+          "reason": "declared_complete=true with vacuum remainder (bound 0) omits r=16. Actual influence 4.444444444444e-3 exceeds the claimed enclosure."
+        },
+        {
+          "id": "unsound_tail_bound_r16",
+          "passed": true,
+          "reason": "Claimed tail R=32, μ≤1 at query r=1 has bound 1.040582726355e-3; actual r=16 unit source 4.444444444444e-3 violates it."
+        },
+        {
+          "id": "certified_tail_bound_r16",
+          "passed": true,
+          "reason": "Sound tail R=16, μ≤1: bound 4.444444444473e-3 contains actual omitted influence 4.444444444444e-3. Conservative 3D-planar closest-approach remainder, tiny N."
+        },
+        {
+          "id": "query_in_omitted_tail",
+          "passed": true,
+          "reason": "Query at r=16 lies on the omitted-tail radius and fails closed (resource/capability), not a silent listed field."
+        },
+        {
+          "id": "listed_r16_complete",
+          "passed": true,
+          "reason": "Listing the r=16 source on a declared-complete root includes its influence; it is not omitted."
+        },
+        {
+          "id": "well_posed_exterior",
+          "passed": true,
+          "reason": "Two-sided finite exterior: incomplete omit fails closed; false-complete and unsound tails are detected against the unit source at r=16 (actual 4.444444444444e-3); sound remainder encloses it; query in the omitted region fails closed; listing the source is certified. Tiny-N 3D-planar remainder, not a cosmological/procedural certificate."
+        },
+        {
+          "id": "compact_manifest_isolated",
+          "passed": true,
+          "reason": "New compact-field fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "exact_compact_membership",
+          "passed": true,
+          "reason": "Exact rational class: r_s=2μ/c²=1/2048; r=1/4096 Interior; r=1/2048 OnHorizon; r=4 Exterior. Compared as r²c⁴ ≶ 4μ²."
+        },
+        {
+          "id": "interior_capture_not_newton",
+          "passed": true,
+          "reason": "Interior r=1/4096: kernel field_at is Captured, acceleration_at refuses. Newton 1/r² is still finite there — that is the measured missing horizon, not a certified GR interior."
+        },
+        {
+          "id": "on_horizon_capture",
+          "passed": true,
+          "reason": "On-horizon r=1/2048 is an exact branch: Captured(OnHorizon), not Newton 1/r² and not a floating root."
+        },
+        {
+          "id": "coincidence_singular_not_nan",
+          "passed": true,
+          "reason": "r=0 is Singular (finite error). Neither the kernel nor Newton returns NaN or a 1/r² continuation through the origin."
+        },
+        {
+          "id": "causal_compact_after_cone",
+          "passed": true,
+          "reason": "μ 0→1 at t=0, query r=1/4096. Pre-cone t=1/524288 sees genesis μ=0 (no capture). Post-cone t=1/131072 captures. Compact of a mass change is retarded."
+        },
+        {
+          "id": "newton_continues_through_horizon",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Stationary 1/r² at r_s is finite. Newtonian gravity has no horizon; this is the frozen G2 compact failure of Verlet, measured rather than asserted."
+        },
+        {
+          "id": "lapse_domain_misses_compact",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Frozen shell-lapse domain starts at r=1/16; r_s=1/2048 is 128× closer. The lapse laboratory never reaches compact radius and is not Schwarzschild."
+        },
+        {
+          "id": "newton_deflection_not_gr",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Unbound Newton flyby at b=4, v=c turns by 1.220703123484e-4 rad; GR weak-field light deflection 4μ/(c²b) is 2.441406250000e-4. The kernel has no geodesic map. Factor-of-two (and missing photon-sphere capture) is the frozen G2 deflection hole."
+        },
+        {
+          "id": "compact_field_certification",
+          "passed": false,
+          "reason": "Exact membership and absorbing capture are implemented (fixtures passed=true). Capture/refuse is not Schwarzschild/Kerr: Newton remains finite at r_s, lapse min r=1/16 misses r_s=1/2048, and Newton flyby deflection 1.220703123484e-4 ≠ GR 2.441406250000e-4. No photon sphere, no light-bending geodesic, no terminating curved-null branch."
+        },
+        {
+          "id": "exact_branch_manifest_isolated",
+          "passed": true,
+          "reason": "New terminating-branch fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "exact_cone_before_on_after",
+          "passed": true,
+          "reason": "Exact rational cone: c²(t−t_s)² ≶ r². Query r=4, c=64: t=1/64 Before, t=1/16 On, t=1/8 After. One comparison, no loop."
+        },
+        {
+          "id": "on_cone_tie_is_visible",
+          "passed": true,
+          "reason": "Tie rule: on-cone equality is visible (closed cone). A query in the source's future refuses rather than iterating."
+        },
+        {
+          "id": "on_horizon_tie_is_capture",
+          "passed": true,
+          "reason": "Tie rule: r²c⁴ = 4μ² is OnHorizon and the specified map captures. Equality is not deferred to more precision."
+        },
+        {
+          "id": "coincidence_tie_refuses_not_nan",
+          "passed": true,
+          "reason": "Tie rule: r=0 refuses Singular. NaN is NonfiniteBranch. Neither is a 1/r² continuation."
+        },
+        {
+          "id": "certified_exterior_refuses_incomplete",
+          "passed": true,
+          "reason": "Certified exterior is a terminating decision: incomplete omit and omitted-region queries fail closed in one step."
+        },
+        {
+          "id": "f64_escalates_or_fails_closed",
+          "passed": true,
+          "reason": "Finite f64 escalates to an exact dyadic (1/2048 is OnHorizon). Inf/NaN refuse. Overflow of Ratio<i128> refuses. No epsilon guess."
+        },
+        {
+          "id": "iteration_cap_is_failed_execution",
+          "passed": true,
+          "reason": "Iteration cap is a failed execution gate. A guessed Exterior/Interior after budget exhaustion is illegal. Stationary lapse cap stays 64."
+        },
+        {
+          "id": "floating_root_is_not_certificate",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. f64 circle roots can return a finite t (here 0.25) and still are not exact certificates. Frozen fail: floating roots are not production branch truth."
+        },
+        {
+          "id": "curved_null_geodesic_unsupported",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Curved-null / geodesic branch solver is not implemented. The kernel refuses rather than guessing photon-sphere capture or light deflection."
+        },
+        {
+          "id": "terminating_exact_branches",
+          "passed": false,
+          "reason": "Kernel-supported predicates terminate or fail closed (fixtures passed=true): cone, compact class, capture, certified exterior; max_steps=1; ties are visible/capture/refuse. Field values remain f64. Stationary maps still use f64 circle roots and a 64-crossing cap that is not a certificate. Curved-null/geodesic branch solver is missing. Production terminating_exact_branches stays failed."
+        },
+        {
+          "id": "simultaneous_source_cones",
+          "passed": true,
+          "reason": "Two sources change at the same t=0. Query (1,0) sees neither, then only the nearer change, then both. Simultaneous emission is not simultaneous reception."
+        },
+        {
+          "id": "static_limit_matches_newton",
+          "passed": true,
+          "reason": "Eternal static sources must reproduce the 3D-planar Newton query. Causality is about changes, not a different static kernel."
+        },
+        {
+          "id": "superluminal_history_rejected",
+          "passed": true,
+          "reason": "A source that moves Δr=4 in Δt=1/64 is superluminal and is not a valid worldtube."
+        },
+        {
+          "id": "retarded_two_way_backreaction",
+          "passed": false,
+          "reason": "Prescribed worldtubes: A's present position is authored, not integrated from B's retarded field. Pre-cone influence 0.000000000000e0; post-cone 0.000000000000e0. This fails post (no coupling). Instantaneous two-body maps fail pre. A self-consistent retarded stepper is required."
+        },
+        {
+          "id": "orbit_stability",
+          "passed": false,
+          "reason": "No coupled retarded orbit map. A floating orbit is not accepted as G2; source-change causality is required first."
+        },
+        {
+          "id": "angular_isotropy",
+          "passed": false,
+          "reason": "No orbit map, so no rotation suite. The frozen quantum/rotation ladder remains on the rejected stationary experiments."
+        },
+        {
+          "id": "quantum_refinement",
+          "passed": false,
+          "reason": "This kernel is not a quantized finite map. Existing quanta 2^-22,2^-23,2^-24 stay frozen on the stationary suite and were not retuned."
+        },
+        {
+          "id": "stationary_clock",
+          "passed": false,
+          "reason": "Retarded monopole queries do not define dτ/dt or a piecewise lapse."
+        },
+        {
+          "id": "source_tree_bound",
+          "passed": false,
+          "reason": "No monopole quadtree/FMM in this kernel. Direct retarded evaluation is the small-system reference only."
+        },
+        {
+          "id": "source_backreaction",
+          "passed": false,
+          "reason": "Prescribed worldtubes do not update from the field. Frozen source_backreaction is the stationary-map Newton fleet/force-balance diagnostic, not retarded coupling. See retarded_two_way_backreaction."
+        }
+      ],
+      "id": "es-causal-retarded-monopole-v0",
+      "metrics": [
+        {
+          "name": "pre_lightcone_response",
+          "passed": true,
+          "scenario": "mass_change_r4",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 0.0
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "mass_change_r4",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 0.0625
+        },
+        {
+          "name": "on_cone_influence",
+          "passed": true,
+          "scenario": "mass_change_r4",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 0.0625
+        },
+        {
+          "name": "omitted_influence",
+          "passed": false,
+          "scenario": "unsound_tail_bound_r16",
+          "threshold": 0.0010405827263551943,
+          "unit": "acceleration",
+          "value": 0.0044444444444444444
+        },
+        {
+          "name": "omitted_influence",
+          "passed": true,
+          "scenario": "certified_tail_bound_r16",
+          "threshold": 0.004444444444472993,
+          "unit": "acceleration",
+          "value": 0.0044444444444444444
+        },
+        {
+          "name": "newton_acceleration",
+          "passed": false,
+          "scenario": "interior_capture_not_newton",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 16777216.0
+        },
+        {
+          "name": "newton_acceleration_at_rs",
+          "passed": false,
+          "scenario": "newton_continues_through_horizon",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 4194304.0
+        },
+        {
+          "name": "lapse_min_over_rs",
+          "passed": false,
+          "scenario": "lapse_domain_misses_compact",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 128.0
+        },
+        {
+          "name": "newton_minus_gr",
+          "passed": false,
+          "scenario": "newton_deflection_not_gr",
+          "threshold": 0.0,
+          "unit": "radian",
+          "value": 0.00012207031265158247
+        },
+        {
+          "name": "retarded_vs_newton",
+          "passed": true,
+          "scenario": "static_limit",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 0.0
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": true,
+          "scenario": "authored_worldtube_no_coupling",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": false,
+          "scenario": "authored_worldtube_no_coupling",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0
+        }
+      ],
+      "status": "FAIL",
+      "version": 0
+    },
+    {
+      "evidence": [
+        "Research kernel es-causal-retarded-coupled-v0 is isolated from es-inertial-causal-v1.",
+        "Next source segment is the retarded excluded-self finite-map update of committed history; no authored future, no is_planet.",
+        "Tiny-N (≤64) 3D-planar retarded monopole stepper is not G2, GR, FMM, or delayed-Newton promotion.",
+        "Certified queries require a declared-complete finite root plus a sound omitted-tail enclosure, or fail closed. The Euler stepper still uses listed retarded accelerations.",
+        "Compact radius r_s=2μ/c² is exact. A coupled body at or inside another visible source's r_s is captured (finite halt), not Newton-stepped through r=0. That is not Schwarzschild certification.",
+        "Kernel predicates terminate in one rational comparison or fail closed. An iteration cap is a failed execution, not a guessed sign. Curved-null geodesic branches are unsupported; terminating_exact_branches stays failed.",
+        "Default coupled exterior is FiniteAuthoritativeRoot { support_radius: Ratio { numer: 16, denom: 1 }, declared_complete: false, omitted_tail: None }; certified remainder uses declared_complete with an omitted-tail bound.",
+        "retarded_two_way_backreaction passed; authored and instantaneous negative controls kept.",
+        "law=es-causal-retarded-monopole-v0 c=64 exterior=finite-root-incomplete"
+      ],
+      "gates": [
+        {
+          "id": "coupled_manifest_isolated",
+          "passed": true,
+          "reason": "New coupled fixtures did not edit frozen production-gate identities, old kernel fixtures, or numeric thresholds."
+        },
+        {
+          "id": "source_change_light_cone",
+          "passed": true,
+          "reason": "Shared retarded field evaluator. Source μ 1→2 at t=0, query r=4. Pre t=1/64 influence 0.000000000000e0; post t=1/8 influence 6.250000000000e-2."
+        },
+        {
+          "id": "causal_dynamic_sources",
+          "passed": true,
+          "reason": "Same two-sided retarded-source field measurement as the parent kernel. Passing it is not production gravity."
+        },
+        {
+          "id": "authored_worldtube_is_not_coupling",
+          "passed": false,
+          "reason": "NEGATIVE CONTROL. Prescribed A's worldtube ignores B's μ change. Pre 0.000000000000e0; post 0.000000000000e0 (must fail post)."
+        },
+        {
+          "id": "instantaneous_two_body_is_not_retarded",
+          "passed": false,
+          "reason": "NEGATIVE CONTROL. Present-state two-body Euler responds immediately. Pre 1.525878906250e-5; post 1.525878906250e-5 (must fail pre)."
+        },
+        {
+          "id": "retarded_two_way_backreaction",
+          "passed": true,
+          "reason": "A's next segments come from B's retarded field. B μ 1→2 at t=0. A's trajectory pre t=1/64 influence 0.000000000000e0; post t=1/8 influence 1.525878906250e-4."
+        },
+        {
+          "id": "every_mass_sources",
+          "passed": true,
+          "reason": "μ_B=1/64 still moves A; μ_B=0 does not. Backreaction is by influence, not an is_planet flag."
+        },
+        {
+          "id": "mutual_two_way",
+          "passed": true,
+          "reason": "Equal μ pair: both worldtubes leave their genesis positions. One-way test-particle maps cannot pass."
+        },
+        {
+          "id": "no_self_force",
+          "passed": true,
+          "reason": "An isolated rest mass does not accelerate itself. Coupled steps exclude the querier's own monopole."
+        },
+        {
+          "id": "fleet_collective_n64",
+          "passed": true,
+          "reason": "Star plus 1 vs 63 ships appearing at t=0 near r=4. Pre-cone star influence 0.000000000000e0; post-cone 7.915496826172e-5; 63-ship displacement is larger. Direct tiny-N reference, not FMM."
+        },
+        {
+          "id": "exterior_manifest_isolated",
+          "passed": true,
+          "reason": "New finite-exterior fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "incomplete_omit_r16",
+          "passed": true,
+          "reason": "declared_complete=false with no omitted-tail bound: certified query at r=1 fails closed. Listed-only evaluation would silently omit the unit source at r=16."
+        },
+        {
+          "id": "false_complete_omit_r16",
+          "passed": true,
+          "reason": "declared_complete=true with vacuum remainder (bound 0) omits r=16. Actual influence 4.444444444444e-3 exceeds the claimed enclosure."
+        },
+        {
+          "id": "unsound_tail_bound_r16",
+          "passed": true,
+          "reason": "Claimed tail R=32, μ≤1 at query r=1 has bound 1.040582726355e-3; actual r=16 unit source 4.444444444444e-3 violates it."
+        },
+        {
+          "id": "certified_tail_bound_r16",
+          "passed": true,
+          "reason": "Sound tail R=16, μ≤1: bound 4.444444444473e-3 contains actual omitted influence 4.444444444444e-3. Conservative 3D-planar closest-approach remainder, tiny N."
+        },
+        {
+          "id": "query_in_omitted_tail",
+          "passed": true,
+          "reason": "Query at r=16 lies on the omitted-tail radius and fails closed (resource/capability), not a silent listed field."
+        },
+        {
+          "id": "listed_r16_complete",
+          "passed": true,
+          "reason": "Listing the r=16 source on a declared-complete root includes its influence; it is not omitted."
+        },
+        {
+          "id": "well_posed_exterior",
+          "passed": true,
+          "reason": "Two-sided finite exterior: incomplete omit fails closed; false-complete and unsound tails are detected against the unit source at r=16 (actual 4.444444444444e-3); sound remainder encloses it; query in the omitted region fails closed; listing the source is certified. Tiny-N 3D-planar remainder, not a cosmological/procedural certificate."
+        },
+        {
+          "id": "compact_manifest_isolated",
+          "passed": true,
+          "reason": "New compact-field fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "exact_compact_membership",
+          "passed": true,
+          "reason": "Exact rational class: r_s=2μ/c²=1/2048; r=1/4096 Interior; r=1/2048 OnHorizon; r=4 Exterior. Compared as r²c⁴ ≶ 4μ²."
+        },
+        {
+          "id": "interior_capture_not_newton",
+          "passed": true,
+          "reason": "Interior r=1/4096: kernel field_at is Captured, acceleration_at refuses. Newton 1/r² is still finite there — that is the measured missing horizon, not a certified GR interior."
+        },
+        {
+          "id": "on_horizon_capture",
+          "passed": true,
+          "reason": "On-horizon r=1/2048 is an exact branch: Captured(OnHorizon), not Newton 1/r² and not a floating root."
+        },
+        {
+          "id": "coincidence_singular_not_nan",
+          "passed": true,
+          "reason": "r=0 is Singular (finite error). Neither the kernel nor Newton returns NaN or a 1/r² continuation through the origin."
+        },
+        {
+          "id": "causal_compact_after_cone",
+          "passed": true,
+          "reason": "μ 0→1 at t=0, query r=1/4096. Pre-cone t=1/524288 sees genesis μ=0 (no capture). Post-cone t=1/131072 captures. Compact of a mass change is retarded."
+        },
+        {
+          "id": "newton_continues_through_horizon",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Stationary 1/r² at r_s is finite. Newtonian gravity has no horizon; this is the frozen G2 compact failure of Verlet, measured rather than asserted."
+        },
+        {
+          "id": "lapse_domain_misses_compact",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Frozen shell-lapse domain starts at r=1/16; r_s=1/2048 is 128× closer. The lapse laboratory never reaches compact radius and is not Schwarzschild."
+        },
+        {
+          "id": "newton_deflection_not_gr",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Unbound Newton flyby at b=4, v=c turns by 1.220703123484e-4 rad; GR weak-field light deflection 4μ/(c²b) is 2.441406250000e-4. The kernel has no geodesic map. Factor-of-two (and missing photon-sphere capture) is the frozen G2 deflection hole."
+        },
+        {
+          "id": "compact_field_certification",
+          "passed": false,
+          "reason": "Exact membership and absorbing capture are implemented (fixtures passed=true). Capture/refuse is not Schwarzschild/Kerr: Newton remains finite at r_s, lapse min r=1/16 misses r_s=1/2048, and Newton flyby deflection 1.220703123484e-4 ≠ GR 2.441406250000e-4. No photon sphere, no light-bending geodesic, no terminating curved-null branch."
+        },
+        {
+          "id": "exact_branch_manifest_isolated",
+          "passed": true,
+          "reason": "New terminating-branch fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "exact_cone_before_on_after",
+          "passed": true,
+          "reason": "Exact rational cone: c²(t−t_s)² ≶ r². Query r=4, c=64: t=1/64 Before, t=1/16 On, t=1/8 After. One comparison, no loop."
+        },
+        {
+          "id": "on_cone_tie_is_visible",
+          "passed": true,
+          "reason": "Tie rule: on-cone equality is visible (closed cone). A query in the source's future refuses rather than iterating."
+        },
+        {
+          "id": "on_horizon_tie_is_capture",
+          "passed": true,
+          "reason": "Tie rule: r²c⁴ = 4μ² is OnHorizon and the specified map captures. Equality is not deferred to more precision."
+        },
+        {
+          "id": "coincidence_tie_refuses_not_nan",
+          "passed": true,
+          "reason": "Tie rule: r=0 refuses Singular. NaN is NonfiniteBranch. Neither is a 1/r² continuation."
+        },
+        {
+          "id": "certified_exterior_refuses_incomplete",
+          "passed": true,
+          "reason": "Certified exterior is a terminating decision: incomplete omit and omitted-region queries fail closed in one step."
+        },
+        {
+          "id": "f64_escalates_or_fails_closed",
+          "passed": true,
+          "reason": "Finite f64 escalates to an exact dyadic (1/2048 is OnHorizon). Inf/NaN refuse. Overflow of Ratio<i128> refuses. No epsilon guess."
+        },
+        {
+          "id": "iteration_cap_is_failed_execution",
+          "passed": true,
+          "reason": "Iteration cap is a failed execution gate. A guessed Exterior/Interior after budget exhaustion is illegal. Stationary lapse cap stays 64."
+        },
+        {
+          "id": "floating_root_is_not_certificate",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. f64 circle roots can return a finite t (here 0.25) and still are not exact certificates. Frozen fail: floating roots are not production branch truth."
+        },
+        {
+          "id": "curved_null_geodesic_unsupported",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Curved-null / geodesic branch solver is not implemented. The kernel refuses rather than guessing photon-sphere capture or light deflection."
+        },
+        {
+          "id": "terminating_exact_branches",
+          "passed": false,
+          "reason": "Kernel-supported predicates terminate or fail closed (fixtures passed=true): cone, compact class, capture, certified exterior; max_steps=1; ties are visible/capture/refuse. Field values remain f64. Stationary maps still use f64 circle roots and a 64-crossing cap that is not a certificate. Curved-null/geodesic branch solver is missing. Production terminating_exact_branches stays failed."
+        },
+        {
+          "id": "coupled_capture_halt",
+          "passed": true,
+          "reason": "Body B starts at r=1/4096 of A (Interior) with tiny μ_B so A's exterior Newton stays subluminal. The next segment is a finite capture halt: B stays put, momenta vanish, no NaN and no Newton through r=0. Absorbing capture is not a Schwarzschild geodesic."
+        },
+        {
+          "id": "orbit_stability",
+          "passed": false,
+          "reason": "No orbit map and no Kepler tuning. Causality plus backreaction are required before any orbit integrator."
+        },
+        {
+          "id": "angular_isotropy",
+          "passed": false,
+          "reason": "No rotation suite. Frozen quantum/rotation ladder remains on the rejected stationary experiments."
+        },
+        {
+          "id": "quantum_refinement",
+          "passed": false,
+          "reason": "Coupled position projection 2^-20 is a research finite map, not the frozen 2^-22..2^-24 orbit ladder."
+        },
+        {
+          "id": "stationary_clock",
+          "passed": false,
+          "reason": "Retarded coupled steps do not define dτ/dt or a piecewise lapse."
+        },
+        {
+          "id": "source_tree_bound",
+          "passed": false,
+          "reason": "No monopole quadtree/FMM. Direct retarded evaluation is the tiny-N reference only."
+        },
+        {
+          "id": "source_backreaction",
+          "passed": false,
+          "reason": "Frozen source_backreaction is instantaneous Newton fleet scaling and pair-force residual. Retarded coupling does not claim simultaneous action-reaction, and this is not a production orbit map."
+        }
+      ],
+      "id": "es-causal-retarded-coupled-v0",
+      "metrics": [
+        {
+          "name": "pre_lightcone_response",
+          "passed": true,
+          "scenario": "mass_change_r4",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "mass_change_r4",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0625
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": true,
+          "scenario": "authored_worldtube_no_coupling",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": false,
+          "scenario": "authored_worldtube_no_coupling",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": false,
+          "scenario": "instantaneous_two_body_precone",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0000152587890625
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "instantaneous_two_body_precone",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0000152587890625
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": true,
+          "scenario": "coupled_mass_change_r4",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "coupled_mass_change_r4",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.000152587890625
+        },
+        {
+          "name": "pre_lightcone_response",
+          "passed": true,
+          "scenario": "fleet_collective_n64",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.0
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "fleet_collective_n64",
+          "threshold": 0.0,
+          "unit": "length",
+          "value": 0.00007915496826171875
+        },
+        {
+          "name": "omitted_influence",
+          "passed": false,
+          "scenario": "unsound_tail_bound_r16",
+          "threshold": 0.0010405827263551943,
+          "unit": "acceleration",
+          "value": 0.0044444444444444444
+        },
+        {
+          "name": "omitted_influence",
+          "passed": true,
+          "scenario": "certified_tail_bound_r16",
+          "threshold": 0.004444444444472993,
+          "unit": "acceleration",
+          "value": 0.0044444444444444444
+        },
+        {
+          "name": "newton_acceleration",
+          "passed": false,
+          "scenario": "interior_capture_not_newton",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 16777216.0
+        },
+        {
+          "name": "newton_acceleration_at_rs",
+          "passed": false,
+          "scenario": "newton_continues_through_horizon",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 4194304.0
+        },
+        {
+          "name": "lapse_min_over_rs",
+          "passed": false,
+          "scenario": "lapse_domain_misses_compact",
+          "threshold": 1.0,
+          "unit": "ratio",
+          "value": 128.0
+        },
+        {
+          "name": "newton_minus_gr",
+          "passed": false,
+          "scenario": "newton_deflection_not_gr",
+          "threshold": 0.0,
+          "unit": "radian",
+          "value": 0.00012207031265158247
+        }
+      ],
+      "status": "FAIL",
+      "version": 0
+    },
+    {
+      "evidence": [
+        "Research kernel es-schwarzschild-equatorial-v0 is isolated from es-inertial-causal-v1.",
+        "Planar restriction of 3D Schwarzschild: stationary one-source equatorial patch, not Kerr, not interacting GR, not 2D log gravity, not delayed Newton.",
+        "Photon sphere r_ph=3μ/c² and from-infinity null capture b²c⁴ ≶ 27μ² terminate in one rational comparison. Weak-field deflection oracle is 4μ/(c²b) on frozen b≥4.",
+        "Geodesic IVP is exact-or-fail-closed on the rational equatorial x-axis: circular identity (photon sphere / exact timelike circular), L=0 radial capture, and cubic-sign capture/scatter/unstable-photon classification. Exact elliptic deflection, scatter turning-radius *roots*, and generic scatter trajectories fail closed. An iteration cap is not a guessed root.",
+        "On/inside r_s the H0021 absorbing capture map remains the fallback. Moving and two-source geodesic queries refuse.",
+        "compact_field_certification and terminating_exact_branches stay failed. production_law stays null.",
+        "schwarzschild equatorial oracles passed; compact_field_certification and terminating_exact_branches kept failed.",
+        "law=es-schwarzschild-equatorial-v0 parent=es-causal-retarded-monopole-v0 c=64"
+      ],
+      "gates": [
+        {
+          "id": "schwarzschild_manifest_isolated",
+          "passed": true,
+          "reason": "New Schwarzschild fixtures did not edit frozen production-gate identities, old compact/exact fixtures, or numeric thresholds."
+        },
+        {
+          "id": "source_change_light_cone",
+          "passed": true,
+          "reason": "FIRST GATE. Parent retarded monopole: source μ 1→2 at t=0, query r=4. Pre-cone influence must stay zero; post-cone must be nonzero. Verlet/lapse still fail this gate."
+        },
+        {
+          "id": "causal_dynamic_sources",
+          "passed": true,
+          "reason": "Same two-sided retarded-source field measurement as the parent kernel. Passing it is not production gravity."
+        },
+        {
+          "id": "exact_photon_sphere",
+          "passed": true,
+          "reason": "Exact rational photon sphere: r_ph=3μ/c²=3/4096. r_s=1/2048 Inside; r_ph OnPhotonSphere; r=4 Outside. Compared as r²c⁴ ≶ 9μ²."
+        },
+        {
+          "id": "null_capture_cross_section",
+          "passed": true,
+          "reason": "From-infinity null capture: b=1/2048 (b²c⁴=4<27) Capture; b²=27μ²/c⁴ UnstablePhotonSphere; b=4 Scatter. One comparison, no √3, no loop."
+        },
+        {
+          "id": "effective_potential_max_at_photon_sphere",
+          "passed": true,
+          "reason": "Equatorial null V=(r-r_s)/r³ is greater at r_ph than at 2 r_s and 3 r_s (cross-multiply, no square root). Diagnostic maximum, not a geodesic IVP."
+        },
+        {
+          "id": "weak_field_deflection_is_4mu",
+          "passed": true,
+          "reason": "Weak-field oracle at frozen b=4 is exactly 4μ/(c²b)=1/4096. b=1/2048 (inside the frozen weak-field floor) refuses; exact elliptic deflection is unsupported."
+        },
+        {
+          "id": "newton_flyby_not_4mu",
+          "passed": true,
+          "reason": "NEGATIVE CONTROL. Unbound Newton flyby at b=4, v=c turns by 1.220703123484e-4 rad; GR weak-field 4μ/(c²b) is 2.441406250000e-4. Newton flyby ≠ 4μ/(c²b)."
+        },
+        {
+          "id": "causal_schwarzschild_after_cone",
+          "passed": true,
+          "reason": "μ 0→1 at t=0, capture b=1/2048, query r=4. Pre-cone t=1/64 is Scatter (genesis μ=0). Post-cone t=1/8 is Capture. The stationary patch is retarded."
+        },
+        {
+          "id": "horizon_absorbing_fallback",
+          "passed": true,
+          "reason": "H0021 fallback: even a scatter impact b=4 is HorizonCapture at r=1/4096 and r_s, and Singular at r=0. Absorbing capture remains when the geodesic domain does not apply."
+        },
+        {
+          "id": "moving_source_geodesic_fails_closed",
+          "passed": true,
+          "reason": "A moving source is outside the stationary-patch domain. The geodesic stepper refuses rather than guessing a dynamical GR map."
+        },
+        {
+          "id": "two_source_geodesic_fails_closed",
+          "passed": true,
+          "reason": "Two sources are interacting compact-body GR, which this patch does not claim. The geodesic stepper fails closed."
+        },
+        {
+          "id": "turning_root_fails_closed",
+          "passed": true,
+          "reason": "Scatter turning radius solves r³-b²r+b² r_s=0. There is no laboratory rational root; the stepper fails closed rather than iterating for a sign."
+        },
+        {
+          "id": "iteration_cap_not_turning_sign",
+          "passed": true,
+          "reason": "Iteration cap is a failed execution. A guessed turning radius after budget exhaustion is illegal. Stationary lapse cap stays 64."
+        },
+        {
+          "id": "null_geodesic_ivp_capture_scatter_photon",
+          "passed": true,
+          "reason": "Null geodesic IVP at finite r: capture b inward at r=4 is Capture; the same b outward is Scatter; scatter b inward at r=4 is Scatter; critical b at rest on r_ph is CircularIdentity. Cubic sign plus r ≶ r_ph, not a turning-root solver."
+        },
+        {
+          "id": "circular_null_identity_step",
+          "passed": true,
+          "reason": "Exact symplectic identity on the unstable photon orbit: r stays r_ph=3μ/c², p_r stays 0. One step, no iteration."
+        },
+        {
+          "id": "circular_timelike_isco_identity_step",
+          "passed": true,
+          "reason": "Exact timelike circular identity L²(r-3M)=M r² at r_isco=6μ/c²=3/2048. (r, p_r) stay put. Not an orbit-tuned production map."
+        },
+        {
+          "id": "radial_timelike_rest_is_capture",
+          "passed": true,
+          "reason": "Frozen radial domain: timelike L=0 from rest at r=4 is Capture. Finite proper-time plunge; no turning cubic and no guessed time-of-flight."
+        },
+        {
+          "id": "generic_scatter_trajectory_fails_closed",
+          "passed": true,
+          "reason": "Generic scatter trajectory / elliptic deflection is unsupported. Classification may return Scatter; integrating it fails closed. Budget 0 is BranchBudgetExhausted, not a guessed deflection."
+        },
+        {
+          "id": "causal_geodesic_ivp_after_cone",
+          "passed": true,
+          "reason": "Geodesic IVP is retarded. μ 0→1 at t=0, capture b inward, query r=4. Pre-cone t=1/64 is Scatter (genesis μ=0). Post-cone t=1/8 is Capture."
+        },
+        {
+          "id": "irrational_radius_fails_closed",
+          "passed": true,
+          "reason": "Off-axis query (y≠0) is not a laboratory square root. The geodesic IVP fails closed rather than extracting r."
+        },
+        {
+          "id": "exterior_manifest_isolated",
+          "passed": true,
+          "reason": "New finite-exterior fixtures did not edit frozen production-gate identities or old numeric thresholds."
+        },
+        {
+          "id": "incomplete_omit_r16",
+          "passed": true,
+          "reason": "declared_complete=false with no omitted-tail bound: certified query at r=1 fails closed. Listed-only evaluation would silently omit the unit source at r=16."
+        },
+        {
+          "id": "false_complete_omit_r16",
+          "passed": true,
+          "reason": "declared_complete=true with vacuum remainder (bound 0) omits r=16. Actual influence 4.444444444444e-3 exceeds the claimed enclosure."
+        },
+        {
+          "id": "unsound_tail_bound_r16",
+          "passed": true,
+          "reason": "Claimed tail R=32, μ≤1 at query r=1 has bound 1.040582726355e-3; actual r=16 unit source 4.444444444444e-3 violates it."
+        },
+        {
+          "id": "certified_tail_bound_r16",
+          "passed": true,
+          "reason": "Sound tail R=16, μ≤1: bound 4.444444444473e-3 contains actual omitted influence 4.444444444444e-3. Conservative 3D-planar closest-approach remainder, tiny N."
+        },
+        {
+          "id": "query_in_omitted_tail",
+          "passed": true,
+          "reason": "Query at r=16 lies on the omitted-tail radius and fails closed (resource/capability), not a silent listed field."
+        },
+        {
+          "id": "listed_r16_complete",
+          "passed": true,
+          "reason": "Listing the r=16 source on a declared-complete root includes its influence; it is not omitted."
+        },
+        {
+          "id": "well_posed_exterior",
+          "passed": true,
+          "reason": "Two-sided finite exterior: incomplete omit fails closed; false-complete and unsound tails are detected against the unit source at r=16 (actual 4.444444444444e-3); sound remainder encloses it; query in the omitted region fails closed; listing the source is certified. Tiny-N 3D-planar remainder, not a cosmological/procedural certificate."
+        },
+        {
+          "id": "compact_field_certification",
+          "passed": false,
+          "reason": "Schwarzschild equatorial oracles plus a restricted geodesic IVP are implemented (fixtures passed=true): photon sphere, from-infinity capture b²c⁴ ≶ 27μ², weak-field 4μ/(c²b), circular identity, L=0 radial capture, cubic-sign capture/scatter. This is a stationary one-source patch, not interacting GR, not Kerr, not elliptic deflection. Newton flyby 1.220703123484e-4 ≠ GR 2.441406250000e-4. compact_field_certification stays failed."
+        },
+        {
+          "id": "terminating_exact_branches",
+          "passed": false,
+          "reason": "From-infinity null Capture/PhotonSphere/Scatter, photon-sphere class, circular identity, and cubic-sign IVP classification terminate in one comparison (max_steps=1). Horizon uses H0021. Turning-point *root*, elliptic deflection, and generic scatter/timelike bound trajectories fail closed. Field values remain f64. Stationary maps still use floating roots and a 64-crossing cap. Production terminating_exact_branches stays failed."
+        },
+        {
+          "id": "orbit_stability",
+          "passed": false,
+          "reason": "No orbit map and no Kepler tuning. A photon-sphere oracle is not an orbit integrator."
+        },
+        {
+          "id": "angular_isotropy",
+          "passed": false,
+          "reason": "No rotation suite. Frozen quantum/rotation ladder remains on the rejected stationary experiments."
+        },
+        {
+          "id": "quantum_refinement",
+          "passed": false,
+          "reason": "This patch is not a quantized finite map. Existing quanta 2^-22,2^-23,2^-24 stay frozen on the stationary suite and were not retuned."
+        },
+        {
+          "id": "stationary_clock",
+          "passed": false,
+          "reason": "A null-from-infinity oracle does not define dτ/dt. Matching Schwarzschild lapse is not claimed as a production clock."
+        },
+        {
+          "id": "source_tree_bound",
+          "passed": false,
+          "reason": "No monopole quadtree/FMM. Direct retarded evaluation remains the small-system reference only."
+        },
+        {
+          "id": "source_backreaction",
+          "passed": false,
+          "reason": "Stationary one-source patch. Frozen source_backreaction is instantaneous Newton fleet/force-balance, not retarded coupling and not GR."
+        },
+        {
+          "id": "retarded_two_way_backreaction",
+          "passed": false,
+          "reason": "This candidate is a stationary Schwarzschild patch, not the coupled two-way stepper. See es-causal-retarded-coupled-v0."
+        }
+      ],
+      "id": "es-schwarzschild-equatorial-v0",
+      "metrics": [
+        {
+          "name": "pre_lightcone_response",
+          "passed": true,
+          "scenario": "mass_change_r4",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 0.0
+        },
+        {
+          "name": "post_lightcone_influence",
+          "passed": true,
+          "scenario": "mass_change_r4",
+          "threshold": 0.0,
+          "unit": "acceleration",
+          "value": 0.0625
+        },
+        {
+          "name": "gr_weak_field",
+          "passed": true,
+          "scenario": "weak_field_deflection_is_4mu",
+          "threshold": 0.000244140625,
+          "unit": "radian",
+          "value": 0.000244140625
+        },
+        {
+          "name": "newton_minus_gr",
+          "passed": false,
+          "scenario": "newton_flyby_not_4mu",
+          "threshold": 0.0,
+          "unit": "radian",
+          "value": 0.00012207031265158247
+        },
+        {
+          "name": "omitted_influence",
+          "passed": false,
+          "scenario": "unsound_tail_bound_r16",
+          "threshold": 0.0010405827263551943,
+          "unit": "acceleration",
+          "value": 0.0044444444444444444
+        },
+        {
+          "name": "omitted_influence",
+          "passed": true,
+          "scenario": "certified_tail_bound_r16",
+          "threshold": 0.004444444444472993,
+          "unit": "acceleration",
+          "value": 0.0044444444444444444
+        }
+      ],
+      "status": "FAIL",
+      "version": 0
+    }
+  ],
+  "gate_manifest_digest": "7da7f1630acb948fc72f3c5fb7a10c6656ed0660247666c01cc9b9a20c9a1405",
+  "production_law": null,
+  "schema_version": 1,
+  "scope_notes": [
+    "Gate manifest was frozen before these two candidate implementations; law versions never change with optimizer selection.",
+    "The suite is a bounded CPU physical-law experiment, suitable for the M1/8GB development target; it is not a performance qualification.",
+    "Quantization is a projected finite-map experiment. f64/libm results are not claimed bitwise portable or production exact.",
+    "Production promotion requires every frozen numerical and capability gate; physical failures and missing proofs remain visible.",
+    "es-causal-retarded-monopole-v0 is an isolated research kernel with retarded source histories. It is not es-inertial-causal-v1, not delayed-Newton-as-G2, and cannot set production_law while required G2 gates fail.",
+    "es-causal-retarded-coupled-v0 is a tiny-N self-consistent retarded two-way stepper on the same kernel. It is not production gravity, FMM, GR, or delayed-Newton-as-G2, and cannot set production_law while required G2 gates fail.",
+    "Certified finite-exterior queries require a declared-complete root plus a sound omitted-tail enclosure, or fail closed. That remainder is a tiny-N 3D-planar bound, not a cosmological or procedural unresolved-matter certificate.",
+    "Compact radius r_s=2μ/c² has exact Interior/OnHorizon/Exterior membership. On/inside r_s the research kernels capture (finite absorbing map) rather than continue Newton through r=0. That is not Schwarzschild/Kerr, photon-sphere capture, or light deflection; compact_field_certification stays failed.",
+    "Research-kernel predicates (cone, compact class, capture, certified exterior) terminate in one rational comparison or fail closed. Tie rules are explicit. An iteration cap is a failed execution, not a guessed sign. The monopole kernel still has no curved-null solver.",
+    "es-schwarzschild-equatorial-v0 is a stationary one-source equatorial patch of 3D Schwarzschild: photon sphere r_ph=3μ/c², from-infinity null capture b²c⁴ ≶ 27μ², weak-field 4μ/(c²b) on frozen b≥4, and an exact-or-fail-closed circular/radial geodesic IVP. Generic scatter elliptic deflection and turning-radius roots fail closed. It is not Kerr, not interacting GR, not delayed-Newton-as-G2, and cannot set production_law. compact_field_certification and terminating_exact_branches stay failed."
+  ],
+  "status": "FAIL"
+}

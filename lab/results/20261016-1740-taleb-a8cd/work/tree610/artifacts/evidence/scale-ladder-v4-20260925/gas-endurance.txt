@@ -1,0 +1,7 @@
+Law experiment on the independent integer reference (xtask gas-endurance 64 1024 16384 131072 1048576), 25 September 2026, M1 release, single runs.
+Elastic lattice law (Q = 1024), sequential impulses, energy carry; 64 ships at 10% fill; reference matches the engine exactly at 64 ships x 1024 ticks.
+bodies 64 ticks     1024 contacts      1287 energy drift +4.735e-5 (relative) max residual 2.81e-4 energy units (0.1 s)
+bodies 64 ticks    16384 contacts     20135 energy drift +4.356e-4 (relative) max residual 1.95e-4 energy units (2.0 s)
+bodies 64 ticks   131072 contacts    161953 energy drift -1.055e-3 (relative) max residual 4.38e-4 energy units (27.3 s)
+bodies 64 ticks  1048576 contacts   1295575 energy drift +2.564e-4 (relative) max residual 3.09e-4 energy units (296.9 s)
+Before sequential impulses (summing pairs from pre-batch states), 64 ships x 1024 ticks: +3.28% (pair rounding 1,042 units, multi-contact remainder 95,974 units of 2,956,787).

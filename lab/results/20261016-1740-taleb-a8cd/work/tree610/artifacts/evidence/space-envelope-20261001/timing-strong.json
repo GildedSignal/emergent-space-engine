@@ -1,0 +1,159 @@
+{
+  "command": [
+    "target/release/examples/envelope"
+  ],
+  "status": 0,
+  "seconds": 0.5663357090670615,
+  "before": [
+    {
+      "command": [
+        "date",
+        "-u"
+      ],
+      "status": 0,
+      "stdout": "Wed Sep 30 22:44:36 UTC 2026\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uptime"
+      ],
+      "status": 0,
+      "stdout": " 0:44  1 user, load averages: 2.76 3.15 3.05\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string",
+        "hw.memsize"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "vm.swapusage"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "vm_stat"
+      ],
+      "status": 0,
+      "stdout": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     4038.\nPages active:                                  85702.\nPages inactive:                                78227.\nPages speculative:                              6952.\nPages throttled:                                   0.\nPages wired down:                             139827.\nPages purgeable:                                   2.\n\"Translation faults\":                    18592408384.\nPages copy-on-write:                       307807210.\nPages zero filled:                        4345787092.\nPages reactivated:                        7489185691.\nPages purged:                              466594351.\nFile-backed pages:                             64232.\nAnonymous pages:                              106649.\nPages stored in compressor:                   829128.\nPages occupied by compressor:                 173661.\nDecompressions:                           8773222998.\nCompressions:                             9440745096.\nPageins:                                   879915871.\nPageouts:                                   15820584.\nSwapins:                                   224179766.\nSwapouts:                                  236236388.\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "pmset",
+        "-g",
+        "therm"
+      ],
+      "status": 0,
+      "stdout": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "pmset",
+        "-g",
+        "batt"
+      ],
+      "status": 0,
+      "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t100%; charged; 0:00 remaining present: true\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "system_profiler",
+        "SPHardwareDataType"
+      ],
+      "status": 0,
+      "stdout": "      Model Name: MacBook Air\n      Chip: Apple M1\n      Total Number of Cores: 8 (4 Performance and 4 Efficiency)\n      Memory: 8 GB",
+      "stderr": "2026-10-01 00:44:36.467 system_profiler[87798:33445353] Error fetching hw.cpufamily: -1\n"
+    }
+  ],
+  "after": [
+    {
+      "command": [
+        "date",
+        "-u"
+      ],
+      "status": 0,
+      "stdout": "Wed Sep 30 22:44:37 UTC 2026\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uptime"
+      ],
+      "status": 0,
+      "stdout": " 0:44  1 user, load averages: 2.76 3.15 3.05\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string",
+        "hw.memsize"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "vm.swapusage"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "vm_stat"
+      ],
+      "status": 0,
+      "stdout": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     5011.\nPages active:                                  83653.\nPages inactive:                                75464.\nPages speculative:                              7303.\nPages throttled:                                   0.\nPages wired down:                             139592.\nPages purgeable:                                   2.\n\"Translation faults\":                    18592426066.\nPages copy-on-write:                       307808957.\nPages zero filled:                        4345793822.\nPages reactivated:                        7489196037.\nPages purged:                              466594483.\nFile-backed pages:                             65056.\nAnonymous pages:                              101364.\nPages stored in compressor:                   836723.\nPages occupied by compressor:                 177404.\nDecompressions:                           8773226872.\nCompressions:                             9440756568.\nPageins:                                   879917193.\nPageouts:                                   15820584.\nSwapins:                                   224179766.\nSwapouts:                                  236236388.\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "pmset",
+        "-g",
+        "therm"
+      ],
+      "status": 0,
+      "stdout": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "pmset",
+        "-g",
+        "batt"
+      ],
+      "status": 0,
+      "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t100%; charged; 0:00 remaining present: true\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "system_profiler",
+        "SPHardwareDataType"
+      ],
+      "status": 0,
+      "stdout": "      Model Name: MacBook Air\n      Chip: Apple M1\n      Total Number of Cores: 8 (4 Performance and 4 Efficiency)\n      Memory: 8 GB",
+      "stderr": "2026-10-01 00:44:37.245 system_profiler[87815:33445554] Error fetching hw.cpufamily: -1\n"
+    }
+  ]
+}

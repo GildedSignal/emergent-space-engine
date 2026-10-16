@@ -1,0 +1,570 @@
+{
+  "accounting": "Each rung ran in a fresh child process; peak RSS is that process's getrusage maximum. Wall times are single runs. Oracle and correctness checks run after the timed advance and are excluded from advance_ms.",
+  "manifest": "scenarios/scale-ladder-v1.json",
+  "manifest_blake3": "8bbc16f111c28b84a3a97e0e7245a0fc95913949d59259051858ce2d1facc06e",
+  "provenance": {
+    "hardware": "Apple M1",
+    "law": "es-inertial-causal-v1",
+    "manifest_hash": "378fda05a47846981d32c586995e955643ba753ef91d561816b0a953fc7ba41d",
+    "memory_bytes": "8589934592",
+    "profile": "release",
+    "revision": "3b0f697a58923c1c01a4bc7cf40a2b243a4dfd27",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "unix_seconds": 1790341433,
+    "working_tree_diff_hash": "893310e18282d59cf329b1e7bc280aff022168caa75722a176c0bba01e9369a6",
+    "working_tree_status": "M AGENTS.md\n M crates/law-lab/src/coupled_source_response.rs\n M crates/law-lab/src/lib.rs\n M crates/law-lab/src/orbit_initialization.rs\n M crates/law-lab/src/orbit_reference.rs\n M docs/HANDOFF.md\n M docs/HISTORY.md\n M xtask/src/main.rs\n?? artifacts/evidence/orbit-refinement-20260924/\n?? crates/law-lab/examples/orbit_failure_diagnosis.rs\n?? crates/law-lab/examples/orbit_reinitialize.rs\n?? crates/law-lab/src/orbit_newtonian_control.rs\n?? docs/laws/orbit-refinement-20260924.md\n?? docs/test-ladder.md\n?? scenarios/scale-ladder-v1.json\n?? xtask/src/ladder.rs"
+  },
+  "rows": [
+    {
+      "aabb_compares": 3882,
+      "advance_ms": 13.707291,
+      "certified_rejections": 3667,
+      "child_wall_s": 0.055415417,
+      "correctness": {
+        "engine_contacts": 1,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 1,
+        "oracle_ms": 0.150542
+      },
+      "descriptions": 256,
+      "events": 1,
+      "limiter": null,
+      "operations": 14056,
+      "pairs_per_description": 15.1640625,
+      "param": {
+        "bodies": 256,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 3997696,
+      "rss_per_description": 15616.0,
+      "rung": 0,
+      "setup_ms": 1.545333,
+      "size": 256.0,
+      "slices": 1,
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 13.707208999999999
+    },
+    {
+      "aabb_compares": 266727,
+      "advance_ms": 182.919,
+      "certified_rejections": 262910,
+      "child_wall_s": 0.327863583,
+      "correctness": {
+        "engine_contacts": 16,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 16,
+        "oracle_ms": 2.2277080000000002
+      },
+      "descriptions": 4096,
+      "events": 16,
+      "limiter": null,
+      "operations": 654087,
+      "pairs_per_description": 65.118896484375,
+      "param": {
+        "bodies": 4096,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 17383424,
+      "rss_per_description": 4244.0,
+      "rung": 1,
+      "setup_ms": 38.760834,
+      "size": 4096.0,
+      "slices": 7,
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 128.79325
+    },
+    {
+      "aabb_compares": 17191613,
+      "advance_ms": 5499.975333,
+      "certified_rejections": 17130544,
+      "child_wall_s": 5.8990825000000005,
+      "correctness": {
+        "engine_contacts": 257,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": null,
+        "oracle_contacts": 257,
+        "oracle_ms": 36.214834
+      },
+      "descriptions": 65536,
+      "events": 257,
+      "limiter": null,
+      "operations": 36607450,
+      "pairs_per_description": 262.3231964111328,
+      "param": {
+        "bodies": 65536,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 195477504,
+      "rss_per_description": 2982.75,
+      "rung": 2,
+      "setup_ms": 303.575625,
+      "size": 65536.0,
+      "slices": 367,
+      "status": "PASS",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 2274.609708
+    },
+    {
+      "aabb_compares": 137695477,
+      "advance_ms": 16774.045292,
+      "certified_rejections": 137449879,
+      "child_wall_s": 18.852961958,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": false,
+        "first_extra": [],
+        "first_missing": [
+          [
+            41,
+            129223
+          ],
+          [
+            107,
+            110753
+          ],
+          [
+            219,
+            112125
+          ],
+          [
+            235,
+            223815
+          ],
+          [
+            308,
+            39073
+          ]
+        ],
+        "grid_oracle_equals_brute_force": null,
+        "oracle_contacts": 1155,
+        "oracle_ms": 309.75066699999996
+      },
+      "descriptions": 262144,
+      "events": 0,
+      "limiter": "engine error: resource limit: event requires too many independent ships",
+      "operations": 284600000,
+      "pairs_per_description": 525.2665596008301,
+      "param": {
+        "bodies": 262144,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 487751680,
+      "rss_per_description": 1860.625,
+      "rung": 3,
+      "setup_ms": 1365.55925,
+      "size": 262144.0,
+      "slices": 2846,
+      "status": "FAIL",
+      "track": "X1-relative-motion",
+      "worst_slice_ms": 2344.620708
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 4,
+      "size": 1048576.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X1-relative-motion"
+    },
+    {
+      "aabb_compares": 4768,
+      "advance_ms": 46.343250000000005,
+      "certified_rejections": 4767,
+      "child_wall_s": 0.165560042,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 0,
+        "oracle_ms": 1.1780840000000001
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": null,
+      "operations": 95567,
+      "pairs_per_description": 1.1640625,
+      "param": {
+        "bodies": 4096,
+        "horizon": 64
+      },
+      "peak_rss_bytes": 13910016,
+      "rss_per_description": 3396.0,
+      "rung": 0,
+      "setup_ms": 20.665667,
+      "size": 64.0,
+      "slices": 1,
+      "status": "PASS",
+      "track": "X2-horizon",
+      "worst_slice_ms": 46.343167
+    },
+    {
+      "aabb_compares": 266727,
+      "advance_ms": 177.972583,
+      "certified_rejections": 262910,
+      "child_wall_s": 0.324408083,
+      "correctness": {
+        "engine_contacts": 16,
+        "equal": true,
+        "first_extra": [],
+        "first_missing": [],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 16,
+        "oracle_ms": 2.515041
+      },
+      "descriptions": 4096,
+      "events": 16,
+      "limiter": null,
+      "operations": 654087,
+      "pairs_per_description": 65.118896484375,
+      "param": {
+        "bodies": 4096,
+        "horizon": 4096
+      },
+      "peak_rss_bytes": 17612800,
+      "rss_per_description": 4300.0,
+      "rung": 1,
+      "setup_ms": 19.866583,
+      "size": 4096.0,
+      "slices": 7,
+      "status": "PASS",
+      "track": "X2-horizon",
+      "worst_slice_ms": 134.5285
+    },
+    {
+      "aabb_compares": 5524728,
+      "advance_ms": 2910.584375,
+      "certified_rejections": 1807697,
+      "child_wall_s": 3.3088043750000002,
+      "correctness": {
+        "engine_contacts": 0,
+        "equal": false,
+        "first_extra": [],
+        "first_missing": [
+          [
+            19,
+            1231
+          ],
+          [
+            27,
+            1850
+          ],
+          [
+            35,
+            987
+          ],
+          [
+            35,
+            1723
+          ],
+          [
+            40,
+            2149
+          ]
+        ],
+        "grid_oracle_equals_brute_force": true,
+        "oracle_contacts": 234,
+        "oracle_ms": 82.929458
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": "engine error: resource limit: dense interaction frontier exceeds job capacity",
+      "operations": 19500000,
+      "pairs_per_description": 1348.810546875,
+      "param": {
+        "bodies": 4096,
+        "horizon": 262144
+      },
+      "peak_rss_bytes": 517783552,
+      "rss_per_description": 126412.0,
+      "rung": 2,
+      "setup_ms": 20.387042,
+      "size": 262144.0,
+      "slices": 195,
+      "status": "FAIL",
+      "track": "X2-horizon",
+      "worst_slice_ms": 39.563874999999996
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 16777216.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "X2-horizon"
+    },
+    {
+      "aabb_compares": 8128,
+      "advance_ms": 2.485125,
+      "certified_rejections": 8128,
+      "child_wall_s": 0.055341708,
+      "correctness": {
+        "brute_force_confirms_zero": true,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 256,
+      "events": 0,
+      "limiter": null,
+      "operations": 20619,
+      "pairs_per_description": 31.75,
+      "param": {
+        "bodies": 256,
+        "horizon": 8192
+      },
+      "peak_rss_bytes": 3604480,
+      "rss_per_description": 14080.0,
+      "rung": 0,
+      "setup_ms": 0.773709,
+      "size": 256.0,
+      "slices": 1,
+      "status": "PASS",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 2.485042
+    },
+    {
+      "aabb_compares": 2096128,
+      "advance_ms": 94.26025,
+      "certified_rejections": 2096128,
+      "child_wall_s": 0.162163458,
+      "correctness": {
+        "brute_force_confirms_zero": true,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 4096,
+      "events": 0,
+      "limiter": null,
+      "operations": 4278283,
+      "pairs_per_description": 511.75,
+      "param": {
+        "bodies": 4096,
+        "horizon": 131072
+      },
+      "peak_rss_bytes": 13713408,
+      "rss_per_description": 3348.0,
+      "rung": 1,
+      "setup_ms": 13.146708,
+      "size": 4096.0,
+      "slices": 43,
+      "status": "PASS",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 34.228375
+    },
+    {
+      "aabb_compares": 536854528,
+      "advance_ms": 16221.196833,
+      "certified_rejections": 536854528,
+      "child_wall_s": 16.4396955,
+      "correctness": {
+        "brute_force_confirms_zero": null,
+        "engine_contacts": 0,
+        "expected_contacts": 0
+      },
+      "descriptions": 65536,
+      "events": 0,
+      "limiter": null,
+      "operations": 1075347467,
+      "pairs_per_description": 8191.75,
+      "param": {
+        "bodies": 65536,
+        "horizon": 2097152
+      },
+      "peak_rss_bytes": 168869888,
+      "rss_per_description": 2576.75,
+      "rung": 2,
+      "setup_ms": 152.765791,
+      "size": 65536.0,
+      "slices": 10754,
+      "status": "PASS",
+      "track": "X3-crowded-axes",
+      "worst_slice_ms": 248.065958
+    },
+    {
+      "aabb_compares": 1,
+      "advance_ms": 39.228458,
+      "certified_rejections": 122,
+      "child_wall_s": 0.053433584,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 2,
+      "events": 0,
+      "limiter": null,
+      "operations": 822,
+      "pairs_per_description": 0.5,
+      "param": {
+        "lanes_per_axis": 1,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 2785280,
+      "rss_per_description": 1392640.0,
+      "rung": 0,
+      "setup_ms": 0.196542,
+      "size": 1.0,
+      "slices": 1,
+      "status": "PASS",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 39.228416
+    },
+    {
+      "aabb_compares": 22,
+      "advance_ms": 711.6044999999999,
+      "certified_rejections": 1671,
+      "child_wall_s": 0.759584625,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 8,
+      "events": 0,
+      "limiter": null,
+      "operations": 12213,
+      "pairs_per_description": 2.75,
+      "param": {
+        "lanes_per_axis": 4,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 4669440,
+      "rss_per_description": 583680.0,
+      "rung": 1,
+      "setup_ms": 0.0395,
+      "size": 4.0,
+      "slices": 1,
+      "status": "PASS",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 711.604458
+    },
+    {
+      "aabb_compares": 376,
+      "advance_ms": 11569.556167,
+      "certified_rejections": 23565,
+      "child_wall_s": 11.579936374999999,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 32,
+      "events": 0,
+      "limiter": null,
+      "operations": 187861,
+      "pairs_per_description": 11.75,
+      "param": {
+        "lanes_per_axis": 16,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 31899648,
+      "rss_per_description": 996864.0,
+      "rung": 2,
+      "setup_ms": 0.107291,
+      "size": 16.0,
+      "slices": 2,
+      "status": "PASS",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 5962.510083
+    },
+    {
+      "aabb_compares": 6112,
+      "advance_ms": 102890.545084,
+      "certified_rejections": 297590,
+      "child_wall_s": 103.135935625,
+      "correctness": {
+        "engine_contacts": 0,
+        "expected_contacts": 0,
+        "member_crossings_in_horizon_per_lane_pair": 32
+      },
+      "descriptions": 128,
+      "events": 0,
+      "limiter": "engine error: resource limit: family refinement exceeds job capacity",
+      "operations": 1700000,
+      "pairs_per_description": 47.75,
+      "param": {
+        "lanes_per_axis": 64,
+        "members_per_lane": 1000000
+      },
+      "peak_rss_bytes": 104038400,
+      "rss_per_description": 812800.0,
+      "rung": 3,
+      "setup_ms": 0.332083,
+      "size": 64.0,
+      "slices": 17,
+      "status": "FAIL",
+      "track": "X4-near-miss-lattice",
+      "worst_slice_ms": 6085.970083
+    },
+    {
+      "aabb_compares": 54537,
+      "advance_ms": 87.60487499999999,
+      "certified_rejections": 52442,
+      "child_wall_s": 2.477693375,
+      "correctness": {
+        "audit_contacts": 865,
+        "audit_equal": false,
+        "budget_64_digest_equal": false,
+        "engine_contacts": 446,
+        "replay_equal": true,
+        "stopped_bodies": 48
+      },
+      "descriptions": 64,
+      "events": 446,
+      "limiter": "correctness",
+      "operations": 148782,
+      "pairs_per_description": 852.140625,
+      "param": {
+        "bodies": 64,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 7176192,
+      "rss_per_description": 112128.0,
+      "rung": 0,
+      "setup_ms": 0.637,
+      "size": 64.0,
+      "slices": 2,
+      "status": "FAIL",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 61.431375
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 1,
+      "size": 256.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 2,
+      "size": 1024.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 3,
+      "size": 4096.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    },
+    {
+      "limiter": "an earlier rung failed",
+      "rung": 4,
+      "size": 16384.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "C1-packed-stop-cascade"
+    }
+  ],
+  "schema": 1
+}

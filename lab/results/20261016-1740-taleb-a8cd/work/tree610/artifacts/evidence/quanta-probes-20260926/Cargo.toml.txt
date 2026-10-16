@@ -1,0 +1,19 @@
+[package]
+name = "butterfly"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+emergent-lattice = { path = "/Users/julien_laurent/Research/emergent-integration/crates/lattice" }
+emergent-lattice-event = { path = "/Users/julien_laurent/Research/emergent-integration/crates/lattice-event" }
+emergent-lattice-metal = { path = "/Users/julien_laurent/Research/emergent-integration/crates/lattice-metal" }
+[[bin]]
+name = "butterfly"
+path = "src/main.rs"
+[[bin]]
+name = "galaxy"
+path = "src/galaxy.rs"
+[[bin]]
+name = "slow"
+path = "src/slow.rs"
+[profile.release]
+debug = false

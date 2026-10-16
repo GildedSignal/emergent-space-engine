@@ -1,0 +1,16 @@
+HEVC complexity probe, 25 September 2026. 16,384 ships per world, 60 frames every 4 chronons,
+512x512 8-bit luma, hardware HEVC (VideoToolbox, RequireHardwareAcceleratedVideoEncoder), quality 0.5,
+P-frame bytes averaged over frames 1-59. Ground truth: committed contact+wall events per frame (Chronon).
+Rasters: pos = (x, y) density; phase = (x, vx); tube = worldtube intercept (x - vx*t, vx).
+
+world       events/f   pos B/f phase B/f  tube B/f
+gas             1515     11541      9406      6247
+shock           1468      6296      4505      3199
+random           157      8956      3675       100
+translate          0      4673        92        91
+swirl              0      4587      3752       100
+static             0       109        91        91
+
+random: Pass bodies (contacts are detected, velocities never change), so tube space is static.
+Encode throughput: 60 frames of 512x512 in 0.12 s (about 500 frames/s) on the M1 media engine.
+Commands: cargo run --release -p xtask -- hevc-proxy <dir> 60 4; swiftc -O tools/hevc-probe/main.swift -o hevc-probe; hevc-probe <dir>/<world>-<rep>.raw 512 512 0.5

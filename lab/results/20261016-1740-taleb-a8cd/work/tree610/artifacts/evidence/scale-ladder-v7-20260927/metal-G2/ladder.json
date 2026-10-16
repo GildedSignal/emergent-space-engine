@@ -1,0 +1,341 @@
+{
+  "accounting": "Each (mode, track, rung) ran in a fresh child process; peak RSS is that process's getrusage maximum. Every unit of unit_ops charged operations was timed. Oracles, audits and invariance reruns run after the timed advance and are excluded from advance_ms.",
+  "gates": {
+    "cost_per_event_flat": [
+      {
+        "limiter": "fewer than two passing rungs",
+        "mode": "event",
+        "status": "NOT_ATTEMPTED",
+        "track": "X1-relative-motion"
+      },
+      {
+        "limiter": "fewer than two passing rungs",
+        "mode": "event",
+        "status": "NOT_ATTEMPTED",
+        "track": "C2-trapped-gas"
+      }
+    ],
+    "empty_space_free": [
+      {
+        "limiter": "fewer than two passing spans",
+        "mode": "event",
+        "status": "NOT_ATTEMPTED"
+      },
+      {
+        "growth": 0.7590236517332711,
+        "mode": "metal",
+        "spans": [
+          12.0,
+          30.0
+        ],
+        "status": "PASS"
+      },
+      {
+        "limiter": "fewer than two passing spans",
+        "mode": "hybrid",
+        "status": "NOT_ATTEMPTED"
+      }
+    ],
+    "galaxy_one_million": {
+      "passing_modes": [],
+      "status": "FAIL"
+    },
+    "gas_one_million": {
+      "passing_modes": [],
+      "status": "FAIL"
+    },
+    "smooth": [
+      {
+        "mode": "event",
+        "status": "NOT_ATTEMPTED"
+      },
+      {
+        "jank_rungs": [
+          "G2-galaxy-span 12.0",
+          "G2-galaxy-span 18.0",
+          "G2-galaxy-span 24.0",
+          "G2-galaxy-span 30.0"
+        ],
+        "mode": "metal",
+        "status": "FAIL"
+      },
+      {
+        "mode": "regions",
+        "status": "NOT_ATTEMPTED"
+      },
+      {
+        "mode": "hybrid",
+        "status": "NOT_ATTEMPTED"
+      }
+    ],
+    "useful_work": [
+      {
+        "mode": "event",
+        "status": "NOT_ATTEMPTED"
+      }
+    ]
+  },
+  "ladder_seconds": 30.943890667,
+  "manifest": "scenarios/scale-ladder-v7.json",
+  "manifest_blake3": "49b0fd4fc6030cd9dd0698055e8a47c2522905d882c7d5d4efedbfe6524699a2",
+  "modes": [
+    "metal"
+  ],
+  "profile": "quick",
+  "provenance": {
+    "hardware": "Apple M1",
+    "law": "es-inertial-causal-v1",
+    "manifest_hash": "378fda05a47846981d32c586995e955643ba753ef91d561816b0a953fc7ba41d",
+    "memory_bytes": "8589934592",
+    "profile": "release",
+    "revision": "c073241bc59e6504f894d91566cbbc3a11c385db",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "unix_seconds": 1790463757,
+    "working_tree_diff_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+    "working_tree_status": "?? artifacts/evidence/scale-ladder-v7-20260927/"
+  },
+  "rows": [
+    {
+      "advance_ms": 458.703042,
+      "bodies": 65536,
+      "child_wall_s": 7.359159959,
+      "chronons_per_second": 558.0952741970261,
+      "cores_available": 8,
+      "cores_used": 0.21617907648408402,
+      "correctness": {
+        "below_c": true,
+        "carry_bound": 387037.60401404,
+        "chronon_digests_equal": true,
+        "contacts": 56885,
+        "contained": true,
+        "energy_ledger_exact": true,
+        "gamma_max": 2.277374267578125,
+        "max_carry": 665.0,
+        "momentum_ledger_exact": true,
+        "walls": 0
+      },
+      "fired": 56885,
+      "horizon": 256,
+      "limiter": null,
+      "metrics": {
+        "batches": 239,
+        "cell_moves": 0,
+        "fired": 56885,
+        "invalidated": 0,
+        "max_batch": 318,
+        "max_unit_ops": 228988,
+        "ops": 56172651,
+        "predicates": 22447783,
+        "scheduled": 0,
+        "units": 256
+      },
+      "mode": "metal",
+      "ops": 56172651,
+      "ops_per_event": 987.4773841961853,
+      "peak_rss_bytes": 86949888,
+      "predicates": 22447783,
+      "predicates_per_op": 0.39962121424534514,
+      "rung": 0,
+      "setup_ms": 178.96024999999997,
+      "size": 12.0,
+      "smoothness": "JANK",
+      "status": "PASS",
+      "ticks_reached": 256,
+      "track": "G2-galaxy-span",
+      "unit_ms_max": 46.430959,
+      "unit_ms_p50": 1.641,
+      "unit_ms_p99": 2.337625,
+      "unit_ops": 4096,
+      "units": 256,
+      "units_over_target": 1
+    },
+    {
+      "advance_ms": 467.156083,
+      "bodies": 65536,
+      "child_wall_s": 7.839288916,
+      "chronons_per_second": 547.9967174054758,
+      "cores_available": 8,
+      "cores_used": 0.21015460051282261,
+      "correctness": {
+        "below_c": true,
+        "carry_bound": 387037.60401404,
+        "chronon_digests_equal": true,
+        "contacts": 57037,
+        "contained": true,
+        "energy_ledger_exact": true,
+        "gamma_max": 2.277374267578125,
+        "max_carry": 700.0,
+        "momentum_ledger_exact": true,
+        "walls": 0
+      },
+      "fired": 57037,
+      "horizon": 256,
+      "limiter": null,
+      "metrics": {
+        "batches": 238,
+        "cell_moves": 0,
+        "fired": 57037,
+        "invalidated": 0,
+        "max_batch": 312,
+        "max_unit_ops": 229039,
+        "ops": 56153137,
+        "predicates": 22427812,
+        "scheduled": 0,
+        "units": 256
+      },
+      "mode": "metal",
+      "ops": 56153137,
+      "ops_per_event": 984.503690586812,
+      "peak_rss_bytes": 87539712,
+      "predicates": 22427812,
+      "predicates_per_op": 0.3994044357664292,
+      "rung": 1,
+      "setup_ms": 59.082207999999994,
+      "size": 18.0,
+      "smoothness": "JANK",
+      "status": "PASS",
+      "ticks_reached": 256,
+      "track": "G2-galaxy-span",
+      "unit_ms_max": 51.954375,
+      "unit_ms_p50": 1.679083,
+      "unit_ms_p99": 2.299125,
+      "unit_ops": 4096,
+      "units": 256,
+      "units_over_target": 1
+    },
+    {
+      "advance_ms": 393.443,
+      "bodies": 65536,
+      "child_wall_s": 7.816590125,
+      "chronons_per_second": 650.6660431117087,
+      "cores_available": 8,
+      "cores_used": 0.18650986292804803,
+      "correctness": {
+        "below_c": true,
+        "carry_bound": 387037.60401404,
+        "chronon_digests_equal": true,
+        "contacts": 56770,
+        "contained": true,
+        "energy_ledger_exact": true,
+        "gamma_max": 2.277374267578125,
+        "max_carry": 755.0,
+        "momentum_ledger_exact": true,
+        "walls": 0
+      },
+      "fired": 56770,
+      "horizon": 256,
+      "limiter": null,
+      "metrics": {
+        "batches": 238,
+        "cell_moves": 0,
+        "fired": 56770,
+        "invalidated": 0,
+        "max_batch": 317,
+        "max_unit_ops": 228897,
+        "ops": 56152797,
+        "predicates": 22428266,
+        "scheduled": 0,
+        "units": 256
+      },
+      "mode": "metal",
+      "ops": 56152797,
+      "ops_per_event": 989.1280077505725,
+      "peak_rss_bytes": 90226688,
+      "predicates": 22428266,
+      "predicates_per_op": 0.3994149392059669,
+      "rung": 2,
+      "setup_ms": 65.18525,
+      "size": 24.0,
+      "smoothness": "JANK",
+      "status": "PASS",
+      "ticks_reached": 256,
+      "track": "G2-galaxy-span",
+      "unit_ms_max": 42.803084,
+      "unit_ms_p50": 1.3255409999999999,
+      "unit_ms_p99": 2.111917,
+      "unit_ops": 4096,
+      "units": 256,
+      "units_over_target": 1
+    },
+    {
+      "advance_ms": 348.16645800000003,
+      "bodies": 65536,
+      "child_wall_s": 7.86577,
+      "chronons_per_second": 735.2804789713546,
+      "cores_available": 8,
+      "cores_used": 0.20540749505513822,
+      "correctness": {
+        "below_c": true,
+        "carry_bound": 387037.60401404,
+        "chronon_digests_equal": true,
+        "contacts": 57186,
+        "contained": true,
+        "energy_ledger_exact": true,
+        "gamma_max": 2.277374267578125,
+        "max_carry": 693.0,
+        "momentum_ledger_exact": true,
+        "walls": 0
+      },
+      "fired": 57186,
+      "horizon": 256,
+      "limiter": null,
+      "metrics": {
+        "batches": 239,
+        "cell_moves": 0,
+        "fired": 57186,
+        "invalidated": 0,
+        "max_batch": 327,
+        "max_unit_ops": 229109,
+        "ops": 56137409,
+        "predicates": 22411605,
+        "scheduled": 0,
+        "units": 256
+      },
+      "mode": "metal",
+      "ops": 56137409,
+      "ops_per_event": 981.663501556325,
+      "peak_rss_bytes": 75923456,
+      "predicates": 22411605,
+      "predicates_per_op": 0.39922763446385634,
+      "rung": 3,
+      "setup_ms": 51.568749999999994,
+      "size": 30.0,
+      "smoothness": "JANK",
+      "status": "PASS",
+      "ticks_reached": 256,
+      "track": "G2-galaxy-span",
+      "unit_ms_max": 28.739625,
+      "unit_ms_p50": 1.2093749999999999,
+      "unit_ms_p99": 2.185667,
+      "unit_ops": 4096,
+      "units": 256,
+      "units_over_target": 1
+    },
+    {
+      "child_wall_s": 0.060097791,
+      "limiter": "coordinate range: body 1 position outside 2^39 (needs wide region origins, docs/universe-quanta.md stage 3)",
+      "mode": "metal",
+      "rung": 4,
+      "size": 45.0,
+      "status": "NOT_SUPPORTED",
+      "track": "G2-galaxy-span"
+    },
+    {
+      "limiter": "coordinate range: body 1 position outside 2^39 (needs wide region origins, docs/universe-quanta.md stage 3)",
+      "mode": "metal",
+      "rung": 5,
+      "size": 60.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "G2-galaxy-span"
+    },
+    {
+      "limiter": "coordinate range: body 1 position outside 2^39 (needs wide region origins, docs/universe-quanta.md stage 3)",
+      "mode": "metal",
+      "rung": 6,
+      "size": 75.0,
+      "status": "NOT_ATTEMPTED",
+      "track": "G2-galaxy-span"
+    }
+  ],
+  "schema": 7
+}

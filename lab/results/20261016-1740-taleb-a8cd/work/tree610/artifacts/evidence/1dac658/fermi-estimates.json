@@ -1,0 +1,35 @@
+{
+  "assumptions": "Illustrative 512-byte generators, 256-byte exceptions; excludes all metadata, limbs, graphics and caches.",
+  "early_probes": [
+    "Sweep generator count separately from ship count to expose pair enumeration.",
+    "Test a shared co-moving frame before accepting huge worldtube bounds.",
+    "Sweep independent exceptions and historical interventions.",
+    "Charge random identity decoding, metadata, checkpoint and restore.",
+    "Profile useful batches before adding GPU physics."
+  ],
+  "illustrative_cases": [
+    {
+      "exceptions": 10000,
+      "illustrative_record_bytes": 3072000,
+      "shared_generators": 1000
+    },
+    {
+      "exceptions": 1000000,
+      "illustrative_record_bytes": 307200000,
+      "shared_generators": 100000
+    },
+    {
+      "exceptions": 10000000,
+      "illustrative_record_bytes": 3072000000,
+      "shared_generators": 1000000
+    }
+  ],
+  "memory_model": "G*b_generator + E*b_exception + C*b_certificate + D*b_dependency + responses + resident_history + renderer",
+  "naive_tick_work": "10^9 ships × 3.15576e17 seconds = 3.15576e26 updates. Generator-native execution avoids this product.",
+  "purpose": "Expose assumptions and select cheap tests. Revise when structure is found. These estimates are not a feasibility or qualification oracle.",
+  "type_layout_lower_bounds": {
+    "body_plus_one_segment_shallow_bytes": 488,
+    "family_shallow_bytes": 576
+  },
+  "work_model": "construction + unresolved interactions + refinement + invalidation + requested decoding; not entities times elapsed ticks"
+}

@@ -1,0 +1,871 @@
+{
+  "law_id": "es-linearized-retarded-gem-response-v0",
+  "scope": "versioned Newton shooting: same 12 finite arcs; all derivative/line-search compiles charged; prior banks retained",
+  "cases": [
+    {
+      "case": {
+        "seed": 0,
+        "a": 4.0,
+        "eccentricity": 0.0,
+        "mass_ratio": 0.01,
+        "total_mass": 0.5,
+        "compactness": 0.001953125,
+        "orientation": 0.0,
+        "genesis": -2.0,
+        "horizon": 8.485281374238571
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 5.382049920207442e-13,
+        "total_compile_charge": 50711,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -2.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.49504950495049505,
+              "x": [
+                -0.03902548158558076,
+                0.006970000783414142
+              ],
+              "v": [
+                -0.00046238663982096673,
+                -0.0034697308071664455
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.0049504950495049506,
+              "x": [
+                3.9025125859317633,
+                -0.6970138289531748
+              ],
+              "v": [
+                0.04625824616081178,
+                0.34698357379848044
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.000029621637069091802,
+      "energy_drift": 0.0008465855812314068,
+      "angular_momentum_drift": 0.0004232068331595237,
+      "compiled_reference_error": 0.0006201943713093063,
+      "reference_refinement": 0.0014393909945315097,
+      "ballistic_position_error": 0.3810817678037718,
+      "compile_charge": 50711,
+      "reference_charge": 132028,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 264,
+      "initial_position_offset": 4.645125640831345e-14,
+      "initial_velocity_offset": 5.431758032818088e-13,
+      "post_start_energy_drift": 0.0008465855810784181,
+      "post_start_angular_momentum_drift": 0.00042320683308306025,
+      "max_newtonian_force_difference": 0.000047817465936485134,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 169643292
+    },
+    {
+      "case": {
+        "seed": 1,
+        "a": 4.0,
+        "eccentricity": 0.0,
+        "mass_ratio": 0.01,
+        "total_mass": 0.125,
+        "compactness": 0.00048828125,
+        "orientation": 0.0,
+        "genesis": -2.0,
+        "horizon": 16.970562748477143
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 3.429755143428093e-15,
+        "total_compile_charge": 79971,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -2.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.12376237623762376,
+              "x": [
+                -0.039459029389178286,
+                0.003496653715510886
+              ],
+              "v": [
+                -0.00011591998005056277,
+                -0.001746417520616084
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.0012376237623762376,
+              "x": [
+                3.9459007778303206,
+                -0.34966580288761323
+              ],
+              "v": [
+                0.011593171700678138,
+                0.17464208137506113
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 7.620624416057121e-6,
+      "energy_drift": 0.0001975815689023718,
+      "angular_momentum_drift": 0.0000987860685571246,
+      "compiled_reference_error": 0.00044075936726548233,
+      "reference_refinement": 0.0011764595552864843,
+      "ballistic_position_error": 0.3270399978771381,
+      "compile_charge": 79971,
+      "reference_charge": 77956,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 264,
+      "initial_position_offset": 2.222147674773327e-16,
+      "initial_velocity_offset": 3.464162681919571e-15,
+      "post_start_energy_drift": 0.00019758156890103954,
+      "post_start_angular_momentum_drift": 0.00009878606855665357,
+      "max_newtonian_force_difference": 0.00001196286528040471,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 311784708
+    },
+    {
+      "case": {
+        "seed": 2,
+        "a": 6.0,
+        "eccentricity": 0.0,
+        "mass_ratio": 0.2,
+        "total_mass": 0.75,
+        "compactness": 0.001953125,
+        "orientation": 0.4487989505128276,
+        "genesis": -3.0,
+        "horizon": 12.727922061357855
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 2.2132495790591405e-13,
+        "total_compile_charge": 50756,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -3.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.625,
+              "x": [
+                -0.9641561695882443,
+                -0.2689760302479814
+              ],
+              "v": [
+                0.018322467376215613,
+                -0.05600333545817436
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.12500000000000003,
+              "x": [
+                4.820758373869163,
+                1.3448562139538818
+              ],
+              "v": [
+                -0.09160480955230269,
+                0.2800269760271344
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.00018164337299962605,
+      "energy_drift": 0.000926358421959205,
+      "angular_momentum_drift": 0.0004628274738241636,
+      "compiled_reference_error": 0.0006293071211457589,
+      "reference_refinement": 0.0014440876496656433,
+      "ballistic_position_error": 0.38116368876179435,
+      "compile_charge": 50756,
+      "reference_charge": 131924,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 264,
+      "initial_position_offset": 2.369631985977782e-14,
+      "initial_velocity_offset": 2.611738372377651e-13,
+      "post_start_energy_drift": 0.0009263584218932577,
+      "post_start_angular_momentum_drift": 0.000462827473791087,
+      "max_newtonian_force_difference": 0.0006771524636814781,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 158829084
+    },
+    {
+      "case": {
+        "seed": 3,
+        "a": 6.0,
+        "eccentricity": 0.0,
+        "mass_ratio": 0.2,
+        "total_mass": 0.1875,
+        "compactness": 0.00048828125,
+        "orientation": 0.4487989505128276,
+        "genesis": -3.0,
+        "horizon": 25.45584412271571
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 1.2262814116578435e-15,
+        "total_compile_charge": 80066,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -3.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.15625,
+              "x": [
+                -0.9359787752502331,
+                -0.35274854791678123
+              ],
+              "v": [
+                0.010996830385211149,
+                -0.027333553743983573
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.03125000000000001,
+              "x": [
+                4.679892363856793,
+                1.7637416000935993
+              ],
+              "v": [
+                -0.05498362784432587,
+                0.13666823039306575
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.00004575865845427423,
+      "energy_drift": 0.0002074398115239351,
+      "angular_momentum_drift": 0.00010369923781647479,
+      "compiled_reference_error": 0.00044176377801027596,
+      "reference_refinement": 0.0011781405675527544,
+      "ballistic_position_error": 0.32704978337029206,
+      "compile_charge": 80066,
+      "reference_charge": 77804,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 264,
+      "initial_position_offset": 1.6550227688315153e-16,
+      "initial_velocity_offset": 1.3506446028928519e-15,
+      "post_start_energy_drift": 0.00020743981152482327,
+      "post_start_angular_momentum_drift": 0.00010369923781710283,
+      "max_newtonian_force_difference": 0.00016947100332407838,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 323014333
+    },
+    {
+      "case": {
+        "seed": 4,
+        "a": 8.0,
+        "eccentricity": 0.3,
+        "mass_ratio": 1.0,
+        "total_mass": 1.0,
+        "compactness": 0.001953125,
+        "orientation": 0.8975979010256552,
+        "genesis": -4.0,
+        "horizon": 16.970562748477143
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 1.5156666617572396e-11,
+        "total_compile_charge": 67450,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -4.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.5,
+              "x": [
+                -2.4125495905934007,
+                -1.5009498348513235
+              ],
+              "v": [
+                0.15048015001796422,
+                -0.18599584428906127
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.5,
+              "x": [
+                2.4125495905933763,
+                1.5009498348512673
+              ],
+              "v": [
+                -0.1504801500179554,
+                0.18599584428907692
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.0014141311767853057,
+      "energy_drift": 0.0024503105003796932,
+      "angular_momentum_drift": 0.0010645200097896073,
+      "compiled_reference_error": 0.002043795925636798,
+      "reference_refinement": 0.0033867426058908482,
+      "ballistic_position_error": 0.7255139974999214,
+      "compile_charge": 67450,
+      "reference_charge": 101788,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 278,
+      "initial_position_offset": 3.414609089558939e-12,
+      "initial_velocity_offset": 3.02901101349345e-11,
+      "post_start_energy_drift": 0.002450310444688464,
+      "post_start_angular_momentum_drift": 0.0010645199956582038,
+      "max_newtonian_force_difference": 0.0026726018704106213,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 240257333
+    },
+    {
+      "case": {
+        "seed": 5,
+        "a": 8.0,
+        "eccentricity": 0.3,
+        "mass_ratio": 1.0,
+        "total_mass": 0.25,
+        "compactness": 0.00048828125,
+        "orientation": 0.8975979010256552,
+        "genesis": -4.0,
+        "horizon": 33.941125496954285
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 2.1812421540521875e-15,
+        "total_compile_charge": 109941,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -4.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.125,
+              "x": [
+                -2.1019412318138357,
+                -1.865663787532289
+              ],
+              "v": [
+                0.08528949167791516,
+                -0.0847569250985984
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.125,
+              "x": [
+                2.1019412318138375,
+                1.8656637875322895
+              ],
+              "v": [
+                -0.08528949167791518,
+                0.08475692509859849
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.000355659556718241,
+      "energy_drift": 0.000772531927695886,
+      "angular_momentum_drift": 0.0003483874210246634,
+      "compiled_reference_error": 0.001186001428644883,
+      "reference_refinement": 0.002662740711562796,
+      "ballistic_position_error": 0.6153538125497992,
+      "compile_charge": 109941,
+      "reference_charge": 61536,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 264,
+      "initial_position_offset": 5.551115123125783e-17,
+      "initial_velocity_offset": 4.288393621505007e-15,
+      "post_start_energy_drift": 0.000772531927691001,
+      "post_start_angular_momentum_drift": 0.00034838742102351127,
+      "max_newtonian_force_difference": 0.0006705843968799974,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 499803959
+    },
+    {
+      "case": {
+        "seed": 6,
+        "a": 4.0,
+        "eccentricity": 0.3,
+        "mass_ratio": 0.01,
+        "total_mass": 0.5,
+        "compactness": 0.001953125,
+        "orientation": 1.3463968515384828,
+        "genesis": -2.0,
+        "horizon": 8.485281374238571
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 4.5002111708435666e-11,
+        "total_compile_charge": 67735,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -2.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.49504950495049505,
+              "x": [
+                -0.015074282264681445,
+                -0.023757192022478734
+              ],
+              "v": [
+                0.00428377853131906,
+                -0.002022226662669131
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.0049504950495049506,
+              "x": [
+                1.507436632076564,
+                2.375637760138057
+              ],
+              "v": [
+                -0.42838222370452894,
+                0.20226588912411575
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.00008218171228716704,
+      "energy_drift": 0.00037561690383580715,
+      "angular_momentum_drift": 0.00011617458128080642,
+      "compiled_reference_error": 0.0019684417656865194,
+      "reference_refinement": 0.0033496618269504546,
+      "ballistic_position_error": 0.7248602292171863,
+      "compile_charge": 67735,
+      "reference_charge": 101835,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 278,
+      "initial_position_offset": 4.690551122324431e-12,
+      "initial_velocity_offset": 4.540356180725088e-11,
+      "post_start_energy_drift": 0.0003756168354334123,
+      "post_start_angular_momentum_drift": 0.00011617456412949797,
+      "max_newtonian_force_difference": 0.00010505509345238399,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 227490083
+    },
+    {
+      "case": {
+        "seed": 7,
+        "a": 4.0,
+        "eccentricity": 0.3,
+        "mass_ratio": 0.01,
+        "total_mass": 0.125,
+        "compactness": 0.00048828125,
+        "orientation": 1.3463968515384828,
+        "genesis": -2.0,
+        "horizon": 16.970562748477143
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 1.2751441888157443e-13,
+        "total_compile_charge": 109950,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -2.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.12376237623762376,
+              "x": [
+                -0.01073572957029846,
+                -0.02567255752229597
+              ],
+              "v": [
+                0.0022499136273082232,
+                -0.0007791549885455956
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.0012376237623762376,
+              "x": [
+                1.0735727018239638,
+                2.567250925392673
+              ],
+              "v": [
+                -0.22499121913218187,
+                0.07791806622954676
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.00002321776881815034,
+      "energy_drift": 0.0003299187181318168,
+      "angular_momentum_drift": 0.00013272439092774726,
+      "compiled_reference_error": 0.0011764769109173087,
+      "reference_refinement": 0.0026586192743652407,
+      "ballistic_position_error": 0.6152769907542199,
+      "compile_charge": 109950,
+      "reference_charge": 61545,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 264,
+      "initial_position_offset": 5.0464033200531585e-15,
+      "initial_velocity_offset": 1.2883243079273717e-13,
+      "post_start_energy_drift": 0.00032991871802234883,
+      "post_start_angular_momentum_drift": 0.00013272439089976687,
+      "max_newtonian_force_difference": 0.00002631100682963588,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 487578083
+    },
+    {
+      "case": {
+        "seed": 8,
+        "a": 6.0,
+        "eccentricity": 0.6,
+        "mass_ratio": 0.2,
+        "total_mass": 0.75,
+        "compactness": 0.001953125,
+        "orientation": 1.7951958020513104,
+        "genesis": -3.0,
+        "horizon": 12.727922061357855
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 28,
+        "residual": 3.38208266098046e-15,
+        "total_compile_charge": 142940,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -3.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.625,
+              "x": [
+                -0.251508232127705,
+                -0.3776816470137801
+              ],
+              "v": [
+                0.10754610941332346,
+                -0.02611229605684206
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.12500000000000003,
+              "x": [
+                1.2572686965856055,
+                1.8882637160789182
+              ],
+              "v": [
+                -0.5374355865864483,
+                0.13059620570187475
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.0028424682535399524,
+      "energy_drift": 0.01133061547061942,
+      "angular_momentum_drift": 0.003053239298287853,
+      "compiled_reference_error": 0.009507640224668774,
+      "reference_refinement": 0.00990931844818914,
+      "ballistic_position_error": 1.5216277664207654,
+      "compile_charge": 142940,
+      "reference_charge": 79915,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 307,
+      "initial_position_offset": 2.7755575615628914e-16,
+      "initial_velocity_offset": 4.082240392577815e-15,
+      "post_start_energy_drift": 0.011330615470620309,
+      "post_start_angular_momentum_drift": 0.0030532392982881144,
+      "max_newtonian_force_difference": 0.003506086176449445,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 610336791
+    },
+    {
+      "case": {
+        "seed": 9,
+        "a": 6.0,
+        "eccentricity": 0.6,
+        "mass_ratio": 0.2,
+        "total_mass": 0.1875,
+        "compactness": 0.00048828125,
+        "orientation": 1.7951958020513104,
+        "genesis": -3.0,
+        "horizon": 25.45584412271571
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 4.501688973105898e-11,
+        "total_compile_charge": 176311,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -3.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.15625,
+              "x": [
+                -0.08529484069392465,
+                -0.40560958882286285
+              ],
+              "v": [
+                0.057881132249020424,
+                -0.0011172073939227213
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.03125000000000001,
+              "x": [
+                0.4264650687410054,
+                2.028035992287151
+              ],
+              "v": [
+                -0.289394561383757,
+                0.005590477731301093
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.0007405319861562349,
+      "energy_drift": 0.00249184412744885,
+      "angular_momentum_drift": 0.0007041617943038995,
+      "compiled_reference_error": 0.008543937230984424,
+      "reference_refinement": 0.006026374709728176,
+      "ballistic_position_error": 1.3098806743499052,
+      "compile_charge": 176311,
+      "reference_charge": 50244,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 326,
+      "initial_position_offset": 2.6176458483685667e-12,
+      "initial_velocity_offset": 5.383119249894196e-11,
+      "post_start_energy_drift": 0.0024918440204020342,
+      "post_start_angular_momentum_drift": 0.0007041617828059815,
+      "max_newtonian_force_difference": 0.0008803397414498627,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 1073397541
+    },
+    {
+      "case": {
+        "seed": 10,
+        "a": 8.0,
+        "eccentricity": 0.6,
+        "mass_ratio": 1.0,
+        "total_mass": 1.0,
+        "compactness": 0.001953125,
+        "orientation": 2.243994752564138,
+        "genesis": -4.0,
+        "horizon": 16.970562748477143
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 28,
+        "residual": 4.4408920985006257e-16,
+        "total_compile_charge": 142691,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -4.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.5,
+              "x": [
+                -0.25132795169978606,
+                -1.796486068059355
+              ],
+              "v": [
+                0.32476456305720014,
+                0.06887633525414606
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.5,
+              "x": [
+                0.25132795169978644,
+                1.7964860680593548
+              ],
+              "v": [
+                -0.32476456305720036,
+                -0.06887633525414613
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.0054571320948177925,
+      "energy_drift": 0.019160418511343424,
+      "angular_momentum_drift": 0.005315503065094146,
+      "compiled_reference_error": 0.009264178921707729,
+      "reference_refinement": 0.009627347085160557,
+      "ballistic_position_error": 1.5236441234970015,
+      "compile_charge": 142691,
+      "reference_charge": 79970,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 308,
+      "initial_position_offset": 2.220446049250313e-16,
+      "initial_velocity_offset": 4.710277376051325e-16,
+      "post_start_energy_drift": 0.019160418511341648,
+      "post_start_angular_momentum_drift": 0.005315503065093754,
+      "max_newtonian_force_difference": 0.006299720359395599,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 605913292
+    },
+    {
+      "case": {
+        "seed": 11,
+        "a": 8.0,
+        "eccentricity": 0.6,
+        "mass_ratio": 1.0,
+        "total_mass": 0.25,
+        "compactness": 0.00048828125,
+        "orientation": 2.243994752564138,
+        "genesis": -4.0,
+        "horizon": 33.941125496954285
+      },
+      "initializer": "kepler-observation-shoot-v1",
+      "initialization": {
+        "version": "kepler-observation-newton-v1",
+        "trials": 19,
+        "residual": 1.5024381688780587e-11,
+        "total_compile_charge": 175790,
+        "complete_charge": true,
+        "resolved_genesis": {
+          "genesis_t": -4.0,
+          "bodies": [
+            {
+              "id": 0,
+              "mu": 0.125,
+              "x": [
+                0.3965202550762017,
+                -1.609730875635317
+              ],
+              "v": [
+                0.15791514055719114,
+                0.07228974028536875
+              ]
+            },
+            {
+              "id": 1,
+              "mu": 0.125,
+              "x": [
+                -0.3965202550762113,
+                1.6097308756352682
+              ],
+              "v": [
+                -0.15791514055718878,
+                -0.072289740285367
+              ]
+            }
+          ]
+        },
+        "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+      },
+      "status": "PASS",
+      "reason": "finite arc: Newtonian position/energy/angular bands=0.05; shared-equation compiled/Euler band=0.02, Euler refinement band=0.01; ballistic must fail; not full-orbit stability",
+      "physical_position_error": 0.0014080616433577635,
+      "energy_drift": 0.004249685570739906,
+      "angular_momentum_drift": 0.001238988239535564,
+      "compiled_reference_error": 0.00856977212202489,
+      "reference_refinement": 0.006038200580281609,
+      "ballistic_position_error": 1.3101175232007767,
+      "compile_charge": 175790,
+      "reference_charge": 50288,
+      "audit_sample_queries": 198,
+      "diagnostic_field_charge": 326,
+      "initial_position_offset": 1.5838337252369982e-12,
+      "initial_velocity_offset": 3.0034282415515875e-11,
+      "post_start_energy_drift": 0.004249685474534196,
+      "post_start_angular_momentum_drift": 0.0012389882283329544,
+      "max_newtonian_force_difference": 0.001583910744507924,
+      "physical_pass": true,
+      "numerical_pass": true,
+      "accounting_scope": "compile/reference counters are returned ledger units, not all arithmetic; sample_queries count requested states; failed calls lose partial counters; wall includes attempts",
+      "wall_ns": 1083619792
+    }
+  ],
+  "all_pass": true
+}

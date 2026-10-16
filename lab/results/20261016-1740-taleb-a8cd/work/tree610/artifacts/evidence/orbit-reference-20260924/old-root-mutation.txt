@@ -1,0 +1,22 @@
+   Compiling emergent-law-lab v0.1.0 (/Users/julien_laurent/Research/emergent-integration/crates/law-lab)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.89s
+     Running unittests src/lib.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/emergent_law_lab-40288e1f43a8bf55)
+
+running 1 test
+test coupled_source_response::tests::accelerated_retarded_root_survives_outside_initial_guess ... FAILED
+
+failures:
+
+---- coupled_source_response::tests::accelerated_retarded_root_survives_outside_initial_guess stdout ----
+
+thread 'coupled_source_response::tests::accelerated_retarded_root_survives_outside_initial_guess' panicked at crates/law-lab/src/coupled_source_response.rs:4399:79:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coupled_source_response::tests::accelerated_retarded_root_survives_outside_initial_guess
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-law-lab --lib`

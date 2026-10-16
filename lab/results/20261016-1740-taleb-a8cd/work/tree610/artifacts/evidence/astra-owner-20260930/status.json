@@ -1,0 +1,129 @@
+{
+  "base_commit": "9b23fb1fb5eeddda5ac345a7093478709a167a1e",
+  "law_id": "space-darwin16-v2",
+  "scope": "one static mass; not integrated galaxy qualification",
+  "commits_created": [],
+  "commit_blocker": "index.lock: Operation not permitted",
+  "validation": {
+    "owner-optimized-tests.log": {
+      "exit": 0,
+      "wall_seconds": 18.391
+    },
+    "owner-optimized-behave.log": {
+      "exit": 0,
+      "wall_seconds": 21.862
+    },
+    "owner-judge-tests.log": {
+      "exit": 0,
+      "wall_seconds": 11.183
+    }
+  },
+  "crate_test_count": 26,
+  "judge_test_count": 13,
+  "metrics": {
+    "compile": {
+      "n": 4096,
+      "median_ns": 18667,
+      "p99_ns": 54750,
+      "max_ns": 136292
+    },
+    "compile_per_outbound_interval": {
+      "n": 4096,
+      "median_ns": 1028,
+      "p99_ns": 5375,
+      "max_ns": 29375
+    },
+    "compile_per_full_cycle_band_crossing_nonzero_only": {
+      "n": 4048,
+      "median_ns": 550,
+      "p99_ns": 2812,
+      "max_ns": 22031
+    },
+    "readout_periapsis": {
+      "n": 4096,
+      "median_ns": 42,
+      "p99_ns": 167,
+      "max_ns": 708
+    },
+    "readout_crossing": {
+      "n": 4048,
+      "median_ns": 125,
+      "p99_ns": 417,
+      "max_ns": 15834
+    },
+    "readout_crossing_position_and_velocity": {
+      "n": 4048,
+      "median_ns": 333,
+      "p99_ns": 625,
+      "max_ns": 13875
+    },
+    "readout_interior": {
+      "n": 4096,
+      "median_ns": 5291,
+      "p99_ns": 11667,
+      "max_ns": 180625
+    },
+    "readout_position_and_velocity": {
+      "n": 4096,
+      "median_ns": 5417,
+      "p99_ns": 12208,
+      "max_ns": 79292
+    }
+  },
+  "performance_gates": {
+    "compile_p99_50000ns": false,
+    "crossing_state_p99_1000ns": true,
+    "compile_per_full_cycle_band_crossing_p99_1000ns": false
+  },
+  "machine": {
+    "model": "MacBookAir10,1",
+    "chip": "Apple M1",
+    "memory_gb": 8,
+    "utc": "2026-09-30T12:51:53Z",
+    "load": [
+      4.37,
+      5.38,
+      5.35
+    ],
+    "power": "AC reported, battery 47 percent discharging",
+    "thermal": "denied",
+    "swap_usage": "denied",
+    "vm_stat": "recorded in owner-optimized-measure.log"
+  },
+  "quadrature": {
+    "proof": "crates/space/QUADRATURE.md",
+    "bound_shapes": 323,
+    "panels_including_unbound": 8338,
+    "max_error_over_bound": 0.6816,
+    "max_panel_relative_bound": 0.5563,
+    "max_panel_relative_error": 9.218e-07,
+    "runtime_interval_certificate": false,
+    "root_quantization_global_bound": false
+  },
+  "api": {
+    "tube_bytes": 16,
+    "key_energy_fraction_bits": 48,
+    "key_angular_fraction_bits": 32,
+    "derivative": "signed central finite differences with 16 output guard bits",
+    "tested_energy_step_encoded": 33554432,
+    "tested_angular_step": "floor(key.angular/2048)",
+    "authoritative_linear_kick": false
+  },
+  "arithmetic_fingerprint_sha256": "fd06a9795157daa56c0920763c7e4584795d6950e26ecb738f37f0107767752f",
+  "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)\nbinary: rustc\ncommit-hash: 1159e78c4747b02ef996e55082b704c09b970588\ncommit-date: 2025-09-14\nhost: aarch64-apple-darwin\nrelease: 1.90.0\nLLVM version: 20.1.8",
+  "source_sha256": {
+    "crates/space/Cargo.toml": "fc60f85443728fa9d2b3f5bfec20d63850255f0383d3a9e2b5062e991e5c550b",
+    "crates/space/QUADRATURE.md": "fcda3946e21e12eb363d1680aaa39dcd9916ce396c8a69ef2164c00e12310d2d",
+    "crates/space/examples/measure.rs": "8074a086331af0cec65ec359e16da29f3b86505f42217ba5d496188ef146b10a",
+    "crates/space/src/lib.rs": "acbfdc612486ecb25dafb37c7cbc811808e283deea4dcf81d5d880944de443db",
+    "crates/space/src/num.rs": "e7a5ccb2736b7eb6adf22549351cd24ca7634f15ddf55d56052ae2510595b004",
+    "crates/space/src/profile.rs": "80d6517b78e0566ec64a11df9b27537729a97a51b1963171c1e89c1efed8f7a4",
+    "crates/space/src/quadrature_tests.rs": "c95271d05b5bccf91151ae3aea4122996dc3ea1562f8a010c9df0bf58874fc7b",
+    "crates/space/src/tables.rs": "143e8ec156f5f7d85756a5b50f06bf8d94de474675d97edc96e7bf2f31a70bf3",
+    "crates/space/tests/api.rs": "5dbf0fbed1a36a089c664b75936b8cfb96805382b029da9ed39ebf86c20dc5b7",
+    "crates/space/tests/near_circular.rs": "4ab9fb28a3fd62fdddffdac198617c6e46936a0bba2fc10c5532a81f077e0628",
+    "crates/space/tests/tables.py": "07ac27a48b450f026d39a776fb6b958b609d51c4b31891b266ba474e2447c5af",
+    "xtask/src/behave/sample.rs": "4d52b01de8acb73825067c3fe3b6501273d84f655b16da9048e14f780d6002f7",
+    "xtask/src/behave/space.rs": "8c420d28e930a5c6fa49680832adf7a544833478ab262f391f97a72d1f628c4c"
+  }
+}

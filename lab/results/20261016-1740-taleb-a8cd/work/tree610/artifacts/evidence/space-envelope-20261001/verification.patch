@@ -1,0 +1,583 @@
+diff --git a/crates/space/ENVELOPE.md b/crates/space/ENVELOPE.md
+index 7826713..293b01d 100644
+--- a/crates/space/ENVELOPE.md
++++ b/crates/space/ENVELOPE.md
+@@ -64,7 +64,12 @@ binary and photon adapters still use v2; they are not evidence for a v3 extensio
+ 
+ The weak expansion is used for q <= 2^-18. Strong panels normalize clock ratios by
+ the minimum x and retain 48 weighted bits; a conditioned panel uses normalized
+-dyadic arithmetic throughout. Readout solves to that clock's arithmetic quantum,
++dyadic arithmetic throughout. If the minimum angular denominator is at least 1/4,
++its root uses the native u64 square root (Q31, relative error <2^-30) and two-point
++Gauss panels; more conditioned panels retain the wide root and four-point rule.
++For a two-point panel of width h, the continuum remainder is h^5 B4/180, where
++B4 bounds |f''''|/4! on that panel. This is not a claimed global error bound.
++Readout solves to that clock's arithmetic quantum,
+ with a bounded bisection fallback. Every branch is integer and defined by input,
+ so errors repeat with the same shape; no sampled state advances another sample.
+ `at_phase` takes the cycle counter separately, preserving exact shape repetition
+@@ -79,8 +84,9 @@ bits. Weak shapes use only the 17 shape bits plus a tag, and share Taylor tables
+ This is a measured width in this quantizer family, not a global optimality proof.
+ 
+ Rebinding's residual is four signed differences of i64 readouts (at most 65 bits
+-each, held in four i128s). It is 64 additional bytes per live event, plus its units
+-and event reference; not an uncharged per-body ledger. The proof applies at the
++each, held in four i128s). It is 64 additional bytes per retained remainder, plus
++its units and event reference; this can become per-body storage and must be charged.
++The proof applies at the
+ binding event. Transport through later physical motion is the events owner's
+ remaining obligation: discarding the remainder at a handoff voids the proof.
+ 
+@@ -90,4 +96,34 @@ unstable circular generators and horizon arrival times are not supplied by this
+ periodic compiler. Passage endpoints must be resolvable by the finite phase word;
+ an unresolvable radius ratio is refused, never replaced by infinity.
+ 
++## Exact migration boundary for the events owner
++
++- `events::records`: replace the old E/L `CyclePool` and population Tube with
++  `tube::Catalogue` and the root `Tube`. Doll/type belong to the owning population.
++  `OrbitKey::bound(Scalar p,e_Q48)` accepts orbital input; `Rebinding::from_state`
++  accepts Cartesian integer position/coordinate velocity with explicit exponents.
++- `events::clock`: replace Q20 `Words` periods with `Scalar` and population clock
++  exponents. `Scalar::fixed_ceil` rounds deadlines outward; `fixed_floor` rounds
++  the other endpoint. Never convert a planetary period back through u64 Q20.
++  The child's centre must use the new catalogue's orbit and proper-time readout.
++- `events::edge`: certify relative trajectories in the new units. Native crossings
++  are shape-table indices; they are not the old absolute-Q62 radial band numbers.
++- `events::handoff`: reconstruct `TubeEvent` before translation/boost; fit the new
++  state, then `TubeEvent::bind` accounts for orientation and periapsis-clock rounding.
++  **The remainder is exact at its named event only.** Its transport through future
++  motion is not implemented. It must enter the authoritative dynamics; a constant
++  Cartesian offset is not a proved transport law. The current boost is still the
++  low-speed approximation. B12 remains the independent test of the whole operation.
++- `events::kicks`: change the reconstructed state, preserving the exact momentum
++  ledger; re-fit atomically. The old Q48-E/Q32-L tangent is not a derivative of the
++  new shape key. Derivative prediction never substitutes for authoritative rebinding.
++- B13/B14: `Passage` supplies finite trajectories and asymptotic bend, but the
++  integrated parent tide, Hill/resonant generator and their selector remain missing.
++- B11 and photons still use the preserved v2 compatibility path. Their present
++  passing gates do not certify a large-scale binary/photon extension.
++
++Readout still uses normalized i128 products. The draft law asks for wide integers
++only during compilation; narrowing this path remains open. A 16-byte handle does
++not imply 16-byte total storage per body when catalogue bindings are unique.
++
+ This derivation is an implementation proposal, not a new freeze or qualification.
+diff --git a/crates/space/examples/envelope.rs b/crates/space/examples/envelope.rs
+index 91eeba1..a01d96d 100644
+--- a/crates/space/examples/envelope.rs
++++ b/crates/space/examples/envelope.rs
+@@ -39,7 +39,23 @@ fn reference(p: f64, e: f64) -> [f64; 3] {
+     }
+     out.map(|x| x * 2.0 * pi / 8192.0)
+ }
++fn layout() {
++    println!(
++        "bytes: Tube={} MemoCode={} Scalar={} Orbit_binding={} shape_header={} knot={} Residual={}; catalogue and shapes are additional storage",
++        size_of::<emergent_space::Tube>(),
++        size_of::<emergent_space::orbit::MemoCode>(),
++        size_of::<Scalar>(),
++        size_of::<Orbit>(),
++        size_of::<emergent_space::orbit::OrbitShape>(),
++        size_of::<emergent_space::orbit::Knot>(),
++        size_of::<emergent_space::binding::Residual>()
++    );
++}
+ fn main() {
++    if std::env::args().any(|x| x == "--layout") {
++        layout();
++        return;
++    }
+     let mut keys: Vec<_> = sample::bound_orbits(256).into_iter().map(|(p, e)| key(p, e)).collect();
+     if std::env::args().any(|x| x == "--keys") {
+         let want: Vec<_> = sample::bound_orbits(256).into_iter().map(|(p, e)| reference(p, e)).collect();
+@@ -100,12 +116,25 @@ fn main() {
+     }
+     let cycles: Vec<_> = keys.iter().map(|&k| Orbit::compile(k).unwrap()).collect();
+     let (mut compile, mut cross, mut inside) = (vec![], vec![], vec![]);
+-    for round in 0..16 {
++    let args: Vec<_> = std::env::args().collect();
++    let rounds = args
++        .windows(2)
++        .find(|a| a[0] == "--rounds")
++        .map(|a| a[1].parse::<usize>().expect("round count"))
++        .unwrap_or(16);
++    assert!(rounds > 0);
++    println!("rounds={rounds}; compile includes construction and drop; mixed compile/crossing/interior loop");
++    for round in 0..rounds {
+         for (&key, c) in keys.iter().zip(&cycles) {
+             let t = Instant::now();
+             black_box(Orbit::compile(black_box(key)).unwrap());
+             compile.push(t.elapsed().as_nanos());
+-            let index = c.shape.crossings.get(round % c.shape.crossings.len().max(1)).copied().unwrap_or(0);
++            let index = c
++                .shape()
++                .crossings()
++                .get(round % c.shape().crossings().len().max(1))
++                .copied()
++                .unwrap_or(0);
+             let t = Instant::now();
+             black_box(c.crossing_state(black_box(index), 0, true).unwrap());
+             cross.push(t.elapsed().as_nanos());
+@@ -118,4 +147,5 @@ fn main() {
+     report("scaled_compile", compile);
+     report("scaled_crossing_state", cross);
+     report("scaled_interior_state", inside);
++    layout();
+ }
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index fb87c7e..636a966 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -47,7 +47,7 @@ pub enum Trajectory {
+ impl Trajectory {
+     pub fn key(&self) -> OrbitKey {
+         match self {
+-            Self::Cycle(c) => c.key,
++            Self::Cycle(c) => c.key(),
+             Self::Passage(p) => p.key(),
+         }
+     }
+@@ -82,8 +82,10 @@ impl Residual {
+     pub fn reconstruct(self, decoded: IntegerState) -> Result<IntegerState> {
+         let mut out = decoded;
+         for i in 0..2 {
+-            out.position[i] = i64::try_from(decoded.position[i] as i128 + self.position[i]).map_err(|_| Error::Range)?;
+-            out.velocity[i] = i64::try_from(decoded.velocity[i] as i128 + self.velocity[i]).map_err(|_| Error::Range)?;
++            out.position[i] =
++                i64::try_from((decoded.position[i] as i128).checked_add(self.position[i]).ok_or(Error::Range)?).map_err(|_| Error::Range)?;
++            out.velocity[i] =
++                i64::try_from((decoded.velocity[i] as i128).checked_add(self.velocity[i]).ok_or(Error::Range)?).map_err(|_| Error::Range)?;
+         }
+         Ok(out)
+     }
+@@ -142,7 +144,7 @@ fn phase(state: OrbitState) -> Result<i128> {
+         let bits = 62 - turns.exponent() as u32;
+         (turns.significand() as i128 % (1i128 << bits)) * (1i128 << 61) / (1i128 << bits)
+     };
+-    Ok((state.radial_angle as i128 + ((2 * PI) * fractional >> 61)).rem_euclid(2 * PI))
++    Ok((state.radial_angle as i128 + (((2 * PI) * fractional) >> 61)).rem_euclid(2 * PI))
+ }
+ pub fn cartesian(state: OrbitState, orientation: u32, clockwise: bool, units: (i16, i16)) -> Result<IntegerState> {
+     let orientation = (orientation as i128 * (2 * PI)) >> 32;
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 2b1a054..5402e2b 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -95,6 +95,7 @@
+ //! - roots: the integer predicate is bisected to one Q62 unit. Its rounded residual is
+ //!   amplified by 1/|R′| at simple roots and by a square root near double roots, so this
+ //!   does NOT imply one-unit continuum root accuracy. Input E/L quantization is separate.
++//!
+ //! The law differs from continuum GR by these and by the key's quantization of (E, L).
+ //!
+ //! The planted Newtonian variant (`compile_variant(key, true)`) drops the 2u³ term: g = 1, so
+@@ -104,8 +105,8 @@
+ //! Coordinates are polar around a static mass: r=1/u, positive L is prograde, φ=0 at
+ //! periapsis. t is Schwarzschild coordinate time and τ is proper time. To restore a doll's
+ //! mass M, multiply r, t, τ and L by M; frames, orientation and retarded handoffs belong
+-//! to the caller. `Tube` describes bound massive bodies; use [`scatter`] for unbound/light.
+-//! Keys are exact Q48 E / Q32 L; [`Key::darwin`] accepts Q16 p / Q30 e. [`LAW_ID`] includes
++//! to the caller. `LegacyTube` describes bound massive bodies; use [`scatter`] for unbound/light.
++//! Keys are exact Q48 E / Q32 L; [`Key::darwin`] accepts Q16 p / Q30 e. [`LEGACY_LAW_ID`] includes
+ //! the boundary conversion convention. `Range`, `NoBoundOrbit` and `Topology` are refusals,
+ //! never invitations to silently clamp a new key or apply an uncertified kick.
+ //!
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index c48ece9..673bf23 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -11,6 +11,7 @@ const HALF: u64 = 1 << 47;
+ const UNIT: u64 = 1 << 48;
+ const WEAK_EXPONENT: i16 = -18;
+ const CAP: i128 = PI / 4;
++const X2: i128 = 2662558164157085850;
+ /// Coarsening measured on the frozen bound seeds and the added weak-field sweep.
+ /// One fewer shape bit passes G1/G2 but is not sufficient for the full weak envelope.
+ pub const MEMO_SHAPE_BITS: u32 = 12;
+@@ -122,9 +123,9 @@ pub struct Knot {
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct OrbitShape {
+-    pub key: ShapeKey,
+-    pub knots: Vec<Knot>,
+-    pub crossings: Vec<usize>,
++    key: ShapeKey,
++    knots: Vec<Knot>,
++    crossings: Vec<usize>,
+     k: i128,
+     q: i128,
+     t_numerator: Scalar,
+@@ -132,10 +133,20 @@ pub struct OrbitShape {
+     weak_tau_term: Scalar,
+     floor: i128,
+     fast: bool,
++    word_root: bool,
+     clock_shift: u32,
+     clock_factor: [Scalar; 2],
+ }
+ impl OrbitShape {
++    pub fn key(&self) -> ShapeKey {
++        self.key
++    }
++    pub fn knots(&self) -> &[Knot] {
++        &self.knots
++    }
++    pub fn crossings(&self) -> &[usize] {
++        &self.crossings
++    }
+     fn new(key: ShapeKey) -> Result<Self> {
+         if key.k == 0 || key.k > UNIT {
+             return Err(Error::Range);
+@@ -159,7 +170,11 @@ impl OrbitShape {
+         let t_numerator = square_root(tn)?;
+         let tau_numerator = square_root(d)?;
+         let delta = ONE - product(q, 6 * k + 2 * eta);
+-        let gmax = ((1u128 << 104) / crate::num::isqrt((delta as u128) << 62)) as u64;
++        let gmax = if delta >= 1 << 30 {
++            ((1u128 << 104) / crate::num::isqrt((delta as u128) << 62)) as u64
++        } else {
++            0
++        };
+         let floor2 = f(floor)?.mul(f(floor)?)?;
+         Ok(Self {
+             key,
+@@ -175,6 +190,7 @@ impl OrbitShape {
+             weak_tau_term: f(product(3 * k, k) + product(eta, eta))?.div(f(2 * k)?)?,
+             floor,
+             fast: !key.compactness.is_zero() && delta >= (1 << 30),
++            word_root: !key.compactness.is_zero() && delta >= ONE / 4,
+             clock_shift: 55.max(65 - gmax.leading_zeros()),
+             clock_factor: [t_numerator.div(floor2)?, tau_numerator.div(floor2)?],
+         })
+@@ -223,8 +239,8 @@ impl OrbitShape {
+         let mid = lo + h / 2;
+         let mut sum = Integral::default();
+         for j in 0..2 {
+-            let dx = X[j] * h >> 63;
+-            let weight = Scalar::raw(W[j] * h >> 63, -61)?;
++            let dx = (X[j] * h) >> 63;
++            let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
+             for psi in [mid - dx, mid + dx] {
+                 let node = self.node(psi)?;
+                 for i in 0..5 {
+@@ -240,8 +256,8 @@ impl OrbitShape {
+         let mut sum = [0i128; 4];
+         let term = self.weak_tau_term.fixed(62)?;
+         for j in 0..2 {
+-            let dx = X[j] * h >> 63;
+-            let w = W[j] * h >> 63;
++            let dx = (X[j] * h) >> 63;
++            let w = (W[j] * h) >> 63;
+             for psi in [mid - dx, mid + dx] {
+                 let ac = product(ONE - self.k, cos(psi));
+                 let x = self.k + ac;
+@@ -269,18 +285,26 @@ impl OrbitShape {
+         let h = hi - lo;
+         let mid = lo + h / 2;
+         let mut sum = [0u128; 3];
+-        for j in 0..2 {
+-            let dx = X[j] * h >> 63;
+-            let w = (W[j] * h >> 63) as u64;
++        let count = if self.word_root { 1 } else { 2 };
++        for j in 0..count {
++            let dx = ((if self.word_root { X2 } else { X[j] }) * h) >> 63;
++            let w = (((if self.word_root { ONE } else { W[j] }) * h) >> 63) as u64;
+             for psi in [mid - dx, mid + dx] {
+                 let ac = product(ONE - self.k, cos(psi));
+                 let x = self.k + ac;
+                 let a = 6 * self.k + 2 * ac;
+-                let root = crate::num::isqrt(((ONE - product(self.q, a)) as u128) << 62);
++                let denominator = ONE - product(self.q, a);
++                // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
++                // A single native u64 isqrt replaces the 126-bit square root.
++                let root = if self.word_root {
++                    ((denominator as u64).isqrt() as u128) << 31
++                } else {
++                    crate::num::isqrt((denominator as u128) << 62)
++                };
+                 let g = ((1u128 << 104) / root) as u64;
+                 let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+                 let ratio = ((self.floor << 62) / x) as u64;
+-                let rtau = (ratio as u128 * ratio as u128 >> 62) as u64;
++                let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+                 let rt = (((rtau as u128) << 62) / (ONE - product(2 * self.q, x)) as u128) as u64;
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+@@ -359,9 +383,9 @@ impl OrbitShape {
+ /// A shared shape plus a binding's scale. The catalogue pays this storage once per key.
+ #[derive(Clone, Debug)]
+ pub struct Orbit {
+-    pub key: OrbitKey,
+-    pub shape: Arc<OrbitShape>,
+-    pub time_scale: Scalar,
++    key: OrbitKey,
++    shape: Arc<OrbitShape>,
++    time_scale: Scalar,
+     q: Scalar,
+     speed_scale: Scalar,
+     increments: [Scalar; 3],
+@@ -382,6 +406,12 @@ pub struct OrbitState {
+ }
+ 
+ impl Orbit {
++    pub fn key(&self) -> OrbitKey {
++        self.key
++    }
++    pub fn shape(&self) -> &OrbitShape {
++        &self.shape
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         Self::from_shape(key, Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
+     }
+@@ -505,10 +535,10 @@ impl Orbit {
+         let ta = self.time(base.sum)?;
+         let tb = self.time(s.knots[index + 1].sum)?;
+         let fraction = target.sub(ta)?.div(tb.sub(ta)?)?.fixed(61)?;
+-        let mut psi = a + ((b - a) * fraction >> 61);
++        let mut psi = a + (((b - a) * fraction) >> 61);
+         // The panel clocks retain 48 weighted bits on the fast path. Do not
+         // solve for phase below that clock's arithmetic information floor.
+-        let quantum = target.abs().scale(-40)?.add(if s.fast {
++        let quantum = target.abs().scale(if s.word_root { -28 } else { -40 })?.add(if s.fast {
+             s.clock_factor[0].scale(s.clock_shift as i32 - 98)?
+         } else {
+             Scalar::ZERO
+@@ -611,7 +641,7 @@ impl ShapeMemo {
+     }
+ }
+ 
+-/// Qualified bound memo input in 44 bits (stored in one u64): two implicit leading
++/// Quantized bound memo input in 44 bits (stored in one u64): two implicit leading
+ /// bits, 11+11 fraction bits, a six-bit apoapsis-ratio exponent, a signed i16 radius
+ /// exponent. The shape identity drops radius altogether on the weak branch.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+@@ -653,6 +683,12 @@ pub struct QuantizedMemo {
+     pub hits: u64,
+ }
+ impl QuantizedMemo {
++    pub fn with_capacity(n: usize) -> Self {
++        Self {
++            shapes: HashMap::with_capacity(n),
++            hits: 0,
++        }
++    }
+     pub fn get(&mut self, input: OrbitKey) -> Result<Orbit> {
+         let code = MemoCode::encode(input)?;
+         let key = code.decode()?;
+@@ -754,8 +790,8 @@ impl Passage {
+             let h = hi - lo;
+             let mid = lo + h / 2;
+             for j in 0..2 {
+-                let dx = X[j] * h >> 63;
+-                let weight = Scalar::raw(W[j] * h >> 63, -61)?;
++                let dx = (X[j] * h) >> 63;
++                let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
+                 for psi in [mid - dx, mid + dx] {
+                     let a = 6 * s.k + 2 * product(ONE - s.k, cos(psi));
+                     let root = square_root(ONE - product(s.q, a))?;
+diff --git a/crates/space/src/scaled.rs b/crates/space/src/scaled.rs
+index aa48934..fec17de 100644
+--- a/crates/space/src/scaled.rs
++++ b/crates/space/src/scaled.rs
+@@ -1,5 +1,7 @@
+ //! Normalized dyadic arithmetic: a virtual binary point, not an absolute-value cap.
+-//! Every operation truncates toward zero. Exponent exhaustion is an explicit error.
++//! Products, quotients and boundary conversions truncate toward zero. Addition ignores
++//! a nonoverlapping operand more than 64 binary places below the larger one; otherwise
++//! it retains cancellation before truncating. Exponent exhaustion is an explicit error.
+ use crate::{num::isqrt, Error, Result};
+ use std::cmp::Ordering;
+ 
+@@ -9,6 +11,8 @@ pub struct Scalar {
+     significand: i64,
+     exponent: i16,
+ }
++// These named operations return Result so exponent exhaustion cannot be hidden by operators.
++#[allow(clippy::should_implement_trait)]
+ impl Scalar {
+     pub const ZERO: Self = Self { significand: 0, exponent: 0 };
+     pub const ONE: Self = Self {
+@@ -142,6 +146,27 @@ impl Scalar {
+             Ok(self.significand as i128 / (1i128 << -shift))
+         }
+     }
++    /// Outward boundary conversion for event deadlines: never return an earlier tick.
++    pub fn fixed_ceil(self, fractional_bits: i32) -> Result<i128> {
++        let trunc = self.fixed(fractional_bits)?;
++        if self.is_positive() && self.has_fraction(fractional_bits)? {
++            trunc.checked_add(1).ok_or(Error::Range)
++        } else {
++            Ok(trunc)
++        }
++    }
++    pub fn fixed_floor(self, fractional_bits: i32) -> Result<i128> {
++        let trunc = self.fixed(fractional_bits)?;
++        if self.significand < 0 && self.has_fraction(fractional_bits)? {
++            trunc.checked_sub(1).ok_or(Error::Range)
++        } else {
++            Ok(trunc)
++        }
++    }
++    fn has_fraction(self, fractional_bits: i32) -> Result<bool> {
++        let shift = (self.exponent as i32 - 62).checked_add(fractional_bits).ok_or(Error::Range)?;
++        Ok(!self.is_zero() && shift < 0 && (shift <= -63 || self.significand.unsigned_abs() & ((1u64 << -shift) - 1) != 0))
++    }
+     /// Round toward zero to a chosen number of significant bits. Boundary operation only.
+     pub fn quantize(self, bits: u32) -> Result<Self> {
+         if !(1..=63).contains(&bits) {
+@@ -192,4 +217,19 @@ mod tests {
+         assert_eq!(Scalar::integer(-3).fixed(-1).unwrap(), -1);
+         assert_eq!(Scalar::integer(3).sub(Scalar::integer(3)).unwrap(), Scalar::ZERO);
+     }
++    #[test]
++    fn outward_clock_rounding_contains_the_exact_dyadic_for_both_signs() {
++        for exponent in [-1000, -64, -63, -30, -1, 0, 1, 30] {
++            for integer in [-12345, -3, -1, 0, 1, 3, 12345] {
++                let x = Scalar::integer(integer).scale(exponent).unwrap();
++                for bits in [-10, 0, 20] {
++                    let floor = x.fixed_floor(bits).unwrap();
++                    let ceil = x.fixed_ceil(bits).unwrap();
++                    assert!(Scalar::raw(floor, -bits).unwrap() <= x);
++                    assert!(Scalar::raw(ceil, -bits).unwrap() >= x);
++                    assert!(ceil - floor <= 1);
++                }
++            }
++        }
++    }
+ }
+diff --git a/crates/space/src/tube.rs b/crates/space/src/tube.rs
+index 07cef27..f3c0cd1 100644
+--- a/crates/space/src/tube.rs
++++ b/crates/space/src/tube.rs
+@@ -52,6 +52,12 @@ pub struct Catalogue {
+     ids: HashMap<(OrbitKey, bool, Option<Scalar>), u32>,
+ }
+ impl Catalogue {
++    pub fn with_capacity(n: usize) -> Self {
++        Self {
++            entries: Vec::with_capacity(n),
++            ids: HashMap::with_capacity(n),
++        }
++    }
+     pub fn insert(&mut self, trajectory: Trajectory, clockwise: bool) -> Result<u32> {
+         let edge = match &trajectory {
+             Trajectory::Cycle(_) => None,
+diff --git a/crates/space/tests/envelope.rs b/crates/space/tests/envelope.rs
+index 313f298..63e4a27 100644
+--- a/crates/space/tests/envelope.rs
++++ b/crates/space/tests/envelope.rs
+@@ -235,6 +235,23 @@ fn packed_keys_round_trip_and_shared_shapes_do_not_alias_different_inputs() {
+         }
+     }
+     assert_eq!(memo.hits, 10); // five eccentricities, two repeated weak scales
++                               // Exercise every shape exponent and both signs of the full scale exponent.
++                               // Encoding need not compile these shapes: their code is independent of dynamics.
++    for radius_exp in [i16::MIN, -30000, -1, 0, 40, 20000, i16::MAX] {
++        for gap_exp in -47..=0 {
++            for mantissa in [2048, 2049, 3071, 4095] {
++                let gap = Scalar::raw(mantissa, gap_exp - 11).unwrap().fixed(48).unwrap() as u64;
++                if gap > 1 << 48 {
++                    continue;
++                }
++                let raw = OrbitKey::new(Scalar::power_of_two(radius_exp), ((1 << 48) + gap) / 2).unwrap();
++                let quantized = raw.memo_key().unwrap();
++                let code = MemoCode::encode(raw).unwrap();
++                assert!(code.bits() < 1 << 44);
++                assert_eq!(code.decode().unwrap(), quantized);
++            }
++        }
++    }
+ }
+ 
+ #[test]
+@@ -256,3 +273,57 @@ fn unbound_inverse_preserves_incoming_and_outgoing_integer_states() {
+         }
+     }
+ }
++
++#[test]
++fn strong_passages_match_an_independent_binet_ode_including_time() {
++    // RK4 in azimuth: u''=1/L²-u+3u². No Darwin phase or compiler helper is used.
++    for (rp, e) in [(3.3, 2.4), (4.5, 1.001), (6.0, 1.5), (10.0, 3.0), (20.0, 10.0)] {
++        let p = rp * (1.0 + e);
++        let l = p / f64::sqrt(p - 3.0 - e * e);
++        let en = f64::sqrt(((p - 2.0) * (p - 2.0) - 4.0 * e * e) / (p * (p - 3.0 - e * e)));
++        let edge = 20.0 * rp;
++        let passage = Passage::compile(
++            OrbitKey::new(encode(rp), (2f64.powi(48) / (1.0 + e)).round() as u64).unwrap(),
++            encode(edge),
++        )
++        .unwrap();
++        let derivative = |s: [f64; 3], clock: bool| {
++            [
++                s[1],
++                1.0 / (l * l) - s[0] + 3.0 * s[0] * s[0],
++                if clock { en / (l * s[0] * s[0] * (1.0 - 2.0 * s[0])) } else { 0.0 },
++            ]
++        };
++        let step = |s: [f64; 3], h: f64, clock: bool| {
++            let a = derivative(s, clock);
++            let b = derivative(std::array::from_fn(|i| s[i] + h * a[i] / 2.0), clock);
++            let c = derivative(std::array::from_fn(|i| s[i] + h * b[i] / 2.0), clock);
++            let d = derivative(std::array::from_fn(|i| s[i] + h * c[i]), clock);
++            std::array::from_fn(|i| s[i] + h * (a[i] + 2.0 * b[i] + 2.0 * c[i] + d[i]) / 6.0)
++        };
++        let h = 2e-5;
++        let mut state = [1.0 / rp, 0.0, 0.0];
++        let mut phi = 0.0;
++        let mut crossing = None;
++        let mut bend = None;
++        for _ in 0..2_000_000 {
++            let next = step(state, h, crossing.is_none());
++            if crossing.is_none() && next[0] <= 1.0 / edge {
++                let f = (state[0] - 1.0 / edge) / (state[0] - next[0]);
++                crossing = Some(state[2] + f * (next[2] - state[2]));
++            }
++            if next[0] <= 0.0 {
++                bend = Some(2.0 * (phi + h * state[0] / (state[0] - next[0])) - PI);
++                break;
++            }
++            state = next;
++            phi += h;
++        }
++        let time = crossing.expect("finite edge crossed");
++        let bend = bend.expect("reached infinity in the Binet coordinate");
++        let got_time = decode(passage.duration().unwrap()) / 2.0;
++        let got_bend = decode(passage.deflection().unwrap());
++        assert!((got_time / time - 1.0).abs() < 1e-5, "rp={rp} e={e} time {got_time} vs {time}");
++        assert!((got_bend / bend - 1.0).abs() < 1e-5, "rp={rp} e={e} bend {got_bend} vs {bend}");
++    }
++}
+diff --git a/xtask/src/behave/space.rs b/xtask/src/behave/space.rs
+index cf7e6ee..7d20b81 100644
+--- a/xtask/src/behave/space.rs
++++ b/xtask/src/behave/space.rs
+@@ -108,15 +108,15 @@ impl Law for Space {
+         rate(r, 3)
+     }
+     fn crossings_per_cycle(&self, p: f64, e: f64) -> Option<f64> {
+-        Some(2.0 * self.shapes.borrow_mut().get(self.bound_native_key(p, e)?).ok()?.shape.crossings.len() as f64)
++        Some(2.0 * self.shapes.borrow_mut().get(self.bound_native_key(p, e)?).ok()?.shape().crossings().len() as f64)
+     }
+     fn scene_cost(&self, n: usize, game_seconds: f64) -> Option<f64> {
+         if !game_seconds.is_finite() || game_seconds < 0.0 || game_seconds * 1048576.0 > u64::MAX as f64 {
+             return None;
+         }
+         let start = std::time::Instant::now();
+-        let mut shapes = QuantizedMemo::default();
+-        let mut pool = Catalogue::default();
++        let mut shapes = QuantizedMemo::with_capacity(n);
++        let mut pool = Catalogue::with_capacity(n);
+         let mut tubes = Vec::with_capacity(n);
+         for (p, e) in super::sample::bound_orbits(n) {
+             let orbit = shapes.get(self.bound_native_key(p, e)?).ok()?;
+@@ -181,7 +181,7 @@ impl Law for Space {
+             return (0..cycles as u64)
+                 .map_while(|n| {
+                     let peri = c.crossing_state(0, n, true).ok()?;
+-                    let apo = c.crossing_state(c.shape.knots.len() - 1, n, true).ok()?;
++                    let apo = c.crossing_state(c.shape().knots().len() - 1, n, true).ok()?;
+                     Some((decoded(peri.radius), decoded(apo.radius), energy, angular))
+                 })
+                 .collect();

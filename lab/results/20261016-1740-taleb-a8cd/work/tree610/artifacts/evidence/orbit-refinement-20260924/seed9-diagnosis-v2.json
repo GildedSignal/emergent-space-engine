@@ -1,0 +1,90 @@
+{
+  "compiler_charge": 1069018,
+  "compiler_original_reference_steps": 4194304,
+  "control_pair_comparisons": 2050,
+  "control_refinement": {
+    "angular_momentum": 1.8056063274863413e-13,
+    "energy": 3.4244052038445716e-11,
+    "position": 6.431217539970855e-10,
+    "velocity": 2.077656068317092e-9
+  },
+  "control_resolved": true,
+  "current_reference_steps": 4194304,
+  "gem_behavior": {
+    "energy_error": 0.00254552876343761,
+    "max_radius": 9.626668607041902,
+    "min_radius": 2.4000054975998504,
+    "momentum_error": 0.0009365285754666688,
+    "pass": false,
+    "position_over_a": 0.0471157255921856,
+    "signed_angle": 6.1655418535908915
+  },
+  "gem_minus_same_state_newtonian": {
+    "angular_momentum": 0.0009343058102191253,
+    "energy": 0.002534618508636899,
+    "position": 0.046910046549087286,
+    "velocity": 0.14121163615719748
+  },
+  "initial_observed_state": {
+    "v": [
+      -0.34468957594088606,
+      -0.07867070145478564
+    ],
+    "x": [
+      -0.534050478830612,
+      2.3398325740467625
+    ]
+  },
+  "newtonian_control_behavior": {
+    "energy_error": 0.000010910257053797778,
+    "max_radius": 9.600125425389386,
+    "min_radius": 2.4000054975998504,
+    "momentum_error": 2.222765255001582e-6,
+    "pass": true,
+    "position_over_a": 0.00020582669100458546,
+    "signed_angle": 6.282671167750355
+  },
+  "newtonian_force_evaluations": 49152,
+  "numerical_state_audit": {
+    "agreement_pass": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "all_pass": true,
+    "coarse_change": {
+      "angular_momentum": 0.00003990935009730652,
+      "energy": 0.0001430711312098154,
+      "position": 0.001549657989229616,
+      "velocity": 0.004838148291862587
+    },
+    "compiler_difference": {
+      "angular_momentum": 0.000018503693180892432,
+      "energy": 0.00006366596986184803,
+      "position": 0.0006698169541129361,
+      "velocity": 0.0020903013212304356
+    },
+    "fine_change": {
+      "angular_momentum": 0.000019985684783721348,
+      "energy": 0.0000725613270096126,
+      "position": 0.000790931798052773,
+      "velocity": 0.002468501065136709
+    },
+    "reference_pass": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "reference_total_charge": 338574540,
+    "sample_pair_comparisons": 3075,
+    "scope": "Retrospective sampled agreement in position, velocity, Newtonian energy and signed angular momentum. Shared field algebra. No conservation, interval, canonical gravity or GR qualification. Original reference charge includes its original compiler run; audit pair comparisons counted separately.",
+    "seed": 9,
+    "version": "orbital-state-convergence-v1"
+  },
+  "production_law": null,
+  "scope": "Different-law Newtonian diagnostic begins at the identical observed t=0 state; no genesis reshooting. RK4 shares no GEM force/root routines. Not a replacement gravity law or GR reference. Retained compiler samples paired with the new reference explicitly.",
+  "seed": 9,
+  "version": "same-observed-state-newtonian-attribution-v1"
+}

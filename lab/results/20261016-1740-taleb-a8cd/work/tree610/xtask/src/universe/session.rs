@@ -1,0 +1,150 @@
+//! A flight: the plane, the frame loop, the dashboard. Shared by the page and the benchmark.
+use emergent_universe::dash::Dash;
+use emergent_universe::fleet::Order;
+use emergent_universe::scenario::{plane, Plane};
+use emergent_universe::view::{gather_cached, View, ViewCache};
+use emergent_universe::{Budget, Config};
+use serde_json::{json, Value};
+use std::time::Instant;
+
+/// The wall time the engine may spend in a frame (the frame is 16.7 ms at 60 Hz: the rest is the view,
+/// the serialisation and the browser).
+pub const ENGINE_BUDGET_MS: f64 = 5.0;
+
+/// This thread's CPU time in ms: the work a frame did, without the time it spent descheduled or paged.
+pub fn thread_cpu_ms() -> f64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    // SAFETY: clock_gettime initializes the out pointer on success.
+    unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut ts) };
+    ts.tv_sec as f64 * 1e3 + ts.tv_nsec as f64 / 1e6
+}
+
+pub struct Session {
+    pub p: Plane,
+    pub seed: u64,
+    pub rtf: f64,
+    pub dash: Dash,
+    keys: u8,
+    /// The wall budget of a frame's engine advance, ms (a budget that bites delays work and never moves a decision).
+    pub engine_ms: f64,
+    /// The canonical cut: no frame advances past it, and the digest is taken there (`None`: the flight is open-ended).
+    pub cut: Option<emergent_universe::num::Tick>,
+    names: Vec<String>,
+    /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+    cache: ViewCache,
+}
+
+impl Session {
+    pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+        let names = p.names.clone();
+        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, cache: ViewCache::default() })
+    }
+
+    pub fn n_bodies(&self) -> usize {
+        self.p.u.n_bodies()
+    }
+    pub fn catalogue_live(&self) -> usize {
+        self.p.u.catalogue_live()
+    }
+    pub fn bytes_per_body(&self) -> usize {
+        self.p.u.bytes_per_body()
+    }
+    pub fn player_alive(&self) -> bool {
+        self.p.u.rec(self.p.player).alive
+    }
+    pub fn lost_bodies(&self) -> Vec<String> {
+        (0..self.p.u.n_bodies()).filter(|&i| !self.p.u.rec(i).alive).map(|i| self.names.get(i).cloned().unwrap_or_else(|| format!("{} (left its frame)", self.p.u.fleets[0].name))).collect()
+    }
+    pub fn stats(&self) -> emergent_universe::universe::Stats {
+        self.p.u.stats
+    }
+
+    /// One presented frame: the player's decision word when it is given (the keys and the throttle level, one byte:
+    /// [`emergent_universe::thrust::word`]; a decision, logged at the presented tick if it changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+    /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and
+    /// the frame's wall time.
+    pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
+        let (start, cpu0) = (Instant::now(), thread_cpu_ms());
+        if let Some(keys) = keys.filter(|&k| k != self.keys) {
+            let now = self.p.u.now;
+            self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
+            self.keys = keys;
+        }
+        let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
+        let t1 = Instant::now();
+        let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+            Some(v) => v,
+            None => {
+                let r = self.p.u.rec(self.p.player);
+                return Err(format!("no view: the player is {} (fault {:?}, doll {}, tick {})", if r.alive { "alive but unreadable" } else { "lost" }, r.fault, r.b.doll, self.p.u.now).into());
+            }
+        };
+        let t2 = Instant::now();
+        let json = view_json(&view);
+        let t3 = Instant::now();
+        // The cost of putting it on the wire is part of the frame.
+        let wire = serde_json::to_vec(&json)?;
+        std::hint::black_box(&wire);
+        let ms = start.elapsed().as_secs_f64() * 1e3;
+        self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
+        self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
+        Ok((json, ms))
+    }
+
+    /// What the page needs before the first frame: the seed, the time factor, and the throttle's levels (the proper
+    /// acceleration of each, in g).
+    pub fn config(&self) -> Value {
+        let cfg = Config::default();
+        let g: Vec<f64> = (0..=emergent_universe::thrust::MAX_LEVEL).map(|l| emergent_universe::thrust::g_of(&cfg, l)).collect();
+        json!({"seed": self.seed, "rtf": self.rtf, "levels_g": g})
+    }
+
+    pub fn dash_json(&self) -> Value {
+        let d = self.dash.summary();
+        json!({"frames": d.frames, "p50": d.p50, "p95": d.p95, "p99": d.p99, "p999": d.p999, "worst": d.worst_ms, "rtf_median": d.rtf_median, "rtf_low1": d.rtf_low1,
+               "hitches_per_hour": d.hitches_per_hour, "events_per_second": d.events_per_second, "overflow_frames": d.overflow_frames,
+               "bytes_per_body": self.p.u.bytes_per_body()})
+    }
+
+    /// The canonical cut the digest is taken at: the session's cut when it has one (everything up to it is
+    /// resolved and nothing past it was), else the presented tick. Returns the tick with the digest, so the
+    /// two are always printed together.
+    pub fn digest_at_cut(&mut self) -> (emergent_universe::num::Tick, String) {
+        let t = self.cut.unwrap_or(self.p.u.now);
+        self.p.u.settle(t);
+        (t, self.p.u.digest())
+    }
+
+    pub fn log(&self) -> Value {
+        json!({"version": "es-plane-v0", "seed": self.seed, "inputs": self.p.u.inputs, "presented_tick": self.p.u.now, "cut_tick": self.cut})
+    }
+
+    pub fn describe(&self) -> String {
+        let u = &self.p.u;
+        let mut out = String::new();
+        out += &format!("{} dolls, {} bodies, {} fleet(s) of {} members\n", u.dolls.len(), u.n_bodies(), u.fleets.len(), u.fleets[0].n_members);
+        for (i, d) in u.dolls.iter().enumerate() {
+            out += &format!("  doll {i} {:<8} mass 2^{:<4} parent {:?} centre {:?}\n", d.name, d.mass_log2, d.parent, d.centre);
+        }
+        for i in 0..u.n_bodies() {
+            let r = u.rec(i);
+            out += &format!("  body {i:>2} {:<10} {:?} in doll {} tube {} bytes\n", self.names.get(i).map_or("?", |s| s.as_str()), r.kind, r.b.doll, std::mem::size_of::<emergent_space::Tube>());
+        }
+        out
+    }
+}
+
+/// The page's view of the frame. What the page does not draw (an emitter's luminosity, age, lag and angular radius, its
+/// id) stays in [`View`] and out of the wire: each float is serialised every frame.
+fn view_json(v: &View) -> Value {
+    json!({
+        "tick": v.tick, "coordinate": v.coordinate_seconds, "proper": v.proper_seconds, "rate": v.rate,
+        "beta": v.beta, "doll_rate": v.doll_rate, "doll_beta": v.doll_beta, "position": v.position_light_seconds,
+        "heading": v.heading, "doll": v.doll, "level": v.level, "burning": v.burning, "alive": v.alive, "refusals": v.refusals,
+        "seen": v.seen.iter().map(|s| json!({
+            "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
+            "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift,
+        })).collect::<Vec<_>>(),
+    })
+}

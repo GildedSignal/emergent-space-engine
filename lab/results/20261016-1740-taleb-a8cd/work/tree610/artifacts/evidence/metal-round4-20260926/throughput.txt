@@ -1,0 +1,7 @@
+cargo run --release -p emergent-lattice-metal --example throughput {rel|new} 1048576
+2026-09-26 19:44-19:45, load average 3.8 -> 7.8 (browser renderer at 130% CPU), pmset: no thermal or performance warning recorded.
+gas fill 0.1, Q 1024, vmax 256, horizon 1024; rates over the full horizon; reference compared at tick 16
+| n | ref chronons | CPU chronon/s | GPU chronon/s | CPU body-chronon/s | GPU body-chronon/s | GPU/CPU | contacts/chronon | GPU wait | GPU busy | respond | cmd buffers | halts | digests |
+| 1048576 (Relativistic) | 16 | 1 | 106 | 1.342e6 | 1.110e8 | 82.7 | 24813 | 100% | 99% | 0% | 25 | 0 | equal |
+| 1048576 (Newtonian) | 16 | 1 | 136 | 1.277e6 | 1.428e8 | 111.8 | 24916 | 100% | 99% | 0% | 27 | 2 | equal |
+cargo test --release -p emergent-lattice-metal: 7 passed (relativistic_worlds_match_reference includes near-c light/heavy mixes with GPU and CPU paths, Q = 2^16 CPU response, slicing).

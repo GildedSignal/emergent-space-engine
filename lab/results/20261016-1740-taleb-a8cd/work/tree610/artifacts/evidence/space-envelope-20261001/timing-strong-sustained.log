@@ -1,0 +1,6 @@
+sampler=behave bound seed=20260930 p=loguniform[10,1000] e=uniform[0,.7]
+rounds=4096; compile includes construction and drop; mixed compile/crossing/interior loop
+scaled_compile: n=1048576 median_ns=10292 p99_ns=26417 max_ns=143959
+scaled_crossing_state: n=1048576 median_ns=375 p99_ns=584 max_ns=43666
+scaled_interior_state: n=1048576 median_ns=2334 p99_ns=2875 max_ns=71375
+bytes: Tube=16 MemoCode=8 Scalar=16 Orbit_binding=128 shape_header=208 knot=88 Residual=64; catalogue and shapes are additional storage

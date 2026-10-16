@@ -1,0 +1,23 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-cycle/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 21.20s
+     Running `target/release/xtask behave --law space`
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t45%; discharging; 0:52 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-09-30T12:54:05Z","unix":1790772845,"when":"start"}
+G1 PASS advance per cycle: 256/256 within 1e-2, worst 1.14e-6 [0.04 s]
+G2 PASS radial periods: 256/256 within 1e-3, worst 7.18e-7 [0.04 s]
+G3 PASS deflection: 64/64 within 1e-2, worst 3.44e-7 [0.00 s]
+G4 PASS capture: 0 of 10 misclassified [] [0.00 s]
+G5 PASS long run: 32/32 seeds over 10000 cycles (0 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.01 s]
+G6 PASS prograde: 256/256 advances positive [0.00 s]
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t45%; discharging; 0:52 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-09-30T12:54:05Z","unix":1790772845,"when":"end"}
+behave space: PASS
+
+wall_seconds=21.862 exit=0

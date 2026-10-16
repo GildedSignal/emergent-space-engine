@@ -1,0 +1,49 @@
+   Compiling emergent-engine v0.1.0 (/Users/julien_laurent/Research/emergent-integration/crates/engine)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.62s
+     Running tests/i6_qualification.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/i6_qualification-6bc78d32744537ce)
+
+running 1 test
+test i6_same_model_matrix_runs_without_promotion ... I6_MATRIX path=/Users/julien_laurent/Research/emergent-integration/artifacts/runs/continuation-20260923/i6-initialized-matrix.json promotion=false full_engine=false production_law=null plan_exit=matrix-run
+I6_GATE newton-initialized-two-body-finite-arcs Pass
+I6_GATE two-body-finite-arc-behavior Fail
+I6_GATE observatory-same-engine Pass
+I6_GATE compiler-inertial-facts Pass
+I6_GATE persist-replay Pass
+I6_GATE cold-history-query Pass
+I6_GATE galaxy-quadrupole-skip Fail
+I6_GATE moving-multi-mass-compact Pass
+I6_GATE sch-gem-accel-continuity-v0 Fail
+I6_GATE sch-gem-accel-continuity Pass
+I6_GATE engine-canonical-gravity Pass
+I6_GATE family-moment-as-galaxy-skip Fail
+I6_GATE production-promotion Fail
+I6_GATE envelope-pressure Unsupported
+I6_GATE envelope-frozen-target Unsupported
+I6_CARD fast-ships-light-twins Pass in_flight=true proper_time_ok=true oracle_match=true
+I6_CARD solar-system-hierarchy Unsupported sustained_orbit=UNSUPPORTED; finite-window radius=[6.265753,6.792771] angular_coverage=0.647731 radians negative_sampled_energy=true; field authorization=true is not orbital behavior; global gravity diagnostic-only
+I6_CARD three-bodies Unsupported asteroid shares the connected engine; decode success does not validate a gravitational three-body encounter; actual outcome bank still unsupported
+I6_CARD galaxy-like-population Unsupported admitted=direct-small-world-gem-sums; quadrupole remainder 0.478416 FAIL as skip (visible, not hidden); direct field sums do not establish evolved clumpy collection behavior
+I6_CARD black-hole-near-mass Pass 1PN clocks remainder 0.000000; moving compact covers=true; captured=true; clock 1.020e-3 null 1.358e-5; GEM-to-horizon covers=false
+I6_CARD fleet-asteroid-causal Pass burns=1 family_admitted=family-moment-gem-source
+I6_CARD coupled-fleet-hierarchy-inflight-ray-observer-boost Pass hosted=true captured=true remainder=1.347e-2 remnant=8.5 host_moved=true in_flight=true burns=1 persist=true; not a second lab world
+I6_ENVELOPE tiny-complete-loop Pass limiter=None rss_kb=Some(4784) wall_ns=Some(12750292) ledger=Some(0) digest=Some("b101a4a7a1486402")
+I6_ENVELOPE connected-family-hierarchy Pass limiter=None rss_kb=Some(7968) wall_ns=Some(38054667) ledger=Some(1052) digest=Some("65b7b76ab4a2346b")
+I6_ENVELOPE pressure-sweeps Pass limiter=Some("sequential-query") rss_kb=Some(4912) wall_ns=Some(31367739708) ledger=Some(928) digest=Some("951cc96ad9f4ae86")
+I6_ENVELOPE frozen-integrated-target Unsupported limiter=None rss_kb=None wall_ns=None ledger=None digest=None
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 40.33s
+
+     Running tests/orbit_initialization.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/orbit_initialization-820e60e4bf5c6a06)
+
+running 1 test
+test initialized_orbit_survives_budgeted_engine_compilation ... ENGINE_INITIALIZED seed=0 budget=1 polls=3458 dx=4.645125640831345e-14 dv=5.431758032818088e-13 initialization_compiles=19
+ENGINE_INITIALIZED seed=0 budget=256 polls=14 dx=4.645125640831345e-14 dv=5.431758032818088e-13 initialization_compiles=19
+ENGINE_INITIALIZED seed=8 budget=1 polls=3917 dx=2.7755575615628914e-16 dv=4.082240392577815e-15 initialization_compiles=28
+ENGINE_INITIALIZED seed=8 budget=256 polls=16 dx=2.7755575615628914e-16 dv=4.082240392577815e-15 initialization_compiles=28
+ENGINE_INITIALIZED seed=10 budget=1 polls=3917 dx=2.220446049250313e-16 dv=4.710277376051325e-16 initialization_compiles=28
+ENGINE_INITIALIZED seed=10 budget=256 polls=16 dx=2.220446049250313e-16 dv=4.710277376051325e-16 initialization_compiles=28
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.21s
+

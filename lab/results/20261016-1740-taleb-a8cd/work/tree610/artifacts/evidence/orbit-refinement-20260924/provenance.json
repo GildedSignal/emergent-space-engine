@@ -1,0 +1,50 @@
+{
+  "baseline": "3b0f697",
+  "started": "2026-09-24",
+  "completed": "2026-09-25",
+  "law": "es-linearized-retarded-gem-response-v0",
+  "initializer": "kepler-observation-newton-block8-v2",
+  "all_attempt_cost_accounting_complete": false,
+  "accounting_note": "Initial seed8 failed-save attempt has elapsed log but unavailable detailed counters. Accepted runs fully retain their own counters. No end-to-end performance claim.",
+  "build_environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "CARGO_CACHE_AUTO_CLEAN_FREQUENCY": "never",
+    "CARGO_TARGET_DIR": "/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target"
+  },
+  "commands": [
+    "ORBIT_REFERENCE_INDEXED=1 ORBIT_REFERENCE_SEED=<seed> ORBIT_REFERENCE_STEPS=524288,1048576,2097152,4194304 ORBIT_REFERENCE_OUTPUT=<absolute new file> cargo test --release -p emergent-law-lab retained_genesis_reference_probe --lib -- --ignored --nocapture",
+    "cargo run --release -p emergent-law-lab --example orbit_reinitialize -- <seed> <new initialization file> <new reference file>",
+    "ORBIT_REFERENCE_INPUT=<absolute reference> ORBIT_BLOCK_OUTPUT=<absolute new file> cargo test --release -p emergent-law-lab causal_block_refinement_probe --lib -- --ignored --nocapture",
+    "cargo run -p emergent-law-lab --example orbit_failure_diagnosis -- <reference> <blocks> <new output>"
+  ],
+  "revision_notes": "Accepted trajectory runs precede formatting-only edits and a final input-validity guard in the public behavior classifier. The final guard has its own regression log; valid trajectory arithmetic unchanged. Final source hashes below identify committed implementation, not independently sealed pre-run snapshots.",
+  "sha256": {
+    "crates/law-lab/src/coupled_source_response.rs": "bb4056fccd24f110e47a17a5bce685d44bd4e382e7131187748f2abcee0cb101",
+    "crates/law-lab/src/orbit_reference.rs": "c1ad5f4a00b638aed011c745e03524920d742edb7d998e5f8080e9385cccf1e7",
+    "crates/law-lab/src/orbit_initialization.rs": "f80ad209ace61845eb20444149b290a5011005f7c1a39190d61a600f9ef0845a",
+    "crates/law-lab/src/orbit_newtonian_control.rs": "1cabb2f891ae7c10d1c27ee0555175a98f4f780c64f1ead324846e5b0cf0b99f",
+    "crates/law-lab/examples/orbit_failure_diagnosis.rs": "e3ca4a8ab9639ddea9bba8584221ef98ae48963d407e3d71da49549b70088d1a",
+    "crates/law-lab/examples/orbit_reinitialize.rs": "1dac125b97d3994809bc89529d7d6f98b8a8552d5f8fd0e6b3e40025fe81dbbc",
+    "docs/laws/orbit-refinement-20260924.md": "1a4389a4eab4259518b5dee36d8fc83c51e46880fa37e835b033ec3060625598",
+    "artifacts/evidence/orbit-duration-20260923/orbit-duration-bank.json": "8306f0acbdf5b2d3eb12a2c4db67fa70c97a04caba3144e5f5452c481eb8452f",
+    "artifacts/evidence/orbit-refinement-20260924/seed10-blocks-v2.json.gz": "9c3b9e0e2ca4d6b016b99b4b884bcd83e939667218014b3fabf1519c3f9834ba",
+    "artifacts/evidence/orbit-refinement-20260924/seed10-initialization-v2.json.gz": "d19b642d828773fa5f69b9ac98785cf0d6c4f647545a44a9cc219715ea079697",
+    "artifacts/evidence/orbit-refinement-20260924/seed10-reference-v2.json.gz": "28784d2dc533ee28d4146814038aec670413586d2f112af22f692ae496b92d02",
+    "artifacts/evidence/orbit-refinement-20260924/seed10-reference.json.gz": "cd89a2d4753a4f4fc006fcc410edea0d5310a5eb85e3e96a8e5e791cce60d185",
+    "artifacts/evidence/orbit-refinement-20260924/seed11-blocks-v2.json.gz": "1f7537c0ede9be01c81d69595b96d8700a3709bed83471f2245adbf22207a48a",
+    "artifacts/evidence/orbit-refinement-20260924/seed11-initialization-v2.json.gz": "04538f80da63ddbf4a56d1b388df1fdf04841cc4c36a7c911ab3771ea72bb6cc",
+    "artifacts/evidence/orbit-refinement-20260924/seed11-reference-v2.json.gz": "0ceaf348f78b431066542a9900f0dc89ee476e7d86b80c5aca400d1550dcb96c",
+    "artifacts/evidence/orbit-refinement-20260924/seed11-reference.json.gz": "bdf7208cb4b5f1b330d343699a438c10e0fc843ee9e920b3b889569af88bd091",
+    "artifacts/evidence/orbit-refinement-20260924/seed4-blocks-v2.json.gz": "a1abfb441ab07bbaf889dba805e8c2e49e3eb5ea63b1eaea164cd10e1dc9782d",
+    "artifacts/evidence/orbit-refinement-20260924/seed4-initialization-v2.json.gz": "e5bb1ab71cf4e0ddecc397cf1f9b8fd5b6dcb441edba7fecea9a30fab378c63d",
+    "artifacts/evidence/orbit-refinement-20260924/seed4-reference-v2.json.gz": "9f5434ab2d04c75fee836d36ee0a52d2840bf96f4e7d760dd9a64f4a945ef354",
+    "artifacts/evidence/orbit-refinement-20260924/seed8-blocks-v2.json.gz": "e7508efbe8121f52edbc2bbc34694124255501b402f3bdcd470603e47304ce0f",
+    "artifacts/evidence/orbit-refinement-20260924/seed8-initialization-v2.json.gz": "2f026a52ffd4cfeee7862909a92a74114907a472d162cd7bd3b76fe941411b93",
+    "artifacts/evidence/orbit-refinement-20260924/seed8-reference-v2.json.gz": "1b0d853dfdfc6e62d5b4d14ec22053324a00b91a40df55791fd9f254ec08997f",
+    "artifacts/evidence/orbit-refinement-20260924/seed8-reference.json.gz": "104beaa5ded04ccdb88b3b00606d0c1d0e8f094a3bf9ff43b0a9d522deca7cb3",
+    "artifacts/evidence/orbit-refinement-20260924/seed9-blocks-v2.json.gz": "c9a499e1647488b84de465839ae4952437ddda6922269217839505948d7d2619",
+    "artifacts/evidence/orbit-refinement-20260924/seed9-initialization-v2.json.gz": "d969c12274745831df95187d10db8ad3299178f2ebadee81711e0ea0589ceb06",
+    "artifacts/evidence/orbit-refinement-20260924/seed9-reference-v2.json.gz": "3d19313efce55cfd8b782f0cab9136dfc422fecbbce52842efd815d33e68e3d6",
+    "artifacts/evidence/orbit-refinement-20260924/seed9-reference.json.gz": "51805c57f8f1e22efb5fa3794d9afd667dc887e784d814f401589b305c4ac056"
+  }
+}
