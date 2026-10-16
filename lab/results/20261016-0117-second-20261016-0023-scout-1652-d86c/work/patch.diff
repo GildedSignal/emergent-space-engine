@@ -1,0 +1,358 @@
+diff --git a/crates/universe/examples/history_floor.rs b/crates/universe/examples/history_floor.rs
+new file mode 100644
+index 00000000..49a26360
+--- /dev/null
++++ b/crates/universe/examples/history_floor.rs
+@@ -0,0 +1,182 @@
++//! (lab 20261016-0117-second-20261016-0023-scout-1652-d86c) Fly the deletion: the history stack's
++//! `len() > 1` floor (`PlainBodies::prune`/`droppable_until`) dropped behind `ES_DROP_FLOOR`, on the
++//! scout's belt scene, coast and burn, with the retired-read instrument tagged per caller (view vs
++//! engine: `view::gather*` sets the tag) and a warm gather loop. At each cut the universe is settled
++//! (a canonical state), the digest taken, the stack censused against the prune's own keep window,
++//! and the view gathered cold-then-warm; the last warm view is dumped for baseline-vs-deletion
++//! comparison.
++//!
++//! cargo run --release -p emergent-universe --example history_floor -- [N] [rtf] [coast|burn] [cut game-s]...
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmRSS:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<f64>().ok()))
++        })
++        .map(|kb| kb / 1024.0)
++        .unwrap_or(0.0)
++}
++
++fn pct(v: &[f64], q: f64) -> f64 {
++    if v.is_empty() { 0.0 } else { v[((v.len() - 1) as f64 * q).round() as usize] }
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1_500.0);
++    let burn = args.get(3).map_or(false, |s| s == "burn");
++    let cuts: Vec<f64> = args[4..].iter().filter_map(|s| s.parse().ok()).collect();
++    let cuts = if cuts.is_empty() { vec![15_000.0, 20_000.0, 32_000.0, 48_000.0, 60_000.0] } else { cuts };
++    let warm: usize = std::env::var("ES_WARM").ok().and_then(|s| s.parse().ok()).unwrap_or(12);
++    let floor = std::env::var("ES_DROP_FLOOR").is_err();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    println!(
++        "scene: {bodies} bodies (N={n}), rtf {rtf}, {}, warm {warm}, cuts {:?} game-s, rss {:.0} MB",
++        if floor { "FLOOR ON (shipped)" } else { "FLOOR OFF (deletion)" },
++        cuts,
++        rss_mb()
++    );
++    // ES_DET: a fully deterministic frame budget (no wall cap) — the frame loop advances exactly
++    // `dt·rtf` of game-time per frame in both builds, so a digest difference cannot be wall-schedule
++    // noise (the deletion does more prune work per frame, which a wall cap turns into different
++    // game-time per frame).
++    let det = std::env::var("ES_DET").is_ok();
++    let frame_budget = || {
++        if det {
++            Budget { events: u64::MAX, until: None }
++        } else {
++            Budget { events: u64::MAX, until: Some(Instant::now() + Duration::from_millis(50)) }
++        }
++    };
++    // A warmup half second (the fleet's opening exodus), like the ladder's stats window.
++    for _ in 0..30 {
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(Instant::now() + Duration::from_millis(50)) }, i64::MAX);
++    }
++    let t0 = p.u.now;
++    let at = |game_s: f64| t0 + (game_s / TICK_SECONDS) as i64;
++    // The burn script: two held reverses at L8 with coast between, at canonical ticks.
++    if burn {
++        for (game_s, keys) in [(18_000.0f64, 2u8), (26_000.0, 0), (38_000.0, 2), (44_000.0, 0)] {
++            p.u.schedule(at(game_s), word(keys, 8)).unwrap();
++        }
++    }
++    let mut next = 0usize;
++    let mut last: Option<(u64, u64)> = None; // (engine serves, engine misses) at the last cut's gathers' end
++    loop {
++        if t_start.elapsed() > Duration::from_secs(220) {
++            println!("TRUNCATED");
++            break;
++        }
++        let game_s = (p.u.now - t0) as f64 * TICK_SECONDS;
++        while next < cuts.len() && game_s >= cuts[next] - 1e-9 {
++            let cut = cuts[next];
++            let cut_tick = at(cut);
++            let s0 = p.u.retired_split();
++            p.u.settle(cut_tick);
++            let s1 = p.u.retired_split();
++            let digest = p.u.digest();
++            // The census (no history reads: it does not move the counters).
++            let rows = p.u.history_window();
++            let with = rows.len();
++            let total_segs: usize = rows.iter().map(|r| r.2).sum();
++            let in_win = rows.iter().filter(|r| r.3 <= r.4).count();
++            let pinned = rows.iter().filter(|r| r.3 > r.4).count();
++            let dead_with = rows.iter().filter(|r| !r.1).count();
++            let multi = rows.iter().filter(|r| r.2 > 1).count();
++            let bytes_with: usize = rows.iter().map(|r| r.5).sum();
++            let mut ages: Vec<f64> = rows.iter().map(|r| r.3 as f64 * TICK_SECONDS).collect();
++            ages.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            let mut keeps: Vec<f64> = rows.iter().map(|r| r.4 as f64 * TICK_SECONDS).collect();
++            keeps.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            // The view: one cold gather (a fresh cache), then the warm loop on the same cache. The
++            // depth/age maxes are reset per phase (they are maxes, not deltas); serves/misses are
++            // monotone counters read as deltas.
++            let mut cache = ViewCache::default();
++            let t_cold = Instant::now();
++            p.u.reset_view_maxes();
++            let mut view = gather_cached(&p.u, &p.names, &mut cache);
++            let cold_ms = t_cold.elapsed().as_secs_f64() * 1e3;
++            let s2 = p.u.retired_split();
++            let t_warm = Instant::now();
++            p.u.reset_view_maxes();
++            for _ in 1..warm {
++                view = gather_cached(&p.u, &p.names, &mut cache);
++            }
++            let warm_ms = t_warm.elapsed().as_secs_f64() * 1e3 / (warm - 1) as f64;
++            let s3 = p.u.retired_split();
++            // The engine's retired reads since the last cut's gathers ended (pure engine: the
++            // flight and this cut's settle).
++            let eng = last.map_or((0, 0), |l| (s0.3 - l.0, s0.6 - l.1));
++            println!(
++                "cut game_s={:.0} digest={} kicks {} enc {} contacts {} | with_hist {} ({:.3}/body; segs {:.3}/body; len>1 {}) dead_with={} | IN_WINDOW {:.1}% PINNED_PAST {:.1}% | age_s p50={:.0} max={:.0} | keep_s p50={:.0} max={:.0} | bytes_of(hist)={:.0} B, whole-store {} B/body",
++                cut,
++                &digest[..48],
++                p.u.stats.kicks,
++                p.u.stats.encounters,
++                p.u.contacts,
++                with,
++                with as f64 / bodies as f64,
++                total_segs as f64 / bodies as f64,
++                multi,
++                dead_with,
++                100.0 * in_win as f64 / with.max(1) as f64,
++                100.0 * pinned as f64 / with.max(1) as f64,
++                pct(&ages, 0.5),
++                ages.last().copied().unwrap_or(0.0),
++                pct(&keeps, 0.5),
++                keeps.last().copied().unwrap_or(0.0),
++                bytes_with as f64 / with.max(1) as f64,
++                p.u.bytes_per_body(),
++            );
++            println!(
++                "   reads: engine-between-cuts serves {} miss {} | settle(engine) serves {} miss {} | cold(view) serves {} depth {:.0}s age {:.0}s miss {} | warm[{}] serves {} ({:.0}/gather) depth {:.0}s age {:.0}s miss {} | view cold {:.0} ms warm {:.1} ms/gather seen {} | rss {:.0} MB",
++                eng.0,
++                eng.1,
++                s1.3 - s0.3,
++                s1.6 - s0.6,
++                s2.0 - s1.0,
++                s2.1 as f64 * TICK_SECONDS,
++                s2.2 as f64 * TICK_SECONDS,
++                s2.5 - s1.5,
++                warm,
++                s3.0 - s2.0,
++                (s3.0 - s2.0) as f64 / (warm - 1) as f64,
++                s3.1 as f64 * TICK_SECONDS,
++                s3.2 as f64 * TICK_SECONDS,
++                s3.5 - s2.5,
++                cold_ms,
++                warm_ms,
++                view.as_ref().map_or(0, |v| v.seen.len()),
++                rss_mb(),
++            );
++            // The seen dump for baseline-vs-deletion comparison (the last warm view).
++            if let Some(v) = &view {
++                for s in &v.seen {
++                    println!(
++                        "S {:.0} {} {} {:.12e} {:.12e} {:.12e} {:.6e} {:.6e}",
++                        cut, s.id, s.kind, s.offset[0], s.offset[1], s.light_seconds, s.angular_radius, s.shift
++                    );
++                }
++            }
++            last = Some((s3.3, s3.6));
++            next += 1;
++        }
++        if next >= cuts.len() {
++            break;
++        }
++        let _ = p.u.frame_to(1.0 / 30.0, rtf, frame_budget(), i64::MAX);
++    }
++    println!("end: wall {:.1} s, rss {:.0} MB", t_start.elapsed().as_secs_f64(), rss_mb());
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..122cad2a 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -115,6 +115,30 @@ pub trait BodyStore: Send + Sync {
+     /// Body `i`'s current binding and every retained one, oldest first (what a reader can still ask for).
+     fn bindings_of(&self, i: usize) -> Vec<Binding>;
+ }
++// ---- (lab 20261016-0117-second-20261016-0023-scout-1652-d86c) the floor probe -------------------------------
++//
++/// The last-segment floor (`prune` keeps `h.len() > 1`): `ES_DROP_FLOOR` in the environment drops
++/// it, so one binary flies both the shipped floor and the deletion. Read once; a law-adjacent
++/// switch, but it only ever forgets *more*, never later: the `before` guards are untouched.
++pub static DROP_FLOOR: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_DROP_FLOOR").is_ok());
++fn drop_floor() -> bool {
++    *DROP_FLOOR
++}
++
++/// Retired-read instrument, tagged by caller: an in-view gather (`view::gather*` wraps itself in
++/// [`IN_VIEW`]) or the engine (everything between gathers). `MISSES` counts history queries with
++/// `t < event_time` that no retained segment covers (the read the deletion refuses). Relaxed: a
++/// census, not a law.
++pub static SERVES_VIEW: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static SERVES_ENGINE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static MISSES_VIEW: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static MISSES_ENGINE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static DEPTH_VIEW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
++pub static DEPTH_ENGINE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
++/// The oldest served era's age, only while a gather holds the reader clock (`now − until`).
++pub static AGE_VIEW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
++pub static READER_NOW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(i64::MIN);
++pub static IN_VIEW: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+ 
+ #[derive(Default)]
+ pub struct PlainBodies {
+@@ -141,9 +165,12 @@ impl BodyStore for PlainBodies {
+         self.history[i].push_back(seg);
+     }
+     fn prune(&mut self, i: usize, before: Tick) -> usize {
++        // (lab 20261016-0117-…-d86c) `hold` is the floor: the shipped `1` pins one retired segment
++        // past every keep window; `0` (ES_DROP_FLOOR) lets the stack empty inside the same guards.
++        let hold = usize::from(!drop_floor());
+         let h = &mut self.history[i];
+         let mut gone = 0;
+-        while h.len() > 1 && h[0].until < before {
++        while h.len() > hold && h[0].until < before {
+             h.pop_front();
+             gone += 1;
+         }
+@@ -157,7 +184,34 @@ impl BodyStore for PlainBodies {
+         let h = &self.history[i];
+         // Segments are contiguous and ascending in `until`: the first with `until > t`.
+         let k = h.partition_point(|s| s.until <= t);
+-        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
++        let hit = h.get(k).filter(|s| s.b.event_time <= t);
++        // (lab 20261016-0117-…-d86c) tag the retired read: view vs engine, serve vs miss.
++        use std::sync::atomic::Ordering::Relaxed;
++        let v = IN_VIEW.load(Relaxed);
++        match hit {
++            Some(s) => {
++                if v {
++                    SERVES_VIEW.fetch_add(1, Relaxed);
++                    DEPTH_VIEW.fetch_max(s.until - t, Relaxed);
++                    let now = READER_NOW.load(Relaxed);
++                    if now != i64::MIN {
++                        AGE_VIEW.fetch_max(now - s.until, Relaxed);
++                    }
++                } else {
++                    SERVES_ENGINE.fetch_add(1, Relaxed);
++                    DEPTH_ENGINE.fetch_max(s.until - t, Relaxed);
++                }
++                Some(s.b.clone())
++            }
++            None => {
++                if v {
++                    MISSES_VIEW.fetch_add(1, Relaxed);
++                } else {
++                    MISSES_ENGINE.fetch_add(1, Relaxed);
++                }
++                None
++            }
++        }
+     }
+     fn event_time(&self, i: usize) -> Tick {
+         self.recs[i].b.event_time
+@@ -181,7 +235,8 @@ impl BodyStore for PlainBodies {
+     }
+     fn droppable_until(&self, i: usize) -> Option<Tick> {
+         let h = &self.history[i];
+-        h.front().filter(|_| h.len() > 1).map(|s| s.until)
++        // (lab 20261016-0117-…-d86c) without the floor the last segment is droppable too.
++        h.front().filter(|_| drop_floor() || h.len() > 1).map(|s| s.until)
+     }
+     fn bindings_of(&self, i: usize) -> Vec<Binding> {
+         self.history[i].iter().map(|s| s.b.clone()).chain(std::iter::once(self.recs[i].b.clone())).collect()
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..6aab481a 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1253,6 +1253,45 @@ impl Universe {
+         }
+     }
+ 
++    /// (lab 20261016-0117-second-…-d86c) The history stack against the prune's own light-cone window:
++    /// for every body holding retained history, `(index, alive, history_len, the age of its newest
++    /// retired binding past the current binding's birth, the keep window `2·light distance + 2²⁶`,
++    /// `bytes_of`), all in ticks where dimensional (the scout 1652 census, unchanged).
++    pub fn history_window(&self) -> Vec<(usize, bool, usize, i128, i128, usize)> {
++        (0..self.bodies.len())
++            .filter(|&i| self.bodies.history_len(i) > 0)
++            .map(|i| {
++                let age = (self.now as i128 - self.bodies.rec(i).b.event_time as i128).max(0);
++                let keep = 2 * self.light_distance(i) as i128 + (1 << 26);
++                (i, self.bodies.rec(i).alive, self.bodies.history_len(i), age, keep, self.bodies.bytes_of(i))
++            })
++            .collect()
++    }
++
++    /// (lab 20261016-0117-…-d86c) The retired-read counters, tagged by caller: `(serves_view,
++    /// max_depth_view_ticks, max_age_view_ticks, serves_engine, max_depth_engine_ticks, misses_view,
++    /// misses_engine)`, cumulative since process start.
++    pub fn retired_split(&self) -> (u64, i64, i64, u64, i64, u64, u64) {
++        use std::sync::atomic::Ordering::Relaxed;
++        (
++            crate::body::SERVES_VIEW.load(Relaxed),
++            crate::body::DEPTH_VIEW.load(Relaxed),
++            crate::body::AGE_VIEW.load(Relaxed),
++            crate::body::SERVES_ENGINE.load(Relaxed),
++            crate::body::DEPTH_ENGINE.load(Relaxed),
++            crate::body::MISSES_VIEW.load(Relaxed),
++            crate::body::MISSES_ENGINE.load(Relaxed),
++        )
++    }
++
++    /// (lab 20261016-0117-…-d86c) Zero the view-side max counters (they are maxes, not deltas), for
++    /// per-phase reads. Serve/miss counters are untouched.
++    pub fn reset_view_maxes(&self) {
++        use std::sync::atomic::Ordering::Relaxed;
++        crate::body::DEPTH_VIEW.store(0, Relaxed);
++        crate::body::AGE_VIEW.store(0, Relaxed);
++    }
++
+     pub fn bytes_per_body(&self) -> usize {
+         let n = self.bodies.len().max(1);
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..a9c2556c 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -257,7 +257,19 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+     gather_with(u, names, Some(cache))
+ }
+ 
+-fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
++fn gather_with(u: &Universe, names: &[String], cache: Option<&mut ViewCache>) -> Option<View> {
++    // (lab 20261016-0117-second-…-d86c) every read this gather makes is a view read: tag it so the
++    // retired-read instrument attributes serves and misses to the view, not the engine, and clear
++    // the tag on the way out (the reader clock too — no stale-clock ages after a gather).
++    crate::body::IN_VIEW.store(true, std::sync::atomic::Ordering::Relaxed);
++    crate::body::READER_NOW.store(u.now, std::sync::atomic::Ordering::Relaxed);
++    let out = gather_tagged(u, names, cache);
++    crate::body::IN_VIEW.store(false, std::sync::atomic::Ordering::Relaxed);
++    crate::body::READER_NOW.store(i64::MIN, std::sync::atomic::Ordering::Relaxed);
++    out
++}
++
++fn gather_tagged(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+     let ctx = u.ctx();
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;

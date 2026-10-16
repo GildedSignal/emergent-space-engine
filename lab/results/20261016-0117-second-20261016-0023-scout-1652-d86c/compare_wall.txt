@@ -1,0 +1,13 @@
+    cut | digest | seen on/off/both | vanish | maxShift(ls) | maxShift(m) | p99(m) | >own disc | fleetMax(m)
+  15000 | SAME | 10048/10048/10048 | 0+0 | 8.222e-08 | 24.6 | 11.1 | 0 | 95
+  20000 | DIFF | 10048/10048/10048 | 0+0 | 8.545e-03 | 2.56e+06 | 2.55e+06 | 10025 | 2.51e+06
+  32000 | SAME | 10046/10046/10046 | 0+0 | 3.080e-02 | 9.23e+06 | 9.22e+06 | 10026 | 9.18e+06
+  48000 | SAME | 10046/10046/10046 | 0+0 | 5.362e-02 | 1.61e+07 | 1.61e+07 | 10026 | 1.6e+07
+  60000 | SAME | 10046/10046/10046 | 0+0 | 5.367e-02 | 1.61e+07 | 1.61e+07 | 10026 | 1.6e+07
+
+segs/body floor-on:  15k:1.053 20k:1.054 32k:1.120 48k:1.257 60k:1.402
+segs/body floor-off: 15k:0.978 20k:0.067 32k:0.137 48k:0.280 60k:0.424
+standing cut at 60000s: 1.402 -> 0.424 segs/body (3.3x); D3 (<=0.15/body): FAILS
+D1 digests identical: NO
+D2 bounded degradation: NO
+VERDICT: refuted (floor is law)
