@@ -1,0 +1,522 @@
+diff --git a/crates/universe/examples/doll_probe.rs b/crates/universe/examples/doll_probe.rs
+new file mode 100644
+index 00000000..0fcc2df0
+--- /dev/null
++++ b/crates/universe/examples/doll_probe.rs
+@@ -0,0 +1,137 @@
++//! The comb cure's legality probe on the population it cures: the planet-doll locals
++//! (bodies with `b.doll != 0`, the class `ES_LOCAL_STAGGER` gates on — no frozen gate's
++//! judged body is ever born there, 20261016-1459-second-...-21a7). Flies the plane the way
++//! `nladder` does (budget-free coast, rtf), and at two checkpoints reads every doll body's
++//! state through the shipped `readout`, forming the ensemble of the assist gate's own
++//! quantities: specific energy E = v²/2 − 1/r and angular momentum L = q×v about the doll's
++//! centre (doll units, M = c = 1), plus r. Prints the ensembles and the per-body drifts
++//! |ΔE|/|E|, |ΔL|/L between the checkpoints, with alive/dead/refusals and the frame stats
++//! (the arming control: the comb's max events/frame must collapse under the cures).
++//!
++//! cargo run --release -p emergent-universe --example doll_probe [-- <N> <wall s> <rtf> [<seed>]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &mut [f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return f64::NAN;
++    }
++    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// (E, L, r) of body `i`'s current binding at `t`, in its doll's units.
++fn elr(u: &emergent_universe::Universe, i: usize, t: i64) -> Option<(f64, f64, f64)> {
++    let b = u.rec(i).b;
++    let st = b.readout(t).ok()?;
++    let le = st.length_exponent as f64;
++    let ve = st.velocity_exponent as f64;
++    let (px, py) = (st.position[0] as f64 * 2f64.powi(le as i32), st.position[1] as f64 * 2f64.powi(le as i32));
++    let (vx, vy) = (st.velocity[0] as f64 * 2f64.powi(ve as i32), st.velocity[1] as f64 * 2f64.powi(ve as i32));
++    let r = (px * px + py * py).sqrt();
++    let v2 = vx * vx + vy * vy;
++    Some((v2 / 2.0 - 1.0 / r, px * vy - py * vx, r))
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(45.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    println!("probe N={n} seed={seed} rtf={rtf} bodies={bodies}");
++    let mut snap: Vec<Option<(f64, f64, f64)>> = vec![None; bodies];
++    let mut max_ev = 0u64;
++    let mut p99_ev = Vec::new();
++    let (mut dead, mut refusals) = (0usize, 0u64);
++    let mut last = p.u.stats;
++    let t_first = p.u.now; // before any frame: the birth state
++    let mut took_first = true;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) {
++            println!("probe: truncated at frame {f}");
++            break;
++        }
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: None }, i64::MAX);
++        max_ev = max_ev.max(frame.events);
++        if f >= 60 {
++            p99_ev.push(frame.events as f64);
++        }
++        if took_first && f == 60 {
++            // checkpoint 0: one second in, the birth ensemble (the fleet's opening hand-outs are done later; locals are born at genesis)
++            for i in 0..bodies {
++                let r = p.u.rec(i);
++                if r.alive && r.b.doll != 0 {
++                    snap[i] = elr(&p.u, i, p.u.now);
++                }
++            }
++            took_first = false;
++        }
++        last = p.u.stats;
++    }
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    // checkpoint 1: the end ensemble and the per-body drifts
++    let (mut e0, mut l0, mut r0) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut e1, mut l1, mut r1) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut de, mut dl) = (Vec::new(), Vec::new());
++    let mut refused_read = 0usize;
++    let mut per_doll = std::collections::BTreeMap::new();
++    for i in 0..bodies {
++        let r = p.u.rec(i);
++        if !r.alive {
++            dead += 1;
++        }
++        refusals += r.refusals;
++        if r.b.doll != 0 {
++            *per_doll.entry(r.b.doll).or_insert(0usize) += 1;
++            if let Some(x) = elr(&p.u, i, p.u.now) {
++                e1.push(x.0);
++                l1.push(x.1.abs());
++                r1.push(x.2);
++                if let Some(s0) = snap[i] {
++                    de.push((x.0 - s0.0).abs() / s0.0.abs().max(1e-12));
++                    dl.push((x.1 - s0.1).abs() / s0.1.abs().max(1e-12));
++                }
++            } else {
++                refused_read += 1;
++            }
++            if let Some(s0) = snap[i] {
++                e0.push(s0.0);
++                l0.push(s0.1.abs());
++                r0.push(s0.2);
++            }
++        }
++    }
++    println!(
++        "frames: game_s {game_s:.0}, max ev/fr {max_ev}, p99 ev/fr {:.0}, kicks {}, boundaries {}, encounters {}, dead {dead}, refusals {refusals}, reads refused {refused_read}, doll census {:?}",
++        pct(&mut p99_ev, 0.99),
++        last.kicks, last.boundaries, last.encounters, per_doll
++    );
++    let q = |v: &mut Vec<f64>, name: &str, scale: f64| {
++        println!(
++            "  {name}: n {} med {:.6e} p01 {:.6e} p99 {:.6e} max {:.6e}",
++            v.len(),
++            pct(v, 0.5) * scale,
++            pct(v, 0.01) * scale,
++            pct(v, 0.99) * scale,
++            pct(v, 1.0) * scale
++        );
++    };
++    println!("ensemble@t0 (E,L,r):");
++    q(&mut e0, "E0", 1.0);
++    q(&mut l0, "L0", 1.0);
++    q(&mut r0, "r0", 1.0);
++    println!("ensemble@t1 (E,L,r):");
++    q(&mut e1, "E1", 1.0);
++    q(&mut l1, "L1", 1.0);
++    q(&mut r1, "r1", 1.0);
++    println!("per-body drift t0->t1:");
++    q(&mut de, "|dE/E0|", 1.0);
++    q(&mut dl, "|dL/L0|", 1.0);
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..f8425d2d 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,40 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On Linux (the lab's boxes): the resident set and its high-water mark, from /proc/self/status.
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        let kb = |key: &str| {
++            std::fs::read_to_string("/proc/self/status")
++                .ok()
++                .and_then(|s| {
++                    s.lines()
++                        .find(|l| l.starts_with(key))
++                        .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++                })
++                .unwrap_or(0)
++                * 1024
++        };
++        (kb("VmRSS:"), kb("VmHWM:"))
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -87,6 +107,12 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if let Ok(path) = std::env::var("ES_DUMP") {
++            use std::io::Write;
++            if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
++                let _ = writeln!(out, "{f} {} {}", took.as_secs_f64() * 1e3, frame.events);
++            }
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..5f21633c 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -97,14 +97,73 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
+ }
+ 
+-/// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
+-/// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
+-/// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
+-/// so no less accurate), and every interval after it starts on the grid: every interval of a power of two starts on a
+-/// multiple of its own length, a body of a longer step has its boundaries on those of a shorter one's, and every pair
+-/// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
+-/// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
+-pub fn aligned(step: i64, t: Tick) -> i64 {
++/// Lab probes (default off, so the shipped law is bit for bit): `ES_CHAIN` and `ES_LOCAL_STAGGER`.
++fn flag(name: &str) -> bool {
++    std::env::var(name).is_ok_and(|v| v != "0")
++}
++
++/// `ES_CHAIN` (default off): chain every interval from the body's previous event — the clock law's
++/// own shape — instead of re-anchoring to the absolute power-of-two grid. Inert while a body's
++/// boundaries are on the grid (a one-tick birth); after any off-grid event (a birth spread, a
++/// handoff) the offset persists instead of being re-absorbed within one interval, so no population
++/// can lock its boundaries onto one shared grid again. Gives up "every pair shares boundaries"
++/// (docs/law.md) exactly as a per-body phase does.
++fn chain_on() -> bool {
++    flag("ES_CHAIN")
++}
++
++/// `ES_LOCAL_STAGGER` (default off): a planet-doll body's *first* interval is shorter by a uniform
++/// id-derived fraction of its own step, de-phasing a one-tick-born population at birth. Under the
++/// shipped anchor the grid re-absorbs the offset within one period; under `ES_CHAIN` it is permanent.
++fn stagger_on() -> bool {
++    flag("ES_LOCAL_STAGGER")
++}
++
++/// `ES_LOCAL_PHASE` (default off; run 20261016-0504-dynamics-4c22's arm, ported verbatim for the
++/// equal-bill comparison): a PERMANENT per-body phase, a constant id-derived fraction of the body's
++/// own step, added to the grid (the body's intervals stay equally spaced; cross-body coincidence
++/// breaks). Gives up "every pair shares boundaries" exactly as the chained law does.
++fn phase_on() -> bool {
++    flag("ES_LOCAL_PHASE")
++}
++
++/// A uniform id-derived offset in `[0, step)` (splitmix64 of the body's index).
++fn stagger_off(i: usize, step: i64) -> i64 {
++    let mut z = (i as u64).wrapping_add(0x9E3779B97F4A7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++    ((z ^ (z >> 31)) % step.max(1) as u64) as i64
++}
++
++/// [`aligned`] on the body's own phase-shifted grid (4c22): the interval from `t` to the next
++/// multiple of `step` offset by `ph` (the same stub and MIN_STEP join as the absolute grid).
++fn aligned_phase(step: i64, t: Tick, ph: i64) -> i64 {
++    let off = (t - ph).rem_euclid(step);
++    if off == 0 {
++        return step;
++    }
++    let stub = step - off;
++    if stub < MIN_STEP {
++        stub + step
++    } else {
++        stub
++    }
++}
++
++
++ /// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
++ /// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
++ /// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
++ /// so no less accurate), and every interval after it starts on the grid: every interval of a power of two starts on a
++ /// multiple of its own length, a body of a longer step has its boundaries on those of a shorter one's, and every pair
++ /// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
++ /// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
++ pub fn aligned(step: i64, t: Tick) -> i64 {
++    if chain_on() {
++        // ES_CHAIN: the interval is the body's own step from wherever it stands. There are no
++        // stubs at all (a step change costs no extra interval), and an off-grid offset persists.
++        return step;
++    }
+     let off = t.rem_euclid(step);
+     if off == 0 {
+         return step;
+@@ -336,6 +395,8 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// Whether this is the body's first plan (its creation): where `ES_LOCAL_STAGGER` applies.
++    first: bool,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -566,7 +627,30 @@ impl Work<'_, '_> {
+             self.rec.step = want;
+         }
+         self.rec.anchor = t;
+-        let mut h = aligned(self.rec.step, t);
++        let mut h = if phase_on() && d != 0 && matches!(self.rec.kind, Kind::Ship) {
++            // ES_LOCAL_PHASE (4c22, verbatim): a constant id-derived fraction of the body's OWN
++            // step (so it survives step changes) offsets this body's grid; the interval lengths
++            // and the stub rules are unchanged, only the absolute coincidence of same-step bodies
++            // is broken. The fraction is the top 64 bits of (splitmix64(id) × step), as in 4c22.
++            let mut z = (self.i as u64).wrapping_add(0x9E3779B97F4A7C15);
++            z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++            z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++            let ph = (((z ^ (z >> 31)) as u128 * self.rec.step as u128) >> 64) as i64;
++            aligned_phase(self.rec.step, t, ph)
++        } else {
++            aligned(self.rec.step, t)
++        };
++        if self.first && stagger_on() && d != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player) {
++            // ES_LOCAL_STAGGER: de-phase a one-tick-born population at birth — the first interval is
++            // shorter by a uniform id-derived fraction of the step (no less accurate: it is shorter).
++            // Under the shipped anchor the grid re-absorbs this within one period; under ES_CHAIN
++            // every later interval starts where this one ends, so the offset is permanent.
++            let off = stagger_off(self.i, self.rec.step);
++            h = self.rec.step - off;
++            if h < MIN_STEP {
++                h += self.rec.step;
++            }
++        }
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+@@ -826,7 +910,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -866,7 +950,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: true };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +962,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+diff --git a/lab/wiki/nladder.md b/lab/wiki/nladder.md
+index d12ee60f..6773ab99 100644
+--- a/lab/wiki/nladder.md
++++ b/lab/wiki/nladder.md
+@@ -2,17 +2,11 @@ topic: nladder
+ status: open
+ closed-by:
+ valid-while:
+-<<<<<<< main
+-updated: 20261016-1319-fermi-1051
+-=======
+-updated: 20261016-1319-system-4fa8
+->>>>>>> 20261016-1319-system-4fa8
++updated: 20261016-1637-dynamics-87fd
+ 
+ # The N ladder: 28 live bodies toward 10⁹
+ 
+ ## Current best
+-<<<<<<< main
+-=======
+ **The comb is measured as the anchor's own artifact and retired by one interval law: chaining
+ every planet-doll interval from the body's previous event (the clock law's shape, ES_CHAIN) plus
+ the one-step birth spread (ES_LOCAL_STAGGER) collapses the locals' storm to the N=0 floor class —
+@@ -75,7 +69,6 @@ now: (a) the de-phase's price must be paid down (+20% events, and the pair-bound
+ law change: B13-class gates unflown — direction 2's analogue for this lever); (b) the doc's own
+ step 5 (secular kicks for stable planet-doll bodies) deletes the comb's events instead of spreading
+ them; (c) whatever keeps `aligned` shared must de-phase at birth PER INTERVAL, not once.
+->>>>>>> 20261016-1319-system-4fa8
+ 
+ **The comb decision and the cadence decision are one lever with one legality rule, and the
+ legality is decided on the shipped populations: r9's secular bound (τ = (a/R_H)³ < 3.6×10⁻³,
+@@ -110,33 +103,22 @@ seam/retention family, the 10⁹ budget assembly — see the standing text on ma
+ section is additive and sides with neither standing conflict.]*
+ 
+ ## Refuted
+-<<<<<<< main
+ - **"The comb cure and the cadence law are two decisions":** the metronome identity makes them
+   one term (2^step_log2/P_D per body per doll); the legality rule is the same r9 bound, and it
+   is now evaluated on both populations (20261016-1319-fermi-1051).
+ - **"Decide the comb by its letter-N gain":** all four arms (shipped/translate/hybrid/de-phase)
+   saturate at the same memory wall (1.2–1.65×10⁶); no arm's letter exceeds it by 3×. The
+   decision's 10⁹ content is zero (comb = 0.006% of the stream) (20261016-1319-fermi-1051).
+-- *(the page's standing refutations stand: the one-step spread re-absorbed by `aligned`; the
+-  attribution artifact; ES_STAGGER post-hoc armed; the wave letter-break reading.)*
+-
+-## Open directions
+-1. **Fly the hybrid**: step 5's secular generator for bodies with τ < τ₀ against every perturber
+-   (star AND Moon for the locals — the Moon's tide spares only the bottom four octaves [checker];
+-   Cinder/Home/Giant for the belt, resonance-excluded), the kicked path kept for the L4/L5 quarter
+-   and the top in-situ octave; measure the residual storm (two composed candidates: 83.5 if the
+-   storm scales with the tick-sharing population, ≈134 Moon-corrected [checker]) and the
+-   B13/B14-class gates. The de-phase (4c22) and the translate (4534) remain the spread
+-   arms; the page's ordering question ("question the anchor, delete second, spread last") now
+-   has its delete gate answered: legal for ~60% of the comb (~80% of the in-situ) and the quiet
+-   belt at 5.5–6.4× worst margin [checker-corrected].
+-2. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
+-   measured — and the honest belt margin is 5.5–6.4× under, not 57–105× [checker], so a B14-class
+-   probe on a belt body under Cinder's and the Giant's tide closes it with little slack.
+-3. *(standing: the compact store's wiring after the cadence decision; the page's conflicts for
+-   the integrator.)*
+-=======
+-- **Library direction 0's chaining claim as stated ("chain intervals from the body's previous
++- **"The frozen B12/B13/B14 gates could adjudicate the comb cure" (this page's own debt, and
++  21a7's named experiment):** structurally blind — every gate body is born root-doll
++  (`handoffs=0` in all 64 flybys, 14 handoff ships, 13 moons), where `aligned ≡ chain` bit for
++  bit; all four gate arms print identical digits while the game digests change
++  (20261016-1459-second-20261016-1319-system-4fa8-21a7, awaiting grade).
++- **"ES_LOCAL_PHASE is a worse trade than chain+stagger":** equal on one instrument — same
++  collapse (334→53 vs →52), same one-time slice bill (8,337 vs 8,300), same zero steady-state
++  rate, same CPU win; the differential is parsimony alone (20261016-1459-…-21a7, awaiting
++  grade).
++- Library direction 0's chaining claim as stated ("chain intervals from the body's previous
+   event … retires the comb class at every scale"): chaining alone is inert for one-tick births.**
+   ES_CHAIN (interval = own step from the previous event, no re-anchor): max 228 vs 240, p99 142
+   vs 146 at 10³ coast — the anchor re-manufactures the coincidence after any off-grid event, it
+@@ -160,7 +142,6 @@ section is additive and sides with neither standing conflict.]*
+   quarter-fraction stagger still fails at 2/64). The cure must be birth-time-lawful
+   (20261016-0504-second-20261016-0346-spacex-917c-c840; checker-restored — this page's stagger
+   text stands on it).
+-
+ - **"The staggered-break at ~1.4×10⁶" as a findable wave letter-break (open direction 1's
+   reading), and any wave-frame reading that does not separate the locals' storm floor:** at
+   3×10⁵ staggered the post-wave peak (369 events) is within 10% of the pre-wave baseline
+@@ -172,45 +153,42 @@ section is additive and sides with neither standing conflict.]*
+ 
+ ## Open directions
+ 
+-1. **The chained birth de-phase's legality rung (this run's successor):** ES_CHAIN+ES_LOCAL_STAGGER
+-   holds the collapse (334→52) with zero steady-state rate and −11% total engine ms, one digest on
+-   every schedule, and OFF bit-identical to main; unflown are the B13/B14-class gates under the
+-   shifted boundaries (the same debt as ES_LOCAL_PHASE, whose one-time slice bill it matches with
+-   a simpler law — no phase grid, no stub minting — plus the CPU win),
+-   the burn arm's partial collapse (112, not 52), other seeds, and the long-lived-battle case
+-   where the one-time slice excess (+4.4k wakeups here, battle dissolves ≤ 1,900 game-s) becomes a
+-   rate. If the gates hold, ES_LOCAL_PHASE and its per-body phase grid are deleted (library
+-   direction 0's ">= 3 ES_* arms deleted" falsifiable starts here).
+-
+-2. **The library's ordering for the comb and the seam (20261016-1207-library-846b, library lens;
+-   ordering, not measurement):** question the requirement first (the absolute-grid interval anchor
+-   is law.md's own invariant, not physics), delete second (step 5's secular kicks, B14-class
+-   precession-gated — r9's kill is the failure mode), spread last (the de-phase's +11-20% is a
+-   permanent bill); if a change is needed, chain intervals from the body's previous event (the
+-   clock law's own shape — retires the comb class at every scale) rather than shipping ES_LOCAL_PHASE;
+-   serve the view's retired eras from the compiled program (scout-1652's ~10x read deletion);
+-   size retention by demotions per wave period, never a fixed cap (0619, b172); freeze NEW seam
+-   machinery until those land — falsifiable: >=3 ES_*/seam arms deleted after they do, else the rule dies.
+-
+-3. **The de-phase's legality and price (the next rung on this finding):** ES_LOCAL_PHASE gives up
+-   "every pair shares boundaries" (docs/law.md's own invariant) and pays +19-41% events over the
+-   first 6,000 game-s [checker: the stub price is front-loaded — +10.8% over 12,000 game-s
+-   (46,655 vs 42,112 events), phase slices 8,337 vs base 3,951]; the gates
+-   that must hold are B13/B14-class under the shifted phases, and the price to beat is the ~+11-20%
+-   event count (the stubs the phase grid mints at step changes). Alternative inside the law: birth
+-   de-phase PER INTERVAL (an offset the body keeps against the absolute grid) is the same property
+-   change; step 5's secular kicks for stable planet-doll bodies delete the events instead.
+-4. **The per-body grid translate (components-4534's lever, independent of the de-phase):** each
++1. **Freeze the doll-born legality gate at the measured band (the successor of the adjudicated
++   debt):** the frozen gates are blind (21a7) and the doll population is now measured —
++   ensembles, tails, encounters and survival innocent; median per-body drift 2.0→7.4×10⁻⁶
++   (|ΔE/E₀|) and 0.96→3.6×10⁻⁶ (|ΔL/L₀|) per 4,500 game-s under both cures, OFF's seed band
++   tight (2.0 vs 1.9×10⁻⁶) (20261016-1637-dynamics-87fd). The gate: doll-born locals, drift
++   medians and tails against this band, a longer horizon (the 10⁻⁶ channel's growth law is the
++   open question — diffusive growth would compound, principle 13), and the long-lived-battle
++   case where the one-time slice excess becomes a rate (4fa8's, unflown). If the gate holds,
++   ES_LOCAL_PHASE and its per-body phase grid are deleted (the two cures are equal trades per
++   21a7; parsimony decides).
++2. **Fly the hybrid**: step 5's secular generator for bodies with τ < τ₀ against every perturber
++   (star AND Moon for the locals — the Moon's tide spares only the bottom four octaves [checker];
++   Cinder/Home/Giant for the belt, resonance-excluded), the kicked path kept for the L4/L5 quarter
++   and the top in-situ octave; measure the residual storm (two composed candidates: 83.5 if the
++   storm scales with the tick-sharing population, ≈134 Moon-corrected [checker]) and the
++   B13/B14-class gates. The de-phase (4c22) and the translate (4534) remain the spread
++   arms; the page's ordering question ("question the anchor, delete second, spread last") now
++   has its delete gate answered: legal for ~60% of the comb (~80% of the in-situ) and the quiet
++   belt at 5.5–6.4× worst margin [checker-corrected].
++3. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
++   measured — and the honest belt margin is 5.5–6.4× under, not 57–105× [checker], so a B14-class
++   probe on a belt body under Cinder's and the Giant's tide closes it with little slack.
++4. The de-phase's price is now two named terms, both measured: the front-loaded slice bill
++   (+10.8% over 12,000 game-s [checker]) and the 10⁻⁶ median-drift channel
++   (20261016-1637-dynamics-87fd) — against the comb's 6× frame win; step 5's secular kicks
++   delete the events instead.
++5. The per-body grid translate (components-4534's lever, independent of the de-phase): each
+    doll≠0 ship's grid translated by a dyadic hash(id) offset flattens the standing train 335→141
+    (2.0–2.4×, both seeds, N-flat 600–1e5), with +6/+73% event totals (the +73% is the fleet
+-   battle's slicing, per its checker) and the same unflown legality gates. Weaker than the
+-   de-phase's 334→53 but the same one-law shape; its event-total diagnosis is open
+-   (20261016-0504-components-4534; checker-restored).
+-5. The stagger's legality gates (B13/B14-class under the shifted tide phase) and the M1
++   battle's slicing, per its checker) and the same unflown legality gates — now the same
++   doll-probe away from its own band. Weaker than the de-phase's 334→53 but the same one-law
++   shape; its event-total diagnosis is open (20261016-0504-components-4534; checker-restored).
++6. The stagger's legality gates (B13/B14-class under the shifted tide phase) and the M1
+    re-measure — unchanged from ed3a's direction 2.
+-6. (prior directions stand: the compact store's wiring, the cadence law, the page's standing
++7. (prior directions stand: the compact store's wiring, the cadence law, the page's standing
+    conflicts for the integrator)
+->>>>>>> 20261016-1319-system-4fa8
+ 
+ ## Contradictions
+ - *(standing merge conflicts remain the integrator's; this run's section is additive.)*
