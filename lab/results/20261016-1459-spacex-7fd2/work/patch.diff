@@ -1,0 +1,95 @@
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..029e330c 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -1,4 +1,5 @@
+-//! Deterministic kick replay on the plane's own scene, without changing its resolver.
++//! Print-only census of the kick's key displacement (lab run 20261016-1459-spacex-7fd2).
++//! Observation sits after the resolver; no engine path is touched.
+ use super::{script, Session};
+ use emergent_space::{
+     binding::Trajectory,
+@@ -39,6 +40,20 @@ impl Shapes {
+     }
+ }
+ 
++/// One resolved kick's compiled key, with the body's previous key's index (run's census).
++#[derive(Clone)]
++struct Row {
++    body: usize,
++    made: bool,
++    t: i64,
++    p_sig: i64,
++    p_exp: i16,
++    k: u64,
++    k_exp: i16,
++    gap: bool,
++    knots: Option<usize>,
++}
++
+ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     samples.sort_by(f64::total_cmp);
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+@@ -55,6 +70,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let mut rows: Vec<Row> = Vec::new();
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
+@@ -88,6 +104,23 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
++                if let Some(key) = e.trajectory.key() {
++                    let knots = match &e.trajectory {
++                        Trajectory::Cycle(c) => Some(c.shape().knots().len()),
++                        _ => None,
++                    };
++                    rows.push(Row {
++                        body: i,
++                        made: i < made_n,
++                        t: item.t,
++                        p_sig: key.periapsis.significand(),
++                        p_exp: key.periapsis.exponent(),
++                        k: key.k,
++                        k_exp: key.k_exponent,
++                        gap: key.gap.is_some(),
++                        knots,
++                    });
++                }
+             }
+             digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
+@@ -96,6 +129,22 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         frames = n;
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
++    let census_rows = std::env::var("ES_KICK_DUMP").ok().filter(|v| !v.is_empty());
++    if let Some(path) = &census_rows {
++        let mut out = String::from("{\"rows\":[");
++        for (j, r) in rows.iter().enumerate() {
++            if j > 0 {
++                out.push(',');
++            }
++            out.push_str(&format!(
++                "{{\"body\":{},\"made\":{},\"t\":{},\"p_sig\":{},\"p_exp\":{},\"k\":{},\"k_exp\":{},\"gap\":{},\"knots\":{}}}",
++                r.body, r.made, r.t, r.p_sig, r.p_exp, r.k, r.k_exp, r.gap,
++                r.knots.map(|x| x as i64).unwrap_or(-1)
++            ));
++        }
++        out.push_str("]}\n");
++        std::fs::write(path, out).map_err(|e| format!("dump: {e}"))?;
++    }
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+@@ -103,6 +152,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "key_census": {"rows": rows.len(), "dump": census_rows.is_some()},
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
