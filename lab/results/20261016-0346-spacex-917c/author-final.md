@@ -1,0 +1,4 @@
+Working...
+The run is complete. All deliverables are in `lab/results/20261016-0346-spacex-917c/`: pre-registered predictions, dossier, regen.sh (identity check + five budget-free flights + spread + analysis, ~14 min), the wiki page, and raw flight data with machine state.
+
+**Claim:** the staggered first-kick wave, flown budget-free at 10⁵ and 3×10⁵ with the stagger rebuilt on this tree (off-arm bit-identical, 13/13 digests; anchors bit-exact on 1a1c's 487/1,328 events), collapses the belt's own frame peak 28× (994 → 35 attributable events at 3×10⁵, ~1 ms at the M1 rate) and sinks below the ladder locals' N-independent 334–452-event storm floor — so the "staggered-break at ~1.4×10⁶" is not a findable break: it extrapolates past the memory break, the birth arrival rate is the steady stream (25.4 events/game-s, 21.5× window flattening), and the frame's next binding term is the unstaggered locals class, which the same one-step spread deletes.
