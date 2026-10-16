@@ -1,0 +1,161 @@
+burn, coast, brake L8      seed 3 members 16 | 6a0c3cf7af8ac49e03bd87d9810cb21a | kicks   654 encounters 3241 contacts   0 | 4 schedules agree  [1.3 s]
+turn left, burn L8         seed 7 members 48 | 2373bdb3d1cedb0313d9a85e38feb82d | kicks   727 encounters 1383 contacts   0 | 4 schedules agree  [1.5 s]
+every flight: one digest on every schedule
+burn, coast, brake L8      seed 3 members 16 | 6a0c3cf7af8ac49e03bd87d9810cb21a | kicks   654 encounters 3241 contacts   0 | 4 schedules agree  [1.2 s]
+turn left, burn L8         seed 7 members 48 | 2373bdb3d1cedb0313d9a85e38feb82d | kicks   727 encounters 1383 contacts   0 | 4 schedules agree  [1.2 s]
+every flight: one digest on every schedule
+case                             answer  ref_probes  fired  back  win_reads  reads_patched   ref_us  patched_us
+cycle f=0.05 cw=false        Some(    99327)          0      0     0          0              0      0.03        0.03
+cycle f=0.05 cw=true         Some(    99327)          0      0     0          0              0      0.03        0.02
+cycle f=0.1 cw=false         Some(     1558)         11      1     0          2              2     58.53       21.22
+cycle f=0.1 cw=true          Some(     1558)         11      1     0          2              2     58.40       21.23
+cycle f=0.2 cw=false         Some(   100360)         18      1     0          2              2     90.56       18.53
+cycle f=0.2 cw=true          Some(   100360)         18      1     0          2              2     90.16       18.40
+cycle f=0.3 cw=false         Some(     1580)         12      1     0          2              2     63.53       21.24
+cycle f=0.3 cw=true          Some(     1580)         12      1     0          2              2     63.60       21.19
+cycle f=0.4 cw=false         Some(   101789)         18      1     0          2              2     90.40       18.44
+cycle f=0.4 cw=true          Some(   101789)         18      1     0          2              2     90.37       18.48
+cycle f=0.5 cw=false         Some(     1603)         12      1     0          2              2     62.10       19.79
+cycle f=0.5 cw=true          Some(     1603)         12      1     0          2              2     61.88       19.85
+cycle f=0.6 cw=false         Some(   103292)         18      1     0          2              2     91.12       18.56
+cycle f=0.6 cw=true          Some(   103292)         18      1     0          2              2     90.23       18.57
+cycle f=0.7 cw=false         Some(     1628)         12      1     0          2              2     62.51       19.90
+cycle f=0.7 cw=true          Some(     1628)         12      1     0          2              2     62.21       19.84
+cycle f=0.8 cw=false         Some(   104910)         18      1     0          2              2     90.49       18.47
+cycle f=0.8 cw=true          Some(   104910)         18      1     0          2              2     90.34       18.45
+cycle f=0.9 cw=false         Some(     1654)         12      1     0          2              2     62.11       19.85
+cycle f=0.9 cw=true          Some(     1654)         12      1     0          2              2     62.04       19.84
+cycle f=0.95 cw=false        Some(   106276)         17      1     0          2              2     85.70       18.50
+cycle f=0.95 cw=true         Some(   106276)         17      1     0          2              2     85.41       18.50
+cycle f=0.99 cw=false        Some(     1668)         12      1     0          2              2     62.04       19.65
+cycle f=0.99 cw=true         Some(     1668)         12      1     0          2              2     61.93       19.67
+flyby e=1.05 b=80            Some(     4628)         14      1     0          2              2     67.81       16.94
+flyby e=1.05 b=95            Some(     4687)         13      1     0          2              2     62.84       16.94
+flyby e=1.05 b=120           None          0      0     0          0              0      4.70        4.71
+flyby e=1.2 b=80             Some(       41)          7      1     0          2              2     34.18       16.90
+flyby e=1.2 b=95             Some(       42)          7      1     0          3              3     34.14       17.64
+flyby e=1.2 b=120            None          0      0     0          0              0      4.70        4.70
+flyby e=1.5 b=80             Some(     1933)         12      1     0          2              2     58.22       16.92
+flyby e=1.5 b=95             Some(     1967)         12      1     0          2              2     58.07       16.98
+flyby e=1.5 b=120            None          0      0     0          0              0      4.69        4.70
+flyby e=3 b=80               Some(       24)          6      1     0          3              3     29.28       17.68
+flyby e=3 b=95               None          2      0     0          0              0      5.49        5.60
+flyby e=3 b=120              None          0      0     0          0              0      4.68        4.69
+
+author grid: cases 36, answered 31, mismatches 0 (any mismatch exits)
+structural guess: fired 29 on guesses 29 (100.0%), fallbacks 0 (0.0% of 36)
+mean readouts: reference 10.92, patched 1.67 (window 1.67)
+mean per call: reference 55.7 us, patched 15.9 us -> 3.50x
+case                             answer  ref_probes  fired  back  win_reads  reads_patched   ref_us  patched_us
+after=bracket-start f=0.4    Some(   101789)         18      1     0          2              2     90.54       18.55
+after=mid-outbound f=0.4     Some(   101789)         18      1     0          2              2     91.60       19.93
+after=pre-cross f=0.4        Some(   101789)         15      1     0          2              2     77.01       20.12
+after=next-cycle f=0.4       Some(   307484)          1      0     0          0              0      3.35        3.40
+after=plus3-periods f=0.4    Some(   717462)          1      0     0          0              0      3.35        3.49
+after=mid-fall f=0.4         Some(   101789)         14      1     0          2              2     72.33       19.89
+after=already-inside f=0.4   Some(   102494)          1      0     0          0              0      3.46        3.46
+after=bracket-start f=0.7    Some(     1628)         12      1     0          2              2     62.36       20.10
+after=mid-outbound f=0.7     Some(     1628)         12      1     0          2              2     63.79       21.36
+after=pre-cross f=0.7        Some(     1628)          9      1     0          2              2     49.01       21.40
+after=next-cycle f=0.7       Some(     4912)          1      0     0          0              0      4.71        4.76
+after=plus3-periods f=0.7    Some(    11460)          1      0     0          0              0      4.69        4.76
+after=mid-fall f=0.7         Some(     1628)          8      1     0          2              2     44.01       21.38
+after=already-inside f=0.7   Some(     1637)          1      0     0          0              0      4.72        4.76
+after=bracket-start f=0.99   Some(     1668)         12      1     0          2              2     62.12       19.87
+after=mid-outbound f=0.99    Some(     1668)         12      1     0          2              2     63.37       21.14
+after=pre-cross f=0.99       Some(     1668)          9      1     0          2              2     48.78       21.22
+after=next-cycle f=0.99      Some(     5015)          1      0     0          0              0      4.71        4.80
+after=plus3-periods f=0.99   Some(    11701)          1      0     0          0              0      4.70        4.75
+after=mid-fall f=0.99        Some(     1668)          8      1     0          2              2     43.82       21.22
+after=already-inside f=0.99  Some(     1671)          1      0     0          0              0      4.73        4.78
+e=0.1 f=0.3 cw=false         Some(        0)          1      0     0          0              0      4.71        4.71
+e=0.1 f=0.3 cw=true          Some(        0)          1      0     0          0              0      4.75        4.71
+e=0.2 f=0.3 cw=false         Some(        0)          1      0     0          0              0      3.36        3.37
+e=0.2 f=0.3 cw=true          Some(        0)          1      0     0          0              0      3.36        3.37
+e=0.3 f=0.3 cw=false         Some(        0)          1      0     0          0              0      4.71        4.71
+e=0.3 f=0.3 cw=true          Some(        0)          1      0     0          0              0      4.71        4.71
+e=0.5 f=0.3 cw=false         Some(        0)          1      0     0          0              0      4.77        4.73
+e=0.5 f=0.3 cw=true          Some(        0)          1      0     0          0              0      4.72        4.73
+e=0.7 f=0.3 cw=false         Some(       37)          7      1     0          2              2     40.25       22.51
+e=0.7 f=0.3 cw=true          Some(       37)          7      1     0          2              2     40.21       22.51
+e=0.9 f=0.3 cw=false         Some(      246)          9      1     0          2              2     48.82       21.19
+e=0.9 f=0.3 cw=true          Some(      246)          9      1     0          2              2     48.73       21.17
+e=0.95 f=0.3 cw=false        Some(      713)         10      1     0          2              2     52.25       19.82
+e=0.95 f=0.3 cw=true         Some(      713)         10      1     0          2              2     52.21       19.81
+e=0.97 f=0.3 cw=false        Some(     1545)         12      1     0          2              2     62.15       19.91
+e=0.97 f=0.3 cw=true         Some(     1545)         12      1     0          2              2     62.00       19.88
+e=0.1 f=0.8 cw=false         Some(        0)          1      0     0          0              0      4.71        4.72
+e=0.1 f=0.8 cw=true          Some(        0)          1      0     0          0              0      4.70        4.80
+e=0.2 f=0.8 cw=false         Some(       29)          6      1     0          2              2     33.93       21.19
+e=0.2 f=0.8 cw=true          Some(       29)          6      1     0          2              2     33.85       21.19
+e=0.3 f=0.8 cw=false         Some(       44)          7      1     0          2              2     37.45       19.74
+e=0.3 f=0.8 cw=true          Some(       44)          7      1     0          2              2     37.35       19.77
+e=0.5 f=0.8 cw=false         Some(       88)          8      1     0          2              2     43.80       21.18
+e=0.5 f=0.8 cw=true          Some(       88)          8      1     0          2              2     43.58       21.14
+e=0.7 f=0.8 cw=false         Some(      205)          9      1     0          2              2     48.82       21.22
+e=0.7 f=0.8 cw=true          Some(      205)          9      1     0          2              2     48.69       21.19
+e=0.9 f=0.8 cw=false         Some(     1104)         12      1     0          2              2     62.13       19.79
+e=0.9 f=0.8 cw=true          Some(     1104)         12      1     0          2              2     61.96       19.80
+e=0.95 f=0.8 cw=false        Some(     3136)         13      1     0          2              2     67.15       19.84
+e=0.95 f=0.8 cw=true         Some(     3136)         13      1     0          2              2     66.95       19.77
+e=0.97 f=0.8 cw=false        Some(     6755)         14      1     0          2              2     70.74       18.57
+e=0.97 f=0.8 cw=true         Some(     6755)         14      1     0          2              2     70.75       18.53
+grazing f=0.995              Some(    98513)         18      1     0          2              2     91.41       18.38
+grazing f=0.999              Some(    99128)         18      1     0          2              2     92.59       18.31
+grazing f=0.9999             Some(    99266)         18      1     0          2              2     91.87       18.41
+mu=3/2 f=0.4                 Some(      904)          0      0     0          0              0      0.03        0.03
+mu=3/2 f=0.8                 Some(      912)         11      1     0          2              2     58.75       21.23
+mu=3/2 f=0.99                Some(      916)         11      1     0          2              2     57.15       19.90
+rand0 e≈0.40 f≈0.18          Some(      347)          1      0     0          0              0      4.80        4.85
+rand1 e≈0.48 f≈0.81          Some(       84)          5      1     0          2              2     29.04       19.90
+rand2 e≈0.09 f≈0.54          Some(       42)          1      0     0          0              0      4.77        4.88
+rand3 e≈0.25 f≈0.77          Some(      136)          7      1     0          2              2     39.10       21.31
+rand4 e≈0.96 f≈0.09          Some(      159)          5      1     0          2              2     29.21       21.28
+rand5 e≈0.17 f≈0.60          Some(       11)          1      0     0          0              0      6.27        6.26
+rand6 e≈0.79 f≈0.17          Some(       24)          6      1     0          2              2     34.10       21.46
+rand7 e≈0.22 f≈0.24          Some(        9)          1      0     0          0              0      4.81        4.81
+rand8 e≈0.96 f≈0.24          Some(   138211)         17      1     0          2              2     87.29       20.01
+rand9 e≈0.83 f≈0.98          Some(     2040)         11      1     0          2              2     61.25       22.51
+rand10 e≈0.07 f≈0.75         Some(       22)          1      0     0          0              0      4.80        4.86
+rand11 e≈0.35 f≈0.78         Some(    11529)         13      1     0          2              2     67.44       20.00
+rand12 e≈0.46 f≈0.14         Some(      901)          1      0     0          0              0      3.53        3.55
+rand13 e≈0.82 f≈0.73         Some(    25049)         15      1     0          2              2     77.13       19.98
+rand14 e≈0.66 f≈0.63         Some(      113)          6      1     0          2              2     34.16       21.42
+rand15 e≈0.35 f≈0.84         Some(    13113)         13      1     0          2              2     67.20       19.96
+rand16 e≈0.40 f≈0.19         Some(     1170)          1      0     0          0              0      4.82        4.81
+rand17 e≈0.25 f≈0.15         Some(        6)          1      0     0          0              0      4.68        4.73
+rand18 e≈0.82 f≈0.32         Some(     8140)          1      0     0          0              0      4.76        4.85
+rand19 e≈0.69 f≈0.93         Some(    48736)         15      1     0          2              2     81.45       20.06
+rand20 e≈0.85 f≈0.51         Some(    19017)         15      1     0          2              2     76.87       20.03
+rand21 e≈0.51 f≈0.24         Some(     1631)          1      0     0          0              0      4.75        4.79
+rand22 e≈0.29 f≈0.60         Some(     1668)          1      0     0          0              0      4.84        4.86
+rand23 e≈0.50 f≈0.12         Some(       68)          1      0     0          0              0      4.81        4.85
+rand24 e≈0.96 f≈0.79         Some(    12927)         13      1     0          2              2     67.47       20.12
+rand25 e≈0.29 f≈0.59         Some(       19)          1      0     0          0              0      4.83        4.87
+rand26 e≈0.50 f≈0.40         Some(     2634)          1      0     0          0              0      4.82        4.81
+rand27 e≈0.26 f≈0.76         Some(     2782)          1      0     0          0              0      4.81        4.85
+rand28 e≈0.09 f≈0.28         Some(       19)          1      0     0          0              0      4.87        4.86
+rand29 e≈0.54 f≈0.39         Some(     1983)          1      0     0          0              0      4.79        4.83
+
+adv battery: cases 89, answered 89, mismatches 0 (any mismatch exits)
+structural guess: fired 52 on guesses 52 (100.0%), fallbacks 0 (0.0% of 89)
+mean readouts: reference 6.90, patched 1.17 (window 1.17)
+mean per call: reference 36.1 us, patched 13.8 us -> 2.62x
+trajectory Discriminant(0)
+next_periapsis(0) = Some(102495), tube periapsis_time = -102494
+residual position L1 = 508 quanta, units.0 = -34
+reference = Some(101789) in 18 probes, shipped = Ok(Some(101789))
+at_radius off (doll) = 706.7801155108168, |dr/dt| (tube) = 0.10434401547448457
+t=101787: readout radius = 100.126382, tube radius = 100.126382
+t=101788: readout radius = 100.022053, tube radius = 100.022053
+t=101789: readout radius = 99.917703, tube radius = 99.917703
+t=101790: readout radius = 99.813332, tube radius = 99.813332
+seed arm   digest   pri_med pat_med  pri_p99  pat_p99   fires fallbacks win_reads reads/fire
+s3 fly  SAME  109.257  111.672 402.77599999999995  392.769    791         0       1737 2.20
+s3 bat  SAME     None     None     None     None      0         0          0 0.00
+s7 fly  SAME 105.29299999999999  104.422 398.24800000000005 391.18699999999995   1215         0       2781 2.29
+s7 bat  SAME     None     None     None     None      0         0          0 0.00
+s11 fly  SAME  103.016  103.536  434.661 439.54699999999997    717         0       1692 2.36
+s11 bat  SAME     None     None     None     None      0         0          0 0.00
+Files lab/results/20261016-1740-second-20261016-1637-system-ff42-b583/digest-pristine.txt and lab/results/20261016-1740-second-20261016-1637-system-ff42-b583/digest-patched.txt differ
+DONE
