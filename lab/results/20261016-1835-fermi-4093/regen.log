@@ -1,0 +1,16 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.25s
+N= 100000 rtf= 100 game-s=    1898 kicks=   3624 events=  11115 p50ms=  0.036 lag=  1.45s
+N= 100000 rtf= 600 game-s=   11400 kicks=  17982 events=  37935 p50ms=  1.220 lag=  0.00s
+N= 300000 rtf= 100 game-s=    1898 kicks=   3624 events=  11115 p50ms=  0.036 lag=  1.45s
+N= 300000 rtf= 600 game-s=   11400 kicks=  17982 events=  37935 p50ms=  1.255 lag=  0.00s
+N= 300000 rtf=1800 game-s=   13574 kicks= 186279 events= 207611 p50ms= 11.903 lag= 29.79s
+
+cost anchor ~51.8 us/event (p50 ms / p50 events, two arms)
+10^9 quiet-belt kick rail @ rtf   1:     1.8 cores (average)
+10^9 quiet-belt kick rail @ rtf  10:    18.4 cores (average)
+10^9 quiet-belt kick rail @ rtf 100:   184.2 cores (average)
+freeze at N=3e+05:     0.01 h per crest (one budget-core)
+freeze at N=1e+06:     0.02 h per crest (one budget-core)
+freeze at N=1e+09:    20.00 h per crest (one budget-core)
+clock gap own-period vs doll grid: 17x at 1 AU, 49x at 2 AU
+measured B3 lag 29.8 s vs predicted 21.6 s
