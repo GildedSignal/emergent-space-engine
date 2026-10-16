@@ -1,0 +1,87 @@
+//! The opening exodus under burn (second author, 20261016-1319): the same print-only instrument as
+//! exodus_attr (per-frame wall ms, resolved events, Stats deltas) plus the composition's own columns —
+//! held scans (the latch's backlog), encounters logged, decisions — and the prof stages a burn rides
+//! (decision, scan capture/answer, fit). No engine line touched.
+//! Usage: exodus_burn <members> <frames> [seed] [budget_ms] [rtf] [fleet] [level] [mode] [crest]
+//!   mode 0: coast (the original attribution arm, keys 0 forever)
+//!   mode 1: forward burn held from tick 0 at `level` (input(0, word(1, level)); a held key is not a
+//!           decision per frame — the engine's own rule)
+//!   mode 2: coast, then one decision landing inside the drain: schedule(crest*want, word(1, level)),
+//!           the crest frame of the coast baseline (default 62)
+use emergent_universe::fleet::Order;
+use emergent_universe::scenario::plane_extra;
+use emergent_universe::thrust::word;
+use emergent_universe::view::TICK_SECONDS;
+use emergent_universe::universe::Stats;
+use emergent_universe::{Budget, Config};
+use std::time::{Duration, Instant};
+
+fn delta(a: &Stats, b: &Stats) -> Stats {
+    let mut d = Stats::default();
+    d.kicks = b.kicks - a.kicks;
+    d.opens = b.opens - a.opens;
+    d.boundaries = b.boundaries - a.boundaries;
+    d.handoffs = b.handoffs - a.handoffs;
+    d.lost = b.lost - a.lost;
+    d.refused = b.refused - a.refused;
+    d.slices = b.slices - a.slices;
+    d.encounters = b.encounters - a.encounters;
+    d.decisions = b.decisions - a.decisions;
+    d.leavers = b.leavers - a.leavers;
+    d.dissolved = b.dissolved - a.dissolved;
+    d.cost_ns = std::array::from_fn(|i| b.cost_ns[i] - a.cost_ns[i]);
+    d.items = std::array::from_fn(|i| b.items[i] - a.items[i]);
+    d
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let members: u64 = args.get(1).cloned().unwrap_or_else(|| "0".into()).parse().unwrap();
+    let frames: usize = args.get(2).cloned().unwrap_or_else(|| "90".into()).parse().unwrap();
+    let seed: u64 = args.get(3).cloned().unwrap_or_else(|| "1".into()).parse().unwrap();
+    let budget_ms: f64 = args.get(4).cloned().unwrap_or_else(|| "12".into()).parse().unwrap();
+    let rtf: f64 = args.get(5).cloned().unwrap_or_else(|| "100".into()).parse().unwrap();
+    let fleet: u64 = args.get(6).cloned().unwrap_or_else(|| "48".into()).parse().unwrap();
+    let level: u8 = args.get(7).cloned().unwrap_or_else(|| "0".into()).parse().unwrap();
+    let mode: u8 = args.get(8).cloned().unwrap_or_else(|| "0".into()).parse().unwrap();
+    let crest: u64 = args.get(9).cloned().unwrap_or_else(|| "62".into()).parse().unwrap();
+    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, fleet, members as usize).unwrap();
+    let want = (rtf * (1.0 / 60.0) / TICK_SECONDS) as i64;
+    match mode {
+        1 => p.u.input(0, word(1, level)).unwrap(),
+        2 => p.u.schedule((crest as i64) * want, word(1, level)).unwrap(),
+        _ => {}
+    }
+    println!(
+        "# extra={members} fleet={fleet} seed={seed} budget_ms={budget_ms} rtf={rtf} level={level} mode={mode} crest={crest} bodies={} want={want}",
+        p.u.n_bodies()
+    );
+    println!("# frame ms events lag kicks opens boundaries handoffs slices decisions leavers heldscans encounters | cost_us[planet moon ship player fleet] items[5]");
+    let mut prev = p.u.stats.clone();
+    let mut worst: Vec<(usize, f64)> = Vec::new();
+    for f in 0..frames {
+        let start = Instant::now();
+        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(budget_ms as u64)) }, i64::MAX);
+        let ms = start.elapsed().as_secs_f64() * 1e3;
+        let d = delta(&prev, &p.u.stats);
+        prev = p.u.stats.clone();
+        let lag = (frame.target - frame.presented) as f64 * TICK_SECONDS;
+        let cu: Vec<String> = d.cost_ns.iter().map(|n| format!("{:.0}", *n as f64 / 1e3)).collect();
+        println!(
+            "f{f} {ms:.2} {} {lag:.3} {} {} {} {} {} {} {} {} {} | {} {:?}",
+            frame.events, d.kicks, d.opens, d.boundaries, d.handoffs, d.slices, d.decisions, d.leavers,
+            p.u.held_scans(), d.encounters,
+            cu.join(" "), d.items
+        );
+        worst.push((f, ms));
+    }
+    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    let top: Vec<String> = worst.iter().take(5).map(|(f, m)| format!("f{f}:{m:.2}")).collect();
+    println!("# worst5: {}", top.join(" "));
+    if emergent_universe::prof::ENABLED {
+        let (ns, n) = emergent_universe::prof::take();
+        for i in [16, 8, 9, 5, 23, 17, 18, 19, 20, 21, 22] {
+            println!("# prof {:<38} {:>10.0} us {:>8} calls", emergent_universe::prof::NAMES[i], ns[i] as f64 / 1e3, n[i]);
+        }
+    }
+}

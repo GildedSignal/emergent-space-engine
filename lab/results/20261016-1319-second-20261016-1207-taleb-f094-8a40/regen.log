@@ -1,0 +1,62 @@
+== build (plain first: the grid's us numbers carry no prof timers; then prof for the stage split) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.44s
+== coast baselines (the one-variable comparison) ==
+== the burn composition (held forward burn from tick 0) ==
+== one decision landing at the coast's crest (f62) ==
+== served budget 5 ms ==
+== determinism: two identical burn runs, count columns only ==
+count columns differ only at the drain boundary (wall budget); totals below hold
+== prof stage split (timer overhead ~12%: read shares, not absolute us) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.71s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+
+== summary ==
+arm                worst-frame         lagmax     leavers(f<100/total) opens dec perLeaver player_us(f<100) drain hs_max
+base48.txt         f62:11.4ms/31ev f62:1.448 43(43) 43 0 627us 1898 3 1
+burn48-L8.txt      f62:11.6ms/32ev f62:1.433 43(43) 43 0 608us 125047 30 1
+burn48-L4.txt      f62:12.1ms/31ev f62:1.447 43(43) 43 0 638us 28905 7 1
+crest48-L8.txt     f62:11.6ms/33ev f62:1.448 43(43) 44 1 618us 84359 38 1
+base400.txt        f82:11.7ms/85ev f13:1.667 361(356) 361 0 567us 2243 82 1
+burn400-L8.txt     f24:11.9ms/20ev f13:1.667 361(356) 361 0 554us 130355 130 51
+b5-base400.txt     f14:6.2ms/9ev f15:1.667 347(337) 347 0 555us 896 80 1
+b5-burn400-L8.txt  f18:6.9ms/15ev f19:1.667 343(320) 343 0 564us 92768 115 157
+latch tails: burn400-L8 last 5 frames hs = [1, 0, 0, 0, 0] ; b5-burn400-L8 last 5 hs = [144, 145, 145, 145, 145]
+prof-base48.txt
+# prof decision (player input)                         0 us        0 calls
+# prof encounters: capture (cheap half)              718 us       24 calls
+# prof encounters: held scans answered              4784 us       24 calls
+# prof   fit: bind_surface (kicks, hand-outs)      25882 us      250 calls
+# prof   fit again: the coarser word (bind_surface)       8397 us       27 calls
+# prof fleet: battle run_to                         4338 us      672 calls
+# prof fleet: advance (whole item)                  4985 us      672 calls
+# prof hand-out (a member made a body)             25638 us       43 calls
+# prof   hand-out: pull planets and moons              4 us       43 calls
+# prof   hand-out: bind (the member as a tube)      18181 us       43 calls
+# prof   hand-out: first plan (replan)              6810 us       43 calls
+
+prof-burn48.txt
+# prof decision (player input)                         9 us        1 calls
+# prof encounters: capture (cheap half)             6550 us      608 calls
+# prof encounters: held scans answered             38270 us      608 calls
+# prof   fit: bind_surface (kicks, hand-outs)     120335 us      542 calls
+# prof   fit again: the coarser word (bind_surface)      10335 us       38 calls
+# prof fleet: battle run_to                         4709 us     1696 calls
+# prof fleet: advance (whole item)                  5448 us     1696 calls
+# prof hand-out (a member made a body)             24982 us       43 calls
+# prof   hand-out: pull planets and moons              4 us       43 calls
+# prof   hand-out: bind (the member as a tube)      17614 us       43 calls
+# prof   hand-out: first plan (replan)              6703 us       43 calls
+
+prof-burn400.txt
+# prof decision (player input)                         9 us        1 calls
+# prof encounters: capture (cheap half)            24777 us      577 calls
+# prof encounters: held scans answered            380011 us      577 calls
+# prof   fit: bind_surface (kicks, hand-outs)     305440 us     2429 calls
+# prof   fit again: the coarser word (bind_surface)      64509 us      239 calls
+# prof fleet: battle run_to                        50001 us     3587 calls
+# prof fleet: advance (whole item)                 50923 us     3587 calls
+# prof hand-out (a member made a body)            181910 us      361 calls
+# prof   hand-out: pull planets and moons             37 us      361 calls
+# prof   hand-out: bind (the member as a tube)     133381 us      361 calls
+# prof   hand-out: first plan (replan)             43682 us      361 calls
+
