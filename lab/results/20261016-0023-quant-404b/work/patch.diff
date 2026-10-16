@@ -1,0 +1,155 @@
+diff --git a/crates/universe/examples/birth_rail.rs b/crates/universe/examples/birth_rail.rs
+new file mode 100644
+index 00000000..3d1355cf
+--- /dev/null
++++ b/crates/universe/examples/birth_rail.rs
+@@ -0,0 +1,46 @@
++//! The birth rail: what one belt body costs to make on the shipped plane, and where the ladder's
++//! 28-31 us/body build goes that `add_body`'s 9.2 us promotion path (c4d3) does not cover.
++//!
++//! Runs `plane_extra` (the ladder's own population, seed 1, one thread, as the ladder flies) at
++//! each N, best of REPS after one warm rep. With `ES_BIRTH_SPLIT=1` the crate prints the split
++//! (`[birth] ladder ...` = draw+add_body per body; `[birth] start ...` = the first-plan pass,
++//! requeue, allocations, fleet, rekey) to stderr; without it this is the shipped path, prints and
++//! all. Per-body terms are slopes against the N=0 arm (the plane's own ~30 bodies are the fixed
++//! part). Cloud timings are Linux/x86: orders and ratios only.
++//!
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::Config;
++
++fn main() {
++    let ns: Vec<usize> = std::env::args().skip(1).map(|s| s.parse().unwrap()).collect();
++    let ns = if ns.is_empty() { vec![0, 10_000, 100_000, 300_000] } else { ns };
++    let reps: usize = std::env::var("REPS").ok().and_then(|s| s.parse().ok()).filter(|&r| r > 0).unwrap_or(3);
++    let seed: u64 = std::env::var("SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let load = std::fs::read_to_string("/proc/loadavg").unwrap_or_default();
++    let load = load.split_whitespace().next().unwrap_or("?");
++    println!("birth_rail: seed {seed}, {reps} reps (best of, after 1 warm), 1 thread, load {load}");
++    let mut prev: Option<(usize, f64)> = None;
++    for &n in &ns {
++        let mut best = f64::INFINITY;
++        for r in 0..=reps {
++            let t = std::time::Instant::now();
++            let p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++            let dt = t.elapsed().as_secs_f64();
++            drop(p);
++            if r > 0 {
++                best = best.min(dt);
++            }
++        }
++        let incl = best * 1e6 / (n.max(1)) as f64;
++        let line = format!("N={n:>8} build {best:8.3} s  {incl:7.1} us/body(incl fixed)");
++        match prev {
++            Some((n0, t0)) if n > n0 => {
++                let slope = (best - t0) * 1e6 / (n - n0) as f64;
++                println!("{line}  slope vs N={n0}: {slope:7.1} us/body");
++            }
++            _ => println!("{line}"),
++        }
++        prev = Some((n, best));
++    }
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..5464672c 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -23,3 +23,13 @@ pub use body::Kind;
+ pub use ctx::Config;
+ pub use universe::{Budget, OrbitSpec, Universe};
+ pub use world::{Mass, Unit};
++/// `ES_BIRTH_SPLIT=1`: print-only timers for the birth rail (the ladder build's per-body cost split
++/// into the draw+`add_body` loop and `Universe::start`'s passes). No engine state is read or changed;
++/// unset, `0` and `""` mean off and the code below `start`/`plane_with_extra` is the shipped path.
++pub(crate) static BIRTH_SPLIT: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
++    std::env::var("ES_BIRTH_SPLIT").map(|v| !v.is_empty() && v != "0").unwrap_or(false)
++});
++
++pub(crate) fn birth_split() -> bool {
++    *BIRTH_SPLIT
++}
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..4db1e7f7 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -257,11 +257,16 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         names.push(format!("Skimmer {}", k + 1));
+     }
+     // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
++    let bs = crate::birth_split();
++    let t_ladder = std::time::Instant::now();
+     for k in 0..extra {
+         let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+         names.push(String::new());
+     }
++    if bs {
++        eprintln!("[birth] ladder extra={extra} draw_add={}ns", t_ladder.elapsed().as_nanos());
++    }
+     // The fleet: lattice radius of Home's low orbit (7,000 km: 4,740 root units), starting at angle 0.
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..695c9fc4 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -474,6 +474,9 @@ impl Universe {
+ 
+     /// Everything is made: plan every body's first interval and build the queue.
+     pub fn start(&mut self) -> Res<()> {
++        let bs = crate::birth_split();
++        let (mut t_alloc, mut t_plan, mut t_requeue, mut t_fleet) = (0u128, 0u128, 0u128, 0u128);
++        let t0 = std::time::Instant::now();
+         let n = self.bodies.len();
+         self.lanes = Lanes { planets: self.kinds(Kind::Planet), moons: self.kinds(Kind::Moon) };
+         self.pos = vec![[0.0; 2]; n];
+@@ -482,18 +485,30 @@ impl Universe {
+         self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
+         self.waiting = Calendar::new(self.body_cap + self.fleets.len());
+         self.prunable = Calendar::new(self.body_cap + self.fleets.len());
++        if bs {
++            t_alloc = t0.elapsed().as_nanos();
++        }
++        let t1 = std::time::Instant::now();
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+             let upd = step::replan(&self.ctx(), i, rec, 0);
+             self.apply(i, upd);
+         }
++        if bs {
++            t_plan = t1.elapsed().as_nanos();
++        }
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
+         // Every ship waits for the target to reach its tick (none is due at the start).
++        let t2 = std::time::Instant::now();
+         for i in 0..n {
+             if self.info[i].kind == Kind::Ship {
+                 self.requeue(i);
+             }
+         }
++        if bs {
++            t_requeue = t2.elapsed().as_nanos();
++        }
++        let t3 = std::time::Instant::now();
+         let (ctx, fleets) = self.split();
+         for f in fleets.iter_mut() {
+             f.start(&ctx);
+@@ -503,7 +518,18 @@ impl Universe {
+         for f in 0..self.fleets.len() {
+             self.update_fleet_position(f);
+         }
++        if bs {
++            t_fleet = t3.elapsed().as_nanos();
++        }
++        let t4 = std::time::Instant::now();
+         self.rekey();
++        if bs {
++            eprintln!(
++                "[birth] start n={n} alloc={t_alloc} plan={t_plan} requeue={t_requeue} fleet={t_fleet} rekey={} total={}",
++                t4.elapsed().as_nanos(),
++                t0.elapsed().as_nanos()
++            );
++        }
+         Ok(())
+     }
+ 
