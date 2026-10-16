@@ -1,0 +1,59 @@
+== P1: conflict growth in lab/wiki history (real publishes) ==
+-- nladder.md
+   a523ace9 markers=7 maxdepth=3
+   2ac3c8d2 markers=3 maxdepth=1
+   b07f5a0b markers=0 maxdepth=0
+   cab6188d markers=0 maxdepth=0
+   85b12b5f markers=7 maxdepth=2
+   01f99efd markers=1 maxdepth=1
+   c8cd60bd markers=2 maxdepth=1
+   85adb7cf markers=10 maxdepth=2
+-- scan-queue.md
+   c9657cd1 markers=7 maxdepth=1
+   cab6188d markers=0 maxdepth=0
+   c8cd60bd markers=0 maxdepth=0
+-- encounters.md
+   db0f3e74 markers=5 maxdepth=1
+   f1322a79 markers=0 maxdepth=0
+   315ea890 markers=0 maxdepth=0
+   2674377a markers=0 maxdepth=0
+   ffb0eee3 markers=0 maxdepth=0
+-- markers on the checked-out tree:
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/wiki/encounters.md:5
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/wiki/nladder.md:7
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/wiki/scan-queue.md:7
+17:| [scan-queue](scan-queue.md) | open **conflict to resolve** | 5 | <<<<<<< main |
+30:| [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
+32:| [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |
+
+== P2-P4: shipped apply() on three concurrent same-section publishes (pristine) ==
+[PRISTINE] after A: markers=0
+[PRISTINE] after B: markers=1
+[PRISTINE] after C: markers=4 maxdepth=4
+[PRISTINE] after D: markers=8 maxdepth=8
+[PRISTINE] index row: | [topic](topic.md) | open **conflict to resolve** | 5 | <<<<<<< main |
+[PRISTINE] summary() returns: '<<<<<<< main'
+[PRISTINE] runs-union kept: 5 run lines
+[PRISTINE] sides preserved: A=3 B=3 C=2 D=1
+
+== P5: the same sequence through the patched apply() ==
+[PATCHED] after A: markers=0
+[PATCHED] after B: markers=0
+[PATCHED] after C: markers=0 maxdepth=0
+[PATCHED] after D: markers=0 maxdepth=0
+[PATCHED] index row: | [topic](topic.md) | open **conflict to resolve** | 5 | **Best A plus runA.** |
+[PATCHED] summary() returns: '**Best A plus runA.**'
+[PATCHED] runs-union kept: 5 run lines
+[PATCHED] sides preserved: A=3 B=3 C=2 D=1
+
+== P6: heal today's real pages on a copy; content preservation ==
+pages with conflict markers today: 4 (encounters.md, index.md, nladder.md, scan-queue.md)
+  encounters.md: 5 conflict blocks, 156 lines inside them
+  index.md: 0 conflict blocks, 0 lines inside them
+  nladder.md: 4 conflict blocks, 120 lines inside them
+  scan-queue.md: 7 conflict blocks, 111 lines inside them
+blocks checked: 16, sides verified verbatim: 32, all preserved: True
+healed index rows leak markers: 0
+  | [encounters](encounters.md) | open **conflict to resolve** | 95 | **The exact tier is empty at the key's own quantum, and the affordable gate is a |
+  | [nladder](nladder.md) | open **conflict to resolve** | 145 | **The cure's legality is adjudicated on the population no gate can see, and it is innoc
+  | [scan-queue](scan-queue.md) | open **conflict to resolve** | 5 | **The priced cure's first half is built and measured: an angular certificate on the

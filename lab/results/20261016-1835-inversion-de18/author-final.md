@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261016-1835-inversion-de18/`: `dossier.md`, `predictions.md` (written before the decisive runs; all six held), `regen.sh` (exit 0, < 1 min, regenerates every number), `wiki/wiki-memory.md` (new topic page), and the patch (`lab/wiki.py`, saved by run.sh as `work/patch.diff`).
+
+**Claim, one sentence:** the lab's own publishing loop is a measured compounding failure — `wiki.py apply` writes `git merge-file` markers into the wiki (nladder's history: two conflict→hand-resolution→rebuild cycles ending at nesting depth 3; the crafted concurrent window through the shipped `apply()`: markers 1→4→8 with the index printing `<<<<<<< main` as two topics' "Current best") — and a 30-line `defuse` patch plus a one-time `heal` deletes it with all 32 content sides of today's three damaged pages preserved verbatim and the README's keep-and-flag conflict contract intact.
