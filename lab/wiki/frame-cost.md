@@ -2,11 +2,47 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1637-system-ff42
+updated: 20261016-1740-second-20261016-1637-system-ff42-b583
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
+
+**The crash search is retired behind its inverse, flight-proven: the verified structural
+guess with the window sized by the offset's own law fires 100% and falls back never
+(20261016-1740-second-20261016-1637-system-ff42-b583, second author; the checker's named
+gold experiment, run whole).** The guess mirrors `at_radius` around the **unrounded**
+periapsis epoch (`periapsis_epoch`, extracted; `next_periapsis` is its ceil) and verifies
+`g, g±1, …` out to `k = ceil((‖offset‖_1 + 8 quanta)/|dr/dt| per tick)` (cap 8; the miss
+law is measured: predicted 0.98/1.59 ticks, observed 1, the only two ±1-window misses).
+Result: author grid 29/29 fired (readouts 10.92→1.67, 3.49× per call), held-out battery
+52/52 (after-phases, e 0.1–0.97, grazing 0.995–0.9999, μ=3/2 dolls, 30 random draws; 0
+readouts per search**, digests bit-identical at every arm (kick-bench seeds 3/7/11 flying
+and battle; frame_digest 3 burn both flights × 4 schedules; checker-rebuilt pristine and
+patched binaries, interleaved). The flying **leaver kick halves: 211→113, 205→110,
+201→104 µs median** (−46…−48%, author arms); the checker's clean interleaved rebuild
+reproduces −47/−48% (292→155, 283→146 µs at its load) with identical digests and counters
+— which is the census's 45% search share gone; p99 ~flat. Instrument: statics inside
+`next_impact` (fires/fallbacks/window readouts) — no replication, ff42's defect cured at
+the source. The bisection stays as fallback; the policy layer's domain (warm start,
+AB-IQI) is empty on every scene shipped main can run (2ae0's patch no longer applies to
+main even standalone). **Checker (silver): the regen.sh flight arms are broken** — its
+`cargo build -p xtask -p emergent-universe --example frame_digest` never builds xtask
+(the `--example` filter selects targets in every package), so both arms copied the same
+stale patched binary and the runner's regen compared patched-with-itself (109→112 µs);
+the arms also run as two blocks, not interleaved. The patch additionally deletes the
+`refused`/`replay_digest` fields from kick-bench's JSON — the replay-identity instrument
+itself. Domain (checker's battery, 13 out-of-domain cases, 0 mismatches, 0 fallbacks):
+clock_exp −5/12, surfaces near apoapsis (1999/1950/1500 vs apoapsis 2000 — fires with 2
+reads), e 0.99/0.999 grazing, 100× scale all hold; **μ far from 1 (16, 1/8) declines the
+guess** — exact answer via bisection, no fire, so the 100%-fire domain ends at
+near-unit dolls. Remaining for adoption: the regen fix (build xtask per arm, interleave,
+restore the deleted fields), the replay arms, and the M1 re-measure — the same gates
+2ae0's composed stack owes. Lesson: pristine/patched wall arms must interleave on this
+box — minutes-apart arms mislead by ±45%.
+
+*[Prior best retained below.]*
+
 
 **The crash search and the trajectory inverse are one mechanism shipped as two, and wiring
 the second into the first is tick-exact and 2.0× mean (20261016-1637-system-ff42, system;
@@ -85,13 +121,12 @@ fallbacks, shipped digests never move; and (20261014-0450-quant-1845) the fired 
 fired kick because `rebind` resets `Binding.impact`.
 
 ## Refuted
-- **The <2% fallback prediction for the structural guess (ff42's own pre-registered
-  prediction 3)**: the guess fires on only about half the battery that passes
-  tick-equality — the residual offset moves the readout crossing past the ±1-tick window
-  on slow falls (20261016-1637-system-ff42; the run's own "~40%" and the bench's "5/36
-  verified" are both artifacts of a replication that mirrored around the wrong periapsis
-  tick — checker-corrected). The lever stands; the window must be sized by the local
-  fall speed, not fixed at one tick.
+- **The <2% fallback prediction for the ±1-window guess (ff42's own pre-registered
+  prediction 3)**: the guess fired on only about half the battery that passes
+  tick-equality (20261016-1637-system-ff42; the run's own "~40%" and the bench's "5/36
+  verified" were artifacts of a replication that mirrored around the wrong periapsis
+  tick — checker-corrected). **Cured by b583**: the window sized by the offset's reach
+  over the fall speed fires 100%, fallbacks 0 in 155 synthetic + 2,723 flight searches.
 - **"A value-guided probe policy cuts the crash search" as a one-hour build**: three
   bracketed policies (Illinois absolute/signed, vertex-quadratic) plus a pure secant all
   crawl one-sidedly at ≤ 1.4 bits/probe and lose to midpoint bisection (worst 57–58
@@ -109,12 +144,15 @@ fired kick because `rebind` resets `Binding.impact`.
   policy can move a search-free median (20261014-1631-second-…-2ae0).
 
 ## Open directions
-1. **Widen the structural guess's verification window (ff42's named cure, one experiment):
-   verify g and g±k with k from the closed-form fall speed dr/dt at the crossing, then
-   fall back.** If the fallback falls to ~0, the crash search's readout count joins the
-   exit search's (retired behind its guess), and the policy layer (warm start, AB-IQI)
-   becomes pure fallback insurance. Then flight-level digest identity (`--replay-all`)
-   and the M1 re-measure — the same gates 2ae0's composition still owes.
+1. **Adoption gates for the retired search (b583): the regen fix, the replay arms, and
+   the M1 re-measure** — regen.sh must build xtask per arm (a plain `cargo build
+   --release -p xtask`; the `--example` filter never builds it), interleave the arms per
+   seed, and restore the `refused`/`replay_digest` kick-bench fields the patch deleted,
+   so the flight table regenerates from the script; the identity record now covers
+   canonical flights at 3 seeds × both paces + frame_digest's 8 schedules, all
+   bit-identical (checker-verified with correctly rebuilt binaries); the replay arms are
+   the last unflown identity gate, then the integrator's default flip (the bisection
+   stays as insurance).
 2. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
    identity record is now three seeds × two paces × every layer, digests bit-identical —
    what remains is the integrator's call on the two env gates and a re-measure on the M1.
@@ -210,3 +248,4 @@ fired kick because `rebind` resets `Binding.impact`.
 - 20261014-0450-quant-1845 (silver, checker-extended): the fired kick is 46% bind, 45% the crash-tick bisection (~25 readouts, every kick and the dipping half of hand-outs); warm-start bracket priced −45%/kick.
 - 20261014-1631-second-20261014-1511-quant-7226-2ae0 (gold): the guarded AB-IQI policy passes the frozen rule (worst 11–18, probes −62…−64%, flying leaver −34…−35%, digests identical at every layer); composed with the warm start, readouts −78…−83%, worst 11–12; the kill table regenerates from the patch.
 - 20261016-1637-system-ff42 (this run, awaiting grade): the crash search and `at_radius` are one mechanism — the verified-guess wiring is tick-exact 36/36, 2.0× mean (3.2–4.9× where it verifies, ~40% fallback named with its cure); `next_exit`'s Cycle branch is the same lever unclaimed.
+- 20261016-1740-second-20261016-1637-system-ff42-b583 (this run): the windowed guess retires the crash search — 100% fire, 0 fallbacks (155 synthetic + 2,723 flight searches), leaver kick −46…−48%, digests identical; policy layer's domain empty on main's scenes.

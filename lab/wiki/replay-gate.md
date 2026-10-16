@@ -2,11 +2,41 @@ topic: replay-gate
 status: open
 closed-by:
 valid-while:
-updated: 20261014-0450-second-20261014-0059-inversion-8e84-7559
+updated: 20261016-1740-taleb-a8cd
 
 # The replay gate: budget decay, a stale canon that rewards reverting fixes, and no teeth for law regressions
 
 ## Current best
+
+**The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is
+libm-conditional, and the law is bit-innocent (20261016-1740-taleb-a8cd, Taleb; open direction 4
+answered).** On the lab box `cargo test -p xtask` fails 201/10 (the seven of 7559, deterministic
+over three runs, plus three new load-class flaky ones — `the_other_gates_can_fail_too` and
+`each_planted_law_fails_exactly_its_gate` pass when rerun alone; `scale::echo_is_linear…`, which
+dies in the B10 judge's budget refusal, failed even solo under the checker's load, same unwrap
+signature — load-class, but "passes alone" is load-contingent [checker]). The seven: this box's
+oracle re-assesses the frozen 16 with **9 ships under the frozen 20 crossings, #88 inside at
+0.271 Rp, #138 unconverged → 14/16 judged, excluded 2 > the 10% allowance, so B12 itself fails
+for Echo** — the freeze's own "chaos moves with the last bit" budget exceeded by machine
+distance. The channel, measured: ±1 ulp on one seed angle moves judged 14→11→8 of 16 (kept[0]:
+closest 59.5→4.2→0.040 Rp; checker at ±4 ulp: 14→9→12, still O(ships) churn); glibc vs musl
+disagree on the seed sin/cos/powf of the flagged calls (trig on 4 ships, powf on 2) and build a
+different corpus (15/16, different members), with **glibc correctly rounded on all of them
+(mpmath) and musl the one off by ≥1 ulp** — real libms disagree on these exact inputs, and
+macOS's is a third implementation. The failing ship's observable is itself a coin flip on those
+bits: #57 reads 24.37 quanta / 8.409e-8 of work pristine (bar 5e-8), 4.563e-9 at +1 ulp,
+1.478e-7 at −1 ulp, kick count 7016→5423 — **the bar sits inside the ulp scatter, so no
+per-ship bound there is machine-portable.** The law is innocent by history control: at the freeze
+commit c84f5787 the test reads bit-identically
+(7016 kicks, 24.37109375, 8.409466703853747e-8) — six days of merges moved nothing. Consequence:
+7 of 10 reds are "broken instrument", not regressions; the lab's corpus-dependent tests certify
+nothing about the law on any non-M1 libm. Fixes, cheapest first: freeze the assessed fields
+(crossings/converged/closest) beside HANDOFF_KEPT; CR-only oracle arithmetic (sqrt is exact,
+sin_cos/powf/cbrt/hypot are not); or ignore-on-non-M1. Same disease as decision-log's
+machine-noise canon, one layer up: floats decide the gates' verdicts where PRINCIPLES lets them
+decide nothing.
+
+*[The standing record below is unchanged.]*
 
 **The gate cannot fail for a law regression, and on main as it stands it certifies the
 wrapping-contact bug it was supposed to guard against: reverting the 13-October 512-bit
@@ -100,6 +130,13 @@ skip the longest committed real flight and print `0 regression(s)`, exit 0 (chec
   laws never entering `universe.rs`, and pass serially, 7/7), while M-wrap dies
   in the lattice's own `hit_is_exact…`; only the never-automatically-run
   `behave --law plane` remains unmeasured (20261014-0450-second-…-7559).
+- **"One M1 rerun decides machine-dependence vs a red main" (this page's own open
+  direction 4): decided on the lab box alone — both, and separable.** The seven
+  deterministic x86 reds are machine-dependence (libm-conditional corpus: ±1 ulp moves
+  judged 14→8, glibc-vs-musl corpora differ, glibc CR where musl is not, the failing
+  ship's bar inside its ulp scatter, and the freeze-commit control bit-identical — so not
+  a regression); the three new reds are load flakiness, not law (pass when run alone)
+  (20261016-1740-taleb-a8cd).
 
 ## Open directions
 
@@ -120,12 +157,16 @@ skip the longest committed real flight and print `0 regression(s)`, exit 0 (chec
 3. **`behave --law plane` under the mutants, on the M1** (the one unmeasured
    instrument): the clean tree fails it on the lab's shared x86 box (B14's 60 s limit,
    B12/B13 convergence), so only the integrator can run the two-mutant check — minutes,
-   one command each (7559).
-4. **Is main's xtask suite red on x86?** `cargo test -p xtask` fails 7 tests on the
-   lab box with a deterministic signature (`across_a_kick…` ship 3 reads 24.4 quanta
-   against a bound the other three ships meet at 1–3; five handoff tests and one
-   events test besides) — one M1 rerun decides machine-dependence vs a red main
-   (7559, a lead from the controls, not from the mutants).
+   one command each (7559). [a8cd: on the x86 box, B12's failure is now known to be the
+   libm corpus, and B14's the timing budget — the "clean tree fails" reading needs the
+   corpus fix first or the M1.]
+4. ~~**Is main's xtask suite red on x86?**~~ Answered (20261016-1740-taleb-a8cd): 201/10
+   — seven deterministic machine-reds (libm corpus; mechanism measured, law innocent at
+   the freeze commit), three load-flaky. The remaining M1 question is one of ~6 seed
+   bits (does macOS's libm match glibc on this chain), not an open mechanism. Follow-ups:
+   freeze the assessed corpus fields or make the oracle CR-only; re-check the three
+   flaky ones for a test-interaction mechanism; the 7559 handoff-test failures on any
+   lab checkers' boxes all share this one cause.
 5. **Budget honesty and retention** (30da): `skipped > 0` exits non-zero and/or parallel
    replays; keep the K most recent flights plus any that ever caught a regression.
 
@@ -139,3 +180,4 @@ mutant's digests under a clean tree) was diagnosed and superseded by the
 - 20261014-0000-inversion-30da (ungraded): the merge gate skips flights silently once
 - 20261014-0059-inversion-8e84 (silver): gate-bite mutant panel — no law regression can
 - 20261014-0450-second-20261014-0059-inversion-8e84-7559 (second author): the named
+- 20261016-1740-taleb-a8cd (awaiting grade): the x86 suite red decided — libm-conditional corpus, law innocent; 7 machine-reds, 3 load-flaky
