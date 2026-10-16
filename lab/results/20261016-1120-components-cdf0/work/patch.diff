@@ -1,0 +1,161 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..f5c809b4 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux port (lab 20261016-1120-components-cdf0): VmRSS now and VmHWM (peak resident) from /proc/self/status.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let kb = |v: &str| v.trim().trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1024;
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = kb(v);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = kb(v);
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..4e7f0422 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -15,6 +15,13 @@ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+ use std::sync::{Arc, Mutex, OnceLock};
+ 
++/// Lab probe 20261016-1120-components-cdf0: a print-only census of the scan's candidate set. Off unless `ES_SCAN_CENSUS` is set.
++fn census() -> bool {
++    static C: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_SCAN_CENSUS").is_ok_and(|v| v != "0" && !v.is_empty()));
++    *C
++}
++
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+@@ -118,7 +125,6 @@ impl PlayerNeighbourhood {
+ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+     Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+ }
+-
+ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+@@ -128,15 +134,28 @@ impl Held for Scan {
+ impl Scan {
+     /// The expensive half: read the player and each candidate at `t` and apply the predicate.
+     fn compute(&self) -> Vec<Encounter> {
++        let start = std::time::Instant::now();
+         let mut out = Vec::new();
+         let (t, body) = (self.t, self.body);
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+         let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
++        // Census: the smallest approach distance of any candidate, in units of the pair's reach (exploration in f64; no decision reads it).
++        let (mut min_any, mut min_miss) = (f64::INFINITY, f64::INFINITY);
+         for (j, other, reach) in &self.candidates {
++            let mut m = f64::INFINITY;
+             let found = (|| -> Res<Option<bool>> {
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
+                 let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
++                if census() {
++                    let (dx, dy, wx, wy) = (to_f64(d[0]), to_f64(d[1]), to_f64(w[0]), to_f64(w[1]));
++                    let (dd, dw, ww) = (dx * dx + dy * dy, dx * wx + dy * wy, wx * wx + wy * wy);
++                    let s = if ww > 0.0 { (-(dw / ww)).clamp(0.0, 1.0) } else { 0.0 };
++                    let rf = to_f64(*reach);
++                    if rf > 0.0 {
++                        m = ((dd + 2.0 * s * dw + s * s * ww).max(0.0)).sqrt() / rf;
++                    }
++                }
+                 // Integers in units of reach/2^20: the lattice predicate is exact on i128 (until it wraps: see above).
+                 let q_exp = reach.exponent() as i32 - 20;
+                 let (di, wi) = (integers(d, q_exp)?, integers(w, q_exp)?);
+@@ -146,10 +165,25 @@ impl Scan {
+                 }
+                 Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
+             })();
++            if census() {
++                min_any = min_any.min(m);
++                if matches!(found, Ok(None)) {
++                    min_miss = min_miss.min(m);
++                }
++            }
+             if let Ok(Some(contact)) = found {
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
++        if census() {
++            let dt = start.elapsed().as_secs_f64() * 1e6;
++            let pc = if self.candidates.is_empty() { f64::NAN } else { dt / self.candidates.len() as f64 };
++            eprintln!(
++                "SCAN_ANS t={t} cand={} hits={} us={dt:.2} us_per_cand={pc:.3} min_any_reach={min_any:.4e} min_miss_reach={min_miss:.4e}",
++                self.candidates.len(),
++                out.len(),
++            );
++        }
+         out
+     }
+ }
+@@ -164,6 +198,7 @@ impl Encounters for PlayerNeighbourhood {
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+         // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        let census_t0 = if census() { Some(std::time::Instant::now()) } else { None };
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+@@ -171,6 +206,7 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let near_n = near.as_ref().map_or(-1isize, |ids| ids.len() as isize);
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+@@ -187,6 +223,20 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if census() {
++            let cap_us = census_t0.map_or(0.0, |t0| t0.elapsed().as_secs_f64() * 1e6);
++            let h = time_of(interval, me.clock_exp).map_or(f64::NAN, to_f64);
++            let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
++            let (r, v) = me.cartesian(t).map_or((f64::NAN, f64::NAN), |(x, v)| (norm(x), norm(v)));
++            eprintln!(
++                "SCAN_CAP t={t} doll={} bodies={} near={near_n} cand={} cap_us={cap_us:.1} interval={h:.6e} r={r:.6e} v={v:.6e} reach_p={:.3e} clock_exp={}",
++                me.doll,
++                ctx.bodies.len(),
++                candidates.len(),
++                to_f64(ctx.info[body].radius),
++                me.clock_exp,
++            );
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {

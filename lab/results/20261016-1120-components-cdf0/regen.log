@@ -1,0 +1,30 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.77s
+== per flight: capture half (fallback vs kept) and answer half
+== n0_burn.err
+0/kept n=41 cap_us_mean=11 cap_us_max=17
+2/FB n=546 cap_us_mean=15 cap_us_max=58
+2/kept n=1549 cap_us_mean=11 cap_us_max=19
+ANS scans=1348 reads=31945 hits=2145 us_per_read_mean=8.50 cand_max=45 min_miss_min=11.3 reads_per_hit=15
+== n100000_burn.err
+0/kept n=41 cap_us_mean=11 cap_us_max=16
+2/kept n=2095 cap_us_mean=21 cap_us_max=171
+ANS scans=1346 reads=99113 hits=2143 us_per_read_mean=5.78 cand_max=134 min_miss_min=11.3 reads_per_hit=46
+== n1000_burn.err
+0/kept n=41 cap_us_mean=11 cap_us_max=25
+2/FB n=416 cap_us_mean=65 cap_us_max=139
+2/kept n=1679 cap_us_mean=23 cap_us_max=126
+ANS scans=1347 reads=156626 hits=2144 us_per_read_mean=5.74 cand_max=344 min_miss_min=11.3 reads_per_hit=73
+== n1000_coast.err
+2/FB n=183 cap_us_mean=118 cap_us_max=223
+2/kept n=10 cap_us_mean=19 cap_us_max=29
+ANS scans=193 reads=61622 hits=128 us_per_read_mean=4.44 cand_max=344 min_miss_min=220 reads_per_hit=481
+== per doll medians (analyze.py)
+n0_burn doll=-1: answered_scans=1348 cand: med=19 p90=44 max=45 | read_fraction_of_doll: med=nan max=nan | hits_total=2145 per_scan_med=1 | us_per_cand: med=9.01 max=12.82 | answer_us: med=174 | min_miss/reach: med=740 min=11.3 | min_any/reach: med=29.1 min=11.3
+    reads_per_hit=14.9; total_reads=31945
+n100000_burn doll=-1: answered_scans=1346 cand: med=94 p90=94 max=134 | read_fraction_of_doll: med=nan max=nan | hits_total=2143 per_scan_med=1 | us_per_cand: med=5.15 max=9.63 | answer_us: med=477 | min_miss/reach: med=675 min=11.3 | min_any/reach: med=29 min=11.3
+    reads_per_hit=46.2; total_reads=99113
+n1000_burn doll=-1: answered_scans=1347 cand: med=94 p90=344 max=344 | read_fraction_of_doll: med=nan max=nan | hits_total=2144 per_scan_med=1 | us_per_cand: med=5.15 max=9.60 | answer_us: med=479 | min_miss/reach: med=675 min=11.3 | min_any/reach: med=29 min=11.3
+    reads_per_hit=73.1; total_reads=156626
+n1000_coast doll=-1: answered_scans=193 cand: med=333 p90=340 max=344 | read_fraction_of_doll: med=nan max=nan | hits_total=128 per_scan_med=1 | us_per_cand: med=4.37 max=7.45 | answer_us: med=1457 | min_miss/reach: med=487 min=220 | min_any/reach: med=229 min=220
+    reads_per_hit=481.4; total_reads=61622

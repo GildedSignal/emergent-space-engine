@@ -1,0 +1,4 @@
+Working...
+Everything is in place and verified: `predictions.md` (pre-registered), `dossier.md`, `regen.sh` (run end-to-end — rebuild + 4 flights + aggregates reproduce every quoted number), `work/patch.diff` (print-only census + the Linux footprint port), `wiki/scan-queue.md` (result folded in), `raw/` (1.4 MB).
+
+**Claim:** the player-scan candidate set is censused end to end on shipped flights — the answer half reads 46–481 bodies per hit found (4.5–8.5 µs a read) with the nearest non-hit ~10³ × reach away (three orders of slack for a key-side angular certificate), while the O(N) term scan-queue latched on is the radial filter's N-relative fallback walking every body of the universe at the plane's own N — a small-N disease, since at 10⁵ the same filter keeps 5 of 100,071 root-doll bodies.
