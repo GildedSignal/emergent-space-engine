@@ -1,0 +1,61 @@
+{
+ "configs": {
+  "shipped cadence, today's kick (x86 50us)": 177.5,
+  "shipped cadence, today's kick (M1 29.3us)": 104.01500000000001,
+  "shipped cadence, kick at the 42-56ns floor (b063)": 0.17395000000000002,
+  "8x regime-split cadence only (7f97), 50us": 22.1875,
+  "8x + frozen-exclusion delete 38.5% (1a46)": 13.6453125,
+  "8x + widened delete 61% (1a46+RES)": 8.653125000000001,
+  "8x + widened delete + secular 15x (extrapolated, 5030)": 0.576875,
+  "8x + widened delete + secular 60x (extrapolated, 5030)": 0.14421875
+ },
+ "required_cost_us": {
+  "shipped": 1.1267605633802817,
+  "split8": 9.014084507042254,
+  "split8_del385": 14.657047978930494,
+  "split8_del61": 23.11303719754424
+ },
+ "floor_shipped_cadence_cores": 0.17395000000000002,
+ "crest_s": {
+  "1e6": 69.44444444444444,
+  "3e5": 20.833333333333336,
+  "1e9_x86": 69444.44444444445,
+  "1e9_m1": 40694.444444444445
+ },
+ "encounters_cores": {
+  "cube": [
+   1650.0,
+   8200.0
+  ],
+  "gated": [
+   68.75,
+   585.7142857142857
+  ],
+  "routed": [
+   0.03,
+   0.6
+  ]
+ },
+ "memory_gb": {
+  "compact store, phase-locked belt (measured alone)": [
+   2.625,
+   5.0
+  ],
+  "3-field sorted floor (0820 gold)": [
+   7.7,
+   7.7625
+  ],
+  "4-field exact floor, phase carried (0820 gold)": [
+   15.6875,
+   15.7625
+  ],
+  "driven-belt worst (fc48/d0ea family)": [
+   15.8,
+   15.8
+  ]
+ },
+ "ladder_wall_bodies": [
+  1185770.7509881423,
+  1649484.5360824743
+ ]
+}

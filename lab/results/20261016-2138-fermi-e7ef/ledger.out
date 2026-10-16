@@ -1,0 +1,55 @@
+# The belt kick stream at 10^9, rtf 100 (cores; budget 4)
+  shipped cadence, today's kick (x86 50us)                     177.50 cores
+  shipped cadence, today's kick (M1 29.3us)                    104.02 cores
+  shipped cadence, kick at the 42-56ns floor (b063)              0.17 cores
+  8x regime-split cadence only (7f97), 50us                     22.19 cores
+  8x + frozen-exclusion delete 38.5% (1a46)                     13.65 cores
+  8x + widened delete 61% (1a46+RES)                             8.65 cores
+  8x + widened delete + secular 15x (extrapolated, 5030)         0.58 cores
+  8x + widened delete + secular 60x (extrapolated, 5030)         0.14 cores
+
+# Required per-kick cost to fit 4 cores (vs the 42-56 ns floor)
+  shipped cadence                         1.1 us  =      23x the 49ns floor midpoint
+  8x split                                9.0 us  =     184x the 49ns floor midpoint
+  8x + delete 38.5%                      14.7 us  =     299x the 49ns floor midpoint
+  8x + delete 61%                        23.1 us  =     472x the 49ns floor midpoint
+  8x + delete 61% + secular 15x         346.7 us  =    7075x the 49ns floor midpoint
+
+# The crest (genesis phase-lock), clamp law t = N*C/0.72 (4093)
+  N=1e+06 cost=50.0us: 69 s of clamped delivery per 28,142-s interval (measured 69 s at 10^6 x86, 4093)
+  N=3e+05 cost=50.0us: 21 s of clamped delivery per 28,142-s interval
+  N=1e+09 cost=50.0us: 69,444 s of clamped delivery per 28,142-s interval
+  N=1e+09 cost=29.3us: 40,694 s of clamped delivery per 28,142-s interval
+
+# Self-consistency of the anchors
+  rate x interval = 0.9990 kicks/body/interval (the law: one kick per body per
+  doll-grid interval; belt_first on this box: belt p50 14072 x 2 = 28144 s vs 28141.5 s recorded)
+  the closure product: cost/cadence_cut x (1-delete) <= 1.13 us at shipped
+  cadence — today's 50 us needs a x44 lever, not x1020 to the floor
+
+# Encounters at 10^9, contiguous belt, averaged cadence (cores)
+  cube cell (1738):                1650-8200
+  + quantum gate (277d, silver):   69-586   -> closes? False
+  + birth-constant routing (f0a2, awaiting grade): 0.03-0.6  -> closes? True
+
+# Memory at 10^9 against the ~6 GB (48-bit/body) budget
+  compact store, phase-locked belt (measured alone)      21.0-  40.0 bits ->  2.62- 5.00 GB  fits? True
+  3-field sorted floor (0820 gold)                       61.6-  62.1 bits ->  7.70- 7.76 GB  fits? False
+  4-field exact floor, phase carried (0820 gold)        125.5- 126.1 bits -> 15.69-15.76 GB  fits? False
+  driven-belt worst (fc48/d0ea family)                  126.4- 126.4 bits -> 15.80-15.80 GB  fits? False
+  shipped live plateau (b30b): 4850-5060 B/body -> 4850-5060 GB
+  hot set only (a11b/ba64): 6.9 kB x 1e+04-3e+04 = 90-186 MB
+  the ladder's memory wall from the plateau alone: 6-8 GB / 4850-5060 B = 1.19e+06-1.65e+06 bodies (measured 1.2-1.65e6, nladder)
+
+# Verdicts
+V1 with ONLY measured levers (8x split + widened delete), the kick cost required to fit
+   4 cores at 10^9 rtf 100 is 23 us = 472x the floor: the 42-56 ns floor is
+   NOT on the 10^9 critical path (kick cost and cadence are redundant levers).
+V2 at the floor, even shipped cadence fits: 0.17 cores.
+V3 the graded encounter levers leave 62-571 cores (277d's own composition; recomputed here
+   69-586 from the cube base x 14-24x): the one CPU term whose closing
+   lever (routing) is ungraded.
+V4 memory: only the measured phase-locked program class (21-40 bits) fits 6 GB; every generic
+   floor busts it; the shipped plateau is 808x the whole budget.
+
+wrote ledger.json
