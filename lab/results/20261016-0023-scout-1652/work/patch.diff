@@ -1,0 +1,193 @@
+diff --git a/crates/universe/examples/history_window.rs b/crates/universe/examples/history_window.rs
+new file mode 100644
+index 00000000..6e3f8b4e
+--- /dev/null
++++ b/crates/universe/examples/history_window.rs
+@@ -0,0 +1,105 @@
++//! (lab 20261016-0023-scout-1652) The history stack against its own light-cone window.
++//!
++//! The ladder belt scene (`scenario::plane_extra`), flown past the first kick wave (13,051–14,534
++//! game-s). At each cut, every body holding retained history is censused: the age of its newest
++//! retired binding against the prune's own keep window (`2·light distance + 2²⁶` ticks) — the
++//! window that already certifies a binding forgettable for every segment but the last — plus the
++//! retired-read instrument (how deep any read ever went into a retired era).
++//!
++//! cargo run --release -p emergent-universe --example history_window [-- <N> <rtf> <cut game-s>...]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmRSS:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<f64>().ok()))
++        })
++        .map(|kb| kb / 1024.0)
++        .unwrap_or(0.0)
++}
++
++fn pct(v: &[f64], q: f64) -> f64 {
++    if v.is_empty() {
++        0.0
++    } else {
++        v[((v.len() - 1) as f64 * q).round() as usize]
++    }
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1_500.0);
++    let mut cuts: Vec<f64> = args[3..].iter().filter_map(|s| s.parse().ok()).collect();
++    if cuts.is_empty() {
++        cuts = vec![15_000.0, 20_000.0, 32_000.0, 48_000.0];
++    }
++    cuts.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    println!("scene: {bodies} bodies (N={n}), rtf {rtf}, cuts {:?} game-s, rss {:.0} MB after build", cuts, rss_mb());
++    // A warmup half second (the fleet's opening exodus), like the ladder's stats window.
++    for _ in 0..30 {
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(Instant::now() + Duration::from_millis(50)) }, i64::MAX);
++    }
++    let t0 = p.u.now;
++    let mut next = 0usize;
++    loop {
++        if t_start.elapsed() > Duration::from_secs(55) {
++            println!("TRUNCATED");
++            break;
++        }
++        let game_s = (p.u.now - t0) as f64 * TICK_SECONDS;
++        while next < cuts.len() && game_s >= cuts[next] {
++            let rows = p.u.history_window();
++            let (serves, depth) = p.u.retired_reads();
++            let with = rows.len();
++            let total_segs: usize = rows.iter().map(|r| r.2).sum();
++            let in_win = rows.iter().filter(|r| r.3 <= r.4).count();
++            let pinned = rows.iter().filter(|r| r.3 > r.4).count();
++            let dead_with = rows.iter().filter(|r| !r.1).count();
++            let multi = rows.iter().filter(|r| r.2 > 1).count();
++            let bytes_with: usize = rows.iter().map(|r| r.5).sum();
++            let mut ages: Vec<f64> = rows.iter().map(|r| r.3 as f64 * TICK_SECONDS).collect();
++            ages.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            let mut keeps: Vec<f64> = rows.iter().map(|r| r.4 as f64 * TICK_SECONDS).collect();
++            keeps.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            // The view is the one real reader of the past: one cold gather before the census, so
++            // the read instrument sees the page's own retarded reads at this cut.
++            let (serves0, depth0) = p.u.retired_reads();
++            p.u.set_reader_now(true);
++            let tg = Instant::now();
++            let mut cache = emergent_universe::view::ViewCache::default();
++            let seen = emergent_universe::view::gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
++            let view_ms = tg.elapsed().as_secs_f64() * 1e3;
++            let (serves, depth) = p.u.retired_reads();
++            let age_at_serve_s = p.u.retired_age_at_serve() as f64 * TICK_SECONDS;
++            println!(
++                "cut game_s={:.0} bodies={} with_hist={} ({:.3}/body; segs {:.3}/body; len>1 {}) dead_with={} | IN_WINDOW {} ({:.1}%) PINNED_PAST {} ({:.1}%) | age_s p50={:.0} p90={:.0} max={:.0} | keep_s min={:.0} p50={:.0} max={:.0} | bytes_of(hist bodies)={:.0} B each, whole-store {} B/body | retired_serves {}->{} max_depth_s {:.1}->{:.1} (view {:.0} ms, {} seen) | rss {:.0} MB",
++                game_s, bodies, with, with as f64 / bodies as f64, total_segs as f64 / bodies as f64, multi, dead_with,
++                in_win, 100.0 * in_win as f64 / with.max(1) as f64,
++                pinned, 100.0 * pinned as f64 / with.max(1) as f64,
++                pct(&ages, 0.5), pct(&ages, 0.9), ages.last().copied().unwrap_or(0.0),
++                pct(&keeps, 0.0), pct(&keeps, 0.5), keeps.last().copied().unwrap_or(0.0),
++                bytes_with as f64 / with.max(1) as f64, p.u.bytes_per_body(),
++                serves0, serves, depth0 as f64 * TICK_SECONDS, depth as f64 * TICK_SECONDS, view_ms, seen, rss_mb(),
++            );
++            println!("   serve_ages: max age-at-serve {:.1} s (against keep min/p50/max above)", age_at_serve_s);
++            next += 1;
++        }
++        if next >= cuts.len() {
++            break;
++        }
++        let _ = p.u.frame_to(1.0 / 30.0, rtf, Budget { events: u64::MAX, until: Some(Instant::now() + Duration::from_millis(50)) }, i64::MAX);
++    }
++    let (serves, depth) = p.u.retired_reads();
++    println!("end: retired_serves={} max_depth_s={:.1} wall {:.1} s", serves, depth as f64 * TICK_SECONDS, t_start.elapsed().as_secs_f64());
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..e36f2e63 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -116,6 +116,14 @@ pub trait BodyStore: Send + Sync {
+     fn bindings_of(&self, i: usize) -> Vec<Binding>;
+ }
+ 
++/// (lab 20261016-0023-scout-1652) Read instrument: how many retired-segment serves happened, and
++/// the deepest past read ever served (`until − t`, ticks). Relaxed order: a census, not a law.
++pub static RETIRED_SERVES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static RETIRED_MAX_DEPTH: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
++/// The reader's `now` while gathering (set by the instrument), and the oldest segment age at serve.
++pub static READER_NOW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(i64::MIN);
++pub static RETIRED_MAX_AGE_AT_SERVE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
++
+ #[derive(Default)]
+ pub struct PlainBodies {
+     recs: Vec<BodyRec>,
+@@ -157,7 +165,19 @@ impl BodyStore for PlainBodies {
+         let h = &self.history[i];
+         // Segments are contiguous and ascending in `until`: the first with `until > t`.
+         let k = h.partition_point(|s| s.until <= t);
+-        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
++        // (lab 20261016-0023-scout-1652) A retired era served: count it and keep its depth.
++        match h.get(k).filter(|s| s.b.event_time <= t) {
++            Some(s) => {
++                RETIRED_SERVES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                RETIRED_MAX_DEPTH.fetch_max(s.until - t, std::sync::atomic::Ordering::Relaxed);
++                let now = READER_NOW.load(std::sync::atomic::Ordering::Relaxed);
++                if now != i64::MIN {
++                    RETIRED_MAX_AGE_AT_SERVE.fetch_max(now - s.until, std::sync::atomic::Ordering::Relaxed);
++                }
++                Some(s.b.clone())
++            }
++            None => None,
++        }
+     }
+     fn event_time(&self, i: usize) -> Tick {
+         self.recs[i].b.event_time
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..91ce1444 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1253,6 +1253,37 @@ impl Universe {
+         }
+     }
+ 
++    /// (lab 20261016-0023-scout-1652) The history stack against the prune's own light-cone window:
++    /// for every body holding retained history, `(index, alive, history_len, the age of the newest
++    /// retired binding past the current binding's birth, the keep window `2·light distance + 2²⁶`,
++    /// `bytes_of`), all in ticks where dimensional.
++    pub fn history_window(&self) -> Vec<(usize, bool, usize, i128, i128, usize)> {
++        (0..self.bodies.len())
++            .filter(|&i| self.bodies.history_len(i) > 0)
++            .map(|i| {
++                let age = (self.now as i128 - self.bodies.rec(i).b.event_time as i128).max(0);
++                let keep = 2 * self.light_distance(i) as i128 + (1 << 26);
++                (i, self.bodies.rec(i).alive, self.bodies.history_len(i), age, keep, self.bodies.bytes_of(i))
++            })
++            .collect()
++    }
++
++    /// (lab 20261016-0023-scout-1652) The retired-read instrument: `(serves, deepest past read into
++    /// a retired era, ticks)`, cumulative since process start.
++    pub fn retired_reads(&self) -> (u64, i128) {
++        use std::sync::atomic::Ordering;
++        (crate::body::RETIRED_SERVES.load(Ordering::Relaxed), crate::body::RETIRED_MAX_DEPTH.load(Ordering::Relaxed) as i128)
++    }
++
++    /// (lab 20261016-0023-scout-1652) The oldest segment age ever served (`now − until`, ticks), and
++    /// sets the reader's `now` for the instrument (`i64::MIN` disables).
++    pub fn retired_age_at_serve(&self) -> i128 {
++        crate::body::RETIRED_MAX_AGE_AT_SERVE.load(std::sync::atomic::Ordering::Relaxed) as i128
++    }
++
++    pub fn set_reader_now(&self, on: bool) {
++        crate::body::READER_NOW.store(if on { self.now } else { i64::MIN }, std::sync::atomic::Ordering::Relaxed);
++    }
+     pub fn bytes_per_body(&self) -> usize {
+         let n = self.bodies.len().max(1);
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n

@@ -1,0 +1,9 @@
+Working...
+Check complete. `lab/results/20261016-0023-scout-1652/check.md` written — **Grade: silver** — and the author's `wiki/nladder.md` corrected in place (one attribution fix + checker note).
+
+**What I did:**
+- **Reproduced:** applied `work/patch.diff` on the base commit, re-flew the census myself — every number bit-for-bit against the runner's regen (91.2/1.7/1.6/1.6% in-window, keep p50 ~2,764 s, serve deltas, max depth 2,844.5→6,268.6 s, ages 10,511→17,182→27,645 s); only wall-ms/rss differ.
+- **Verified the mechanism in code:** `PlainBodies::prune`'s `while h.len() > 1` floor (body.rs:154), `keep = 2·light_distance + 2²⁶` (universe.rs:1247), and the read horizon — `credit`'s back-through-bindings loop + `partial`'s one-back, bounded by two whole-step kick windows, not the light cone. The dossier's quote labeled `partial`'s walk is actually `credit`'s doc — fixed on the page.
+- **Three adversarial cases:** N=3×10⁴ (pinned 99.4%, claim holds outside the domain); cuts 42k/60k (second-wave transient 81.6% in-window, steady 98.4% at 60k, and the horizon **grows past the author's number** — 39,645 s, 1.4× the interval, one era re-served indefinitely); duplicate cut (deterministic — deep serves are the chain walk, not cold-probe noise).
+- **Silver, not gold, because:** not adoptable in one step (the run itself says so); the instrument conflates engine-side serves with view serves (its own log shows 7k–22.6k engine serves per interval, `READER_NOW` never reset — unmentioned by the author); "zero outcome change by the digest invariant" overreaches (that invariant covers the view, not engine history reads); the named warm-gather falsifier was never run. The gold experiment: fly the deletion with callsite-tagged counters and compare digests — either outcome closes the question.
+- Tree restored exactly as found; peak memory 151 MB, all runs under the 2 GB budget.

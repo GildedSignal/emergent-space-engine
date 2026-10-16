@@ -1,0 +1,18 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: unused variable: `serves`
+  --> crates/universe/examples/history_window.rs:63:18
+   |
+63 |             let (serves, depth) = p.u.retired_reads();
+   |                  ^^^^^^ help: if this is intentional, prefix it with an underscore: `_serves`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `depth`
+  --> crates/universe/examples/history_window.rs:63:26
+   |
+63 |             let (serves, depth) = p.u.retired_reads();
+   |                          ^^^^^ help: if this is intentional, prefix it with an underscore: `_depth`
+
+warning: `emergent-universe` (example "history_window") generated 2 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 14.03s
+regen done
