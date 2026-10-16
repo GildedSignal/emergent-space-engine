@@ -1,0 +1,308 @@
+diff --git a/crates/universe/src/dash.rs b/crates/universe/src/dash.rs
+index cd886789..f88eaa31 100644
+--- a/crates/universe/src/dash.rs
++++ b/crates/universe/src/dash.rs
+@@ -10,7 +10,8 @@ pub struct Dash {
+     /// not in CPU time was descheduled or paged, not computed). Empty when the caller does not measure it.
+     pub cpu_ms: Vec<f64>,
+     pub rtf: Vec<f64>,
+-    pub events: u64,
++    /// Engine events per presented frame (the run's instrument; the sim never reads it).
++    pub frame_events: Vec<u64>,
+     /// Game seconds presented and wall seconds spent.
+     pub game_seconds: f64,
+     pub wall_seconds: f64,
+@@ -21,8 +22,10 @@ pub struct Dash {
+     pub view_ms: Vec<f64>,
+     pub json_ms: Vec<f64>,
+     pub wire_ms: Vec<f64>,
++    pub events: u64,
+ }
+ 
++
+ fn pct(sorted: &[f64], q: f64) -> f64 {
+     if sorted.is_empty() {
+         0.0
+@@ -52,6 +55,8 @@ pub struct Summary {
+     pub overflow_frames: u64,
+     /// (p50, p99, share of the summed time, max) of the engine, the view's gather, the JSON tree and the wire.
+     pub parts: [(f64, f64, f64, f64); 4],
++    /// (max, p99, top (frame, count)) of `frame_events`.
++    pub fe: (u64, f64, Vec<(usize, u64)>),
+ }
+ 
+ impl Dash {
+@@ -64,8 +69,8 @@ impl Dash {
+         self.wall_seconds += wall_dt;
+         self.events += events;
+         self.overflow_frames += overflow as u64;
++        self.frame_events.push(events);
+     }
+-
+     pub fn parts(&mut self, engine: f64, view: f64, json: f64, wire: f64) {
+         self.engine_ms.push(engine);
+         self.view_ms.push(view);
+@@ -106,6 +111,16 @@ impl Dash {
+             events_per_second: if self.wall_seconds > 0.0 { self.events as f64 / self.wall_seconds } else { 0.0 },
+             overflow_frames: self.overflow_frames,
+             parts: [part(&self.engine_ms, total), part(&self.view_ms, total), part(&self.json_ms, total), part(&self.wire_ms, total)],
++            fe: (self.frame_events.iter().copied().max().unwrap_or(0), {
++                let mut v: Vec<f64> = self.frame_events.iter().map(|&x| x as f64).collect();
++                v.sort_by(f64::total_cmp);
++                pct(&v, 0.99)
++            }, {
++                let mut v: Vec<(usize, u64)> = self.frame_events.iter().copied().enumerate().collect();
++                v.sort_unstable_by(|a, b| b.1.cmp(&a.1));
++                v.truncate(8);
++                v
++            }),
+         }
+     }
+ }
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..17f86892 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -283,6 +283,10 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.
+ pub fn ladder_locals(extra: u64) -> u64 {
++    // The lab's control arm (env-gated; off: as shipped): all extra bodies in the belt.
++    if std::env::var("ES_NO_LOCALS").is_ok() {
++        return 0;
++    }
+     (extra / 2).min(300)
+ }
+ 
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..aa943109 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -136,6 +136,29 @@ impl Stats {
+     }
+ }
+ 
++// ---- the run's instrument (env-gated; off: one lazy load per resolved item, nothing else) ----------------
++
++/// The run's instrument: the queue's and the waiting calendar's sizes and tick-minima.
++pub fn census(u: &Universe) -> (usize, usize, Option<i128>, Option<i128>) {
++    let q = u.queue.as_ref();
++    (
++        q.map_or(0, |c| c.len()),
++        u.waiting.len(),
++        q.and_then(|c| c.peek()).map(|(t, _)| t.fixed(0).unwrap_or(0)),
++        u.waiting.peek().map(|(t, _)| t.fixed(0).unwrap_or(0)),
++    )
++}
++
++/// (tick, body id, doll, resolved-kind) of every resolved item while `ES_TRACE` is set, capped.
++static TRACE: std::sync::Mutex<Vec<(i64, usize, u16, u8)>> = std::sync::Mutex::new(Vec::new());
++fn trace_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_TRACE").is_ok());
++    *ON
++}
++pub fn trace_take() -> Vec<(i64, usize, u16, u8)> {
++    std::mem::take(&mut *TRACE.lock().unwrap())
++}
++
+ /// How a body is made: a tube of a doll from its orbit.
+ #[derive(Clone, Copy, Debug)]
+ pub struct OrbitSpec {
+@@ -482,10 +505,17 @@ impl Universe {
+         self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
+         self.waiting = Calendar::new(self.body_cap + self.fleets.len());
+         self.prunable = Calendar::new(self.body_cap + self.fleets.len());
++        // The lab's stagger arm (env-gated; off: every body planned at 0, as shipped): a ship of a secondary
++        // doll is planned at a deterministic per-id offset, spreading the birth's synchronized first kicks
++        // (the locals' storm, lab 20261016-0504). ES_STAGGER_LOCALS = log2 of the spread in root ticks.
++        let stagger = std::env::var("ES_STAGGER_LOCALS").ok().and_then(|v| v.parse::<u32>().ok()).filter(|&v| v > 0).map(|v| v.min(30));
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+-            let upd = step::replan(&self.ctx(), i, rec, 0);
+-            self.apply(i, upd);
++            let off = match (stagger, self.info[i].kind, rec.b.doll) {
++                (Some(bits), Kind::Ship, d) if d != 0 => ((i as u128).wrapping_mul(2654435761) % (1u128 << bits)) as i64,
++                _ => 0,
++            };
++            self.apply(i, step::replan(&self.ctx(), i, rec, off));
+         }
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
+         // Every ship waits for the target to reach its tick (none is due at the start).
+@@ -655,6 +685,20 @@ impl Universe {
+             Resolved::Lost => self.stats.lost += 1,
+             Resolved::Refused => self.stats.refused += 1,
+         }
++        if trace_on() {
++            if let Ok(mut t) = TRACE.lock() {
++                if t.len() < 400_000 {
++                    t.push((upd.rec.b.event_time, i, upd.rec.b.doll, match upd.kind {
++                        Resolved::Kick => 0,
++                        Resolved::Open => 1,
++                        Resolved::Boundary => 2,
++                        Resolved::Handoff => 3,
++                        Resolved::Lost => 4,
++                        Resolved::Refused => 5,
++                    }));
++                }
++            }
++        }
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.radial.note(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), &upd.rec.b);
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..6e2f0dd9 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -24,7 +24,7 @@ use session::Session;
+ use std::time::{Duration, Instant};
+ 
+ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+-    let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
++    let (mut seed, mut rtf, mut port, mut threads, mut members, mut extra) = (1u64, 1.0f64, 8792u16, 1usize, 48u64, 0usize);
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
+@@ -34,6 +34,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+         match a.as_str() {
+             "--seed" => seed = val("--seed")?.parse()?,
++            "--extra" => extra = val("--extra")?.parse::<usize>()?.min(1_000_000),
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+@@ -68,7 +69,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if replay_all {
+         return replay::replay_all(&flights.unwrap_or_else(replay::default_flights), replay::ALL_SECONDS);
+     }
+-    let mut s = Session::new(seed, threads, members, rtf)?;
++    let mut s = if extra > 0 { Session::new_extra(seed, threads, members, rtf, extra)? } else { Session::new(seed, threads, members, rtf)? };
+     s.engine_ms = engine_ms;
+     if kicks {
+         return kick_bench::run(s, seconds);
+@@ -130,6 +131,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     }
+     let wall = Instant::now();
+     let mut last = Instant::now();
++    let census_every = std::env::var("ES_CENSUS_EVERY").ok().and_then(|v| v.parse::<usize>().ok());
+     for n in 1..=frames {
+         if paced {
+             let due = Duration::from_secs_f64(n as f64 / 60.0);
+@@ -140,23 +142,35 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        if census_every.is_some_and(|e| n % e == 0) {
++            eprintln!("CENSUS f{} now={} {:?}", n, s.p.u.now, emergent_universe::universe::census(&s.p.u));
++        }
++    }
++    {
++        let u = &s.p.u;
++        let probe: Vec<serde_json::Value> = [3usize, 4, 16, 20, 30, 100, 5000, 9000]
++            .into_iter()
++            .filter(|&i| i < u.n_bodies())
++            .map(|i| json!({ "id": i, "kind": u.info.get(i).map(|k| format!("{:?}", k.kind)), "doll": u.rec(i).b.doll, "next": u.bodies().event_time(i), "plan_len": u.rec(i).plan.len() }))
++            .collect();
++        eprintln!("NEXT_ITEMS now={} census={:?} {:?}", u.now, emergent_universe::universe::census(u), probe);
+     }
+     let d = s.dash.summary();
+-    let wall_s = wall.elapsed().as_secs_f64();
++    let dash_events = s.dash.events;
+     let presented_at_end = s.p.u.now;
++    let wall_s = wall.elapsed().as_secs_f64();
+     let st = s.stats();
+     let cost: Vec<_> = ["planet", "moon", "ship", "player", "fleet"]
+         .iter()
+         .enumerate()
+         .map(|(i, k)| json!({"kind": k, "items": st.items[i], "total_ms": st.cost_ns[i] as f64 / 1e6, "us_per_item": if st.items[i] > 0 { st.cost_ns[i] as f64 / 1e3 / st.items[i] as f64 } else { 0.0 }}))
+         .collect();
+-    // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
+-    let report = json!({
++    let mut report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+-        "frame_ms": {"p50": d.p50, "p95": d.p95, "p99": d.p99, "p99.9": d.p999},
++        "frame_events": {"max": d.fe.0, "p99": d.fe.1, "top_frames": d.fe.2, "total": dash_events},
+         "frame_cpu_ms": {"p50": d.cpu.0, "p99": d.cpu.1, "p99.9": d.cpu.2, "worst": d.cpu.3, "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed", "hitch_counts": d.cpu_hitch_counts},
+         "hitches_per_gameplay_hour": {"above_16.7ms": d.hitches_per_hour[0], "above_33ms": d.hitches_per_hour[1], "above_50ms": d.hitches_per_hour[2]},
+         "hitch_counts": d.hitch_counts,
+@@ -178,5 +192,44 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "uptime_before": load_before, "uptime_after": uptime("uptime"),
+     });
+     println!("{}", serde_json::to_string_pretty(&report)?);
++
++    // The run's instrument: the worst tick-windows of the flight, from the engine's own trace (ES_TRACE).
++    let trace = emergent_universe::universe::trace_take();
++    if !trace.is_empty() {
++        let tpf = (s.rtf / 60.0 / emergent_universe::view::TICK_SECONDS).round().max(1.0) as i64; // ticks of one presented frame
++        let mut buckets: std::collections::HashMap<i64, Vec<(i64, usize, u16, u8)>> = std::collections::HashMap::new();
++        for row in &trace {
++            buckets.entry(row.0 / tpf).or_default().push(*row);
++        }
++        let mut worst: Vec<_> = buckets.iter().collect();
++        worst.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
++        worst.truncate(3);
++        let mut anatomy: Vec<serde_json::Value> = Vec::new();
++        for &(b, v) in worst.iter() {
++            let mut ticks: std::collections::HashMap<i64, usize> = std::collections::HashMap::new();
++            let mut dolls: std::collections::HashMap<u16, usize> = std::collections::HashMap::new();
++            let mut kinds: std::collections::HashMap<u8, usize> = std::collections::HashMap::new();
++            for r in v.iter() {
++                *ticks.entry(r.0).or_insert(0) += 1;
++                *dolls.entry(r.2).or_insert(0) += 1;
++                *kinds.entry(r.3).or_insert(0) += 1;
++            }
++            let mut ticks: Vec<(i64, usize)> = ticks.into_iter().collect();
++            ticks.sort_by_key(|(t, _)| *t);
++            let mut top_ticks = ticks.clone();
++            top_ticks.sort_by_key(|(_, c)| std::cmp::Reverse(*c));
++            top_ticks.truncate(6);
++            anatomy.push(json!({
++                "frame_bucket": b, "events": v.len(),
++                "distinct_ticks": ticks.len(), "ticks_top": top_ticks,
++                "tick_span": [ticks.first().map(|t| t.0), ticks.last().map(|t| t.0)],
++                "ids": [v.iter().map(|r| r.1).min(), v.iter().map(|r| r.1).max()],
++                "dolls": dolls, "kinds": kinds,
++            }));
++        }
++        report["storm_anatomy"] = json!({ "ticks_per_frame": tpf, "worst": anatomy, "trace_rows": trace.len() });
++        println!("{}", serde_json::to_string_pretty(&report)?);
++        return Ok(0);
++    }
+     Ok(0)
+ }
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..4e18ee3d 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -47,6 +47,14 @@ impl Session {
+         let names = p.names.clone();
+         Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
+     }
++    /// The N ladder's population: the plane plus `extra` ships (a few hundred about Home and the Moon, the
++    /// rest a belt), `extra = 0` bit for bit the plane ([`emergent_universe::scenario::plane_extra`]).
++    pub fn new_extra(seed: u64, threads: usize, members: u64, rtf: f64, extra: usize) -> crate::Result<Self> {
++        let p = emergent_universe::scenario::plane_extra(Config::default(), seed, Order::Sparse, threads, members, extra)
++            .map_err(|e| format!("the plane: {e:?}"))?;
++        let names = p.names.clone();
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
++    }
+ 
+     /// Record this session's flight in `dir` (`artifacts/flights/`): see [`super::flight`].
+     pub fn record_into(&mut self, dir: PathBuf) {
+@@ -122,6 +130,14 @@ impl Session {
+         }
+         let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
+         let t1 = Instant::now();
++        if std::env::var("ES_ENGINE_ONLY").is_ok() {
++            // The lab's budget-free instrument: the frame is the engine's advance alone (the view's Θ(N)
++            // gather is another page's question; here we count the engine's own events per frame).
++            let ms = start.elapsed().as_secs_f64() * 1e3;
++            self.dash.parts((t1 - start).as_secs_f64() * 1e3, 0.0, 0.0, 0.0);
++            self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
++            return Ok((Value::Null, ms));
++        }
+         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+             Some(v) => v,
+             None => {
