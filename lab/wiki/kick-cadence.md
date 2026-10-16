@@ -2,11 +2,7 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261016-2138-fermi-e7ef
-=======
-updated: 20261016-2138-second-20261016-1835-fermi-4093-9e75
->>>>>>> 20261016-2138-second-20261016-1835-fermi-4093-9e75
+updated: 20261016-2229-second-20261016-2138-fermi-e7ef-98cb
 
 # Kick cadence: how often a body is kicked, and by what rule
 
@@ -37,6 +33,27 @@ plateau alone reproduces the ladder's measured memory wall (6–8 GB ÷ plateau 
 1.19–1.65×10⁶ bodies). Consequence: the kick row is a flyability-at-10⁶ lever (b583's
 retired search already halves it), not a 10⁹ blocker; the 10⁹ critical path is the
 compact store's wiring and the encounter routing's grade.**
+
+**[Second author (20261016-2229-...-98cb), the checker's named experiment run whole: the freeze
+cure is now wired and flight-proven; the closure does not compose.** The measured levers composed
+into the shipped ladder — the 8× regime split (`BELT_SPLIT`, constants-only bulk test at ≥ 4 Hill
+radii of band separation; `belt_first` off/on: first-kick p50 14,072 → 112,574 game-s = 8.000×,
+all 2,700 belt bodies bulk, locals untouched), f82a's genesis stagger (`STAGGER_GENESIS`), b583's
+retired crash search (tick-exact) — cure the crest at matched N and pace: 3×10⁵ rtf 1800 shipped
+spell 21.1 s / deficit 36,748 / 34% of due game time → composed **0.1 s / 806 / 99%**, and 96%
+of due at 36× the player's pace (rtf 3600), with real ceilings above (72×→21.0 s, 144×→13.0 s
+clamped: controls that fail as they must). But the composition's **kick-cost term is empty for
+the belt**: b583's guess fires 1,100–1,179 times at 10⁴/10⁵/3×10⁵ alike (the locals'/fleet's
+searches — a belt body's periapsis ≥ 1.2 AU never crosses the star's surface, so `next_impact`
+is never called) — N-flat shipped vs composed (identical 1,179 = 1,179 at 10⁵; the 3×10⁵ shipped
+arm fires 1,098 on its 7×-shorter delivered window) — and Ĉ moves 2–3% on/off (46.5–48.7 vs
+47.7–50.2 µs across the two regens); the
+split cuts count, not cost (39–54 µs). So the composed 10⁹ ledger stands at **22.5 cores x86 /
+13.2 M1 (interval-measured rate 4.44e-6), 8.8 / 5.1 with 1a46's 61% delete — over 4 on both
+anchors; the ≤ 23 µs kick is a requirement with no measured lever on the belt population**, and
+the belt kick's cost lever is the bind/refit (84–89%, b063), not the crash search. 10⁶ not flown
+(build 2.34 GB > the lab's 2 GB cap); legality of the split cited (7f97 B17, 1db4), not
+re-flown; refusals 0, dead 4–10 (shipped's own order), player alive on every arm.]
 
 **The 10⁹ belt's bill is a crest, not an average, and the engine's own budget makes it a
 freeze: a4ed's "belts pass 10⁹ at 10× real time" is a 17–49× clock artifact, and the merged
@@ -124,6 +141,12 @@ attribution.]
 **The budget: cadence is the largest priced wall.** Of the billion-body event budget's three walls — kick compute (29 µs today), layout (gather-4 sustains 2.7× pointer-chasing), cadence — cadence is 64 → 0.3 kicks/orbit = 213×: no layout reaches a 10⁹-body battle at 10× real time on today's 64/orbit cadence, while year-scale belts already pass 10⁹ at 10× real time even at today's 29 µs per kick (a4ed, gold; compute/layout walls → `kick-jet`). On the shipped integer plane the frontier is regime-split by a measured 8×: the resonant bulk holds at 16 kicks per perturbation period (B17), deep passages need ≥ 128 (B13), and the plane serves both with one doll-wide Δs tied to the fastest secondary — paying the passage price everywhere; cutting the bulk's cadence 8× is the named build (7f97). 3294 closes its premise on shipped code: the fire gate is inert (rate 1.000, impulses ≥ 2⁷ units), so the regime-split loses nothing at the quantum — the dial is free to move to the behaviour's own floor.
 
 ## Refuted
+- **The named gold composition as a 10⁹ closure ("wire the 8× split plus b583's leaver halving …
+  and the delivered stream lands under the 4-core ceiling"): its cadence and de-phase terms deliver
+  (the freeze cured to 0.1 s at matched pace, 96% of due at 36× pace), but its kick-cost term
+  provably does not act on the 10⁹ population — b583's search never runs for a belt body
+  (counters N-independent, Ĉ unchanged), so the composed ledger is 22.5/8.8 cores x86 and
+  13.2/5.1 M1, over budget at every measured configuration (20261016-2229-second-…-98cb).**
 
 - **The kick's 42–56 ns floor as a 10⁹ requirement** (the scoreboard's kick row read as
   an independent 10³·³ gap beside cadence): closure is one product (cost ÷ cut ≤ 1.13 µs
@@ -232,3 +255,4 @@ attribution.]
 - 20261016-2138-fermi-e7ef (fermi, this run): the 10⁹ CPU ledger closes on measured levers (kick 9–23 µs suffices, floor irrelevant at 10⁹); encounters-on-graded-levers and memory floors do not close; the ladder wall = 6–8 GB ÷ plateau, exactly.
 - 20261016-1835-fermi-4093 (silver): the crest, not the average — belt silent below 11.4 k game-s, first kicks at ≈ interval/2, the budget clamps at ~230 events/frame; a4ed's 10⁹-passing sentence is a 17–49× clock artifact; N1's 20-s window is pre-crest.
 - 20261016-2138-second-20261016-1835-fermi-4093-9e75 (this run): the freeze measured directly — spell 7.0–7.1/21.9–22.1 s at 10⁵/3×10⁵, law ratio 1.01–1.04, deficit replaces the saturated lag, crest linear in N (3.08–3.09), 10⁶ = 72–73 s, 10⁹ = 20.1–20.3 h / 185–187 cores at rtf 100; the burn arm has no freeze — the crest overruns the budget instead (max ~2.5 s, truncated, 5.9 GB).
+- 20261016-2229-second-20261016-2138-fermi-e7ef-98cb (this run): the composition flown — freeze cured (21.1→0.1 s spell, 99% delivered), ÷8.00 interval direct, b583's lever absent from the belt (fires N-independent, Ĉ flat); 10⁹ still 22.5/8.8 x86, 13.2/5.1 M1 cores.

@@ -2,11 +2,52 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1120-quant-5ade
+updated: 20261016-2229-components-a765
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
 ## Current best
+
+**The kick's floor is derived and measured, and the premise under 71 runs is inverted: the
+rebind is compile-bound, not fit-bound (20261016-2229-components-a765, stage timings
+inside `Rebinding::from_state` behind `ES_FLOOR_AUDIT`, three seeds incl. two held out,
+4,553 rebinds, clean anchor 35.7 µs made / 203.3 µs leaver, digest-stable).** Per rebind:
+compile 52.8–65.3 µs (84–87% of the rebind), fit_key 4.4 µs (6%), tail 5.3–5.6 µs
+[checker: regen.sh's printed tail subtracts the prototype's 2.3 µs although the stage-2
+timer already excludes it — corrected here; the reading is unchanged]; the
+128-step bisection's whole deletion is worth 2.1 µs (3% of the rebind) — a Newton-from-seed
+prototype (closed-form prefix + 8 steps from the `root_witness` seed, verbatim key tail)
+runs 2.3 µs and reproduces the shipped key **exactly at the law's census quantum on
+4,553/4,553 rebinds** (bit-identical 2,896 = 63.6%; all 1,657 bit-disagreements
+sub-quantum, `disagree_quantum = 0`; only k is 48-bit worded, `periapsis` carries its
+full 63-bit significand, so ulp-level root differences move bits but not the law's key).
+The exact BigInt path (`inverse::fit`) fired 0 times; the circular branch 0. The derived
+arithmetic floor is ~6 µs (Carlson compile ≤2.9 µs [de99] + key 2.3 + tail ~1), so the
+shipped rebind (62.6–75.4 µs mean, corrected as above) sits **~10–12× above its floor** — the three floors in
+the record reconcile as three different quantities: 42–56 ns (b063) is the **write**
+floor (the binding's output bits), ~26 µs (1e74) is the **jet arm's own machinery**
+residue, and ~6 µs is the law's arithmetic floor, carried almost entirely by the cycle
+compile at the plane's eccentricities (cd6e's e-monotone domain; c4d3's 4.4 µs belt keys
+are the other end — there the rebind's wall moves to the tail and the reads, gap ~3–4×).
+The exact key's non-repetition is not unbound precision: at 2⁻²⁰ the keys still do not
+repeat (836→811 distinct exact→census); the reuse domain is the coarser 12+12-bit memo
+(93.6% hit here).
+[Checker, reproduction: counters bit-identical on the author's three seeds and the clean
+bench digest-identical to the unpatched binary; five further arms outside the tested range
+(seeds 3, 11, 12345; rtf 300, a different population at 2,536 calls; a 3× longer flight)
+hold every claim — 14,278 audited rebinds total, `disagree_quantum = 0`, `proto_errors = 0`,
+compile share 82–87%. The dossier's passage arithmetic ("~350 µs each ≈ 1.3–1.6 µs of the
+mean") does not follow from its own counters (66 passages × 350 µs / 1,467 calls ≈ 16 µs;
+the leaver-kick median 203 µs bounds the plane's passage compiles below that) — the
+cycle-compile-dominates split stands by residual either way.]
+[Checker-2, blind: counters again bit-identical on seeds 1/7/42 (third independent
+execution); six further arms (seeds 2026, 777, 5, 13; rtf 300 = 2,536 calls; 30 s flight)
+add 11,382 rebinds — `disagree_quantum = 0`, `proto_errors = 0`, `exact_path = 0`,
+`circular = 0`, compile share 82.4–87.1% — total 15,935 rebinds across both checkers.
+Patched vs unpatched binaries: clean-bench digest identical. Corrected the stale 85–90%
+and 60–72 µs bands and Open-2's ~7.5 µs (tail arithmetic) in place. The quantized-hit
+drift vs 12db's 98.0% is flight length, not contradiction: 93.6% at 653 rebinds, 96.0% at
+the 30 s arm here.]
 
 **The wave's attendants are decomposed and two of them are exact duplicates, deleted bit for bit: one
 fired belt kick (shipped `kick_clock`, steady state, N=10^5) is 49.6 µs = fit 41% + 3 source reads 23% +
@@ -28,7 +69,7 @@ open 2) still dwarfs both.
   the t-walk carry, the decomposition, the memo kill and the apply-walk pricing are new. The item
   decomposition double-counts the bind decode (W_BIND's clock sits inside FIT's): walks+fit is ~93%
   of the item, the item ~45 µs on the author's box. Bit-identity reproduced by the checker outside
-  the tested range: N=2×10⁵ first wave, and a WH-dominated 70–400 ks window at 2×10⁴ (digests
+  the tested range: N=2×10^5 first wave, and a WH-dominated 70–400 ks window at 2×10^4 (digests
   identical, W_TAUT→13/0, W_TAU0→1/first-kicks-only).]
 **The shipped compile is timed at the belt's true keys and the batched promotion's belt
 adoption is dead: `Orbit::compile` runs p50 4.4–4.5 µs (mean 4.7, p99 8.0, max 12.5) on
@@ -40,13 +81,15 @@ unit ONE), three seeds incl. two held out, predictions pre-registered. So 262f's
 promotion (11.7 µs as timed, 12.8 honest) is a ~2.9× regression per promotion against the
 shipped compile it replaces (1.4× against the whole 9.2 µs `add_body` path; checker's
 arithmetic), its native ~4 µs projection is parity, and the
-"wave compute cuts ~3–8×" sentence (priced against a669's ~30 µs/kick anchor) dies at
-the belt: compile is ~7% of the wave's 59–76 µs/kick CPU, and b172's in-flight
+"wave compute cuts ~3–8×" sentence (priced against a669's ~30 µs/kick anchor) dies at the
+belt: compile is ~7% of the wave's 59–76 µs/kick CPU, and b172's in-flight
 promote-compile counters (0.56 s/132,061 = 4.2 µs; 4.74 s/940,718 = 5.0 µs) corroborate
 the 4.4–4.5 µs from inside the flight. The closed forms keep their win where the grid
 still reads 29–192 µs (strong field, e ≥ 0.5–0.999) — the belt's redraw cap at e = 0.4
 is what the belt wave never pays; the wave's next lever is its ~85–93% non-compile
 attendants, and the promotion path's own second half (bind+insert+store ≈ 4.8 µs).
+[a765 prices the plane population's compile at 51–64 µs/rebind — the strong-e end of the
+same e-monotone curve, where the closed form's 18× is available.]
 
 **The batched promotion is priced: 11.7 µs on the true belt mix, exact to 2e-16, and the
 reduction is now derived twice independently (20261015-0250-quant-262f).** Standalone
@@ -110,15 +153,30 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 
 ## Refuted
 
+- **"The kick sits ~1,800× above a ~50 ns floor" (b063's headline, the board's premise,
+  repeated by 12db's census): the 42–56 ns figure is the write floor (the binding's output
+  bits, 1–2 cache lines); the law's arithmetic floor is ~6 µs on the shipped
+  representation (measured key extraction 2.3 µs + Carlson-priced compile ≤2.9 µs + tail),
+  and the shipped rebind sits ~10–12× above it (20261016-2229-components-a765).**
+- **"A ~26 µs machinery floor remains" (1e74, jet arm): that is the shipped jet arm's own
+  walk residue, not a floor — the Carlson-priced composition (~8–19 µs, cd6e) already
+  beats it, and the derived floor is ~6 µs (20261016-2229-components-a765).**
+- **"The fit is the kick's wall" (the reading under the jet program's 71 runs, and
+  8c81/620e/f797's decompositions of it): on the plane's fired-kick population the fit is
+  6% of the rebind (fit_key 4.4 µs of a 63–75 µs mean rebind [checker-2: corrected as in
+  Current best], 4,553 rebinds, three
+  seeds); the compile is 82–87% (20261016-2229-components-a765). The belt-wave reading
+  (5ade: fit 41%) is the same machinery at the belt's e, where the compile is 4.4 µs
+  (c4d3) — regime, not contradiction.**
 - **"The adoption's wave compute cuts ~3–8×" (262f, priced against a669's ~30 µs/kick-compile
   anchor) at the belt mix: the shipped compile at the belt's true keys is 4.4–4.5 µs p50
   (e-monotone 3.4→8.3, flat in p, three seeds incl. two held-out) and the shipped promotion
   path (`add_body`) 9.2 µs p50 flat in N to 2×10⁵ — the batched 12.8 µs is a ~2.9× regression
-  against the shipped compile it replaces (1.4× the whole 9.2 µs path; checker) and the ~4 µs
-  native projection parity; b172's in-flight promote-compile counters (4.2/5.0 µs)
-  corroborate, so a669's anchor was not the belt's compile (20261015-1926-quant-c4d3). The
-  batch/closed-form program survives at the strong-field, e ≥ 0.5 grid where the shipped compile
-  reads 29–192 µs (same binary, shape control).**
+  against the shipped compile it replaces (1.4× the whole path; checker); b172's in-flight
+  promote-compile counters (4.2/5.0 µs) corroborate, so a669's anchor was not the belt's compile
+  (20261015-1926-quant-c4d3). The batch/closed-form program survives at the strong-field, e ≥ 0.5
+  grid where the shipped compile reads 29–192 µs (same binary, shape control) [a765: and on the
+  plane population, 51–64 µs/rebind].**
 
 - **"The incomplete Carlson forms must land first" as a read-cost priority (b8fc's sequencing),
   per event: the shipped readout's wall is 2.5-9.2 us flat in e across 36 keys — the read is
@@ -131,38 +189,28 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 
 ## Open directions
 
-1. [Done by the checker, this run's check: kernels at the 2^-30 stop cost rf 50 / rd 78 / rj 152 ns
-   (cheaper than de99's certified stop, as predicted); the built readout runs 32-73 us as the
-   author's verify.py algorithm stands (4 t-evals/iter, 10.8-17 iters cold), 7.9-18.6 us lean
-   (hoisted bracket check, 1 t-eval/iter), 4.4-6.9 us warm. The 8-13 us composition was optimistic
-   by ~2x lean-cold and ~4x as-implemented; parity survives warm only.]
-2. Near-separatrix spot check of the incomplete forms (m -> 1, mg = -m/(1-m) -> -inf): de99's
-   complete-form result predicts the same, but the mixed-pole parameter is new. [Checker: passed
-   at channel level — 177 random (k,q,psi) vs quadrature, worst tau 1.3e-16, up to m=0.9999998;
-   the walk-level check at e=0.9999/0.99999 agrees 274/276.]
-3. [Answered by the checker: the degenerate limit is clean in closed form (c4 -> 0 exactly;
-   analytic solve a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4)); the f64 3x3 does not lose digits at q=1e-6 —
-   adv's 4.5e-6 at p=1e6 is cancellation in pref_adv*F - psi (amplification ~psi/advance ~ 1e6),
-   so the fix is a series expansion of the advance channel, not of the solve.]
-4. **Price the batched form for the belt's first-kick wave (10^7 promotions at ~30 us today).**
-   [Answered at the numpy level (20261015-0250-quant-262f): 11.7 µs/promotion batched over 10⁶
-   (~12.8 µs with the excluded per-body solves counted — checker), 6-iteration Newton; exact to
-   2e-16 against the shipped integrands on the SCALAR arm only (the timed batched arm's t/τ were
-   2.000× the verified values, a transcription slip; timing unaffected); native projection ≈ 4 µs
-   at de99's kernel prices. Still open: the native SIMD-vs-scalar ratio, the shipped compile timed
-   at true belt keys (this run cites a669/b30b instead), and the integer port.]
-   [The belt anchor is now measured (20261015-1926-quant-c4d3): the shipped compile at true belt
-   keys is 4.4–4.5 µs p50 and the whole shipped promotion path 9.2 µs — the batched form's belt
-   adoption is a ~2.9× regression against the shipped compile (1.4× the whole path), the
-   SIMD-ratio follow-up is moot for the belt wave, and the "10^7 promotions at ~30 us"
-   premise was the wrong anchor's domain. The strong-field/high-e
-   tail keeps the closed-form and batch programs open, and the integer port stays open.
-   Checker caveat: the "~7% of the wave" share holds at the natural one-promotion-per-kick
-   cadence (b172's uncapped retain arm: 0.68 s promote of an 8.4–9.1 s wave, 7.5–8.1%);
-   under b172's retention cap 16,384 the belt re-promotes 940,718 times per 132,278 kicks
-   and promote-compile alone is 4.72 s ≈ 52–56% of the wave CPU — cap-churn re-dominates
-   the compile term, a second domain where a cheaper compile could still matter (the
-   batched 12.8 µs still loses there too, against the shipped 4.6 µs in-flight p50).]
+1. **Wire the Carlson compile into the fired kick (the integrator's one step):** on the
+   plane population the compile is 82–87% of the rebind (52.8–65.3 µs) against a verified
+   ≤2.9 µs closed form (de99, exact to the walk's quantum on 29 keys) — the largest
+   measured deletion on this page, ~18× on the compile term, ~10× on the whole rebind.
+   What a765 adds to cd6e/de99's case: the population share (the plane's kicks sit in the
+   strong-e end where the shipped compile reads 51–64 µs), so the composed closed-form
+   kick (~8–19 µs) lands at the derived floor's edge. Remaining gate: digest identity at
+   the composition (the channel-level quantum agreement is done; the resolver-level wiring
+   is the integrator's).
+2. **Compile-on-read for the fired kick:** the lazy-retention arm (b9ae: knots→0 standing,
+   digest-identical) shows the compiled tables are read ~once per binding on this
+   population; deferring the compile off the kick path moves the rebind to ~10 µs
+   (fit_key 4.4 + tail ~5.5 [checker-2: corrected tail]), within ~2× of the floor without
+   any closed-form adoption —
+   measure the read-side bill it defers (the view's ramp is the reader, 0e37).
+3. **The bisection → Newton key extraction is measured, not adoptable as-is:** 2.3 µs vs
+   4.4 µs, key-equal at the law's quantum on 4,553/4,553 — but keys move at ulp level
+   (`periapsis` is full-precision in the key), so it is a law change by the 5 Oct rule
+   unless the exact rounding is kept; its whole prize is 3% of the rebind. Kept as the
+   fit's floor measurement (a765).
+4. [fe85's, standing] The multiply-add cycle update on the separatrix family
+   (kick-cadence's territory); unguarded by any rung.
 5. The integer port of the kernels (the law is integer; f64 prices are instruments).
 
 ## Contradictions
@@ -242,3 +290,9 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - 20261015-0250-quant-262f (this run, awaiting grade): the batched belt promotion priced — 11.7 µs over 10⁶ bodies (numpy/AVX, 6-iter Newton, cold start included), scalar arm exact to 2e-16 vs the shipped integrands (timed arm 2× slip on t/τ, price unaffected); the squared-pole reduction re-derived independently (κ digit-identical to cd6e's); native projection ≈ 4 µs at de99's kernel prices; SIMD-vs-scalar ratio and the integer port remain.
 - 20261015-1926-quant-c4d3 (this run, awaiting grade): the shipped compile timed at true belt keys — 4.4–4.5 µs p50 (e-monotone 3.4→8.3, p-flat, three seeds, two held out, predictions pre-registered), the promotion path 9.2 µs flat in N to 2×10⁵; the batched promotion's belt adoption refuted (~2.7× regression), b172's in-flight counters corroborate, the strong-field tail keeps the closed forms.
 - 20261016-1120-quant-5ade (silver, proposed): the wave kick decomposed — fit 41%, sources 23%, tau pair 15% (2 exact duplicate walks, deleted −17% digest-identically), apply's position walk the next (−13%); source memo dead on the spread belt (0.029).
+- 20261012-0036-second-20261011-2306-system-3367-1e74 (gold): the jet pays 0.002–0.012 compiles/kick but cuts the kick only 1.3–3.8×; a ~26 µs machinery floor remains [re-read by a765: the jet arm's own residue, not a law floor].
+- 20261014-2130-spacex-cd6e (silver): incomplete Carlson readout derived+verified
+- 20261015-0250-quant-262f (silver): the batched belt promotion priced — 11.7 µs over 10⁶ bodies (numpy/AVX, 6-iter Newton, cold start included), scalar arm exact to 2e-16 vs the shipped integrands (timed arm 2× slip on t/τ, price unaffected); the squared-pole reduction re-derived independently (κ digit-identical to cd6e's); native projection ≈ 4 µs at de99's kernel prices; SIMD-vs-scalar ratio and the integer port remain.
+- 20261015-1926-quant-c4d3 (silver): the shipped compile timed at true belt keys — 4.4–4.5 µs p50 (e-monotone 3.4→8.3, p-flat, three seeds, two held out, predictions pre-registered), the promotion path 9.2 µs flat in N to 2×10⁵; the batched promotion's belt adoption refuted (~2.7× regression), b172's in-flight counters corroborate, the strong-field tail keeps the closed forms.
+- 20261016-1120-quant-5ade (silver): the wave kick decomposed — fit 41%, sources 23%, tau pair 15% (2 exact duplicate walks, deleted −17% digest-identically), apply's position walk the next (−13%); source memo dead on the spread belt (0.029).
+- 20261016-2229-components-a765 (this run, awaiting grade): the kick's floor derived and measured — rebind compile-bound 84–87% (52.8–65.3 µs of 62.6–75.4 µs mean, 4,553 rebinds, three seeds), fit_key 6%, bisection premium 3%, Newton prototype key-equal at the law's quantum 4,553/4,553 (checkers: 0 quantum disagreements on 25,660 rebinds over fourteen arms, digest-identical patched vs unpatched); floor ~6 µs, gap ~10–12×, the record's three floors reconciled as write/jet-arm/arithmetic.
