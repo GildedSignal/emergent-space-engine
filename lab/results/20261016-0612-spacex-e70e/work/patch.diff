@@ -1,0 +1,126 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e6d48b99 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// included (the resident size alone drops pages the machine has compressed or swapped — this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,19 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux port (the lab's boxes): resident set from /proc/self/statm, peak tracked in-process.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    static PEAK: AtomicU64 = AtomicU64::new(0);
++    let rss = std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++        .map_or(0, |pages| pages * 4096);
++    let now = PEAK.fetch_max(rss, Ordering::Relaxed).max(rss);
++    (rss, now)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..1f7ca679 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -625,6 +625,81 @@ impl Work<'_, '_> {
+     /// is planned at the middle of the first step.
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
++        // ES_BELT_SPREAD=1: the birth program's tick grid for the belt (the lawful cure named by
++        // 20261016-0504-second-...-c840). A genesis doll-0 ship whose own radial period is at
++        // least 2^3 doll-grid intervals begins its clock at a per-body hash offset inside the
++        // first grid interval, so the population's first kicks land spread by construction and
++        // no kick is ever moved relative to the body's own clock (the clock then chains from
++        // kick to kick: the offset persists). Short-period ships (battles, the fleet), the
++        // player and every secondary doll keep tick 0; unset, this arm is bit-identical.
++        let dbg = std::env::var_os("ES_BELT_SPREAD").is_some_and(|v| v == "2");
++        if dbg && t == 0 && d == 0 && self.rec.kind == Kind::Ship {
++            let k = self.rec.b.entry.trajectory.key();
++            let p = k.and_then(|k| self.rec.b.to_doll(k.periapsis).ok());
++            let per = match &self.rec.b.entry.trajectory {
++                Trajectory::Cycle(c) => c.period().ok(),
++                _ => None,
++            }
++            .and_then(|x| self.rec.b.to_doll(x).ok());
++            let srcs = self
++                .ctx
++                .secondaries(d, t, self.i)
++                .ok()
++                .and_then(|s| s.iter().map(|x| norm2(x.pos).ok()).collect::<Option<Vec<_>>>());
++            let dsv = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)
++                .ok()
++                .map(|x| x.0);
++            eprintln!(
++                "DBG i={} t={} ext={} key={} peri={:?} srcs={:?} per={:?} ds={:?}",
++                self.i, t, self.rec.ext.is_some(), k.is_some(), p, srcs, per, dsv
++            );
++        }
++        if t == 0 && self.rec.ext.is_none() && d == 0 && self.rec.kind == Kind::Ship
++            && std::env::var_os("ES_BELT_SPREAD").is_some_and(|v| v == "1")
++        {
++            // The belt scope: a Cycle whose periapsis stays clear of every source's orbit by an
++            // eighth of that source's radius (the tide there is slow and periodic; no source's
++            // neighbourhood, hence no assist encounter, can sit inside the first kick window),
++            // and whose own period is at least 2^3 doll-grid intervals. Flyby and assist ships
++            // (periapsis at or inside a source's neighbourhood) never enter the scope.
++            let belt = match self.rec.b.entry.trajectory.key() {
++                Some(k) => {
++                    let peri = self.rec.b.to_doll(k.periapsis)?;
++                    let mut belt = !self.ctx.sources[d as usize].is_empty();
++                    for s in &self.ctx.secondaries(d, t, self.i)? {
++                        let r = norm2(s.pos)?;
++                        let gap = peri.sub(r)?;
++                        if gap.abs() <= r.scale(-3)? {
++                            belt = false;
++                            break;
++                        }
++                    }
++                    belt
++                }
++                None => false,
++            };
++            let period = self.rec.b.to_doll(match &self.rec.b.entry.trajectory {
++                Trajectory::Cycle(c) => c.period()?,
++                _ => Scalar::ZERO,
++            })?;
++            let ds = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?.0;
++            if belt && period >= ds.scale(3)? {
++                // Ticks are doll time >> clock_exp, in 2^-16 sub-tick units (ext::TICK_FRACTION).
++                let sub = ds.fixed(-self.ctx.dolls[d as usize].clock_exp() as i32 + 16)?;
++                let grid = (sub >> 16).clamp(1, 1 << 40) as u64;
++                let mut z = (self.i as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
++                z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++                z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++                z ^= z >> 31;
++                let o = (z % grid) as Tick;
++                if std::env::var_os("ES_BELT_SPREAD").is_some_and(|v| v != "0") {
++                    eprintln!("ENGAGE i={} belt={} o={} grid={} sub={} cexp={} ds={:?}", self.i, belt, o, grid, sub, self.ctx.dolls[d as usize].clock_exp(), ds);
++                }
++                if o != 0 {
++                    return self.plan_clock(o);
++                }
++            }
++        }
+         if self.rec.ext.is_none() {
+             let st = self.rec.b.readout(t)?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;

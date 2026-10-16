@@ -1,0 +1,29 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+error[E0277]: the `?` operator can only be used in a closure that returns `Result` or `Option` (or another type that implements `FromResidual`)
+   --> crates/universe/src/step.rs:647:70
+    |
+647 |                         && sources.iter().all(|s| peri > norm2(s.pos)?)
+    |                                               ---                    ^ cannot use the `?` operator in a closure that returns `bool`
+    |                                               |
+    |                                               this function should return `Result` or `Option` to accept `?`
+
+error[E0308]: `match` arms have incompatible types
+   --> crates/universe/src/step.rs:649:25
+    |
+643 |               let belt = match key {
+    |  ________________________-
+644 | |                 Some(k) => {
+645 | |                     let peri = self.rec.b.to_doll(k.periapsis)?;
+646 | |                     let sources = self.ctx.secondaries(d, t, self.i)?;
+647 | |                         && sources.iter().all(|s| peri > norm2(s.pos)?)
+    | |                         ----------------------------------------------- this is found to be of type `&&bool`
+648 | |                 }
+649 | |                 None => false,
+    | |                         ^^^^^ expected `&&bool`, found `bool`
+650 | |             };
+    | |_____________- `match` arms have incompatible types
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `emergent-universe` (lib) due to 2 previous errors
+BUILD EXIT 101
