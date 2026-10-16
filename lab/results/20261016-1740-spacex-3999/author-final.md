@@ -1,0 +1,4 @@
+The scan's Run complete. All deliverables are in `lab/results/20261016-1740-spacex-3999/` (dossier, pre-registered predictions, `regen.sh` verified green end-to-end, wiki page, probe + outputs; peak RSS 233 MB, no engine file modified, deterministic cells bit-identical across regens).
+
+**Claim:** the player's scan latches inside the belt at every N the plane already flies — the `bodies/4+64` fallback is belt-band occupancy (eccentricity-tail [peri, apo] hulls), so the answer reads N−314 bodies at ~4.1–4.9 µs with zero encounters (latched from N≈9×10²; 3 ms at the ladder's own 10³, 435 ms at 10⁵, capture over the frame bar from N≈2.5×10⁴) — and the priced angular cure cannot soundly reach "tens of µs": the mean-longitude certificate must carry the ±2e anomaly margin, ~50× the sweep term, keeping 4.5–9% ≈ 19–38 ms of reads at 10⁵.
+he phase-neighbour rank, ~50× cheaper reads, or a population-level answer for the belt doll.

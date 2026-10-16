@@ -1,0 +1,36 @@
+extra=0 seed=1 bodies=28 radial_bodies=28 scan_t=1 build_s=0
+window.player_home: doll=2 r_au=12.266 h=1.099511627776e12 fallback=false kept=3 walked=3 pass=2 capture_us=0.3 capture_us_per_walked=0.099
+window.hauler_0: doll=0 r_au=6.844 h=5.350355964e9 fallback=false kept=6 walked=6 pass=5 capture_us=0.4 capture_us_per_walked=0.063
+window.hauler_1: doll=0 r_au=2.25 h=5.730037476e9 fallback=false kept=5 walked=5 pass=4 capture_us=0.3 capture_us_per_walked=0.053
+window.hauler_2: doll=0 r_au=0.548 h=5.730274578e9 fallback=false kept=4 walked=4 pass=3 capture_us=0.1 capture_us_per_walked=0.03
+window.hauler_3: doll=0 r_au=4.533 h=5.595599372e9 fallback=false kept=5 walked=5 pass=4 capture_us=0.2 capture_us_per_walked=0.045
+window.hauler_4: doll=0 r_au=6.566 h=6.34591319e9 fallback=false kept=6 walked=6 pass=5 capture_us=0.2 capture_us_per_walked=0.031
+window.hauler_5: doll=0 r_au=2.644 h=5.716668772e9 fallback=false kept=4 walked=4 pass=3 capture_us=0.1 capture_us_per_walked=0.03
+window.hauler_6: doll=0 r_au=6.616 h=6.341798424e9 fallback=false kept=6 walked=6 pass=5 capture_us=0.2 capture_us_per_walked=0.029
+window.hauler_7: doll=0 r_au=1.168 h=5.71674947e9 fallback=false kept=4 walked=4 pass=3 capture_us=0.1 capture_us_per_walked=0.026
+window.hauler_8: doll=0 r_au=3.295 h=5.803212138e9 fallback=false kept=4 walked=4 pass=3 capture_us=0.1 capture_us_per_walked=0.027
+window.hauler_9: doll=0 r_au=1.67 h=5.741997306e9 fallback=false kept=5 walked=5 pass=4 capture_us=0.1 capture_us_per_walked=0.028
+window.hauler_10: doll=0 r_au=5.098 h=5.51239593e9 fallback=false kept=7 walked=7 pass=6 capture_us=0.2 capture_us_per_walked=0.031
+window.hauler_11: doll=0 r_au=1.019 h=5.716452482e9 fallback=false kept=5 walked=5 pass=4 capture_us=0.1 capture_us_per_walked=0.029
+window.belt_standin_root: doll=3 r_au=1.96 h=6.8719476736e10 fallback=false kept=1 walked=1 pass=0 capture_us=0 capture_us_per_walked=0.045
+window.huge_h_root: doll=3 r_au=1.96 h=1e9 fallback=false kept=1 walked=1 pass=0 capture_us=0 capture_us_per_walked=0.018
+# fallback sweep (the stand-in's v, h and reach, r swept)
+sweep: r_au=1 fallback=false kept=2
+sweep: r_au=1.25 fallback=false kept=2
+sweep: r_au=1.5 fallback=false kept=2
+sweep: r_au=1.75 fallback=false kept=2
+sweep: r_au=2 fallback=false kept=1
+sweep: r_au=2.25 fallback=false kept=1
+sweep: r_au=2.5 fallback=false kept=0
+sweep: r_au=2.75 fallback=false kept=0
+sweep: r_au=3 fallback=false kept=0
+sweep: r_au=3.25 fallback=false kept=0
+sweep: r_au=3.5 fallback=false kept=0
+sweep: r_au=3.75 fallback=false kept=0
+sweep: r_au=4 fallback=false kept=0
+sweep: r_au=4.25 fallback=false kept=0
+sweep: r_au=4.5 fallback=false kept=0
+# belt answer half (Scan::compute's loop, timed)
+belt_answer: candidates=0 encounters=0 answer_us=6.4 answer_us_per_read=6.447 reads_per_hit=inf miss_over_reach_min=NaN miss_over_reach_p50=NaN arc_over_reach_min=NaN arc_over_reach_p50=NaN standin_r_au=1.96 standin_step=67108864
+# latch arithmetic (b = 5 ms, drain bar S >= b/2 = 2.5 ms)
+latch: S_answer_us=0 S_capture_us=0 bar_us=2500 latch_answer=false latch_capture=false
