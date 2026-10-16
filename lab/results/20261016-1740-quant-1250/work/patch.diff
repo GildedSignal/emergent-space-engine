@@ -1,0 +1,367 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..0f6ce46d 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -5,7 +5,10 @@ use crate::{
+     num::{ONE, cos},
+     tables::{EDGE, PI, W, X},
+ };
+-use std::{collections::HashMap, sync::Arc};
++use std::{
++    collections::HashMap,
++    sync::{Arc, OnceLock},
++};
+ 
+ const HALF: u64 = 1 << 47;
+ const UNIT: u64 = 1 << 48;
+@@ -522,9 +525,13 @@ pub struct Orbit {
+     increments: [Scalar; 3],
+     /// The exact proper clock of a key that carries a gap: `[√(d/k), q·term]`. The weak shape's `tau` integrals are
+     /// `√k·∫(1/x²)(1 + q(a/2 − term))`, first order in `q`; with `E ≫ 1`, `q·term → 1/2` and that is not small. The exact numerator
+-    /// `√d` is `√k·√(d/k)`, and the first-order expansion of the rest (`g = 1/√(1−qa)`, uniformly `O(q)`) stays:
++    /// `√d` is `√k·√(d/k)`, and the exact expansion of the rest (`g = 1/√(1−qa)`, uniformly `O(q)`) stays:
+     /// `τ = √(d/k)·(i₂ + q·i₄ + q·term·i₂)`.
+     clock: Option<[Scalar; 2]>,
++    /// The knots' crossing times as floats (tube time units), built once per compiled orbit on first read:
++    /// a scan-side phase bound (the universe finder's angular certificate) locates a tick's panel with them.
++    /// A readout-side table: widened floats that never decide an outcome, like the finder's radial window.
++    knot_times: OnceLock<Arc<[f64]>>,
+ }
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+@@ -602,6 +609,7 @@ impl Orbit {
+             speed_scale: key.compactness()?.div(k)?.sqrt()?,
+             increments: [Scalar::ZERO, period, period],
+             clock: None,
++            knot_times: OnceLock::new(),
+         })
+     }
+     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+@@ -647,6 +655,7 @@ impl Orbit {
+             speed_scale,
+             increments: [Scalar::ZERO; 3],
+             clock: None,
++            knot_times: OnceLock::new(),
+         };
+         if let Some(gap) = key.gap {
+             // The gap is E's (E² = tn/d): it must be positive for E to be finite.
+@@ -676,6 +685,19 @@ impl Orbit {
+     pub fn period(&self) -> Result<Scalar> {
+         Ok(self.increments[1])
+     }
++
++    /// The knots' crossing times (tube units) as floats, once per compiled orbit: the outbound panels a cheap
++    /// phase bound reads, monotone in `psi`. An untabulable knot reads as infinity (the widest panel).
++    pub fn knot_times_f64(&self) -> &[f64] {
++        self.knot_times.get_or_init(|| {
++            let times: Vec<f64> = self.shape.knots.iter().map(|k| self.crossing_time_raw(k)).collect();
++            Arc::from(times.as_slice())
++        })
++    }
++    fn crossing_time_raw(&self, k: &Knot) -> f64 {
++        let Ok(t) = self.time(k.sum).and_then(|t| t.mul(self.time_scale)) else { return f64::INFINITY };
++        t.significand() as f64 * 2f64.powi(t.exponent() as i32 - 62)
++    }
+     pub fn proper_period(&self) -> Result<Scalar> {
+         Ok(self.increments[2])
+     }
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e41bccf9 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,19 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    // The lab's Linux hosts: resident pages from /proc (the macOS footprint counter is not there).
++    use std::io::Read;
++    let mut line = String::new();
++    if let Ok(mut f) = std::fs::File::open("/proc/self/statm") {
++        let _ = f.read_to_string(&mut line);
++        let rss: u64 = line.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++        return (rss * 4096, rss * 4096);
++    }
++    (0, 0)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -156,8 +171,35 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    let c = &emergent_universe::encounter::CENSUS;
++    use std::sync::atomic::Ordering;
++    let (answers, answer_ns, candidates, reads, hits, kills, cert_ns) = (
++        c.answers.load(Ordering::Relaxed),
++        c.answer_ns.load(Ordering::Relaxed),
++        c.candidates.load(Ordering::Relaxed),
++        c.reads.load(Ordering::Relaxed),
++        c.hits.load(Ordering::Relaxed),
++        c.kills.load(Ordering::Relaxed),
++        c.cert_ns.load(Ordering::Relaxed),
++    );
++    let cert_calls = kills + c.uncertified.load(Ordering::Relaxed) + reads;
++    println!(
++        "scan census: captures {} (fallback {}), answers {}, answer_us_mean {:.1}, candidates {}, reads {} ({} a hit), kills {}, cert_ns_per_candidate {:.0}, cycle_reads {}, cert {}",
++        c.captures.load(Ordering::Relaxed),
++        c.fallbacks.load(Ordering::Relaxed),
++        answers,
++        answer_ns as f64 / 1e3 / answers.max(1) as f64,
++        candidates,
++        reads,
++        reads as f64 / hits.max(1) as f64,
++        kills,
++        cert_ns as f64 / cert_calls.max(1) as f64,
++        c.uncertified.load(Ordering::Relaxed),
++        if emergent_universe::encounter::cert_on() { "on" } else { "off" },
++    );
++    println!("digest {}", p.u.digest());
+     println!(
+-        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
++        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1} scans={answers} reads={reads} kills={kills} hits={hits}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
+ }
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..75c4d877 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -14,6 +14,149 @@ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+ use std::sync::{Arc, Mutex, OnceLock};
++use crate::radial::range_of;
++use emergent_space::binding::Trajectory;
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::time::Instant;
++
++/// What the two halves of the scan cost, counted where they run (print-only: no outcome reads it).
++pub struct Census {
++    pub captures: AtomicU64,
++    pub fallbacks: AtomicU64,
++    pub answers: AtomicU64,
++    pub answer_ns: AtomicU64,
++    pub candidates: AtomicU64,
++    pub reads: AtomicU64,
++    pub hits: AtomicU64,
++    pub kills: AtomicU64,
++    pub cert_ns: AtomicU64,
++    pub uncertified: AtomicU64,
++}
++pub static CENSUS: Census = Census {
++    captures: AtomicU64::new(0),
++    fallbacks: AtomicU64::new(0),
++    answers: AtomicU64::new(0),
++    answer_ns: AtomicU64::new(0),
++    candidates: AtomicU64::new(0),
++    reads: AtomicU64::new(0),
++    hits: AtomicU64::new(0),
++    kills: AtomicU64::new(0),
++    cert_ns: AtomicU64::new(0),
++    uncertified: AtomicU64::new(0),
++};
++
++/// The angular certificate is on unless `ES_SCAN_CERT=0` (the measurement's control arm).
++pub fn cert_on() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    *ON.get_or_init(|| std::env::var("ES_SCAN_CERT").as_deref() != Ok("0"))
++}
++
++const TAU: f64 = 2.0 * std::f64::consts::PI;
++
++/// The polar angle of a bound tube at `t`, as an arc `[centre − half, centre + half]` (radians, mod a turn):
++/// the knot panel the tick falls in, widened by the periapsis-angle turn's sub-quantum shear and the offset the
++/// fit carries, the unknown part of the within-cycle advance, and float rounding. Every widening is against the
++/// cut (the arc only grows), so a pair the arc excludes cannot be read at `t`. `None`: no arc (not a bound cycle,
++/// a circle, or a degenerate table) — the caller reads the body.
++fn angle_arc(b: &Binding, t: Tick, lo: f64) -> Option<(f64, f64)> {
++    let Trajectory::Cycle(orbit) = &b.entry.trajectory else { return None };
++    let times = orbit.knot_times_f64();
++    let n = times.len();
++    if n < 2 || !times.windows(2).all(|w| w[0] <= w[1]) {
++        return None;
++    }
++    let mu_inv = to_f64(b.entry.unit.inverse);
++    let period = to_f64(orbit.period().ok()?) * mu_inv; // doll time per cycle
++    if !period.is_finite() || period <= 0.0 {
++        return None;
++    }
++    let adv = to_f64(orbit.advance().ok()?); // radians per cycle (the shape's excess; see `e_adv`)
++    let peri_t = b.tube.periapsis_time.get() as i64;
++    let elapsed = (t as i128 - peri_t as i128) as f64 * 2f64.powi(b.clock_exp as i32) * mu_inv;
++    if !elapsed.is_finite() {
++        return None;
++    }
++    let cycles = (elapsed / period).floor();
++    let rem = elapsed - cycles * period; // [0, period), up to rounding
++    let half = 0.5 * period;
++    let slack = elapsed.abs() * 1e-9 + period * 1e-12 + 1e-300;
++    let d_out = rem.min(period - rem); // distance from periapsis in time (the cycle is symmetric)
++    let (d_lo, d_hi) = (d_out - slack, d_out + slack);
++    // The ψ span the interval [d_lo, d_hi] covers on the outbound leg (ψ is monotone in time there; the knots'
++    // times were checked monotone above). Q61 radians out.
++    let knots = orbit.shape().knots();
++    let psi_of = |i: usize| knots.get(i).map_or(f64::INFINITY, |k| k.psi as f64 * 2f64.powi(-61));
++    let (mut i_lo, mut i_hi) = (n - 1, n - 1);
++    for i in 0..n {
++        if times[i] * mu_inv <= d_lo {
++            i_lo = i;
++        }
++        if times[i] * mu_inv <= d_hi {
++            i_hi = i;
++        }
++    }
++    let psi_lo = if d_lo <= 0.0 { 0.0 } else { psi_of(i_lo) };
++    let psi_hi = psi_of((i_hi + 1).min(n - 1));
++    // The inbound leg mirrors ψ about the apoapsis; an interval straddling the half-cycle takes the union.
++    let near_half = (rem - half).abs() <= slack;
++    let (a_lo, a_hi) = match (rem <= half, near_half) {
++        (true, false) => (psi_lo, psi_hi),
++        (false, false) => (TAU - psi_hi, TAU - psi_lo),
++        (_, true) => (psi_lo.min(TAU - psi_hi), psi_hi.max(TAU - psi_lo)),
++    };
++    if !a_lo.is_finite() || !a_hi.is_finite() || a_hi < a_lo {
++        return None;
++    }
++    // What the fit carries beyond the tube: the offset (any direction), the readout's rounding, the turn's shear.
++    let q_len = 2f64.powi(b.units.0 as i32);
++    let res_len = ((b.residual.position[0].unsigned_abs() + b.residual.position[1].unsigned_abs()) as f64 + 8.0) * q_len;
++    let eps_off = 1.01 * (res_len + 16.0 * q_len) / lo + 2f64.powi(-31) * TAU;
++    // The unknown within-cycle advance (the excess integral between knots, its sign unknown, the weak branch's
++    // zeroed q included) and the float rounding of the accumulated advance.
++    let adv_term = adv * cycles;
++    let e_adv = 2.0 * adv.abs() + 4e-3 + 1e-6 * (1.0 + adv_term.abs());
++    let omega = b.tube.periapsis_angle as f64 * TAU / 2f64.powi(32);
++    let sgn = if b.entry.clockwise { -1.0 } else { 1.0 };
++    let centre = omega + sgn * (0.5 * (a_lo + a_hi) + adv_term);
++    let half_w = 0.5 * (a_hi - a_lo) + eps_off + e_adv + 1e-9;
++    if half_w >= TAU / 4.0 {
++        return None;
++    }
++    Some((centre, half_w))
++}
++
++/// Can this candidate's linear motion over `[t, t + h]` come within `near` of the player's? True = provably not:
++/// the angular separation at `t` (the arc above against the player's exact readout), minus the largest angles the
++/// two can sweep over `h`, still exceeds the largest separation a chord `near` allows at the smallest radius either
++/// can reach. Every term is widened against the cut (the radial window's rule: a float only ever drops a pair that
++/// cannot meet). False = read the body.
++fn cannot_meet(b: &Binding, t: Tick, th_p: f64, r_p: f64, v_p: f64, h: f64, near: f64) -> bool {
++    if !(h.is_finite() && h >= 0.0 && r_p.is_finite() && r_p > 0.0 && v_p.is_finite() && near.is_finite() && near >= 0.0) {
++        return false;
++    }
++    let Some((lo, _hi, v_b)) = range_of(b) else { return false };
++    if !(lo.is_finite() && lo > 0.0 && v_b.is_finite() && v_b >= 0.0) {
++        return false;
++    }
++    let Some((centre, half_w)) = angle_arc(b, t, lo) else { return false };
++    let rel = 1.0 + 1e-9;
++    let r_p_min = r_p - v_p * h * rel;
++    let r_b_min = lo - v_b * h * rel;
++    if r_p_min <= 0.0 || r_b_min <= 0.0 {
++        return false;
++    }
++    // The least separation of the two angles at t.
++    let d = (th_p - centre).rem_euclid(TAU);
++    let dist = d.min(TAU - d) - half_w;
++    if dist <= 0.0 {
++        return false;
++    }
++    // The most the separation can close over h, and the widest angle a chord `near` allows at the conjunction.
++    let travel = (v_b / r_b_min + v_p / r_p_min) * h * rel;
++    let r_min = r_b_min.min(r_p_min);
++    let alpha = 2.0 * (near * rel / (2.0 * r_min)).clamp(0.0, 1.0).asin();
++    dist > travel + alpha + 1e-9
++}
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+@@ -126,13 +269,43 @@ impl Held for Scan {
+ }
+ 
+ impl Scan {
+-    /// The expensive half: read the player and each candidate at `t` and apply the predicate.
++    /// The expensive half: read the player and each candidate at `t` and apply the predicate. The angular
++    /// certificate (above) reads no state: a candidate whose phase arc excludes the window is skipped unread.
+     fn compute(&self) -> Vec<Encounter> {
++        let t0 = Instant::now();
++        CENSUS.answers.fetch_add(1, Relaxed);
+         let mut out = Vec::new();
+         let (t, body) = (self.t, self.body);
+-        let Ok((x, v)) = self.me.cartesian(t) else { return out };
+-        let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
++        let Ok((x, v)) = self.me.cartesian(t) else {
++            CENSUS.answer_ns.fetch_add(t0.elapsed().as_nanos() as u64, Relaxed);
++            return out;
++        };
++        let Ok(h) = time_of(self.interval, self.me.clock_exp) else {
++            CENSUS.answer_ns.fetch_add(t0.elapsed().as_nanos() as u64, Relaxed);
++            return out;
++        };
++        // The player's polar state: the exact readout above, as floats (a bound's inputs, not outcomes).
++        let (px, py) = (to_f64(x[0]), to_f64(x[1]));
++        let (vx, vy) = (to_f64(v[0]), to_f64(v[1]));
++        let (r_p, th_p) = (px.hypot(py), py.atan2(px));
++        let v_p = vx.hypot(vy);
++        let h_f = to_f64(h);
+         for (j, other, reach) in &self.candidates {
++            CENSUS.candidates.fetch_add(1, Relaxed);
++            if cert_on() {
++                let near_f = to_f64(*reach) * 2f64.powi(ENCOUNTER_LOG2) * 1.01;
++                let tc = Instant::now();
++                let skip = cannot_meet(other, t, th_p, r_p, v_p, h_f, near_f);
++                CENSUS.cert_ns.fetch_add(tc.elapsed().as_nanos() as u64, Relaxed);
++                if skip {
++                    CENSUS.kills.fetch_add(1, Relaxed);
++                    continue;
++                }
++                if matches!(&other.entry.trajectory, Trajectory::Cycle(_)) {
++                    CENSUS.uncertified.fetch_add(1, Relaxed);
++                }
++            }
++            CENSUS.reads.fetch_add(1, Relaxed);
+             let found = (|| -> Res<Option<bool>> {
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
+@@ -147,9 +320,11 @@ impl Scan {
+                 Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
+             })();
+             if let Ok(Some(contact)) = found {
++                CENSUS.hits.fetch_add(1, Relaxed);
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
++        CENSUS.answer_ns.fetch_add(t0.elapsed().as_nanos() as u64, Relaxed);
+         out
+     }
+ }
+@@ -171,6 +346,10 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        CENSUS.captures.fetch_add(1, Relaxed);
++        if near.is_none() {
++            CENSUS.fallbacks.fetch_add(1, Relaxed);
++        }
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.

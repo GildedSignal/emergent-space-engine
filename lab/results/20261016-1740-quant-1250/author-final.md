@@ -1,0 +1,4 @@
+Working...
+Done. All deliverables are in `lab/results/20261016-1740-quant-1250/` (patch, predictions written before the runs, dossier, validated `regen.sh` — 8/8 rungs digest-identical, wiki page).
+
+**Claim:** the scan's answer half now carries an angular certificate on the tube's own knot table that kills 66–80% of candidates (89–91% of bound cycles) at ~0.2–0.46 µs each with bit-identical outcomes everywhere run (10 ladder flights plus 12 scripted flights × 4 schedules, certificate-on finder ≡ brute reference), cutting the answer bill 2.2–2.8× and the burn backlog 13–26× at N=300/10⁴ — yet the latch at the plane's own N=1000 burn survives (held 580→491), because the drain gates on the running *max* answer, which the fallback's whole-doll candidate lists and the unkillable Passage readouts still set: means do not reopen a max-gated latch, and cdf0's 10–20 ns pricing was 20–45× optimistic.
