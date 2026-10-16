@@ -1,0 +1,4 @@
+Working...
+Run complete. All deliverables in place: instrument (`falsifier.py`), pre-registered predictions, dossier, smoke-tested `regen.sh` (139 s, regenerates every number), and the topic page `wiki/cycle-kick-update.md`.
+
+**Claim:** the design's "a kick updates the cycle by a multiply-add" (representation.md §3) is certified only on the bulk (κ ≤ 2, so encounter-class kicks err ≤ 2×10⁻⁴ and belt tides sit 7 orders under every bar) but breaks on the separatrix family where the error grows as δ^−2.5..−3.5 (a 0.1%-of-L kick at δ = 0.2 errs 18.5% on the advance) and on the design's own named case — Peters inspiral as kicks, mispredicted by 25% in merger time from four kicks, with stale derivatives going nonphysical mid-inspiral — and no rung, gate or shipped test builds or guards the path.
