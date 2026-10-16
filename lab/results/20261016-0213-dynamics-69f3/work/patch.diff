@@ -1,0 +1,178 @@
+diff --git a/crates/universe/examples/scanqueue.rs b/crates/universe/examples/scanqueue.rs
+new file mode 100644
+index 00000000..bf0ad08a
+--- /dev/null
++++ b/crates/universe/examples/scanqueue.rs
+@@ -0,0 +1,86 @@
++//! The scan queue's phase diagram (the lab's dynamics lens): the player born mid-belt (`ES_BELT_PLAYER`),
++//! one sustained burn, then coast. Paced at 60 Hz like the player's frame loop; the engine advance under
++//! a wall budget; the scan counters (`encounter::scan_counters`) and `held_scans` sampled every frame.
++//! Print-only instrument: the counters are atomics no law reads.
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::{Budget, Config};
++use emergent_universe::fleet::Order;
++use emergent_universe::view::TICK_SECONDS;
++use std::io::Write as _;
++use std::time::{Duration, Instant};
++
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|s| s.split_whitespace().nth(1).and_then(|r| r.parse::<u64>().ok()))
++        .map_or(0.0, |pages| pages as f64 * 4096.0 / 1e6)
++}
++
++fn arg(name: &str, default: &str) -> String {
++    std::env::args().collect::<Vec<_>>().windows(2).find(|w| w[0] == name).map_or_else(|| default.to_string(), |w| w[1].clone())
++}
++
++fn main() {
++    let n: usize = arg("--n", "2000").parse().unwrap();
++    let seed: u64 = arg("--seed", "1").parse().unwrap();
++    let level: u8 = arg("--level", "0").parse().unwrap();
++    let engine_ms: f64 = arg("--engine-ms", "5.0").parse().unwrap();
++    let rtf: f64 = arg("--rtf", "1.0").parse().unwrap();
++    let burn_s: f64 = arg("--burn-s", "12").parse().unwrap();
++    let coast_s: f64 = arg("--coast-s", "10").parse().unwrap();
++    let warmup_s: f64 = arg("--warmup-s", "3").parse().unwrap();
++    let fence_mb: f64 = arg("--fence-mb", "1700").parse().unwrap();
++    let key: u8 = arg("--key", "1").parse().unwrap();
++    let frames = ((warmup_s + burn_s + coast_s) * 60.0) as usize;
++    std::env::set_var("ES_BELT_PLAYER", "1");
++    let t0 = Instant::now();
++    let p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).expect("the plane");
++    let mut u = p.u;
++    let player = p.player;
++    eprintln!("setup_s {:.2} bodies {} player_alive {}", t0.elapsed().as_secs_f64(), u.n_bodies(), u.rec(player).alive);
++    // The burn and its release, at canonical ticks (the wall's frames never move a decision).
++    let per_frame = rtf / 60.0 / TICK_SECONDS;
++    let (f_on, f_off) = ((warmup_s * 60.0) as usize, ((warmup_s + burn_s) * 60.0) as usize);
++    let word = |keys: u8| emergent_universe::thrust::word(keys, level);
++    u.schedule(((f_on as f64) * per_frame).round() as i64, word(key)).unwrap();
++    u.schedule(((f_off as f64) * per_frame).round() as i64, word(0)).unwrap();
++    let (wall, mut last) = (Instant::now(), Instant::now());
++    let (mut f, mut fence_hit) = (0usize, false);
++    for fno in 1..=frames {
++        let due = wall + Duration::from_secs_f64(fno as f64 / 60.0);
++        if let Some(wait) = due.checked_duration_since(Instant::now()) {
++            std::thread::sleep(wait);
++        }
++        let dt = last.elapsed().as_secs_f64().min(0.1);
++        last = Instant::now();
++        let fs = last.elapsed();
++        let _ = fs;
++        let fr = last;
++        u.frame_to(dt, rtf, Budget::wall(engine_ms), i64::MAX);
++        let frame_ms = fr.elapsed().as_secs_f64() * 1e3;
++        let (mints, answers, ans_ns, _cap_ns) = emergent_universe::encounter::scan_counters();
++        let row = format!(
++            "{{\"f\":{},\"t\":{:.3},\"held\":{},\"mints\":{},\"answers\":{},\"ans_ms\":{:.3},\"tick\":{},\"nom\":{},\"frame_ms\":{:.3},\"rss\":{:.1}}}\n",
++            fno, fno as f64 / 60.0, u.held_scans(), mints, answers, ans_ns as f64 / 1e6 / answers.max(1) as f64,
++            u.now, (fno as f64 * per_frame).round() as i64, frame_ms, rss_mb()
++        );
++        let mut so = std::io::stdout().lock();
++        so.write_all(row.as_bytes()).unwrap();
++        if rss_mb() > fence_mb {
++            fence_hit = true;
++            f = fno;
++            break;
++        }
++    }
++    let (mints, answers, ans_ns, _) = emergent_universe::encounter::scan_counters();
++    // The deferred bill: answer everything still held, timed.
++    let t1 = Instant::now();
++    let held_before = u.held_scans();
++    u.flush_scans();
++    let drain_s = t1.elapsed().as_secs_f64();
++    eprintln!(
++        "{{\"summary\":true,\"n\":{},\"seed\":{},\"level\":{},\"engine_ms\":{},\"burn_s\":{},\"frames_flown\":{},\"fence_hit\":{},\"player_alive\":{},\"mints\":{},\"answers\":{},\"ans_ms_each\":{:.3},\"held_before_flush\":{},\"flush_s\":{:.3},\"rss_peak_or_end\":{:.1}}}",
++        n, seed, level, engine_ms, burn_s, if f == 0 { frames } else { f }, fence_hit, u.rec(player).alive,
++        mints, answers, ans_ns as f64 / 1e6 / answers.max(1) as f64, held_before, drain_s, rss_mb()
++    );
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..227e279b 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -11,9 +11,23 @@ use crate::bind::Binding;
+ use crate::ctx::Ctx;
+ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::{Arc, Mutex, OnceLock};
++
++// The scan queue's instrument (print-only, digest-neutral): how many scans were minted (new `Scan`s,
++// not reuses of the last), how many were answered (the expensive half run), and the ns the answers and
++// the captures took. Read by the lab's scan-queue probe; nothing in the law reads these.
++static MINTS: AtomicU64 = AtomicU64::new(0);
++static ANSWERS: AtomicU64 = AtomicU64::new(0);
++static ANSWER_NS: AtomicU64 = AtomicU64::new(0);
++static CAPTURE_NS: AtomicU64 = AtomicU64::new(0);
++
++/// The scan queue's counters: (mints, answers, answer_ns, capture_ns).
++pub fn scan_counters() -> (u64, u64, u64, u64) {
++    (MINTS.load(Ordering::Relaxed), ANSWERS.load(Ordering::Relaxed), ANSWER_NS.load(Ordering::Relaxed), CAPTURE_NS.load(Ordering::Relaxed))
++}
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+-use std::sync::{Arc, Mutex, OnceLock};
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+@@ -128,6 +142,7 @@ impl Held for Scan {
+ impl Scan {
+     /// The expensive half: read the player and each candidate at `t` and apply the predicate.
+     fn compute(&self) -> Vec<Encounter> {
++        let t0 = std::time::Instant::now();
+         let mut out = Vec::new();
+         let (t, body) = (self.t, self.body);
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+@@ -150,6 +165,8 @@ impl Scan {
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
++        ANSWER_NS.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++        ANSWERS.fetch_add(1, Ordering::Relaxed);
+         out
+     }
+ }
+@@ -192,6 +209,7 @@ impl Encounters for PlayerNeighbourhood {
+         if let Some(l) = last.as_ref().filter(reusable) {
+             return Some(l.clone() as Arc<dyn Held>);
+         }
++        MINTS.fetch_add(1, Ordering::Relaxed);
+         let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
+         *last = Some(scan.clone());
+         Some(scan)
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..9c571b74 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -266,13 +266,22 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
+     let fleet = Fleet::new("Armada", home_doll, home, -18, world, r_lat, fleet_angle, order, threads.max(1))?;
++    // The lab's scan-seam probe (`ES_BELT_PLAYER`): the player is born mid-belt instead (2.5 AU circular, root doll),
++    // where a scan's candidates are the belt itself (the ruin band's scene; unset = the plane, bit for bit).
++    let belt_player = std::env::var("ES_BELT_PLAYER").is_ok();
+     // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit).
+     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units
+-    let player = u.add_body(
+-        Kind::Player,
+-        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
+-        Scalar::raw(34, -10 + 18)?,
+-    )?;
++    let player = if belt_player {
++        // Mid-belt: 2.5 AU circular, in the belt's own (root) doll, the belt ships' radius.
++        let a_q8 = (5 * AU as u128) << 7;
++        u.add_body(Kind::Player, OrbitSpec { doll: 0, periapsis: Scalar::raw(a_q8 as i128, -8)?, e_q48: 0, clockwise: false, angle: 0x2000_0000, phase: 0 }, Scalar::raw(34, -10)?)?
++    } else {
++        u.add_body(
++            Kind::Player,
++            OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
++            Scalar::raw(34, -10 + 18)?,
++        )?
++    };
+     names.push("You".into());
+     let f = u.add_fleet(fleet);
+     u.start()?;

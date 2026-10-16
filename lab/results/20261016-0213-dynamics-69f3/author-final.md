@@ -1,0 +1,4 @@
+Working...
+Regen reproduces every number in 17 s. All deliverables are in place (`predictions.md` pre-registered with P2's failure reported as held-failed, `dossier.md`, verified `regen.sh`, `wiki/scan-queue.md`, instrument = `ES_BELT_PLAYER` knob + print-only atomics + `examples/scanqueue.rs`).
+
+**Claim:** the burn's scan backlog is a one-way service latch, not a load-sharing queue — `drain_scans` freezes permanently once one answer costs more than half the frame budget (S = 1.7–3.0 µs/body × N), so the player's seam is entirely free below the latch (B = 0, 58/58 answered in-frame) and a pure linear birth above it (λ = 14.4 holds/s, N-independent, 115 B/body per held scan, N_freeze ≈ 0.8–1.5k at b = 5 ms), which retargets the cure from budget tuning to the candidate set, whose success criterion is S < b/2 at the player's own N.
