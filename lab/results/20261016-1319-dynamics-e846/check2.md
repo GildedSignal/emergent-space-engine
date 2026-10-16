@@ -1,0 +1,26 @@
+Grade: gold
+
+**Abstract.** Claim: the plane's 47/144 co-orbital deaths are kick-time planet-disk crossings — the real conjunction-encounter class — and b9be's "false death" reading was instrument artifact (the oracle has no surface; the P/256 grid was blind ~180×). Reproduced: regen exit 0, every dossier number exact, dead set bit-deterministic (φ=105° subset rerun identical). Independently verified: J(L1) = 5.768404e-9 (scipy), the oracle model matches the judge's control digits, the census counters touch no outcome. Held-out: at 1024 P the class separation strengthens (dead-truth median 0.70 vs alive 105 Rp), and 5/16 kept-crossing ICs die planet_kick by 1024 P (epochs 527–950 P) — the mirror error converts to kills at real encounters. Cost to adopt: a B12-family gate rewrite (encounter parity on resolved references, both error directions), zero engine change.
+
+**Reasons.**
+
+1. **Reproduction.** The runner's regen (exit 0) rebuilt all arms; `aggregate.out` matches the dossier line for line (47 dead, channels {planet_kick: 47}, epochs 10.73/11.89, q/S min 35 med 663, crossings 19/47 vs 20/97, window 15/47 min 0.0042 Rp, P/64 catches 0/15, J drift 2.3e-9, q_min/S 15.6/138.3). My own φ=105° subset rerun is bit-identical to `plane.jsonl` (−1.45 dies, epoch 85.9688, planet_kick; ±0.85/+1.25 alive) — the census is deterministic and the b9be discrepancy (3 ICs) is real on this tree, not a flake, exactly as the author reported.
+
+2. **The instrument, attacked independently.** I rebuilt the CR3BP in scipy (zero shared code): q/S at 0/4/8 P for the control IC comes out 1180.7452 / 1064.8157 / 1097.3360 — the judge's digits, so my model is theirs. J(L1) by my own minimization: 5.768404e-9, exact. An event-resolved (planetocentric-periapsis) 512 P integration of two dead ICs: (1.45, 285°) dives to 0.26 Rp in my integrator too (judge: 0.0042 Rp at 249.5 P) — the crossings are real. The `tracking()` instrument is sound; the regularized-in-radius planet is the judge's own model (the dossier says so).
+
+3. **Held-out / outside the author's range.** (a) Horizon doubled to 1024 P: dead-IC truths median closest 0.70 Rp vs alive 105 Rp (150× separation, stronger than at 512 P); crossings 26/47 vs 29/97. The class statement survives the next decade of the swept number. (b) Plane at 1024 P on the kept-crossing ICs (my design): 5/16 completed die, all planet_kick, at 527–950 P — the 512 P misses are late real encounters, confirming the encounter-parity mechanism in both directions. (c) The φ=105° disputed ICs: the one this tree kills is a 0.096 Rp crosser; the two it keeps sit at 13.6/5.0 Rp — this tree's dead set is *more* encounter-consistent than b9be's.
+
+4. **Outcome-free census.** No code outside step.rs/universe.rs/trojan_dive.rs matches the new `Resolved::Lost*` variants; every changed return follows an unchanged `alive = false`; counters are stats-only. Dead/alive flags agree with b9be's set modulo the 3 flagged ICs.
+
+5. **Predictions.** `predictions.md` predates the dossier and the decisive arms (file order; runner overwrote the artifacts, so mtimes are all I have — but two predictions failing *decisively* (P2: 0% terminals vs ≥90%; P1: no confinement anywhere) is the signature of genuine pre-registration, not post-hoc fitting. All failures are reported as failures, in the dossier and folded into the page's Refuted. The controls (P5) held: epochs, rtol pair, positive control of the death channel (`control.txt`).
+
+6. **Novelty.** The published page's open direction 4 was exactly "decide each of the 48 deaths"; no HISTORY entry decides it. b9be's reading and its checker's "no oracle trajectory reaches either surface" are refuted on both ends (no surface in the oracle; grid floor 2.89 Rp vs resolved 0.016 Rp). This is a premise kill of the gold type, with the gate consequence spelled out and adoptable in one step.
+
+**What the author missed** (none fatal; the page is corrected in place):
+
+- **The per-IC counts are themselves shadow statistics.** My independent integrator gives 1.85 Rp (at 37 P) where the judge gives 0.046 Rp (elsewhen) for the same dead IC — not just the epoch (which the dossier caveats) but the *depth and membership* of the 19/47 and 20/97 counts scramble across integrators. The certificate must be the rate (crossings per synodic period, plane vs truth) — which the page's own open direction 2 already names; the page now says so. The class separation (dead med ~1–2 Rp vs alive ~3700; 150× at 1024 P) is the robust object.
+- The dossier says the death periapsis spans "35–1088" star surfaces; the artifact's max is 1120 (the page has it right).
+- The 3-IC driver discrepancy is left un-bisected (priced as a lead; one bisected rerun under b9be's driver would close it).
+- μ = 1e-2, the other half of open direction 4's sentence, unrun (acknowledged; time).
+
+**Fit.** Principle 2 ("error type over error size"): the error the gate must count is *which encounters resolve*, not a magnitude. Principle 10's instrument rule: the P/256 min was a control that could not fail — its "2.89 Rp ensemble minimum" was its own dwell floor. The run measures before claiming, keeps both-side controls (positive death-channel control, rtol pair, determinism), and changes no engine outcome bits.
