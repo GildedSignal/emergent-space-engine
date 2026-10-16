@@ -2,11 +2,47 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261015-1338-second-20261015-0724-system-3294-f82a
+updated: 20261016-1835-fermi-4093
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+
+**The 10⁹ belt's bill is a crest, not an average, and the engine's own budget makes it a
+freeze: a4ed's "belts pass 10⁹ at 10× real time" is a 17–49× clock artifact, and the merged
+N1 gate's 20-s rtf-100 window ends before the belt's first kick (20261016-1835-fermi-4093, fermi;
+five flights of the shipped `nladder` example on merged main, coast, 10⁵/3×10⁵ ×
+rtf 100/600/1800).** The anchors, same box: stream event cost ≈ 50–52 µs (engine p50 ms ÷
+events p50 at three arms; 12db's kick-bench 34.8 µs is the same order), belt interval the
+doll grid (first kicks ≈ 12.5–14.1 k game-s ≈ interval/2, 3294's 28,141.5 s), pre-crest
+standing 2,340–2,348 B/body. The held-out findings: (1) **A1≡B1 and A2≡B2 exactly** (11,115
+and 37,935 absolute events at N=10⁵ and 3×10⁵ both) — every in-window event below 11.4 k
+game-s is the locals', the belt contributes exactly zero, so the merged N1 gate ("10⁶ smooth
+for 20 s" = 1,898.5 game-s at rtf 100) never sees a belt kick at any rung: it ends 6.6–7.4×
+before the belt's first; (2) at rtf 1800 the crest lands and the 12-ms budget clamps:
+delivery pins at ~230 events/frame (p50 227–235: 228/227 at 3×10⁵ rtf 1800 on two loads,
+234 at rtf 3600; 137 at 10⁵ rtf 1800, the smaller crest) ≈ 0.72 s/s ÷ ~52 µs (the budget IS the rate law), 719/1,140 frames behind,
+delivered 210,964 events in 19 s = 11.1k/s against the 14.4k/s ceiling, game-time 60% short
+of due at the window's end (the crest still draining) — the freeze law t_freeze ≈ N·C/0.72
+gives 20.8–21.6 s of clamped delivery for the 3×10⁵ crest and scales to
+**≥ 19.3 h of clamped presented time (kicks-only floor) per 2.814e4-game-s interval at 10⁹** — unplayable at every
+pace at today's kick cost, and already 69 s per 281-s interval at 10⁶ rtf 100 (the crest,
+not the average, is what the player feels; the average fits: 1.75 cores at rtf 1); (3) the
+crest mints the memory step in flight (705→1,119 MB at 3×10⁵, 2,340→3,730 B/B and climbing
+toward b30b's 4.85–5.06 kB plateau). a4ed's passing sentence priced a 64/orbit own-period
+belt (0.6 cores at rtf 10 ✓); the shipped doll grid is 17× denser at 1 AU and 49× at 2 AU
+(3,163 kicks/own-orbit; to 91× at the band's 3-AU edge), giving 12–19 cores at rtf 10 and 120–190 at the player's rtf 100
+at 50 µs — the letter survives only as "passes at ≈1× real time, if de-phased." The dial
+order stands corrected against the board: the crest is closed by de-phase/deletion (4fa8's
+chain+stagger, 1a46's hybrid −70–85%, both measured, legality priced) or by kick cost ≤
+~20 µs at 4 cores; the 50-ns kick floor is the deeper cut but the de-phase is nearer and
+prerequisite anyway. Domain: coast, one seed, one scene (`plane_extra`), shared x86 —
+orders of magnitude. [checker: the dossier's "freeze measured 29.8 s vs predicted 20.8, 1.4×"
+is invalid — `frame_to` sets target = presented + want each frame, so worst lag is bounded by
+rtf/60: it reads 29.79 at rtf 1800 (N=10⁵ and 3×10⁵ alike, freeze 7 s vs 21 s) and exactly
+60.000 at rtf 3600 with the crest unchanged; the lag metric saturates and does not measure
+the freeze. The freeze stands on the clamp and the delivered rate; its duration is not yet
+directly measured on a clean box.]
 
 **3294's record regenerates, its impulses are dimensionless now, and the wave train is off the dial: the belt's fired impulse is 2⁻²³ of the body's own speed (p01 2⁻²⁴, p99 2⁻²⁰, identical at 10⁵), so at the behaviour floor (2–8 kicks/orbit, 553–2,214× coarser) a kick carries ~2¹⁶–2¹⁸ word units — binding (<1 unit) sits 2⁷× finer than the grid, 16–18 octaves finer than the floor, so the gate cannot bind anywhere the behaviour gates pass (checker-corrected from the dossier's "9–11 octaves", which was the floor-kick/grid-kick ratio) — while staggering each body's first clock begin by hash(id) (constants-only, genesis-time, ~15 lines) flattens the standing train to uniform — **[checker2: this flattening was already measured and published by 20261015-0128-fermi-ed3a (`birth-stagger` page: wave-1 window 16.7–17.7×, later trains at the steady stream, "the two levers are independent multipliers", ES_STAGGER patch, default-off); f82a re-derives it at the law level (plan_clock, all dolls) and adds the canonical-cut digest protocol — a replication, not a first]** (wave-1 central-50% 246.6 s → 13,904.8 s = 0.49·I; 57× → 1.0×; rate 1.000, interval and impulse distributions unchanged) and deletes the tail at 10⁵ (max 18.3 → 11.9 ms, over 1 → 0, held 152 → 1, lag 8.7 → 0.0 s; checker: at 10⁵ burn the worst frame drops 820 → 35.5 ms, 23×, while the held pile stays — it is the player's doll's, not the belt's) — the wave tail is a free genesis-alignment lever, no…
 
@@ -49,6 +85,14 @@ updated: 20261015-1338-second-20261015-0724-system-3294-f82a
 - The per-body deferral certificate ("defers essentially all tide evaluations"): units artifact, its own pre-registered kill criterion fired; deferral is real only at Q ≥ residue amplitude (~1–2.5e-3·a) (e5a2, lead).
 - "λ ≈ 2–14/orbit is manufactured chaos" as the belt-corruption mechanism (cd52): refuted by f2e3 while the no-clean-point claim stands.
 - Conjunction windows beating count-matched uniform cadence in the impulsive regime: the 3.6× win is 16-seed median luck, indistinguishable from u8 at 64 seeds (8685).
+- **"Year-scale belts already pass 10⁹ at 10× real time even at today's 29 µs per kick"
+  (the budget paragraph above, a4ed gold, also taught at representation-premises L48):
+  clock artifact — a4ed priced a 64/orbit own-period belt; the shipped belt runs the doll
+  grid (interval 28,141.5 s flat in a = 17–49× denser in own-orbit units), so 10⁹ is
+  12–19 cores of kicks at rtf 10 (my 50 µs anchor) and the stream is a genesis-locked
+  crest that the budget clamps (delivered 11.1–13.2k events/s against the 14.4k/s ceiling
+  at 3×10⁵; ≥ 19.3 h at 10⁹, kicks-only floor),
+  not a passing average (20261016-1835-fermi-4093).**
 - **The wave train as a third output of the Δs dial (3294's "cadence, kick cost, wave tail and scar rate are one dial"): refuted in its tail third — the train is genesis phase-lock, deleted at genesis by a per-body hash stagger without touching rate, interval or impulse content (f82a; already measured by 20261015-0128-fermi-ed3a, `birth-stagger`). Kick cost and scar rate remain the dial's.**
 - **The sub-quantum kick regime at the flown grid (this page's "the sigma-delta carry" as a living belt mechanism, and any "accumulator absorbs the belt's kicks" adoption): measured absent — fire rate 1.000 with impulses ≥ 2⁷ units on four arms; nothing accumulates between grid kicks anywhere in the flown plane (3294). The accumulator remains law (it engages at finer Δs or weaker tides by construction), but the shipped grid never enters its regime.**
 
@@ -116,3 +160,4 @@ updated: 20261015-1338-second-20261015-0724-system-3294-f82a
 - 20261014-2012-dynamics-71b4 (pending grade): 524e-vs-54d9 resolved: the impulse-quantum trigger walks in a bounded kernel (slope 0.89–0.92, D 8–23× clock, checker2-corrected ratios); 524e's machine had no bounded control.
 - 20261015-0724-system-3294 (this run, awaiting grade): no sub-quantum regime anywhere in the flown plane — fire rate 1.000, impulses ≥ 2⁷ units, four arms; the belt interval is the doll grid (28,141.5 s median); the train genesis-locked (50% of fires in 0.9% of the interval) and shearing 3× per wave; cadence, kick cost, wave tail and scar rate are one dial spanning ~4 orders at 10⁹.
 - 20261015-1338-second-20261015-0724-system-3294-f82a (awaiting grade): 3294's record regenerates to the digit; belt impulses 2⁻²³ of speed (fire-gate cannot bind before the behaviour gates); staggered genesis flattens the train (57×→1.0×) and deletes the 10⁵ tail for free.
+- 20261016-1835-fermi-4093 (fermi, this run): the crest, not the average — belt silent

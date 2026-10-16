@@ -2,7 +2,7 @@ topic: replay-gate
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1740-taleb-a8cd
+updated: 20261016-1835-second-20261016-1740-taleb-a8cd-32a1
 
 # The replay gate: budget decay, a stale canon that rewards reverting fixes, and no teeth for law regressions
 
@@ -37,6 +37,31 @@ machine-noise canon, one layer up: floats decide the gates' verdicts where PRINC
 decide nothing.
 
 *[The standing record below is unchanged.]*
+
+**The record regenerates and the fix's cheapest leg is priced out: the seed path is correctly
+rounded on glibc, so the machine channel is the oracle's 200-period walk, and CR seeds make the
+across_a_kick red portable instead of coin-flipped
+(20261016-1835-second-20261016-1740-taleb-a8cd-32a1, second author).** The silver's one cause is
+closed: patch.diff without the phantom workspace member, and a clean-tree regen (281 s) runs
+every step and reproduces the parent's numbers bit for bit (census 14/11/8 and musl 15/16;
+#57 at 7016 kicks, 24.37109375, 8.409466703853747e-8; freeze control c84f5787 bit-identical).
+The checker's named experiment: mpmath-CR seeds (`cbrt`, `powf`, `cos`, `sin` — every non-CR
+call of `ship()`) sit **0 ulp from glibc on all 16 ships**, so the CR corpus *is* this box's
+red corpus (14/16 judged, #88 inside, #138 unconverged) — "CR seeds return 16/16" is refuted
+here, the seed leg of the CR-oracle fix is a measured no-op on glibc, and the corpus's
+machine-conditionality lives in the walk's per-step `sin_cos`/`hypot` (or macOS's seed libm;
+either way seeds alone cannot give both machines one corpus). On CR seeds `j_run`(#57) is a
+fixed 8.409466703853747e-8 > 5e-8 **on every machine that builds these seed bits** (portability
+modulo the scene's own `powf` in `period()`/`omega()` at `j_run`'s setup, absorbed ~6·10³× by
+the seed quantization — disclosed; checker: one flipped seed bit of #57 moves it to 3.697e-8,
+pass) — the bar is genuinely exceeded once the machine is removed, and the test/bar is the
+integrator's to re-derive. [checker 2, measured: routing only the walk's per-step `sin_cos`/
+`hypot` through musl (seeds held at glibc) rewrites the corpus — judged 14→11/16, #57 14→6
+crossings at 7.476 Rp, #85 inside at 0.012 Rp — so the walk channel is no longer an inference;
+and 2 of 8 single-bit seed flips of #57 (x−1: 3.697e-8, vy+1: 2.644e-8) pass the 5e-8 bar.]
+Repair menu after this: freeze the assessed fields (the one-leg fix); a CR walk is the deep one.
+Also reproduced: the checker's load observation — `scale::echo_is_linear…` fails even solo
+under this window's load.
 
 **The gate cannot fail for a law regression, and on main as it stands it certifies the
 wrapping-contact bug it was supposed to guard against: reverting the 13-October 512-bit
@@ -166,7 +191,14 @@ skip the longest committed real flight and print `0 regression(s)`, exit 0 (chec
    bits (does macOS's libm match glibc on this chain), not an open mechanism. Follow-ups:
    freeze the assessed corpus fields or make the oracle CR-only; re-check the three
    flaky ones for a test-interaction mechanism; the 7559 handoff-test failures on any
-   lab checkers' boxes all share this one cause.
+   lab checkers' boxes all share this one cause. [32a1: the CR-seed leg is now measured —
+   glibc is CR on the whole seed path (0 ulp, all 16 ships), the CR corpus *is* the red
+   14/16 corpus, so seeds alone repair nothing and the live channel is the oracle **walk**
+   (or macOS's seed libm, unmeasurable from here); the one-leg fix standing is freezing
+   the assessed fields. On CR seeds the across_a_kick red is portable: #57 = 8.4095e-8 >
+   5e-8 on every machine that builds those seed bits (checker 32a1: one flipped seed bit
+   of #57 reads 3.697e-8, pass — a non-CR seed libm can still flip it; the scene's setup
+   `powf` is the other residual) — the bar itself needs the integrator.]
 5. **Budget honesty and retention** (30da): `skipped > 0` exits non-zero and/or parallel
    replays; keep the K most recent flights plus any that ever caught a regression.
 
@@ -181,3 +213,4 @@ mutant's digests under a clean tree) was diagnosed and superseded by the
 - 20261014-0059-inversion-8e84 (silver): gate-bite mutant panel — no law regression can
 - 20261014-0450-second-20261014-0059-inversion-8e84-7559 (second author): the named
 - 20261016-1740-taleb-a8cd (awaiting grade): the x86 suite red decided — libm-conditional corpus, law innocent; 7 machine-reds, 3 load-flaky
+- 20261016-1835-second-20261016-1740-taleb-a8cd-32a1 (awaiting grade): record regenerates
