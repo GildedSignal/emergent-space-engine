@@ -1,0 +1,32 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 17.47s
+== a_n1e5_gs100k: N=100000 bodies=100028 members=48 seed=1 game_s=98233
+   build/pre-wave B/B 2346 -> 2412; wave at game_s [13234,14900] (+231 MB)
+   post-wave plateau 4753 B/B over [16567,98233] game-s; drift 1.1%; slope +8.4 B/B per 10,000 game-s (n=50)
+   catalogue 100028 -> 100076 (bodies 100028); dashboard 1393 vs truth 4779 B/B = 3.4x
+   kicks 496161 boundaries 449317 lost 27 handoffs 14; rss 237.4 -> 480.7 MB (hwm 480.8)
+   memsum: arm=a_n1e5_gs100k n=100000 seed=1 members=48 game_s=98233 plateau_b=4753 slope_b_per_10k_gs=+8.4 drift_pct=1.1 cat_end=100076 dash_ratio=3.43 kick_per_b_gs=5.049e-05
+== b_n1e4_gs100k: N=10000 bodies=10028 members=48 seed=1 game_s=98233
+   build/pre-wave B/B 2452 -> 3104; wave at game_s [13234,14900] (+20 MB)
+   post-wave plateau 5155 B/B over [16567,98233] game-s; drift 0.5%; slope +1.9 B/B per 10,000 game-s (n=50)
+   catalogue 10028 -> 10076 (bodies 10028); dashboard 1419 vs truth 5163 B/B = 3.6x
+   kicks 185268 boundaries 179317 lost 27 handoffs 14; rss 27.2 -> 54.3 MB (hwm 54.3)
+   memsum: arm=b_n1e4_gs100k n=10000 seed=1 members=48 game_s=98233 plateau_b=5155 slope_b_per_10k_gs=+1.9 drift_pct=0.5 cat_end=10076 dash_ratio=3.64 kick_per_b_gs=1.881e-04
+== c_battle400_gs40k: N=1000 bodies=1028 members=400 seed=1 game_s=38170
+   build/pre-wave B/B 3461 -> 44937; wave at game_s [0,1546] (+41 MB)
+   post-wave plateau 45034 B/B over [3212,38170] game-s; drift 0.8%; slope +111.6 B/B per 10,000 game-s (n=22)
+   catalogue 1028 -> 1428 (bodies 1028); dashboard 2787 vs truth 45191 B/B = 16.2x
+   kicks 98196 boundaries 92055 lost 210 handoffs 4; rss 6.3 -> 48.0 MB (hwm 48.0)
+   memsum: arm=c_battle400_gs40k n=1000 seed=1 members=400 game_s=38170 plateau_b=45034 slope_b_per_10k_gs=+111.6 drift_pct=0.8 cat_end=1428 dash_ratio=16.21 kick_per_b_gs=2.503e-03
+== d_n0_gs100k: N=0 bodies=28 members=48 seed=1 game_s=98233
+   build/pre-wave B/B 995328 -> 6451200; wave at game_s [0,1567] (+5 MB)
+   post-wave plateau 6469491 B/B over [3234,98233] game-s; drift 0.8%; slope +5106.6 B/B per 10,000 game-s (n=58)
+   catalogue 28 -> 76 (bodies 28); dashboard 4830 vs truth 6488064 B/B = 1343.3x
+   kicks 19248 boundaries 17817 lost 27 handoffs 14; rss 3.8 -> 9.3 MB (hwm 9.3)
+   memsum: arm=d_n0_gs100k n=0 game_s=98233 rss_end_mb=9.3 rss_start_mb=3.8 cat_end=76
+== e_n1e5_seed2_gs60k: N=100000 bodies=100028 members=48 seed=2 game_s=58234
+   build/pre-wave B/B 2347 -> 2392; wave at game_s [13234,14901] (+236 MB)
+   post-wave plateau 4761 B/B over [16567,58234] game-s; drift 0.0%; slope +0.3 B/B per 10,000 game-s (n=26)
+   catalogue 100028 -> 100076 (bodies 100028); dashboard 1380 vs truth 4761 B/B = 3.5x
+   kicks 306993 boundaries 303700 lost 22 handoffs 1; rss 237.4 -> 478.8 MB (hwm 478.8)
+   memsum: arm=e_n1e5_seed2_gs60k n=100000 seed=2 members=48 game_s=58234 plateau_b=4761 slope_b_per_10k_gs=+0.3 drift_pct=0.0 cat_end=100076 dash_ratio=3.45 kick_per_b_gs=5.270e-05

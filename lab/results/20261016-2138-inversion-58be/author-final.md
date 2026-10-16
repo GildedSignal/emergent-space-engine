@@ -1,0 +1,4 @@
+Working...
+Run complete. Everything regenerates from `regen.sh` (129 s, deterministic columns bit-identical); predictions were pre-registered before the decisive arms; the wiki page carries the result with all 7 standing conflicts untouched.
+
+**The claim:** the flyable-N letter's memory wall — every comb-arm decision's dividing constant, until now source-derived arithmetic with no flight — is flight-confirmed on the merged plane (plateau 4,754 B/body at 10⁵ through 100,000 game-s and both belt kick waves, drift 1.1%, catalogue frozen at bodies+48, no grower in any reachable channel), and its structure is certified two-bindings-per-body with the retired slot reused, so no wave can grow the store; d3fe's battle-ruin channel is unreachable in the shipped scene (400 members dissolve by ~25k game-s), the dashboard under-reports truth 3.4–3.6× (the letter must cite the footprint), and `nladder` itself now links on Linux.

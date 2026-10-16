@@ -1,0 +1,195 @@
+diff --git a/crates/universe/examples/memwalk.rs b/crates/universe/examples/memwalk.rs
+new file mode 100644
+index 00000000..b88f5eb7
+--- /dev/null
++++ b/crates/universe/examples/memwalk.rs
+@@ -0,0 +1,146 @@
++//! The N ladder's flight loop, flown for a long horizon with the memory sampled as a time series:
++//! does the per-body stock stay at the letter's plateau past the first kick wave, or does it grow
++//! with play (rebind history, catalogue churn, corpses)? One `mem:` row every `sample_every`
++//! frames: game seconds, resident and peak memory (the truth instrument), bytes a body from the
++//! build, the dashboard's bytes/body, live catalogue entries, cumulative event counters.
++//!
++//! cargo run --release -p emergent-universe --example memwalk -- \
++//!   [<N> [<coast|burn> [<game seconds> [<rtf> [<engine budget ms> [<fleet members> [<seed>]]]]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++#[cfg(target_os = "macos")]
++mod foot {
++    extern "C" {
++        fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++    }
++    /// (now, peak) physical footprint in bytes, compressed pages included (as nladder.rs).
++    pub fn footprint() -> (u64, u64) {
++        let mut buf = [0u64; 64];
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++}
++
++#[cfg(not(target_os = "macos"))]
++mod foot {
++    /// (VmRSS now, VmHWM lifetime peak) in bytes from /proc/self/status: the Linux equivalent of
++    /// the probe's physical footprint (pages this process holds resident; no compression here).
++    pub fn footprint() -> (u64, u64) {
++        let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++        let mut now = 0u64;
++        let mut peak = 0u64;
++        for line in status.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++            }
++        }
++        (now, peak)
++    }
++}
++
++use foot::footprint;
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let game_seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20_000.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let members: u64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(48);
++    let seed: u64 = args.get(7).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let burn = flight == "burn";
++    let frames = (game_seconds * 60.0 / rtf) as usize;
++    let sample_every = ((rtf * 10.0) as usize).max(60); // ~1,000 game-s a row at rtf 100
++    let load = std::fs::read_to_string("/proc/loadavg").unwrap_or_default().trim().to_string();
++    println!("memwalk N={n} {flight} game_s={game_seconds} rtf={rtf} budget={budget_ms} ms members={members} seed={seed} load=[{load}] frames={frames}");
++    let (_, rss0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, members, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (_, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    println!("build {build:.2} s, {bodies} bodies, rss {:.0} MB (baseline {:.0} MB), {:.0} B/body", rss1 as f64 / 1e6, rss0 as f64 / 1e6, rss1.saturating_sub(rss0) as f64 / n.max(1) as f64);
++    println!("mem: game_s=0 rss_mb={:.1} hwm_mb={:.1} b_per_body={:.0} dash={} cat={} kicks=0 events=0 boundaries=0 handoffs=0 lost=0 slices=0 held={} pending={}", rss1 as f64 / 1e6, rss1 as f64 / 1e6, rss1.saturating_sub(rss0) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live(), p.u.held_scans(), p.u.pending_handouts());
++    let mut truncated = false;
++    let mut alive = true;
++    let mut t_first = p.u.now;
++    let mut s0 = p.u.stats;
++    let mut peak_events = 0u64;
++    let mut worst_frame_ms = 0.0f64;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(280) || footprint().0 > 1_800_000_000 {
++            truncated = true;
++            println!("# guard hit at frame {f} (rss {:.0} MB)", footprint().0 as f64 / 1e6);
++            break;
++        }
++        if f == 60 {
++            if burn {
++                let t = p.u.now;
++                let _ = p.u.input(t, word(1, 8));
++            }
++            t_first = p.u.now;
++            s0 = p.u.stats;
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        worst_frame_ms = worst_frame_ms.max(took);
++        peak_events = peak_events.max(frame.events);
++        if f >= 60 && f % sample_every == 0 {
++            let s = p.u.stats;
++            let (now, peak) = footprint();
++            println!(
++                "mem: game_s={:.0} rss_mb={:.1} hwm_mb={:.1} b_per_body={:.0} dash={} cat={} kicks={} events={} boundaries={} handoffs={} lost={} slices={} held={} pending={}",
++                (p.u.now - t_first) as f64 * TICK_SECONDS,
++                now as f64 / 1e6,
++                peak as f64 / 1e6,
++                now.saturating_sub(rss0) as f64 / n.max(1) as f64,
++                p.u.bytes_per_body(),
++                p.u.catalogue_live(),
++                s.kicks - s0.kicks,
++                s.events() - s0.events(),
++                s.boundaries - s0.boundaries,
++                s.handoffs - s0.handoffs,
++                s.lost - s0.lost,
++                s.slices - s0.slices,
++                p.u.held_scans(),
++                p.u.pending_handouts()
++            );
++        }
++        let rec = p.u.rec(p.player);
++        if !rec.alive {
++            alive = false;
++            break;
++        }
++    }
++    let s = p.u.stats;
++    let (now, peak) = footprint();
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    println!(
++        "end: game_s={game_s:.0} alive(player)={alive} truncated={truncated} wall_s={:.1} peak_events_frame={peak_events} worst_frame_ms={worst_frame_ms:.2} rss_mb={:.1} hwm_mb={:.1} b_per_body={:.0} dash={} cat={} kicks={} events={} boundaries={} handoffs={} lost={} slices={}",
++        t_start.elapsed().as_secs_f64(),
++        now as f64 / 1e6,
++        peak as f64 / 1e6,
++        now.saturating_sub(rss0) as f64 / n.max(1) as f64,
++        p.u.bytes_per_body(),
++        p.u.catalogue_live(),
++        s.kicks - s0.kicks,
++        s.events() - s0.events(),
++        s.boundaries - s0.boundaries,
++        s.handoffs - s0.handoffs,
++        s.lost - s0.lost,
++        s.slices - s0.slices
++    );
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..6db1c712 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// (VmRSS now, VmHWM lifetime peak) in bytes from /proc/self/status: the Linux stand-in for the
++/// physical footprint (no page compression here, so the resident size is the footprint).
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++        } else if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
