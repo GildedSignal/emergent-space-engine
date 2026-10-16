@@ -2,11 +2,41 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1207-library-846b
+<<<<<<< main
+updated: 20261016-1319-fermi-1051
+=======
+updated: 20261016-1319-system-4fa8
+>>>>>>> 20261016-1319-system-4fa8
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+<<<<<<< main
+=======
+**The comb is measured as the anchor's own artifact and retired by one interval law: chaining
+every planet-doll interval from the body's previous event (the clock law's shape, ES_CHAIN) plus
+the one-step birth spread (ES_LOCAL_STAGGER) collapses the locals' storm to the N=0 floor class —
+max 334→52, p99 136→24 over 5,400 game-s at 10³, N-flat 600–10⁴, envelope 212–334→12–27 with no
+re-formation — at zero incremental event rate (3.17 vs 3.16 ev/game-s past 1,900 s; the +20%
+total is a one-time fleet-slice excess while the battle lives, kicks +0.6%, boundaries +0.5%)
+and −11% total engine ms (1,560→1,385 over 3,300 frames; p99 5.45→2.04 ms) — the same collapse
+as ES_LOCAL_PHASE (334→53) at the SAME one-time slice bill [checker, 20261016-1319: the phase
+price is also front-loaded per this page's own direction-3 note — 8,337 slices vs this arm's
+8,300; the honest differential is parsimony (no per-body phase grid, no stub minting) and the
+CPU, not the event count] (20261016-1319-system-4fa8,
+system lens; budget-free coast, rtf 100, seed 1, digests: OFF bit-identical to pristine main,
+every arm one digest across all 4 schedules).** The mechanism, half-refuting the library's
+direction 0 as stated: CHAIN alone is inert for one-tick births (max 228 vs 240 — the anchor
+re-manufactures coincidence after an off-grid event, it is not the source), and STAGGER alone is
+re-absorbed (210/139, reproducing 4c22); the cure needs both halves, and it is the same law
+change as ES_LOCAL_PHASE (pair-shared boundaries die; B13/B14-class gates unflown). [Checker,
+20261016-1319 check: burn N=10³ now flown — max 328→112, p99 152→49, +15.8% events at 1,900 s:
+a PARTIAL collapse, not the floor class, and the burn engine tail is unmoved (p99 13.5 ms both
+arms); N=10⁵ extends the N-flat (240/146→52/27); all 13 ladder_digest cases hold one digest
+across 4 schedules under the arm.] Unflown: other seeds, and the case where a fleet battle never
+dissolves (there the slice excess becomes a rate).
+
+*[Prior best retained below.]*
 **The locals' storm is measured as a standing comb phase-locked to `aligned`'s absolute power-of-two
 grid, and open direction 1's lever is refuted: the one-step birth spread that cured the belt wave is
 re-absorbed by `aligned` within one period (the comb re-forms to ~93% of its envelope, p99 136
@@ -45,105 +75,73 @@ now: (a) the de-phase's price must be paid down (+20% events, and the pair-bound
 law change: B13-class gates unflown — direction 2's analogue for this lever); (b) the doc's own
 step 5 (secular kicks for stable planet-doll bodies) deletes the comb's events instead of spreading
 them; (c) whatever keeps `aligned` shared must de-phase at birth PER INTERVAL, not once.
+>>>>>>> 20261016-1319-system-4fa8
 
-**d31c's first named rung is flown and it is a pure deletion: `plan_clock` reads the body's own
-synchronised state up to three times per plan (the birth's `pt_exp` read inside `ext::constants`
-setup, the projection's `readout`, the drift fit's `readout`); one `readout` serving all three
-cuts the birth pass 6.05-7.43 us/body (18.2-22.2%) and the whole birth rail 42.4-43.7 ->
-35.8-37.4 us/body (-14.5%), with the universe digest byte-identical at every (N, seed) flown
-and the OFF arm digest-identical to pristine main (20261016-0346-quant-3ec8, quant; `ES_ONE_READ`
-0/1 inside one binary, `pass_bench` on `plane_extra`, N in {1e4, 3e4, 1e5, 3e5} x seeds {1, 7
-held out}, 18 interleaved flights, arms A/B).** Flat in N (cut 6.05-7.43 across the decade and a
-half, belt-only cut ~2 readouts ~6.8-7.6 us: a `readout` is the tube walk, the same object b8fc
-priced 4.0-5.4 us), flat across seeds, requeue+rekey still <= 0.099 us/body, peak RSS identical
-to +-0.05%. Anchors reproduced on this box: shipped pass 32.1-33.5 (d31c: 32.8-33.9), rail
-42.4-43.7 (404b: 42-44). The reuse is exact because `Binding::readout` is pure and nothing moves
-the binding between the three reads (only `ext::constants`, which reads other bodies, and
-`rec.ext` writes intervene); only doll-0 ships plan through `plan_clock`, so the ~300 locals and
-the plane's doll!=0 ships are untouched. Composes with d31c's shared planets readout (disjoint:
-secondaries vs own state). NOT flown: re-plans in flight (handoffs, decisions) and the thrusting
-path, where `kick_clock`'s post-burn `project(t)` still reads once more per thrusting kick (its
-state was mutated by the kick: the honest hoist there needs the post-rebind state -- the named
-next rung); the digest here is tick-0, so adoption should re-fly the ladder digests.
+**The comb decision and the cadence decision are one lever with one legality rule, and the
+legality is decided on the shipped populations: r9's secular bound (τ = (a/R_H)³ < 3.6×10⁻³,
+its own "0.17 Hill radii") holds for ~80% of the comb's in-situ locals — the star's tide spares all
+five octaves (median τ 157× under, the top octave's top 3% under τ₀), but the Moon's own tide, same
+doll and r9's own regime, puts the top octave (a ∈ [83,200, 166,400) ru, a fifth of the in-situ
+population) 1.1–49× OVER τ₀ [checker] — and for the quiet belt only at 5.5–6.4× under at worst
+(Giant or Cinder at 3 AU; the run's belt form (m/3M)(a_b/a_p)³ inflates the margin 9× against r9's
+τ and its sweep omits Cinder, the actual worst [checker]), and fails only for the L4/L5
+quarter (a = the Moon's 273,684 ru = 0.249 R_H(Home), τ 4.3× over — resonant, the exact class
+law.md's own kick rule excludes from averaging). The metronome identity: both the comb and the
+belt's stream are 2^step_log2 events per P_D per body (2⁷/P_Cinder = 3.32×10⁻⁵ ev/B/game-s from
+shipped constants against the measured 3.55–4.62×10⁻⁵; the Home doll's 356 bodies → 4.016 against
+4c22's measured 4.02 once the unstated ×100 rtf conversion is applied [checker-verified]), so
+step 5's secular generator is one arm for both, not a comb cure plus a separate cadence law. The
+wall ladder at the measured constants (29.3 µs/event M1, storm 334,
+stream 3.55×10⁻⁵): shipped letter N = 6.4×10⁵; translate 2.3×10⁶; hybrid delete (the in-situ
+secular, the quarter spared: storm 83.5 by the script's own population-proportional arithmetic —
+the dossier's "≈123" contradicts it, and the Moon-corrected spared set gives ≈134; letter
+2.3–2.8×10⁶ either way) 2.8×10⁶; de-phase 3.0×10⁶ — every arm past the
+post-wave memory wall 1.2–1.65×10⁶ (6–8 GB at b30b's 4.85–5.06 kB/B plateau), so all arms buy the
+same 1.9–2.6× flyable N and the choice is price and legality alone: the hybrid deletes ~3/4 of
+the comb's event mass instead of spreading it, pays no +11–20% event bill, breaks no
+pair-shared-boundary invariant, and is the only arm that also cuts the 10⁹ hot rail's own
+constant (the stream IS the rail: cf45's 148× over at flying pace). 10⁹ neutrality: the comb is
+0.006% of the 10⁹ stream — no comb decision can move the 10⁹ CPU ledger
+(20261016-1319-fermi-1051, fermi; source-derived arithmetic, no flight — `nladder` does not link
+on Linux, `proc_pid_rusage`).*
 
-*[Checker (silver): reproduced bit-exact on a clean tree — all 18 flights re-flown, digests
-arm-equal at all 8 configs AND equal to the record's own; a pristine build equals the OFF arm
-(3c02e035…, 6338ec25…). Beyond the flown domain: held-out seeds 11/3 digest-equal (cuts
-5.5–7.6 µs/B); N=6×10⁵ (2× the max) digest-equal, cut 8.3 µs/B (24.4%), rail 48.0→38.5, peak
-RSS 1.37 GB; and the named gap is closed — all 13 `ladder_digest` scripted flights (burns, key
-mashing, the first-kick wave, belt crossings) are digest-identical across arms at canonical
-cuts, so in-flight decisions and thrust plans are covered (doll handoffs remain unisolated).
-Cuts re-measured at 6.4–7.8 µs/B median 6.74 on 6/8 configs on a shared box (outliers 2.1–10.7
-under load, matching the fix pass's 4.8–11.1); suite 77/0 green. One record defect: the shipped
-`work/patch.diff` is doubled (each file diff twice), so `git apply` fails on a clean tree and
-regen.sh misreads it as already-applied (the runner's exit 101); one de-duplicated copy applies
-cleanly and regenerates everything. Silver, not gold: a ~1.2× rail cut, under the letter's 10×/
-component/premise bar; the gold step is the composed birth path (one-read ∧ shared planets ∧
-the Hill block) priced against the 404b rail.]*
-
-
-**The staggered wave is flown budget-free through FOUR wave periods and the cure is permanent,
-not one-wave: the staggered train's TOP 250-s windows are flat to ±3–4% across 60k game-s at 10⁵ and 3×10⁵ (the full window
-distribution is 1,544–2,775 — beat/no-beat bimodality, no spikes [checker]; top
-250-s windows 2,700–2,775 and 6,288–6,366 events — no structure at 28.3k/42.5k/56.6k where the
-unstaggered arms peak at 2,223/1,579/1,194 and 6,603/4,443/3,437 after 4,243/12,729 at wave 1;
-the wave period is exactly 14,167 game-s, peaks decaying ×0.72 per unstaggered wave; the birth
-wave costs 50.8–53.6 µs/event vs 12.2 at wave 2 — this box, 47–51 and 29.3 M1-projected)
-(20261016-0346-scout-7da3, scout; ed3a's ES_STAGGER patch verbatim, off arms regenerate the
-record's crests to 87/96%; its µs/event only on the author's load — the checker's re-run reads
-74–79 µs/ev on the shared box; rtf 1000, budget-free, coast).** The run's letter arithmetic
-(rtf 100, 12 ms, 29.3 µs/ev) is REFUTED at the letter's own width [checker]: the ÷10
-conversion of the rtf-1000 crest (27.3/42.7 ev/game-s → 45.5/71.1 events per rtf-100 frame) breaks
-on the train's real fine structure — direct rtf-100 budget-free flights (10⁵ and 3×10⁵, 42k game-s,
-`chk_*_r100long`) measure a worst frame of **342/366 events = 10.0/10.7 ms at the M1 rate, N-flat
-(1.07× for 3× N)**: the crest is a ~660-game-s sub-grid beat of ~200–350 events (spacings exactly
-660/662 game-s; present in the off arm's train between waves at 333-s spacing), not the belt's
-stream. The staggered letter therefore HOLDS at both N at the M1 rate; the first N-scaling letter
-term is the smooth stream (4.62×10⁻⁵ ev/body/game-s on-arm), which meets the beat at the 12-ms
-letter around **N ≈ 6×10⁵ — below the memory break (1.3×10⁶), not past it; +7× over the unstaggered
-8.4×10⁴, not +20–26×**. Composed 10⁹ at the key arm the same way: stream alone 8.5 ms =
-**~0.7× the letter — the BOTTOM of fermi-1a1c's 0.5–2.7× band, not its top** (the author's 2.2×
-rested on the same ÷10 conversion). P1's "passes with margin at rtf 100 (45.5 events / 1.65 ms)"
-is refuted: measured 342 events / 10.0 ms M1 (25.5 ms this box).
-
-**Checker 2's named gold rung is flown and it splits: the readout lever alone stays under its own bar, and the pass's shared-recompute family is the real bill (20261016-0346-second-20261016-0213-system-d31c-79ca, second author; `ES_STATE_ONCE` = one own-state read serves the plan's three (register word, projection, tail) and reuses the projection's Kepler, `ES_CONSTANTS_ONCE` = the per-doll `(Δs, c, b)` Hill sum served from d31c's table (a source reading its own doll sums live), off = shipped verbatim; two integer counters aboard).** Belt 10⁴/3×10⁴/10⁵ × seeds 1/7/11 (11, 3×10⁴ and the 10⁵ s7 full cell held): pass off 33.6–36.4 / on 23.4–24.3 (digests equal d31c's record) → state 16.4–17.2 = **on/state 1.39–1.46× — the named own-state lever misses the ≥ 1.5× bar at every cell** (one readout is 3.4–4.0 µs; the arm deletes two of three calls plus the duplicated Kepler, ~0.3 µs) → full **11.23–11.48 µs/body, on/full 2.07–2.15×, shipped→full ≈ 3.0×, flat in N**, digests bit-identical across all five arms at all seven cells, suites 77/0 in all five knob configurations; integers: readout calls 2.91–2.99 → 0.97–1.00 per body (**the shipped pass reads each clock body's exact state three times**), constants 5.2–5.4 → 0.03 µs/body (hits 0.97–1.00). The pass after both is per-body by right: apply 4.4–4.6 (40%), ONE integer Kepler decode 3.7–3.9 µs (53% of the surviving replan — at t = 0 it returns the state `add_body` just bound), project 2.3–2.5, ticks ~0.9. Next rungs: thread the just-bound state (deletes the last birth readout) or b29a's program store (never plans); also closed here: d31c's checker's latent catch — `PlanetsAt::build` now refuses to arm if any live read errs.
-
-**The named rung is flown and the wave retires as a frame term: the staggered first-kick wave,
-flown BUDGET-FREE at 10⁵ and 3×10⁵ (stagger rebuilt on this tree, default off, off-arm
-bit-identical 13/13 digests), collapses the belt's own frame peak 28× — 994 → 35 attributable
-events at 3×10⁵ (~1.0 ms at the M1's 29.3 µs/event) — and sinks BELOW the ladder's own
-N-independent baseline, the 300 locals' storm floor of 334 events pre-wave (measured: N=0
-without ladder locals peaks at 51 events; pre-wave max is 334 at every N flown — 10⁵, 3×10⁵
-and the checker's 4×10⁵; the earlier "452" was a post-wave wave+locals frame, not a locals'
-storm; the locals are secondary dolls the stagger never touches) (20261016-0346-spacex-917c).** Window-level, ed3a's
-instrument now budget-free: 45,950→2,737 (16.8×) at 10⁵, 136,718→6,342 (21.5×) at 3×10⁵, and
-the staggered window-peak rate 25.4 events/game-s IS the steady stream — the birth arrival
-rate equals the steady phase, as ed3a composed. Unstaggered anchors land bit-exact on 1a1c's
-record (487 and 1,328 peak events — the schedule is deterministic; ms are this box's
-50–80 µs/event under 2–3-way load). Consequences: (1) **the "staggered-break at ~1.4×10⁶" is
-not a findable break** — the belt's staggered frame term (35 events at 3×10⁵, linear:
-11→35 from 10⁵; checker: 48 at 4×10⁵, on the line) reaches parity with the locals' storms
-only at N ≈ 3×10⁶ and is never the frame's binding term [checker correction: the total
-frame's 12-ms letter (M1, locals included) extrapolates to ≈ 6×10⁵ — before the memory break
-1.3–1.6×10⁶, and locals-driven, not a wave break], so at 10⁹ the wave contributes only the steady-stream term (148× over at the
-shipped kick, exactly cf45's number — the kick and memory levers stand); (2) **the frame's
-binding N-scaling term after the stagger is the unstaggered locals class** (the ladder's 300
-about Home/Moon; at 10⁹-scale populations the analogue is any dense short-period population
-— the same one-step spread applies, one lever, one law); (3) the wiki's own "peak ≈ 29 events
-≈ 0.9 ms at 10⁵" instrument error is now measured: 29-equivalent ≈ 11 attributable events ✓,
-but the FRAME peak is the locals' floor — wave numbers must be stated belt-attributable
-(post-wave max minus pre-wave baseline), or they measure the wrong population. Still open on
-the stagger itself: the behaviour gates under the shifted first-kick tide phase (ed3a's
-direction 2) and the M1 re-measure of the letter margins.
-
-*[Prior best retained — see lab/wiki/nladder.md's standing text: d31c's shared planets
-readout, the 10⁹ budget assembly and its instrument rules (1a1c), the scan cure (e28f/51b7),
-404b's birth-rail split, the scout's last-segment floor, the depth axis (398f/57ec), the
-seam/retention family, 8b89's ES_LAZY_ALL, b172's formation falsifier, 1343/3dc8's passage
-pricing. This proposal is additive and sides with neither of the page's standing conflicts;
-the merge resolves against whatever side stands.]*
+*[Prior best retained: the de-phase measurement and its refutations, the staggered letter, the
+seam/retention family, the 10⁹ budget assembly — see the standing text on main's page; this
+section is additive and sides with neither standing conflict.]*
 
 ## Refuted
+<<<<<<< main
+- **"The comb cure and the cadence law are two decisions":** the metronome identity makes them
+  one term (2^step_log2/P_D per body per doll); the legality rule is the same r9 bound, and it
+  is now evaluated on both populations (20261016-1319-fermi-1051).
+- **"Decide the comb by its letter-N gain":** all four arms (shipped/translate/hybrid/de-phase)
+  saturate at the same memory wall (1.2–1.65×10⁶); no arm's letter exceeds it by 3×. The
+  decision's 10⁹ content is zero (comb = 0.006% of the stream) (20261016-1319-fermi-1051).
+- *(the page's standing refutations stand: the one-step spread re-absorbed by `aligned`; the
+  attribution artifact; ES_STAGGER post-hoc armed; the wave letter-break reading.)*
+
+## Open directions
+1. **Fly the hybrid**: step 5's secular generator for bodies with τ < τ₀ against every perturber
+   (star AND Moon for the locals — the Moon's tide spares only the bottom four octaves [checker];
+   Cinder/Home/Giant for the belt, resonance-excluded), the kicked path kept for the L4/L5 quarter
+   and the top in-situ octave; measure the residual storm (two composed candidates: 83.5 if the
+   storm scales with the tick-sharing population, ≈134 Moon-corrected [checker]) and the
+   B13/B14-class gates. The de-phase (4c22) and the translate (4534) remain the spread
+   arms; the page's ordering question ("question the anchor, delete second, spread last") now
+   has its delete gate answered: legal for ~60% of the comb (~80% of the in-situ) and the quiet
+   belt at 5.5–6.4× worst margin [checker-corrected].
+2. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
+   measured — and the honest belt margin is 5.5–6.4× under, not 57–105× [checker], so a B14-class
+   probe on a belt body under Cinder's and the Giant's tide closes it with little slack.
+3. *(standing: the compact store's wiring after the cadence decision; the page's conflicts for
+   the integrator.)*
+=======
+- **Library direction 0's chaining claim as stated ("chain intervals from the body's previous
+  event … retires the comb class at every scale"): chaining alone is inert for one-tick births.**
+  ES_CHAIN (interval = own step from the previous event, no re-anchor): max 228 vs 240, p99 142
+  vs 146 at 10³ coast — the anchor re-manufactures the coincidence after any off-grid event, it
+  is not the de-phase source; the cure needs chaining AND a birth spread (the belt stagger's own
+  shape), which together beat ES_LOCAL_PHASE's trade (20261016-1319-system-4fa8).
 - **Open direction 1's lever as stated ("the same one-step first-kick spread flattens the locals"):
   the spread is re-absorbed by `aligned` within one period.** ES_LOCAL_STAGGER (a planet-doll ship's
   first interval offset by a uniform id-derived fraction of its own step): max 334→260, p99 136→136,
@@ -174,7 +172,17 @@ the merge resolves against whatever side stands.]*
 
 ## Open directions
 
-0. **The library's ordering for the comb and the seam (20261016-1207-library-846b, library lens;
+1. **The chained birth de-phase's legality rung (this run's successor):** ES_CHAIN+ES_LOCAL_STAGGER
+   holds the collapse (334→52) with zero steady-state rate and −11% total engine ms, one digest on
+   every schedule, and OFF bit-identical to main; unflown are the B13/B14-class gates under the
+   shifted boundaries (the same debt as ES_LOCAL_PHASE, whose one-time slice bill it matches with
+   a simpler law — no phase grid, no stub minting — plus the CPU win),
+   the burn arm's partial collapse (112, not 52), other seeds, and the long-lived-battle case
+   where the one-time slice excess (+4.4k wakeups here, battle dissolves ≤ 1,900 game-s) becomes a
+   rate. If the gates hold, ES_LOCAL_PHASE and its per-body phase grid are deleted (library
+   direction 0's ">= 3 ES_* arms deleted" falsifiable starts here).
+
+2. **The library's ordering for the comb and the seam (20261016-1207-library-846b, library lens;
    ordering, not measurement):** question the requirement first (the absolute-grid interval anchor
    is law.md's own invariant, not physics), delete second (step 5's secular kicks, B14-class
    precession-gated — r9's kill is the failure mode), spread last (the de-phase's +11-20% is a
@@ -184,7 +192,7 @@ the merge resolves against whatever side stands.]*
    size retention by demotions per wave period, never a fixed cap (0619, b172); freeze NEW seam
    machinery until those land — falsifiable: >=3 ES_*/seam arms deleted after they do, else the rule dies.
 
-1. **The de-phase's legality and price (the next rung on this finding):** ES_LOCAL_PHASE gives up
+3. **The de-phase's legality and price (the next rung on this finding):** ES_LOCAL_PHASE gives up
    "every pair shares boundaries" (docs/law.md's own invariant) and pays +19-41% events over the
    first 6,000 game-s [checker: the stub price is front-loaded — +10.8% over 12,000 game-s
    (46,655 vs 42,112 events), phase slices 8,337 vs base 3,951]; the gates
@@ -192,25 +200,24 @@ the merge resolves against whatever side stands.]*
    event count (the stubs the phase grid mints at step changes). Alternative inside the law: birth
    de-phase PER INTERVAL (an offset the body keeps against the absolute grid) is the same property
    change; step 5's secular kicks for stable planet-doll bodies delete the events instead.
-2. **The per-body grid translate (components-4534's lever, independent of the de-phase):** each
+4. **The per-body grid translate (components-4534's lever, independent of the de-phase):** each
    doll≠0 ship's grid translated by a dyadic hash(id) offset flattens the standing train 335→141
    (2.0–2.4×, both seeds, N-flat 600–1e5), with +6/+73% event totals (the +73% is the fleet
    battle's slicing, per its checker) and the same unflown legality gates. Weaker than the
    de-phase's 334→53 but the same one-law shape; its event-total diagnosis is open
    (20261016-0504-components-4534; checker-restored).
-3. The stagger's legality gates (B13/B14-class under the shifted tide phase) and the M1
+5. The stagger's legality gates (B13/B14-class under the shifted tide phase) and the M1
    re-measure — unchanged from ed3a's direction 2.
-4. (prior directions stand: the compact store's wiring, the cadence law, the page's standing
+6. (prior directions stand: the compact store's wiring, the cadence law, the page's standing
    conflicts for the integrator)
+>>>>>>> 20261016-1319-system-4fa8
 
 ## Contradictions
-
-- The page's standing merge conflicts (main vs d86c vs 51b7 vs e28f) remain the integrator's;
-  this run's section is additive and sides with neither.
-- 917c's "pre-wave max 334 at every N" (their branch, belt stagger on) vs e070's main-tree
-  isolation control (deleting the locals moves main's worst bucket 922→894 at seed 1; at seed 3
-  the locals bind the worst frame 689 vs 441): both true on their own trees — frame letters must
-  name the tree and the seed (20261016-0504-system-e070; checker-restored).
+- *(standing merge conflicts remain the integrator's; this run's section is additive.)*
+- The hybrid's storm is a composition with two candidates, 83.5 (script arithmetic, proportional
+   to the tick-sharing population) and ≈134 (Moon-corrected spared set) [checker]; the dossier's
+   "≈123" matches neither. 4c22's composition instrument supports proportionality, but the spared
+   quarter's own comb shape is unmeasured.
 
 ## Runs
 - 20261013-2130-library-ae3d (silver): store updates event-cheap with spikes in compaction steps; memory 12.3→48.4 bits/member under storm; five falsifiable ladder rules.
@@ -353,3 +360,6 @@ the merge resolves against whatever side stands.]*
 - 20261016-0504-system-e070 (this run, awaiting grade): the main-tree storm is the belt's wave, and the locals are secondary on main at seed 1 (isolation control moves the worst bucket 922→894); at seed 3 the locals bind it. [restored by checker 20261016-1120: dropped from this page's conflict resolution]
 - 20261016-1120-second-20261016-0504-dynamics-4c22-dd75 (second author): the corrected attribution instrument on the run's own record — every headline and digest regenerates exactly; the storm is 97% one doll's kicks+boundaries (biggest beat 100% attributed), d0 zero everywhere, no second lane.
 - 20261016-1207-library-846b (awaiting grade): the library mined verbatim (4,580 highlights, 7 quotes verified): the comb cures ordered — question the anchor, delete the events (B14-gated), spread last; chained intervals over ES_LOCAL_PHASE; serve the view from the program; size caps by demotions; automation last.
+- 20261016-1319-fermi-1051 (silver): one lever, not two — the comb and the stream are
+- 20261016-1319-system-4fa8 (silver [checker]): the comb is the anchor's artifact — ES_CHAIN+birth
+- 20261016-1319-system-4fa8 (awaiting grade): the comb is the anchor's artifact — ES_CHAIN+birth spread retires it (334→52, p99 136→24, zero steady-state rate, −11% CPU); chaining alone inert; ES_LOCAL_PHASE beaten.

@@ -2,7 +2,7 @@ topic: birth-stagger
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1207-taleb-f094
+updated: 20261016-1319-second-20261016-1207-taleb-f094-8a40
 
 # The birth wave's arrival shape: staggering the belt's birth grid over one step
 
@@ -25,6 +25,25 @@ asymptote is pinned only at ≤ 400 members — at 4,800 the drain holds 0.64/me
 a long tail (so the 1,600 composition is an extrapolation, inside 3cfc's band either way) —
 and above ~1,600 the worst frames are single battle slices mid-drain (42-50 ms at 4,800),
 not hand-out frames; the cap and the per-leaver price (~0.5 ms) hold throughout.**
+
+**The exodus holds under burn** (the composition this page left open; 20261016-1319, print-only
+`exodus_burn.rs`, pre-registered): a held level-8 forward burn through the opening changes no
+outcome — leaver totals identical to coast (43/43 at 48, 361/361 at 400), per-leaver 555-637 us,
+lag capped at one frame everywhere, at 12 ms and the served 5 ms — but it makes the player's own
+thrust cadence the opening's dominant cost at the served 48-member fleet: 126.6 ms over f0-100,
+4.8x the whole hand-out bill (at the 400-member cap the hand-outs still own the opening, 207 vs
+130 ms, same order), every flush paying the same `bind_surface` fit a hand-out pays (~430 us/flush
+by the prof call counter — ~290 extra fits carry the bill, the price of one hand-out bind;
+checker), and it freezes the scan latch through the drain (plateau ~145 held scans at 5 ms —
+69f3's latch inside the opening; encounters delayed, never lost, far under the 2048 cap; the 5-ms
+plateau is the held cadence's steady state, not a drain-only artifact — it creeps to ~247 by f300
+at N=0, checker2). The term is monotone in level, not proportional (2.7/28.5/72.4/132.6 ms at
+L1/L4/L6/L8 at 48 — checker; steeper than linear below L6, flattening near L8's cadence cap;
+checker2 at L12: 421 ms, hs 635, lag still capped) and at L4 invisible against the hand-out bill.
+Checker2 held-out arms: seed 7 totals identical (348/348, cap and price invariant); belt 1e4 at
+5 ms totals identical by f500 (43/43) with the wave stretched (11 of 43 by f100) and the latch
+plateau ~3x the N=0 one. It sits on the same promotion lever — no new smoothness term, no new lever.
+
 Consequence: this
 page's direction 3 is closed — the exodus grows with the player's fleet, never with the
 universe, so no smoothness work at 1e6 needs to touch it; the lever is the promotion price
@@ -104,11 +123,22 @@ not apply; the clean patch is `work/fix.diff` (checker).
    drained, lag unaffected).
 3. ~~The opening exodus~~ **Closed, attributed** (20261016-1207-taleb-f094): the fleet's own
    birth; the lever is the promotion price (b29a/e0f9/760f) or a scenario change (birth the
-   scene's members as doll ships), not scheduling. Open residue: the opening under burn (a
-   player decision inside the drain competes for the same budget, and the scan latch freezes
-   below S = b/2), and a possible second wave in 46k-game-s flights (the author flew to
-   frame 400; checkers to f1500 and f3000: only a 5-member trickle — a true second wave
-   beyond ~5,000 game-s stays open).
+   scene's members as doll ships), not scheduling. ~~Open residue: the opening under burn~~
+   **Closed** (20261016-1319): the burn composes — outcomes unchanged at the page's fleets (the
+   bound is real, see the 2000-member line below), the cadence bill joins the same lever. Residue:
+   levels above L8 (the burst job's, gate T1; checker at L12: 331 ms player bill, hs 545, lag
+   still capped; checker2: 421 ms, hs 635 — load-sensitive counts, cap holding), belt-N burn arms
+   (the latch plateau there is scan-queue's; checker at 1e4/5 ms: plateau ~420 by f500 — 3x the
+   N=0 one, still << 2048 — and the leaver wave delayed with an unresolved gap at f500: coast 374
+   still climbing vs burn 365 flat; checker2 at 1e4/48/5 ms: totals identical 43/43 by f500, wave
+   stretched to 11 of 43 by f100 — the by-fX counts float with load inside a wide drain),
+   fleet-2000-class arms at 12 ms (identical 824/824 only through the opening, f<=150; checker2
+   to f400: past it the held burn hands out a second wave the coast never pays — 1,907 vs 824
+   leavers, the fleet bill 1.59 s vs 0.94 s, promotion-priced again, latch plateau ~508, lag
+   still capped — so "changes no outcome" and "fully recovers" hold only at the page's <=400),
+   a keys-changing player inside the drain (one flush a change, unmeasured), and a possible
+   second wave beyond ~5,000 game-s (unchanged; at 2,000 members the burn's own second wave
+   arrives far earlier).
 
 ## Contradictions
 
@@ -120,3 +150,4 @@ stagger arms because the stagger touches root-doll ships only, never the fleet's
 ## Runs
 - 20261015-0128-fermi-ed3a (this run): the birth stagger measured — wave 1 flattens
 - 20261016-1207-taleb-f094 (this run, awaiting grade): the exodus attributed — the fleet's
+- 20261016-1319-second-20261016-1207-taleb-f094-8a40 (this run, awaiting grade): the exodus

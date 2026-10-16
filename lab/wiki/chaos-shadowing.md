@@ -2,11 +2,43 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261015-0250-second-20261015-0128-inversion-3ca8-f50d
+updated: 20261016-1319-dynamics-e846
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
 
 ## Current best
+
+**The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the
+real conjunction-encounter class of the chaotic layer, not spurious planned terminals — and the
+"false death" reading was an instrument artifact on both ends (20261016-1319-dynamics-e846,
+dynamics lens, shipped code + outcome-free Lost-branch census counters).** All 47 deaths on this
+tree (48 in b9be; 3 ICs differ, all at φ = 105°, unexplained) are `planet_kick` — `kick_clock`'s
+sources loop finds the ship inside the planet's surface at a kick tick; zero planned terminals,
+zero star kills, zero edges, zero refusals; the plane's osculating periapsis at death is 35–1120
+star surfaces (the star is never involved); its J walk on the P/8 series to death is ~10⁻⁶
+relative and crosses no neck [checker: the refined death-tick state itself reads J 2.0–4.3%
+below J₀ for 3/47 ships — the encounter state, not a walk].
+The truth's side, **periapsis-resolved with the judge's own `tracking` integrator** (every
+radial turn bisected): 19/47 dead-IC truths cross the planet's disk (< 1 Rp, min 0.046 Rp), 15 of
+them **within ±2 P of the plane's death epoch** (the same conjunction, min 0.004 Rp); the kept
+set's truths median 3676 Rp (never encounter) — though 20/97 of them also cross (the plane's
+mirror error: it passes over real crossings between kicks, the skip again). [Checker2, an
+independent scipy DOP853 integrator with zero shared code (model = the judge's control digits):
+the crossings are real — a dead-IC crosser dives to 0.26 Rp in it too — but per-IC depth and
+epoch scramble across integrators (1.85 Rp here against the judge's 0.046 Rp on another dead
+IC), so the 19/47 and 20/97 counts are themselves shadow statistics and the certificate is
+direction 2's rate, not per-seed membership; at 1024 P the separation strengthens (dead-truth
+median 0.70 against alive 105 Rp) and 5/16 kept-crossing ICs die planet_kick at 527–950 P —
+the 512 P misses convert to kills at later real encounters.] No zero-velocity
+confinement exists anywhere: every IC's J₀ sits 1.0–1.3% *below* J(L1) (all necks open), so the
+"spurious by invariant" shortcut is unavailable — the ensemble lives just inside the open-neck
+regime. **The instrument lesson: grid sampling cannot see a conjunction crossing at any useful
+density — dwell inside the disk is ~P/10⁴⁻⁵; the checker's P/256 min of 2.89 Rp was a grid floor
+against a resolved 0.016 Rp (180×), and this run's own P/64 window grids catch 0 of 15
+crossings.** Consequence for direction 4's gate: the bar is not "no ship lost that the oracle
+keeps" (the oracle keeps everything by construction — no surface) but **encounter parity** on
+seeds whose *resolved* reference stays outside the planet (B13's rule), counting both error
+directions.
 
 **The inversion is confirmed on a valid instrument: the shipped dense order's ensemble
 statistics equal its own continuum limit — quantization is innocent at the ensemble
@@ -47,6 +79,8 @@ the float oracle at engine Q and even at 32× coarser cadence, but the plane los
 of the ensemble to deaths the oracle never has (checker: no oracle trajectory reaches
 either surface; all 48 deaths are `fault=None, refusals=0, handoffs=0`). Rung warning:
 dwell alone cannot separate even a coarse law — the rung must include a survival class.
+[The deaths are now decided above: real-class disk crossings; the checker's "no oracle
+trajectory reaches either surface" was grid-blind, not evidence.]
 
 **Abstract model (the toy).** The shadowing clause of representation.md thesis 2 is false
 in mixed-phase-space chaos, in both directions, and no rung or gate tests it
@@ -58,6 +92,18 @@ distortion is absent on both shipped surfaces measured since.
 
 ## Refuted
 
+- **"The plane's co-orbital deaths are false deaths — ships the truth keeps" (b9be's
+  reading, and its checker's "no oracle trajectory reaches either surface" at P/256)**:
+  the channel is kick-time planet-disk crossings, 19/47 of the dead ICs' own truths cross
+  the disk (resolved), 15 at the same conjunction as the death; the P/256 instrument was
+  blind by 180× (20261016-1319-dynamics-e846).
+- **"The deaths are spurious planned terminals — the tube compiler's bookkeeping kills
+  ships" (this run's own frozen prediction P2, and the obvious reading of
+  `plan_terminal`)**: 0% terminals, 100% `planet_kick` (the census counters,
+  20261016-1319-dynamics-e846).
+- **"Zero-velocity confinement could prove some deaths impossible" (this run's frozen
+  P1)**: every IC has J₀ 1.0–1.3% below J(L1) — no neck closed anywhere in the ensemble
+  (20261016-1319-dynamics-e846).
 - "A deterministic law with the right statistics is a true orbit of nearby initial
   conditions" (representation.md thesis 2) in mixed phase space (toy,
   20261014-2248-redteam-5cad). On the shipped laws the statistics side holds: dense order
@@ -92,32 +138,43 @@ distortion is absent on both shipped surfaces measured since.
 1. **Freeze the trapping-statistics rung on the shipped dense order** — the exact twin
    (20261015-0250-second-…-f50d, `shadow2.rs` `exact` arm) is the positive control; the
    first run's float twin is the negative (must fail ~5× on max dwell). Include a
-   survival/death class per b9be's warning: dwell alone cannot fail a coarse law.
-2. **Price the bin-crossing pass-through at game scale**: 87.5% of detected contacts in a
+   survival/death class per b9be's warning — now with the encounter-parity form below.
+2. **The encounter-parity certificate (B12's family, this run's consequence):** judge only
+   seeds whose *radial-turn-resolved* reference stays outside the planet (B13's rule with
+   the `tracking` instrument); count both directions — the plane's kills (real-class, this
+   run) and its misses (20/97 kept ICs whose truths cross; the skip at conjunction
+   cadence, contact-speed's ρ). The natural statistic: crossings per synodic period,
+   plane vs truth, on the encounter-prone sub-ensemble.
+3. **Price the bin-crossing pass-through at game scale**: 87.5% of detected contacts in a
    relativistic gas exchange no impulse (fast bodies tunnel through each other, one
    chronon bin at a time; 57–89% across scenes). Contact rates in the real belt are far
    below this scene's, but flybys at game-relevant closing speeds inherit the rule;
    severity unpriced. The geometric decomposition (which closing speeds cross) is open.
-3. **The tilted oblique reflection**: per-contact up to 0.155 rad from the physical
+4. **The 3-IC driver discrepancy (a lead):** b9be kills (−0.85, 105°) and (+1.25, 105°);
+   this tree kills (−1.45, 105°) — same angle, adjacent du, deterministic over 3 reruns,
+   with no commit to `crates/` or `xtask/` between the runs. A knife-edge conjunction
+   whose outcome differs between drivers that should be equivalent; one bisected rerun of
+   the three ICs under both drivers decides driver-sensitivity vs tree-sensitivity.
+5. **The tilted oblique reflection**: per-contact up to 0.155 rad from the physical
    mirror, ensemble effect within seed scatter in these scenes (0.67–1.13× max dwell
    with the skip fixed); whether to correct the law is an integrator decision — it is
    invisible to every ledger by construction.
-4. **The survival certificate on the plane** (b9be's open branch): decide each of the 48
-   plane deaths (real star-crossing periapsis of a diverged trajectory vs spurious
-   planned terminal), at μ = 1e-2 too; then a false-death bar in B12's family.
-5. Stress the preservation before trusting it: ultra-relativistic (γ ≫ 250), cold dense
-   gases, resonant three-body regimes, μ = 1e-2 on the plane, longer horizons — the
-   toy's distortion peaked near critical K.
-6. Hunt a stronger cantorus (K near critical) to bound the Q → 0 rate at which the
+6. Stress the preservation before trusting it: ultra-relativistic (γ ≫ 250), cold dense
+   gases, resonant three-body regimes, μ = 1e-2 on the plane (also unrun by the death
+   decision — the layer is thicker there and the encounter manifold thicker with it),
+   longer horizons — the toy's distortion peaked near critical K.
+7. Hunt a stronger cantorus (K near critical) to bound the Q → 0 rate at which the
    distortion enters (abstract model; 20261014-2248-redteam-5cad).
 
 ## Contradictions
 
-None open. The toy (per-event rounding distorts) and the shipped laws (preserved, both
-surfaces) measure different error models at different Q; the dense order's apparent
-Q-flat "deviation" was instrument error, so the abstract result's "choose Q" advice does
-not transfer to the shipped law — recorded so no run spends a window raising Q to fix
-classes.
+None open. b9be's "deaths the oracle never has" and this run's "real-class crossings" are
+the same events read by two instruments: the oracle has no surface (it keeps everything),
+and the grid could not see the crossings. The toy (per-event rounding distorts) and the
+shipped laws (preserved, both surfaces) measure different error models at different Q;
+the dense order's apparent Q-flat "deviation" was instrument error, so the abstract
+result's "choose Q" advice does not transfer to the shipped law — recorded so no run
+spends a window raising Q to fix classes.
 
 ## Runs
 - 20261014-2248-redteam-5cad (awaiting grade): shadowing clause false in mixed chaos;
@@ -125,3 +182,4 @@ classes.
 - 20261015-0128-inversion-3ca8 (silver, corrected in checking): shipped dense order
 - 20261015-0128-dynamics-b9be (silver): dwell arm on the shipped plane law — trapping
 - 20261015-0250-second-20261015-0128-inversion-3ca8-f50d (awaiting grade): exact
+- 20261016-1319-dynamics-e846 (this run, awaiting grade): the 48 deaths decided —
