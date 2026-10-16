@@ -1,0 +1,71 @@
+diff --git a/crates/universe/examples/exodus_attr.rs b/crates/universe/examples/exodus_attr.rs
+new file mode 100644
+index 00000000..d8d87800
+--- /dev/null
++++ b/crates/universe/examples/exodus_attr.rs
+@@ -0,0 +1,65 @@
++//! The opening exodus, attributed: per-frame wall ms, resolved events and Stats deltas (print-only).
++//! Usage: exodus_attr <members> <frames> [seed] [budget_ms] [rtf]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::universe::Stats; use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn delta(a: &Stats, b: &Stats) -> Stats {
++    let mut d = Stats::default();
++    d.kicks = b.kicks - a.kicks;
++    d.opens = b.opens - a.opens;
++    d.boundaries = b.boundaries - a.boundaries;
++    d.handoffs = b.handoffs - a.handoffs;
++    d.lost = b.lost - a.lost;
++    d.refused = b.refused - a.refused;
++    d.slices = b.slices - a.slices;
++    d.encounters = b.encounters - a.encounters;
++    d.decisions = b.decisions - a.decisions;
++    d.leavers = b.leavers - a.leavers;
++    d.dissolved = b.dissolved - a.dissolved;
++    d.cost_ns = std::array::from_fn(|i| b.cost_ns[i] - a.cost_ns[i]);
++    d.items = std::array::from_fn(|i| b.items[i] - a.items[i]);
++    d
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let members: u64 = args.get(1).cloned().unwrap_or_else(|| "0".into()).parse().unwrap();
++    let frames: usize = args.get(2).cloned().unwrap_or_else(|| "90".into()).parse().unwrap();
++    let seed: u64 = args.get(3).cloned().unwrap_or_else(|| "1".into()).parse().unwrap();
++    let budget_ms: f64 = args.get(4).cloned().unwrap_or_else(|| "12".into()).parse().unwrap();
++    let rtf: f64 = args.get(5).cloned().unwrap_or_else(|| "100".into()).parse().unwrap();
++    let fleet: u64 = args.get(6).cloned().unwrap_or_else(|| "48".into()).parse().unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, fleet, members as usize).unwrap();
++    println!("# extra={members} fleet={fleet} seed={seed} budget_ms={budget_ms} rtf={rtf} bodies={}", p.u.n_bodies());
++    println!("# frame ms events lag kicks opens boundaries handoffs slices decisions leavers | cost_us[planet moon ship player fleet] items[5]");
++    let mut prev = p.u.stats.clone();
++    let mut worst: Vec<(usize, f64)> = Vec::new();
++    for f in 0..frames {
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(budget_ms as u64)) }, i64::MAX);
++        let ms = start.elapsed().as_secs_f64() * 1e3;
++        let d = delta(&prev, &p.u.stats);
++        prev = p.u.stats.clone();
++        let lag = (frame.target - frame.presented) as f64 * TICK_SECONDS;
++        let cu: Vec<String> = d.cost_ns.iter().map(|n| format!("{:.0}", *n as f64 / 1e3)).collect();
++        println!(
++            "f{f} {ms:.2} {} {lag:.3} {} {} {} {} {} {} {} | {} {:?}",
++            frame.events, d.kicks, d.opens, d.boundaries, d.handoffs, d.slices, d.decisions, d.leavers,
++            cu.join(" "), d.items
++        );
++        worst.push((f, ms));
++    }
++    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
++    let top: Vec<String> = worst.iter().take(5).map(|(f, m)| format!("f{f}:{m:.2}")).collect();
++    println!("# worst5: {}", top.join(" "));
++    if emergent_universe::prof::ENABLED {
++        let (ns, n) = emergent_universe::prof::take();
++        for (i, name) in emergent_universe::prof::NAMES.iter().enumerate().filter(|(i, _)| [*i].iter().any(|_| matches!(i, 19 | 20 | 21 | 22 | 5 | 18 | 17))) {
++            println!("# prof {:<38} {:>10.0} us {:>8} calls", name, ns[i] as f64 / 1e3, n[i]);
++        }
++    }
++}
++// prof split appended: run with --features prof to decompose the hand-out (print-only).

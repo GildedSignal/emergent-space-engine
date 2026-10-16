@@ -1,0 +1,45 @@
+== build (plain, then --features prof) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.62s
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.64s
+== attribution + N-flatness (fleet 48, seed 1, 12 ms) ==
+== boundedness (N=1e4, frames 0-400) ==
+== fleet scaling (N=0, seed 1, 12 ms) ==
+== served budget 5 ms ==
+== held-out seeds ==
+== prof split (same flights, stage timers) ==
+== determinism: two identical runs, count columns only ==
+count columns differ only at the drain boundary (wall budget); totals below hold
+
+== summary ==
+fleet48-n0-f100.txt          worst=f62:11.6ms/32ev lagmax=f62:1.448gs leavers=43 opens=43 per_leaver=604us drain>=2.5ms=3
+fleet48-n10000-f100.txt      worst=f62:11.1ms/53ev lagmax=f62:1.448gs leavers=43 opens=43 per_leaver=598us drain>=2.5ms=10
+fleet48-n100000-f100.txt     worst=f62:11.1ms/53ev lagmax=f62:1.448gs leavers=43 opens=43 per_leaver=601us drain>=2.5ms=10
+fleet200-n0-f100.txt         worst=f48:11.8ms/86ev lagmax=f15:1.291gs leavers=168 opens=168 per_leaver=559us drain>=2.5ms=36
+fleet400-n0-f100.txt         worst=f23:11.9ms/22ev lagmax=f13:1.667gs leavers=357 opens=357 per_leaver=560us drain>=2.5ms=60
+fleet1600-n0-f100.txt        worst=f27:17.1ms/108ev lagmax=f1:1.667gs leavers=294 opens=294 per_leaver=633us drain>=2.5ms=31
+seed2-f48-f100.txt           worst=f63:10.9ms/23ev lagmax=f63:0.789gs leavers=42 opens=42 per_leaver=576us drain>=2.5ms=3
+seed7-f48-f100.txt           worst=f20:7.8ms/16ev lagmax=f0:0.000gs leavers=42 opens=42 per_leaver=586us drain>=2.5ms=5
+seed2-f400-f100.txt          worst=f83:11.9ms/206ev lagmax=f12:1.667gs leavers=357 opens=357 per_leaver=489us drain>=2.5ms=36
+seed7-f400-f100.txt          worst=f25:11.8ms/27ev lagmax=f14:1.667gs leavers=348 opens=348 per_leaver=558us drain>=2.5ms=58
+b5-n0-f48-f120.txt           worst=f66:4.8ms/8ev lagmax=f11:1.667gs leavers=43 opens=43 per_leaver=603us drain>=2.5ms=4
+b5-n0-f400-f120.txt          worst=f14:6.2ms/9ev lagmax=f15:1.667gs leavers=347 opens=347 per_leaver=557us drain>=2.5ms=82
+b5-n100000-f48-f120.txt      worst=f106:4.8ms/165ev lagmax=f11:1.667gs leavers=43 opens=43 per_leaver=596us drain>=2.5ms=15
+frames 100-400 (N=1e4): leavers=0 worst=f397:6.8ms
+prof-f48.txt
+# prof   fit: bind_surface (kicks, hand-outs)      16783 us      147 calls
+# prof fleet: battle run_to                         3433 us      371 calls
+# prof fleet: advance (whole item)                  3849 us      371 calls
+# prof hand-out (a member made a body)             25208 us       43 calls
+# prof   hand-out: pull planets and moons              4 us       43 calls
+# prof   hand-out: bind (the member as a tube)      17766 us       43 calls
+# prof   hand-out: first plan (replan)              6808 us       43 calls
+
+prof-f400.txt
+# prof   fit: bind_surface (kicks, hand-outs)     166543 us     1497 calls
+# prof fleet: battle run_to                        44289 us     1690 calls
+# prof fleet: advance (whole item)                 44876 us     1690 calls
+# prof hand-out (a member made a body)            181056 us      357 calls
+# prof   hand-out: pull planets and moons             31 us      357 calls
+# prof   hand-out: bind (the member as a tube)     132963 us      357 calls
+# prof   hand-out: first plan (replan)             43247 us      357 calls
+
