@@ -1,0 +1,6 @@
+Working...
+Fixed and verified: the run's patch capture had returned an empty `work/patch.diff` (exit 128 from `git apply`), so the probe now travels inside `regen.sh` as `work/probe.patch` — the reconstructed `sec_probe` instrumentation (`Ctx::secondaries` meters + the exact `(doll, tick, except→normalised)` hoist memo armed only inside `Universe::start`, `plan_terminal`/`project` timers, and the `sec_probe` example) — applied, built, flown on the same 8-arm grid, and the tree restored on exit (verified clean).
+
+The full grid re-runs in **29 s** end to end and every dossier number regenerates: pass 33.6–34.1 µs/body hoist-off (dossier 32.6–33.5), secondaries 30.3–30.5% (dossier 30.1–30.6%), hoist-on 22.8–23.8 (dossier 22.8–23.2), terminal ~0.05 µs/body, project 15.6–16.1 incl. its secondaries read, `sec_calls` = n+28 exactly, **7 distinct memo keys** serving 10⁵ bodies, and digests **byte-identical** across the hoist arms for every (n, seed) — the evidence, the regeneration note in `dossier.md`, and `regen.log` now agree.
+
+**Claim:** The birth plan pass is not an irreducible exact search — 30% of it is the planets' exact states re-derived once per body, deleted digest-identically by a birth-only hoist (33→23 µs/body) — and its record now regenerates from `regen.sh` alone in ~30 s.

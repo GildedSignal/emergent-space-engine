@@ -1,0 +1,234 @@
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -78,6 +78,21 @@
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++        let __t0 = std::time::Instant::now();
++        // The birth probe's hoist (lab 20261016-0117): inside `Universe::start` no binding changes,
++        // so this read is a function of (doll, tick, except normalised to a source or none).
++        let __norm = if self.sources[d as usize].contains(&except) { except } else { usize::MAX };
++        if crate::universe::secprof::armed() {
++            if let Some(hit) = crate::universe::secprof::memo_get(d, t, __norm) {
++                crate::universe::secprof::add_sec(__t0.elapsed());
++                return Ok((*hit).clone());
++            }
++        }
+         let mut out = Vec::new();
+         for &j in &self.sources[d as usize] {
+             if j == except {
+@@ -86,6 +101,10 @@
+             let (pos, vel) = self.state_of(j, t)?;
+             out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
+         }
++        if crate::universe::secprof::armed() {
++            crate::universe::secprof::memo_put(d, t, __norm, out.clone());
++        }
++        crate::universe::secprof::add_sec(__t0.elapsed());
+         Ok(out)
+     }
+
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -516,6 +516,7 @@
+     fn plan_terminal(&mut self, t: Tick) -> Res<()> {
++        let __t0 = std::time::Instant::now();
+         self.rec.plan.retain(|item| item.what != What::Crash);
+         if let Some(tick) = self.rec.b.terminal_tick()? {
+             insert(&mut self.rec.plan, Item { t: tick, what: What::Crash });
+@@ -532,6 +533,7 @@
+                 insert(&mut self.rec.plan, Item { t: tick.max(t + 1), what: What::Crash });
+             }
+         }
++        crate::universe::secprof::add_term(__t0.elapsed());
+         Ok(())
+     }
+
+@@ -611,6 +613,7 @@
+     fn project(&mut self, t: Tick) -> Res<()> {
++        let __t0 = std::time::Instant::now();
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
+@@ -618,6 +621,7 @@
+         ext.set_pt(u.sub(hd)?)?;
+         self.rec.ext = Some(ext);
++        crate::universe::secprof::add_proj(__t0.elapsed());
+         Ok(())
+     }
+
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -484,12 +484,18 @@
+         self.waiting = Calendar::new(self.body_cap + self.fleets.len());
+         self.prunable = Calendar::new(self.body_cap + self.fleets.len());
++        // The birth plan pass (lab 20261016-0117): every body's first plan at tick 0, timed as a
++        // whole; `Ctx::secondaries`' reads inside it carry the probe's meters and the exact hoist.
++        let __t0 = std::time::Instant::now();
++        secprof::arm_hoist(true);
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+             let upd = step::replan(&self.ctx(), i, rec, 0);
+             self.apply(i, upd);
+         }
++        secprof::arm_hoist(false);
++        secprof::add_pass(__t0.elapsed());
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
+         // Every ship waits for the target to reach its tick (none is due at the start).
+         for i in 0..n {
+@@ -1368,3 +1374,61 @@
+     /// The canonical time at which a body's next item is, for tests.
+     pub fn horizon_of(&self, i: usize) -> Option<Tick> {
+         self.key_of(i).map(|k| k.0)
+     }
+ }
++
++// ---- the birth pass's probe (lab 20261016-0117) --------------------------------------------------
++
++/// Thread-local meters for `Universe::start`'s replan pass (the birth plan pass), read by
++/// `examples/sec_probe`: the pass itself, the `Ctx::secondaries` reads inside it (time, calls,
++/// and the hoist's memo), `plan_terminal` and `project`. The hoist memo is exact only inside
++/// `start`, where no binding changes: it is armed there (when `ES_SEC_HOIST` says so) and
++/// disarmed on the way out, and its key normalises `except` to a source of the doll or none.
++pub mod secprof {
++    use crate::force::Secondary;
++    use crate::num::Tick;
++    use std::cell::RefCell;
++    use std::collections::HashMap;
++    use std::rc::Rc;
++    use std::time::Duration;
++
++    /// The meters of one flight (the probe is single-threaded: the plane is built on one thread).
++    #[derive(Default)]
++    pub struct Meters {
++        pub pass: Duration,
++        pub sec: Duration,
++        pub sec_calls: u64,
++        pub term: Duration,
++        pub term_calls: u64,
++        pub proj: Duration,
++        pub proj_calls: u64,
++        armed: bool,
++        keys: u64,
++        memo: RefCell<HashMap<(u16, Tick, usize), Rc<Vec<Secondary>>>>,
++    }
++
++    thread_local! {
++        static M: RefCell<Meters> = RefCell::new(Meters::default());
++    }
++
++    fn with<R>(f: impl FnOnce(&mut Meters) -> R) -> R {
++        M.with(|m| f(&mut m.borrow_mut()))
++    }
++
++    /// Arm (or disarm) the hoist for the pass about to run; arming resets its memo and key count,
++    /// disarming only empties the memo (the count is read after the pass).
++    pub fn arm_hoist(on: bool) {
++        with(|m| {
++            m.armed = on && std::env::var("ES_SEC_HOIST").is_ok_and(|v| v != "0");
++            m.memo.get_mut().clear();
++            if on {
++                m.keys = 0;
++            }
++        });
++    }
++
++    pub fn armed() -> bool {
++        with(|m| m.armed)
++    }
++
++    pub fn memo_get(d: u16, t: Tick, norm: usize) -> Option<Rc<Vec<Secondary>>> {
++        with(|m| m.memo.get_mut().get(&(d, t, norm)).cloned())
++    }
++
++    pub fn memo_put(d: u16, t: Tick, norm: usize, v: Vec<Secondary>) {
++        with(|m| {
++            let Meters { memo, keys, .. } = m;
++            let map = memo.get_mut();
++            if !map.contains_key(&(d, t, norm)) {
++                *keys += 1;
++                map.insert((d, t, norm), Rc::new(v));
++            }
++        });
++    }
++
++    pub fn add_pass(d: Duration) {
++        with(|m| m.pass += d);
++    }
++    pub fn add_sec(d: Duration) {
++        with(|m| {
++            m.sec += d;
++            m.sec_calls += 1;
++        });
++    }
++    pub fn add_term(d: Duration) {
++        with(|m| {
++            m.term += d;
++            m.term_calls += 1;
++        });
++    }
++    pub fn add_proj(d: Duration) {
++        with(|m| {
++            m.proj += d;
++            m.proj_calls += 1;
++        });
++    }
++
++    /// One flight's meters as a line (µs per body against `bodies`, the digest at the end).
++    pub fn report(bodies: usize, digest: &str) -> String {
++        with(|m| {
++            let us = |d: Duration| d.as_secs_f64() * 1e6 / bodies as f64;
++            format!(
++                "pass_us_per_body {:.2} sec_us_per_body {:.2} sec_share_pct {:.1} \
++                 term_us_per_body {:.3} proj_us_per_body {:.2} sec_calls {} term_calls {} \
++                 proj_calls {} memo_keys {} digest {}",
++                us(m.pass),
++                us(m.sec),
++                100.0 * m.sec.as_secs_f64() / m.pass.as_secs_f64(),
++                us(m.term),
++                us(m.proj),
++                m.sec_calls,
++                m.term_calls,
++                m.proj_calls,
++                m.keys,
++                digest
++            )
++        })
++    }
++}
+diff --git a/crates/universe/examples/sec_probe.rs b/crates/universe/examples/sec_probe.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/universe/examples/sec_probe.rs
+@@ -0,0 +1,25 @@
++//! The birth plan pass's probe (lab 20261016-0117): how `Universe::start`'s replan pass is
++//! spent, and what a birth-only hoist of `Ctx::secondaries` (exact inside `start`, where no
++//! binding changes) deletes from it. Eight flights: N in {10^4, 10^5} x seeds {1, 7} x hoist
++//! {off, on}, each printing the pass's meters and the universe digest (identical across the
++//! hoist arms: the memo returns byte-identical states).
++//!
++//! cargo build --release -p emergent-universe --example sec_probe
++//! ES_BIRTH_SPLIT=1 ES_SEC_HOIST=0 <target>/release/examples/sec_probe 10000 1
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::universe::secprof;
++use emergent_universe::Config;
++
++fn main() {
++    let n: usize = std::env::args().nth(1).unwrap().parse().unwrap();
++    let seed: u64 = std::env::args().nth(2).unwrap().parse().unwrap();
++    let t0 = std::time::Instant::now();
++    let p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed();
++    let bodies = p.u.n_bodies();
++    println!(
++        "n {} seed {} bodies {} build_s {:.1} {}",
++        n,
++        seed,
++        bodies,
++        build.as_secs_f64(),
++        secprof::report(bodies, &p.u.digest())
++    );
++}
