@@ -5,10 +5,10 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [binet-cells](binet-cells.md) | open | 1 | **r1 was executed once before, by its checker (H0205, 29 September, DISPUTED — never |
 | [birth-stagger](birth-stagger.md) | open | 1 | **The stagger is measured and it holds: the first-kick wave flattens 16.7–17.7× at the window |
-| [scan-queue](scan-queue.md) | open | 1 | **The burn's scan backlog is a one-way service latch, not a load-sharing queue |
+| [binet-cells](binet-cells.md) | open | 2 | **The per-band u_k refit is priced on the frozen r1 sampler, and the one-law form is the |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
+| [scan-queue](scan-queue.md) | open | 2 | **The latch's S is decomposed into its two halves on shipped flights, and the cure has its |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [replay-gate](replay-gate.md) | open | 3 | **The gate cannot fail for a law regression, and on main as it stands it certifies the |
@@ -25,7 +25,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-cadence](kick-cadence.md) | open | 46 | **3294's record regenerates, its impulses are dimensionless now, and the wave train is off the dial: the belt's fired impulse is 2⁻²³ of the body's own speed (p01 2⁻²⁴, p99 2⁻²⁰, identical at 10⁵), so at the behaviour fl |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [frame-cost](frame-cost.md) | open | 66 | **The crash search's probe bill is cut 6× exact and digest-identical, and the named |
-| [kick-jet](kick-jet.md) | open | 70 | **The shipped compile is timed at the belt's true keys and the batched promotion's belt |
+| [kick-jet](kick-jet.md) | open | 71 | **The wave's attendants are decomposed and two of them are exact duplicates, deleted bit for bit: one |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 105 | **The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s |
-| [nladder](nladder.md) | open **conflict to resolve** | 135 | <<<<<<< main |
+| [nladder](nladder.md) | open | 139 | **The locals' storm is measured as a standing comb phase-locked to `aligned`'s absolute power-of-two |

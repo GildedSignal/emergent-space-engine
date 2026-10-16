@@ -2,11 +2,34 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261015-1926-quant-c4d3
+updated: 20261016-1120-quant-5ade
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
 ## Current best
+
+**The wave's attendants are decomposed and two of them are exact duplicates, deleted bit for bit: one
+fired belt kick (shipped `kick_clock`, steady state, N=10^5) is 49.6 µs = fit 41% + 3 source reads 23% +
+own readout 8% + bind decode 8% + the tau pair 15% + 5% rest (walks+fit 95% of the item), and the tau
+pair — the kick's own decode discarded then re-walked, plus the binding walked at its own anchor, a
+value `bind_in` already computed — is deleted by `ES_TAU_CARRY` (~60 lines: the orbit state handed to
+`rebind`, the anchor's proper time cached in the Binding): W_TAUT 389,211→11 calls, fired kick
+49.6→41.3 µs (−17%), event cycle −12%, digests identical at both cuts and on all 8 frame_digest
+flights × 4 schedules (20261016-1120-quant-5ade).** A third exact duplicate is named and priced: `apply`'s
+`root_state_raw` position walk re-reads at the event tick what the resolver just read — 5.0 µs × 2.06
+per kick, another −13% of the cycle, not built. A source-read (body,tick) memo is dead on the spread
+belt: repeat share 0.029 at the first wave (0.296 steady, worst 322 = the locals' comb, not the belt).
+At 10^9 the built carry is ~17 cores per billion, ~30 with the apply walk (−22%), x86 shares; the M1's
+cheaper fit (compile 4.4 µs, c4d3) makes the walks' share larger there. The deletions are bookkeeping,
+not law: the fit's 41% remains this page's compile-wall program and the cadence split (kick-cadence
+open 2) still dwarfs both.
+[Checker: the anchor half re-derives 2833's unadopted `proper_at_event` cache
+  (20261010-1947-autoresearch-2833, silver, pure-kick microbench, 9–10%) on the shipped wave path;
+  the t-walk carry, the decomposition, the memo kill and the apply-walk pricing are new. The item
+  decomposition double-counts the bind decode (W_BIND's clock sits inside FIT's): walks+fit is ~93%
+  of the item, the item ~45 µs on the author's box. Bit-identity reproduced by the checker outside
+  the tested range: N=2×10⁵ first wave, and a WH-dominated 70–400 ks window at 2×10⁴ (digests
+  identical, W_TAUT→13/0, W_TAU0→1/first-kicks-only).]
 **The shipped compile is timed at the belt's true keys and the batched promotion's belt
 adoption is dead: `Orbit::compile` runs p50 4.4–4.5 µs (mean 4.7, p99 8.0, max 12.5) on
 the ladder belt's own key mix — e-monotone 3.4→8.3 µs across the belt's e, flat in p
@@ -218,3 +241,4 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - 20261014-2130-spacex-cd6e (silver): incomplete Carlson readout derived+verified against the shipped walk; value is the compile-wall deletion and the knot-table memory, not read parity.
 - 20261015-0250-quant-262f (this run, awaiting grade): the batched belt promotion priced — 11.7 µs over 10⁶ bodies (numpy/AVX, 6-iter Newton, cold start included), scalar arm exact to 2e-16 vs the shipped integrands (timed arm 2× slip on t/τ, price unaffected); the squared-pole reduction re-derived independently (κ digit-identical to cd6e's); native projection ≈ 4 µs at de99's kernel prices; SIMD-vs-scalar ratio and the integer port remain.
 - 20261015-1926-quant-c4d3 (this run, awaiting grade): the shipped compile timed at true belt keys — 4.4–4.5 µs p50 (e-monotone 3.4→8.3, p-flat, three seeds, two held out, predictions pre-registered), the promotion path 9.2 µs flat in N to 2×10⁵; the batched promotion's belt adoption refuted (~2.7× regression), b172's in-flight counters corroborate, the strong-field tail keeps the closed forms.
+- 20261016-1120-quant-5ade (silver, proposed): the wave kick decomposed — fit 41%, sources 23%, tau pair 15% (2 exact duplicate walks, deleted −17% digest-identically), apply's position walk the next (−13%); source memo dead on the spread belt (0.029).
