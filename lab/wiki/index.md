@@ -25,6 +25,6 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [frame-cost](frame-cost.md) | open | 66 | **The crash search's probe bill is cut 6× exact and digest-identical, and the named |
 | [kick-jet](kick-jet.md) | open | 70 | **The shipped compile is timed at the belt's true keys and the batched promotion's belt |
-| [nladder](nladder.md) | open **conflict to resolve** | 92 | **The depth axis is the page's blind one: the adoption's quoted wins above were measured at <= 20k game-s cuts (8b89's rss 979->20 MB on mixed sat at a 1.2k cut; d6ba's belt census did reach 48k-96k, but on standing arcs |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 105 | **The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s |
+| [nladder](nladder.md) | open **conflict to resolve** | 121 | <<<<<<< main |
