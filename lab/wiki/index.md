@@ -23,14 +23,14 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
-| [promotion](promotion.md) | open | 12 | **The read stream is censused on shipped code and the 10⁹ premise is corrected: the engine's |
+| [promotion](promotion.md) | open | 13 | **The observer half's "bounded near set" is measured on the game's own crowd and it is crowd-proportional: |
 | [handoff](handoff.md) | open | 15 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [kick-cadence](kick-cadence.md) | open | 52 | **The recurrence gate is passed and the crest is decided: the belt's freeze is a |
+| [kick-cadence](kick-cadence.md) | open | 53 | The 10⁹ ledger is recomposed on the two-comb and on 1a46's own belt count, and both corrections point the same way: at flown legality the composed bottom line is **10.3 M1 cores (2.6× over the 4-core budget)**, not e7ef' |
 | [kick-jet](kick-jet.md) | open | 77 | **The kick's floor is derived and measured, and the premise under 71 runs is inverted: the |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |

@@ -2,12 +2,40 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0428-quant-c439
+updated: 20261017-0552-inversion-604c
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
-**The read stream is censused on shipped code and the 10⁹ premise is corrected: the engine's
+**The observer half's "bounded near set" is measured on the game's own crowd and it is crowd-proportional:
+the radial filter bails on 100% of the plane's own coast scans (28 bodies, no formation: 87/87, the window
+at coast covers every radius from zero — reach ≈ 9·r from h = 1.1e12 doll units × speed_cap 9.76e-3, and
+the bail's numerator counts bin-entries, 1,947 mean against 71 registered, so `hit ≫ bodies/4 + 64` at
+plane scale), a fleet formation on the player's circle adds 1.00 candidates a ship (37.7 + 1.00·K:
+87.7 at 50, 1,037.9 at 1,000; capture 382 µs and one answer 4.53 ms a scan at K=1,000, 4.4 µs a
+candidate), 1,000 ships put the p99 at 52.5 ms (68/600 frames over the 12-ms budget, 23% of game time
+lost; beside the comb: 128 events a frame, 9× the spread-10³ class), and 200 ships beside a 10⁴ belt
+switch the whole universe's scans back to full walks (78/84 bailed, 9,549 binding_at a scan, 51× the
+census's 186) — the filter's on/off decided by other dolls' populations (the belt inflates `self.bodies`,
+the bail's denominator), a nonlocal coupling against PRINCIPLES 15 (20261017-0552-inversion-604c,
+inversion; coast, rtf 100, seed 1, print-only `radial::scanstat` census bit-stable across reruns,
+`prof` stages, regen.sh; at 10⁹ a 10⁶-ship fleet ≈ 0.36 s capture + 4.4 s answer a scan ≈ ~500× over
+at rtf 100, and a held scan pins candidates × 216 B).** The census's own numbers reproduce on the same
+binary at form=0 (201.1 / 199.5 candidates at 10⁴ / 10⁵, zero bails): the O(1) verdict is a property of
+the ladder's population (locals capped at 300, none in the player's band, the belt in another doll), not
+of the filter. Fixes to price: the bail's numerator in bodies (dedup) and its threshold local to the
+window's population; a phase axis for co-orbital crowds (taleb-09b5's rank-along-orbit invariant, the
+encounters gold, applied to the observer); the comb channel is kick-cadence's.
+
+Provenance (checker): the plane-scale fallback and the `bodies/4 + 64` mechanism are scan-queue's
+priors (cdf0 20261016-1120: Home's doll trips the N-relative rule exactly at the plane's flown N,
+95% of coast captures; 3999: the belt-band every-N disease) — this run's new content is the
+co-orbital formation itself (the page's named unflown direction), the 1.00/ship crowd law, the
+coast window covering every radius with a bin-entry numerator, so the bail never turns off under
+concentration (100% still at 10⁴ in-band bodies, checker — cdf0's "small-N disease" scoping
+corrected), the c439 inversion, and the frame cost.
+
+Prior best retained: **the read stream is censused on shipped code and the 10⁹ premise is corrected: the engine's
 read demand is O(1) in N on the ladder's flights — every reader's absolute count identical
 at N=1e4 and 1e5 (scan candidates 148,996 at both; totals 188,181 vs 188,227) — the player's
 scan reads a bounded near set (70.0 candidates a scan at burn, 184 at coast's wider window;
@@ -52,6 +80,15 @@ lever; ÷8 = the mint-budget lever; delete = the event-stream lever; burn-10⁹ 
 kick cadence's mint bill plus bytes/body, no separate read-stream term.
 
 ## Refuted
+- **"The observer half is free / pin the ~70-body near set" (this page's own open direction 1, and
+  the census's c439 reading)**: on the game's own crowd the near set is crowd-proportional (1.00
+  candidates a ship), the filter bails on 100% of the plane's own scans, and at K=1,000 one answer
+  is 4.53 ms — the observer alone is ~500× over at rtf 100 for a 10⁶-ship fleet
+  (20261017-0552-inversion-604c).
+- **"The radial apsidal filter cuts the belt" (c439's letter, as a property of the filter)**: at
+  coast the window covers every radius from zero (reach ≈ 9·r); what cuts the belt is the doll
+  partition, and the filter's own viability hangs on the belt inflating the bail's denominator —
+  at plane scale it bails always (20261017-0552-inversion-604c).
 - **"The burn read stream is an N-linear observer demand at 10⁹"** (8792's open direction 1
   as stated, "~6 cores of hit-path ε"): on shipped main the engine's read demand is O(1) in
   N on the ladder's flights — identical absolute counts 1e4↔1e5, 70 candidates a scan — and
@@ -71,24 +108,29 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
   (73%→14% between dwell 17 and 100) is real but its owner is now named: the scan's ~70-body
   near set read in bursts (the observer half) plus the kick mints (the cadence half); with
   the near set pinned, what is left of the cliff is the cadence's
-  (20261017-0005-…-8792; c439).
+  (20261017-0005-…-8792; c439). [20261017-0552: the "near set pinned" clause is
+  crowd-scoped — under a formation the set is K-sized, not 70.]
 
 ## Open directions
-1. **The read stream question is closed on main and handed back:** the observer half is a
-   ~70-body pin (build it: keep the scan's near set live across dwell); the N-linear half
-   is the kick cadence's mint bill (kick-cadence's page, ladder break 1) — no store
-   representation deletes it. What 0619 named ("what are the resolver's re-reads FOR") is
-   answered: they are the kicks' own reads of sources, self and record (2.9–4.3 an event).
-2. Cliff position, seed stability and N-linearity are flown (checkers: cliff between 80
+1. **The scan's representation under concentration** (this run's handback): price (a) the bail made
+   local (numerator in bodies — dedup the bin-entries — and threshold against the window's own
+   population, not the universe's `bodies/4`), and (b) a phase/along-orbit axis for co-orbital
+   crowds (taleb-09b5's invariant on the observer's side), which is the only representation that
+   makes fleet scenes cheap for the scan; measure both against this run's matrix (regen.sh). The
+   old "pin the near set" is refuted above; the player-seam flight (into the belt at density,
+   radial None) stays unflown.
+2. The comb channel of the formation scene (1,000 ships at one period: 128 events a frame, p99
+   52.5 ms) is kick-cadence's page, not this one; the formation matrix is the ready instrument.
+3. Cliff position, seed stability and N-linearity are flown (checkers: cliff between 80
 and 100 gs with miss 72–75% flat from dwell 5 through 80; seed 2 within 6% and seed 3 at
 14.0% on the cliff's right side, digest-identical to its own ctl; reads linear at 2×10⁵
 to 0.13%). The coast dial saturates at ~N beyond ~2000 gs (dwell 10000: standing
-115,276 ≈ N, re-mints exactly 1.00× retain's — checker2). Remaining: a formation scene
-(the burst scale the cliff hangs on — c439's near set is the ladder's spread belt; a
-co-orbital formation swells it) and the sub-frame dwell class.
-3. ES_SECULAR's promotion-skip coverage (1a46) prices the event stream only — its effect
+115,276 ≈ N, re-mints exactly 1.00× retain's — checker2). Remaining: the formation scene's
+dwell behaviour (the burst scale the cliff hangs on is now measured crowd-proportional, so
+the cliff's observer half is a fleet term — unflown together) and the sub-frame dwell class.
+4. ES_SECULAR's promotion-skip coverage (1a46) prices the event stream only — its effect
    on the read stream is unmeasured.
-4. The stagger's recurrence gate (≥3 intervals, the unprinted second spell,
+5. The stagger's recurrence gate (≥3 intervals, the unprinted second spell,
    9e75-checker2) before idle-time compute-ahead is considered at all.
 
 ## Contradictions
@@ -97,7 +139,10 @@ instruments; the standing resident is burst-structured, not λ×dwell). Reconcil
 8792's b = 11.48 reads/body/20k gs is the mint-path reads riding ~3.9 kicks/body, not
 observer re-reads — their N-linearity and the census's O(1) observers measure the same
 flight's two halves. Standing watch: the ledger's P6 cell (diet at shipped rate binds
-memory for dwell ∈ (2,808, 28,141] gs) is coast-only.
+memory for dwell ∈ (2,808, 28,141] gs) is coast-only. New, named: c439's "70 candidates a
+scan" and this run's "crowd-proportional, bail always at plane scale" measure the same
+filter on different populations — reconciled above (the cap and the belt's denominator), no
+live conflict.
 
 ## Runs
 - 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger):
@@ -112,3 +157,4 @@ memory for dwell ∈ (2,808, 28,141] gs) is coast-only.
 - 20261016-2327-library-cbc5 (library, silver): promotion ledger — dwell is the memory
 - 20261017-0005-second-20261016-2327-library-cbc5-8792 (second author, this run): the
 - 20261017-0428-quant-c439 (this run): the read census — read demand O(1) in N (counts
+- 20261017-0552-inversion-604c (this run): the formation scene flown — the filter bails on
