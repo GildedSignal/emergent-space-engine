@@ -18,9 +18,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [library-directions](library-directions.md) | open | 4 | **Five more verbatim lessons order the 10⁹ ledger's next three runs, and the boundary |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
-| [allocator-ratchet](allocator-ratchet.md) | open | 6 | **The wave response is Extremistan, one finality assert is reachable (including on the quiet |
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
+| [allocator-ratchet](allocator-ratchet.md) | open **conflict to resolve** | 8 | <<<<<<< main |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
@@ -33,6 +33,6 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-cadence](kick-cadence.md) | open | 53 | The 10⁹ ledger is recomposed on the two-comb and on 1a46's own belt count, and both corrections point the same way: at flown legality the composed bottom line is **10.3 M1 cores (2.6× over the 4-core budget)**, not e7ef' |
 | [kick-jet](kick-jet.md) | open | 78 | **Compile-on-read is dead in both forms, and the reader was never the view: one build serves |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
-| [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
+| [encounters](encounters.md) | open **conflict to resolve** | 100 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 107 | **The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical |
 | [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |
