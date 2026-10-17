@@ -1,0 +1,25 @@
+== P3: the schedule's forms at 10^9 ==
+frame event budget: 4 cores x 16.67 ms / 29.3 us = 2,275 events/frame
+(a) explicit per-body entries: 7.1-9.1 B/body -> 7.1-9.1 GB  (budget 6 GB): BUSTS
+(b) due-ordered ring index: id 30 b + phase 15 b = 45 b/body -> 5.62 GB on top of the program store; inlined (phase+program) 36-55 b -> 4.5-6.9 GB but phase sorting destroys the birth-compressible classes (0.126-2.4 b)
+    Shannon floor of any due-ordering of distinguishable bodies: log2(N!) = 3.6 GB
+(d) cursors, >= N/budget = 439,500 classes x 4 B (global): 1.8 MB = 0.03% of 6 GB
+(d) cursors, >= N/budget = 439,500 classes x 4 B (x100 doll/step/cell fan-out): 175.8 MB = 2.93% of 6 GB
+== P4: ledger cross-check (independent re-derivation) ==
+shipped: rate 3.550e-05 ev/B/gs x 10^9 = 35,500 ev/gs; 104.0 cores M1 / 177.5 x86 at rtf 100; rate x interval = 0.999 ev/B/interval
+composed (split x8 + 61% delete): rate 4.440e-06 ev/B/gs x 10^9 = 4,440 ev/gs; 13.0 cores M1 / 22.2 x86 at rtf 100; rate x interval = 1.000 ev/B/interval
+== P1: per-frame rescan of the compact store (form c) ==
+N= 1,000,000:    21.71 ms/pass (0.01 GB store), 21.71 ns/body, hits=936; at 10^9: 21.7 s = 1,302,443,635,650 frames of budget -> DEAD
+N=10,000,000:   224.34 ms/pass (0.08 GB store), 22.43 ns/body, hits=9,857; at 10^9: 22.4 s = 1,346,045,483,602 frames of budget -> DEAD
+bandwidth floor (M1 60 GB/s, 8 B/body): 0.13 s/pass = 8 frames of budget -> DEAD regardless of compute
+== P2: quantised phase classes at N=1,000,000 (one composed interval) ==
+frames/interval=135,079  mean events/frame=7.4  bar=2.3  (at 10^9: mu=7,403 vs bar 2,275 = 3.25x the 4-core bar, the known overage)
+comb (K=1): whole population due in one frame (1,000,000 vs bar 2) -> FAILS (the measured comb/crest, 4c22/9e75)
+K=512 (pre-registered): K=      512 (class~ 1953.1, max class    2072 = 1.06x mean); frame batch mean=    7.4 p99=    0.0 max= 2072.0 (279.88x mean) vs bar 2 -> FAILS; 10^9 cursors    0.0 MB (0.00% of 6 GB)
+K=F/10    : K=   16,384 (class~   61.0, max class      96 = 1.57x mean); frame batch mean=    7.4 p99=   72.0 max=   96.0 (12.97x mean) vs bar 2 -> FAILS; 10^9 cursors    0.1 MB (0.00% of 6 GB)
+K=10F     : K=2,097,152 (class~    0.5, max class       6 = 12.58x mean); frame batch mean=    7.4 p99=   14.0 max=   21.0 ( 2.84x mean) vs bar 2 -> FAILS; 10^9 cursors    8.4 MB (0.14% of 6 GB)
+K=100F    : K=16,777,216 (class~    0.1, max class       5 = 83.89x mean); frame batch mean=    7.4 p99=   14.0 max=   21.0 ( 2.84x mean) vs bar 2 -> FAILS; 10^9 cursors   67.1 MB (1.12% of 6 GB)
+concentration, 8 seeds at K=10F: max/mean 2.837-2.837 (prediction <= 1.25; CLT sigma of a frame sum ~ 0.368 of mean)
+---
+dossier tables: P3 forms + P4 ledger from '== P3'/'== P4'; P1 from '== P1';
+P2 arms from '== P2'. Compare against dossier.md's Evidence section.
