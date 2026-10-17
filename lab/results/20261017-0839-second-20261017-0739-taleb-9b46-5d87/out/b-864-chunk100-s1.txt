@@ -1,0 +1,31 @@
+run cols=24 arch=8x6 per=12 N=864 H=1200 m=0.5 cannon=128 quiet=1 chunk=100 cap=80s seed=1 ES_CAP=none
+tick wall_s regions E rollbacks merges merges_avoided promises_exceeded wasted_ops chr_per_s
+100 0.0 live=128 last=128 init=72 E=4 rb=2 m=3 av=0 px=258 wo=1103 chr=818954
+
+thread 'alloc-2' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1456:17:
+rollback of region 153 from 96 would revise its published tick 100
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'alloc-5' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1776:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-7' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1776:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-4' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1776:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-3' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1776:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-1' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1776:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-6' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1776:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-0' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1776:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'main' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1940:77:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }

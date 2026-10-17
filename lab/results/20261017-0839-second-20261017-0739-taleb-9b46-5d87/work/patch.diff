@@ -1,0 +1,192 @@
+diff --git a/crates/allocator/examples/ruin.rs b/crates/allocator/examples/ruin.rs
+new file mode 100644
+index 00000000..ef89bdcb
+--- /dev/null
++++ b/crates/allocator/examples/ruin.rs
+@@ -0,0 +1,161 @@
++//! The shipped allocator's ruin tail at a conflict wave (lab 20261017-0739-taleb-9b46),
++//! second run: the checker's named gold experiment — frames mode (20261017-0839-second-…-5d87).
++//!
++//! Scene (public APIs only): one **wave row** of `cols` loose gas cells at `row_spacing`,
++//! cell 0 hot (`cannon` vmax quanta), the rest cold (`quiet` vmax) — physics couples only
++//! this row as the spray sweeps east — and a **quiet archipelago** of `qcols × qrows` cold
++//! cells at `arch_spacing`, `arch_gap` north of the row, which no body can reach inside the
++//! horizon (the spray's vertical reach is vmax·H < arch_gap). The rollback latch
++//! (`escalation *= 2`, global and permanent) is the only channel that can couple the
++//! archipelago: promise speed = (margin·E + E−1) × the region's own vmax.
++//!
++//! Two modes:
++//!
++//! - batch (the author's instrument, unchanged): `ruin <cols> <qcols> <qrows> <per>
++//!   <horizon> <margin> <cannon> <quiet> <chunk> <cap_s> [seed]` — one `run_to` per
++//!   `chunk` chronons (publish between advances), trace row per chunk.
++//! - frames (this run): `ruin frames <cols> <qcols> <qrows> <per> <horizon> <margin>
++//!   <cannon> <quiet> <hz> <rate> <ahead_s> <seconds> [seed]` — ONE `run_frames` call:
++//!   continuous publication, least-slack workers capped `ahead_s`·`rate` chronons ahead of
++//!   a present that advances at `rate` (dropping when the light cone is behind). Prints one
++//!   outcome line; a finality-assert crash is the process dying (exit ≠ 0, message on
++//!   stderr).
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig, Report};
++use std::sync::Arc;
++use emergent_lattice::law::Law;
++use std::time::Instant;
++use emergent_lattice::{chronon::Chronon, World};
++
++fn cells(cols: i64, spacing: i64, y: i64, per: u64, vmax: i64, q: i64, seed: u64, hot: i64, first: &mut u64) -> Vec<World> {
++    (0..cols)
++        .map(|i| {
++            let v = if i < hot { vmax } else { 1 };
++            let w = scenes::loose_gas(per, q, v.max(1), seed + i as u64, *first, [i * spacing, y]);
++            *first += per;
++            w
++        })
++        .collect()
++}
++
++
++
++fn arch(qcols: i64, qrows: i64, spacing: i64, y0: i64, per: u64, vmax: i64, q: i64, seed: u64, first: &mut u64) -> Vec<World> {
++    let mut out = Vec::new();
++    for r in 0..qrows {
++        out.extend(cells(qcols, spacing, y0 + r * spacing, per, vmax, q, seed + 9_000 + 777 * (r as u64), 0, first));
++    }
++    out
++}
++
++fn scene(cols: i64, qcols: i64, qrows: i64, per: i64, cannon: i64, quiet: i64, seed: u64) -> Vec<World> {
++    let q = 256i64;
++    let (row_spacing, arch_spacing, arch_gap) = (48i64, 200i64, 2600i64);
++    let mut first = 1u64;
++    let mut scene = cells(cols, row_spacing, 0, per as u64, cannon, q, seed, 1, &mut first);
++    scene.extend(arch(qcols, qrows, arch_spacing, arch_gap, per as u64, quiet, q, seed, &mut first));
++    scene
++}
++
++fn main() {
++    let mut a: Vec<String> = std::env::args().skip(1).collect();
++    let mut rel = false;
++    if a.first().map(|s| s.as_str()) == Some("rel") {
++        rel = true;
++        a.remove(0);
++    }
++    if a.first().map(|s| s.as_str()) == Some("frames") {
++        a.remove(0);
++        return frames(&a, rel);
++    }
++    let n = |i: usize, d: &str| a.get(i).and_then(|s| s.parse().ok()).unwrap_or_else(|| panic!("arg {i} ({d})"));
++    let (cols, qcols, qrows, per, horizon, cannon, quiet): (i64, i64, i64, i64, i64, i64, i64) =
++        (n(0, "cols"), n(1, "qcols"), n(2, "qrows"), n(3, "per"), n(4, "horizon"), n(6, "cannon"), n(7, "quiet"));
++    let margin: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(2.0);
++    let (chunk, cap_s, seed): (i64, i64, i64) = (n(8, "chunk"), n(9, "cap_s"), a.get(10).and_then(|s| s.parse().ok()).unwrap_or(1));
++    let mut al = Allocator::new(scene(cols, qcols, qrows, per, cannon, quiet, seed as u64), factory(), Config { speed_margin: margin, min_region: 1, ..Config::default() }).expect("scene");
++    let t0 = Instant::now();
++    println!(
++        "run cols={cols} arch={qcols}x{qrows} per={per} N={} H={horizon} m={margin} cannon={cannon} quiet={quiet} chunk={chunk} cap={cap_s}s seed={seed} ES_CAP={}",
++        ((cols + qcols * qrows) * per),
++        std::env::var("ES_CAP").unwrap_or_else(|_| "none".into())
++    );
++    println!("tick wall_s regions E rollbacks merges merges_avoided promises_exceeded wasted_ops chr_per_s");
++    let mut last = 0i64;
++    let mut g = None;
++    for t in (chunk..=horizon).step_by(chunk as usize) {
++        let r: Report = al.run_to(t);
++        println!(
++            "{t} {:.1} live={} last={} init={} E={:.0} rb={} m={} av={} px={} wo={} chr={:.0}",
++            t0.elapsed().as_secs_f64(),
++            r.region_list.len(),
++            r.regions.last,
++            r.regions.initial,
++            r.regions.speed_escalation,
++            r.regions.rollbacks,
++            r.regions.merges,
++            r.regions.merges_avoided,
++            r.regions.promises_exceeded,
++            r.regions.wasted_ops,
++            r.sim.region_chronons_per_wall_second
++        );
++        last = t;
++        g = Some((r.regions.last, r.regions.speed_escalation, r.regions.rollbacks, r.regions.merges, r.regions.merges_avoided, r.regions.promises_exceeded, r.regions.wasted_ops));
++        if t0.elapsed().as_secs_f64() > cap_s as f64 {
++            println!("DNF at tick {last} after {:.0}s (cap {cap_s}s)", t0.elapsed().as_secs_f64());
++            return;
++        }
++    }
++    let (regions, e, rb, m, av, px, wo) = g.unwrap();
++    let (d1, d2) = al.outcome();
++    println!("DONE regions={regions} E={e:.0} rollbacks={rb} merges={m} avoided={av} exceeded={px} wasted={wo} wall={:.1}s digest={d1}/{d2}", t0.elapsed().as_secs_f64());
++}
++
++/// One `run_frames` call: publication is continuous (workers publish per unit; the frame
++/// thread reads the view every frame). Any finality assert here is a crash in the game's
++/// live path, not a batch-driver artifact.
++fn frames(a: &[String], rel: bool) {
++    let n = |i: usize, d: &str| a.get(i).and_then(|s| s.parse().ok()).unwrap_or_else(|| panic!("arg {i} ({d})"));
++    let (cols, qcols, qrows, per, horizon, cannon, quiet): (i64, i64, i64, i64, i64, i64, i64) =
++        (n(0, "cols"), n(1, "qcols"), n(2, "qrows"), n(3, "per"), n(4, "horizon"), n(6, "cannon"), n(7, "quiet"));
++    let margin: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(2.0);
++    let f = |i: usize, d: &str| a.get(i).and_then(|s| s.parse().ok()).unwrap_or_else(|| panic!("arg {i} ({d})"));
++    let (hz, rate, ahead, seconds): (f64, f64, f64, f64) = (f(8, "hz"), f(9, "rate"), f(10, "ahead_s"), f(11, "seconds"));
++    let seed: i64 = a.get(12).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let sc = scene(cols, qcols, qrows, per, cannon, quiet, seed as u64);
++    let sc = if rel { scenes::with_law(sc, Law::Relativistic) } else { sc };
++    let mut al = Allocator::new(sc, factory(), Config { speed_margin: margin, min_region: 1, ..Config::default() }).expect("scene");
++    println!(
++        "frames cols={cols} arch={qcols}x{qrows} per={per} N={} H={horizon} m={margin} cannon={cannon} quiet={quiet} hz={hz} rate={rate} ahead={ahead}s seconds={seconds} seed={seed} ES_CAP={}",
++        ((cols + qcols * qrows) * per),
++        std::env::var("ES_CAP").unwrap_or_else(|_| "none".into())
++    );
++    println!("law={}", if rel { "Relativistic" } else { "Newtonian" });
++    let r: Report = al.run_frames(&FrameConfig { hz, seconds, rate, ahead_seconds: ahead, record: false });
++    let f = r.frames.as_ref().expect("frames report");
++    println!(
++        "FRAMES wall={:.1}s present={:.0}->{:.0} ({:.1} chr/wall-s) frontier={} regions_last={} E={:.0} rb={} m={} av={} px={} wo={} chr_s={:.0}",
++        r.wall_seconds,
++        r.sim.present_start,
++        r.sim.present_end,
++        r.sim.present_chronons_per_wall_second,
++        r.finality.frontier,
++        r.regions.last,
++        r.regions.speed_escalation,
++        r.regions.rollbacks,
++        r.regions.merges,
++        r.regions.merges_avoided,
++        r.regions.promises_exceeded,
++        r.regions.wasted_ops,
++        r.sim.region_chronons_per_wall_second,
++    );
++    println!(
++        "FREPORT frames={} deadline_misses={} small_misses={} accel_drops={} work_p99_ms={:.3} interval_p99_ms={:.1} lead_p99_chr={:.0} hard_viol={}",
++        f.frames, f.deadline_misses, f.small_deadline_misses, f.acceleration_drops, f.work_ms.p99, f.interval_ms.p99, f.final_lead_chronons.p99, r.finality.hard_speed_violations
++    );
++    // `outcome()` is batch-only (all regions at one tick); frames leave regions mid-flight.
++    println!("SURVIVED bodies={}", al.regions());
++}
++
++fn factory() -> Factory<Chronon> {
++    Arc::new(|w| Chronon::new(w, false).expect("valid region world"))
++}
+diff --git a/crates/allocator/src/alloc.rs b/crates/allocator/src/alloc.rs
+index 8e8d8dc2..2c2e44dd 100644
+--- a/crates/allocator/src/alloc.rs
++++ b/crates/allocator/src/alloc.rs
+@@ -24,6 +24,11 @@ pub type Factory<S> = Arc<dyn Fn(World) -> S + Send + Sync>;
+ const BATCH_RATE: f64 = 1000.0;
+ /// Slack (s) under which efficiency workers leave a region to idle performance workers.
+ const URGENT: f64 = 0.005;
++
++/// Cap on the rollback escalation latch (`ES_CAP`, default unbounded = shipped behaviour).
++fn es_cap() -> f64 {
++    std::env::var("ES_CAP").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(f64::INFINITY)
++}
+ /// Priority keys are chronons × this (integer keys order the queues).
+ const KEY_SCALE: f64 = 16.0;
+ 
+@@ -1407,7 +1412,7 @@ impl<S: Stepper + Send + 'static> State<S> {
+     /// happen. Nothing published can be touched (asserted).
+     fn rollback(&mut self, mut clashes: Vec<(u64, Tick)>) {
+         self.st.rollbacks += 1;
+-        self.escalation *= 2.0;
++        self.escalation = (self.escalation * 2.0).min(es_cap());
+         clashes.sort_by_key(|&(id, s)| (s, id));
+         let mut restored: Vec<(u64, Tick)> = Vec::new();
+         for (lid, s0) in clashes {

@@ -1,0 +1,43 @@
+   Compiling emergent-allocator v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator)
+warning: value assigned to `last` is never read
+  --> crates/allocator/examples/ruin.rs:83:13
+   |
+83 |     let mut last = 0i64;
+   |             ^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-allocator` (example "ruin") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.42s
+== f-864-r400-a025-s1 exit=0 ok | FRAMES wall=6.0s present=0->2393 (398.9 chr/wall-s) frontier=2496 regions_last=243 E=8 rb=3 m=25 av=0 px=288 wo=2191 chr_s=37669
+== f-864-r100-a005-s1 exit=0 ok | FRAMES wall=6.0s present=0->592 (98.6 chr/wall-s) frontier=608 regions_last=50 E=8 rb=3 m=95 av=0 px=6 wo=1399 chr_s=14240
+== f-864-r400-a100-s1 exit=0 ok | FRAMES wall=6.0s present=0->2393 (398.9 chr/wall-s) frontier=2800 regions_last=49 E=32 rb=5 m=17 av=6 px=484 wo=24421 chr_s=25165
+== f-864-r400-a025-s2 exit=0 ok | FRAMES wall=6.0s present=0->1833 (305.5 chr/wall-s) frontier=1792 regions_last=798 E=2 rb=1 m=122 av=801 px=5002 wo=3444 chr_s=167087
+== f-864-r100-a005-s2 exit=0 ok | FRAMES wall=6.0s present=0->576 (96.0 chr/wall-s) frontier=592 regions_last=312 E=2 rb=1 m=290 av=0 px=10 wo=288 chr_s=36591
+== f-864-r400-a100-s2 exit=0 ok | FRAMES wall=6.0s present=0->2367 (394.4 chr/wall-s) frontier=2768 regions_last=49 E=64 rb=6 m=97 av=113 px=1011 wo=57562 chr_s=30751
+== f-864-r400-a025-s3 exit=0 ok | FRAMES wall=6.0s present=0->1839 (306.4 chr/wall-s) frontier=1824 regions_last=775 E=2 rb=1 m=260 av=778 px=9462 wo=1081 chr_s=171673
+== f-864-r100-a005-s3 exit=0 ok | FRAMES wall=6.0s present=0->590 (98.3 chr/wall-s) frontier=592 regions_last=492 E=1 rb=0 m=320 av=0 px=713 wo=0 chr_s=47975
+== f-864-r400-a100-s3 exit=0 ok | FRAMES wall=6.0s present=0->1374 (229.1 chr/wall-s) frontier=1536 regions_last=648 E=2 rb=1 m=289 av=1363 px=6824 wo=1585 chr_s=129255
+== f-14k-s1 exit=0 ok | FRAMES wall=35.0s present=0->1792 (51.2 chr/wall-s) frontier=1792 regions_last=2381 E=8 rb=3 m=47 av=2164 px=3590 wo=2191 chr_s=69522
+== f-28k-s1 exit=0 ok | FRAMES wall=50.0s present=0->3952 (79.0 chr/wall-s) frontier=3952 regions_last=1 E=32 rb=5 m=29 av=1 px=6996 wo=5449 chr_s=20900
+== f-28k-s7 exit=0 ok | FRAMES wall=50.0s present=0->2416 (48.3 chr/wall-s) frontier=2416 regions_last=2587 E=16 rb=4 m=23 av=845 px=7233 wo=4828 chr_s=116247
+== f-14k-rel-s1 exit=0 ok | FRAMES wall=35.0s present=0->0 (0.0 chr/wall-s) frontier=0 regions_last=1259 E=4 rb=2 m=3 av=0 px=2117 wo=1942 chr_s=2287
+== b-864-chunk100-s1 exit=101 ASSERT: rollback of region 157 from 96 would revise its published tick 100 | no-frames-line
+== b-864-single-s1 exit=0 ok | no-frames-line
+== f-q14k-deep-s1 exit=0 ok | FRAMES wall=300.0s present=0->1136 (3.8 chr/wall-s) frontier=1136 regions_last=3905 E=4 rb=2 m=4782 av=3789 px=57183 wo=928 chr_s=14693
+== f-864-rel-r400-a025-s1 exit=0 ok | FRAMES wall=20.0s present=0->1578 (78.9 chr/wall-s) frontier=1536 regions_last=483 E=4 rb=2 m=49 av=269 px=314 wo=1942 chr_s=13537
+== f-864-rel-r100-a005-s2 exit=0 ok | FRAMES wall=20.0s present=0->1554 (77.7 chr/wall-s) frontier=1568 regions_last=317 E=4 rb=2 m=281 av=0 px=5 wo=926 chr_s=14444
+== f-864-rel-r400-a100-s1 exit=0 ok | FRAMES wall=20.0s present=0->3104 (155.2 chr/wall-s) frontier=2992 regions_last=174 E=8 rb=3 m=109 av=625 px=464 wo=4778 chr_s=17126
+== f-14k-rel-deep-s1 exit=0 ok | FRAMES wall=45.0s present=0->256 (5.7 chr/wall-s) frontier=112 regions_last=1153 E=16 rb=4 m=11 av=0 px=3563 wo=4111 chr_s=4016
+== b-q14k-chunk150-s1 exit=101 ASSERT: rollback of region 13279 from 112 would revise its published tick 150 | none
+== b-864-chunk96-s1 exit=0 ok | DONE regions=153 E=4 rollbacks=0 merges=5 avoided=35 exceeded=20 wasted=0 wall=0.2s digest=9d398da51f59057ea759887e6a5f30570af7a4d5bd13717ab4f0d0423d5717ca/cc25109f0d2b52ad789dcf4f3b03ad8de0dcdcadbcc564c41486cd20d56290d0
+== b-864-chunk112-s1 exit=0 ok | DONE regions=49 E=8 rollbacks=0 merges=0 avoided=0 exceeded=0 wasted=0 wall=0.2s digest=f5485e7227714b2f8ed93d35188ff3e8286c1dc2bf24831d67d59d555b7edc68/cc25109f0d2b52ad789dcf4f3b03ad8de0dcdcadbcc564c41486cd20d56290d0
+== b-864-chunk128-s1 exit=0 ok | DONE regions=49 E=8 rollbacks=0 merges=0 avoided=0 exceeded=0 wasted=0 wall=0.2s digest=9d398da51f59057ea759887e6a5f30570af7a4d5bd13717ab4f0d0423d5717ca/cc25109f0d2b52ad789dcf4f3b03ad8de0dcdcadbcc564c41486cd20d56290d0
+== b-864-chunk100-s1 exit=101 ASSERT: rollback of region 153 from 96 would revise its published tick 100 | none
+== b-864-chunk104-s1 exit=101 ASSERT: rollback of region 155 from 96 would revise its published tick 104 | none
+== b-864-chunk108-s1 exit=0 ok | DONE regions=49 E=8 rollbacks=0 merges=0 avoided=0 exceeded=0 wasted=0 wall=0.2s digest=1d0c1020a14651b60a539efebd9044dc14513eb6a50e1fbdd839a0efb8eda9fc/f95ecf95490d8ffb0f0acbab3274ac62ef2c4583844430b7adf66d8b19dcf66e
+== b-864-chunk100-s2 exit=0 ok | DONE regions=569 E=2 rollbacks=0 merges=3 avoided=97 exceeded=587 wasted=0 wall=0.6s digest=f3dedce0173eb7aade79cb1e29f183aaf0a4dfa925b98e02cf2d883954d8fbbc/9e5b12e2f06bdb6235c08b762cdef2aa453071906ef799863398dcade1a895d6
+== b-14k-chunk512-s1 exit=0 ok | DONE regions=1 E=64 rollbacks=0 merges=8 avoided=0 exceeded=0 wasted=0 wall=4.3s digest=44a78ee55bd194f43125077b2b543b37a9d9ae65ce1243bccff4600f7e1e6f73/d3e71cdab5650bc311dc5718924abb5794129f5bafca857db1a50c5f3ad33f45
+== b-14k-chunk504-s1 exit=0 ok | DONE regions=1 E=64 rollbacks=0 merges=9 avoided=0 exceeded=116 wasted=0 wall=4.4s digest=90746ed9532a91318a345ac6c225ecae9a4211e9e93e054dd72ce91b347123cf/7122bdb6782be3cfaa64824d5fcadc40a0f87306b4a1429166b77c245b3d9ac2
+regen complete; summaries above, full traces in out/
