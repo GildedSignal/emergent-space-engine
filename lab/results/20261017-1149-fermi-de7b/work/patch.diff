@@ -1,0 +1,177 @@
+diff --git a/crates/universe/examples/belt_combs.rs b/crates/universe/examples/belt_combs.rs
+new file mode 100644
+index 00000000..8c526b03
+--- /dev/null
++++ b/crates/universe/examples/belt_combs.rs
+@@ -0,0 +1,171 @@
++//! Are the belt's two combs welded to one step? The kick comb and the boundary comb are both
++//! scheduled from the body's own next step (`kick_clock`: boundary at `t + full/2`, next kick at
++//! `t + full`, both from the one `full = ticks(time(y, ds))`), so any lever that lengthens the
++//! step — `Config::step_log2`, and any cadence split built the same way — must stretch both
++//! combs together, with the boundary always at the kick's midpoint. This example measures that
++//! on shipped code: at genesis each belt body's first kick `h`; between the kick crest and the
++//! boundary crest (every belt body then holds its full welded pair) the standing plans — one
++//! Boundary and one Kick item, `B = 2h`, `K − B = h`, `interval = 2h`, `B ≡ 0 (mod interval)`;
++//! and after two full intervals the per-body fired-event count (2 kicks + 2 boundaries at the
++//! shipped lever, 1 + 1 at one octave coarser) with the shipped global counters. If the
++//! boundary comb had a metronome of its own, the plan pair would break and the counts would
++//! part ways when `step_log2` moves.
++//!
++//! cargo run --release -p emergent-universe --example belt_combs [-- <N> <rtf> <scan_gs> <end_gs> <step_log2>]
++use emergent_universe::body::What;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::universe::Budget;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn pct(v: &mut Vec<f64>, p: f64) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[(((v.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let edge = |x: f64| x.min(1.0 - x); // distance to the interval's edge (a multiple of iv prints as 0 or 1−ε)
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2400.0);
++    let scan_gs: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20_000.0);
++    let end_gs: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(60_000.0);
++    let step_log2: i32 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(7);
++    let cfg = Config { step_log2, ..Config::default() };
++    let t0 = Instant::now();
++    let mut p = plane_extra(cfg, 1, Order::Sparse, 1, 48, n).unwrap();
++    let build_s = t0.elapsed().as_secs_f64();
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    let belt = |k: usize| k >= locals; // the ladder's ships: locals about Home and the Moon first, then the belt
++
++    // Genesis: each belt body's plan holds its first Kick at h (half of its first step), plus terminals.
++    let mut h = vec![0.0f64; n];
++    let mut ev0 = vec![0u64; n];
++    let (mut g_kick, mut g_bound, mut g_other) = (0u64, 0u64, 0u64);
++    for k in 0..n {
++        let r = p.u.rec(base + k);
++        ev0[k] = r.events;
++        if !belt(k) {
++            continue;
++        }
++        let mut first = i64::MAX;
++        for it in r.plan.iter() {
++            match it.what {
++                What::Kick(_) => {
++                    g_kick += 1;
++                    first = first.min(it.t);
++                }
++                What::Boundary => g_bound += 1,
++                _ => g_other += 1,
++            }
++        }
++        h[k] = first as f64 * TICK_SECONDS;
++    }
++    println!(
++        "combs: n={n} (belt {}) rtf={rtf} scan={scan_gs} end={end_gs} step_log2={step_log2} build_s={build_s:.1} | genesis belt plans: kick items {g_kick}, boundary items {g_bound}, other {g_other}; h p50 {:.0} p01 {:.0} p99 {:.0} game-s",
++        n - locals,
++        pct(&mut h[locals..].to_vec(), 0.5),
++        pct(&mut h[locals..].to_vec(), 0.01),
++        pct(&mut h[locals..].to_vec(), 0.99)
++    );
++
++    // Fly to just past the first kick crest, before the first boundary crest: every belt body
++    // then holds the full welded pair {Boundary at 2h, Kick at 3h}.
++    let mut fly_to = |p: &mut emergent_universe::scenario::Plane, gs: f64| -> bool {
++        let target = (gs / TICK_SECONDS) as i64;
++        while p.u.now < target {
++            if t0.elapsed().as_secs_f64() > 55.0 {
++                return false;
++            }
++            let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), i64::MAX);
++        }
++        true
++    };
++    let ok = fly_to(&mut p, scan_gs);
++    let scan_now = p.u.now as f64 * TICK_SECONDS;
++    let (mut pair, mut kick_only, mut other) = (0usize, 0usize, 0usize);
++    let (mut b_over_2h, mut kmb_over_h, mut iv_over_2h, mut b_mod) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    for k in 0..n {
++        if !belt(k) {
++            continue;
++        }
++        let r = p.u.rec(base + k);
++        let (mut b, mut kk) = (0i64, 0i64);
++        let (mut nb, mut nk) = (0u64, 0u64);
++        for it in r.plan.iter() {
++            match it.what {
++                What::Boundary => {
++                    nb += 1;
++                    b = it.t;
++                }
++                What::Kick(_) => {
++                    nk += 1;
++                    kk = it.t;
++                }
++                _ => {}
++            }
++        }
++        if nb == 1 && nk == 1 {
++            pair += 1;
++            let (bi, ki, hi, iv) = (b as f64, kk as f64, h[k] / TICK_SECONDS, r.interval as f64);
++            b_over_2h.push(bi / (2.0 * hi));
++            kmb_over_h.push((ki - bi) / hi);
++            iv_over_2h.push(iv / (2.0 * hi));
++            b_mod.push(edge((bi % iv) / iv));
++        } else if nb == 0 && nk == 1 {
++            kick_only += 1;
++        } else {
++            other += 1;
++        }
++    }
++    println!(
++        "combs: scan at {scan_now:.0} game-s: belt plans {pair} welded pairs ({kick_only} kick-only, {other} other) of {} | B/2h: p50 {:.4} p01 {:.4} p99 {:.4} | (K−B)/h: p50 {:.4} p01 {:.4} p99 {:.4} | interval/2h: p50 {:.4} p01 {:.4} p99 {:.4} | (B mod iv)/iv: p50 {:.4} p99 {:.4}",
++        n - locals,
++        pct(&mut b_over_2h.clone(), 0.5), pct(&mut b_over_2h, 0.01), pct(&mut b_over_2h.clone(), 0.99),
++        pct(&mut kmb_over_h.clone(), 0.5), pct(&mut kmb_over_h.clone(), 0.01), pct(&mut kmb_over_h.clone(), 0.99),
++        pct(&mut iv_over_2h.clone(), 0.5), pct(&mut iv_over_2h.clone(), 0.01), pct(&mut iv_over_2h.clone(), 0.99),
++        pct(&mut b_mod.clone(), 0.5), pct(&mut b_mod.clone(), 0.99)
++    );
++
++    // Fly two full intervals: 2 kicks + 2 boundaries per belt body at the shipped lever.
++    let stats0 = p.u.stats;
++    let ok2 = ok && fly_to(&mut p, end_gs);
++    let game_s = p.u.now as f64 * TICK_SECONDS - scan_now;
++    let s = &p.u.stats;
++    let (kicks, boundaries, opens) = (s.kicks - stats0.kicks, s.boundaries - stats0.boundaries, s.opens - stats0.opens);
++    let mut per_body = Vec::new();
++    let mut dead = 0usize;
++    for k in 0..n {
++        if !belt(k) {
++            continue;
++        }
++        let r = p.u.rec(base + k);
++        dead += (!r.alive) as usize;
++        per_body.push((r.events - ev0[k]) as f64);
++    }
++    println!(
++        "combs: end at {:.0} game-s ({ok2}) | window {game_s:.0} gs: kicks {kicks} boundaries {boundaries} opens {opens}, boundaries/kicks {:.4} | belt fired events per body: p50 {:.2} p01 {:.0} p99 {:.0}; dead {dead}",
++        p.u.now as f64 * TICK_SECONDS,
++        if kicks > 0 { boundaries as f64 / kicks as f64 } else { f64::NAN },
++        pct(&mut per_body.clone(), 0.5),
++        pct(&mut per_body.clone(), 0.01),
++        pct(&mut per_body.clone(), 0.99),
++    );
++    println!(
++        "combs: ladder: n={n} step_log2={step_log2} rtf={rtf} game_end={:.0} h_p50={:.0} pairs={pair} kick_only={kick_only} other={other} B2h_p50={:.4} kmBh_p50={:.4} iv2h_p50={:.4} bmod_p50={:.4} b_per_k={:.4} belt_ev_p50={:.2} dead={dead} ok={ok2}",
++        p.u.now as f64 * TICK_SECONDS,
++        pct(&mut h[locals..].to_vec(), 0.5),
++        pct(&mut b_over_2h, 0.5),
++        pct(&mut kmb_over_h, 0.5),
++        pct(&mut iv_over_2h, 0.5),
++        pct(&mut b_mod, 0.5),
++        if kicks > 0 { boundaries as f64 / kicks as f64 } else { f64::NAN },
++        pct(&mut per_body, 0.5),
++    );
++}

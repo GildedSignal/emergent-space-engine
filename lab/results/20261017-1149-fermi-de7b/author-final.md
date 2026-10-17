@@ -1,0 +1,4 @@
+Working...
+All deliverables verified. The run is complete: mechanism in source, a three-octave falsification flight on shipped code (all per-body identities exact, 100% of 9,700 belt bodies at every octave), pre-registered predictions (substance held; the knob-direction label miss disclosed), the 10⁹ ledger razor resolved, regen.sh end-to-end, and the wiki page folded surgically (41-line diff).
+
+**Claim:** the belt's boundary comb is welded to the kick comb's own step (`step.rs`: one `full` schedules boundary at `t+full/2` and kick at `t+full`), measured on shipped code across three octaves of `step_log2` at N=10⁴ (per-body rate 0.2500×/1.0000×/4.0003×, h p50 28,141/14,071/7,035 game-s, every welding identity exact to 4 decimals) — so every cadence split, `BELT_SPLIT` included, stretches both combs together, killing the 10⁹ ledger's unclosable ~15.7-M1-core boundary floor and leaving the riding branch standing at 9.96 M1 cores at split 8, closable at S* ≈ 19.9×.
