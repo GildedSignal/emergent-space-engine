@@ -1,0 +1,142 @@
+== machine state: 2.18 3.84 3.57 2/426 997307 ; MemAvailable:   14675852 kB
+== patch (adds the print-only example crates/universe/examples/flowcrowd.rs)
+flowcrowd.rs already present; assuming the probe patch is applied
+== build
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.72s
+-rwxr-xr-x 2 glmlab glmlab 9691552 Oct 17 21:09 /home/glmlab/lab-target-0/release/examples/flowcrowd
+== flights (crowd rung: MEMBERS in {1000,1600,2400,4000,10000} x {quiet, 7-spinner loaded},
+   paced player loop, pin in real bytes via the counting GlobalAlloc)
+=== arm K1600q (MEMBERS=1600) 21:09:02 loadavg=2.46 3.85 3.57 3/404 997678 ===
+--- K1600q exit=0 loadavg=2.24 3.57 3.49 2/364 998770; summary: summary ran=3000 held_max=347 gs=3643.7 live_mb=422.3 peak_live_mb=422.7 live_allocs=173538 rss_mb=409.9 peak_rss_mb=409.9 gather_ms_p50=9.76 p99=16.76 guarded=false digest=a857eb565873967f3a9f1cd1dd278bc644e3311d2ef9199d664cde40bede5393
+=== arm K1600l (MEMBERS=1600) 21:09:55 loadavg=2.24 3.57 3.49 11/372 998784 ===
+--- K1600l exit=0 loadavg=7.32 4.77 3.91 10/368 999796; summary: summary ran=1928 held_max=82 gs=888.0 live_mb=219.7 peak_live_mb=220.3 live_allocs=70160 rss_mb=218.1 peak_rss_mb=218.1 gather_ms_p50=17.78 p99=36.99 guarded=false digest=3d1f23dd1ab1454d0faa02bdadb7efcbf65737fdaad5806a1d132d5d76eaa0a0
+=== arm K2400q (MEMBERS=2400) 21:10:53 loadavg=6.82 4.71 3.89 2/361 999805 ===
+--- K2400q exit=0 loadavg=3.53 4.15 3.75 1/362 1000963; summary: summary ran=2758 held_max=263 gs=2755.3 live_mb=483.8 peak_live_mb=484.0 live_allocs=148963 rss_mb=440.7 peak_rss_mb=440.7 gather_ms_p50=13.51 p99=22.46 guarded=false digest=1e51d28b67d466ff8800d0f0782c03aa6663ed9e10586a0b576aac6101ac22c1
+=== arm K2400l (MEMBERS=2400) 21:11:51 loadavg=3.53 4.15 3.75 8/369 1000976 ===
+--- K2400l exit=0 loadavg=7.64 5.22 4.14 10/368 1001910; summary: summary ran=1911 held_max=65 gs=681.8 live_mb=331.7 peak_live_mb=354.0 live_allocs=97386 rss_mb=356.4 peak_rss_mb=356.6 gather_ms_p50=22.46 p99=31.17 guarded=false digest=5a8637a11a6c08d2b513c50d47ecdc6234595e3479aaed95a0a02b83e27f51cf
+=== arm K4000q (MEMBERS=4000) 21:12:49 loadavg=7.64 5.22 4.14 1/360 1001985 ===
+--- K4000q exit=0 loadavg=4.29 4.68 4.02 2/363 1002932; summary: summary ran=1595 held_max=9 gs=107.9 live_mb=305.4 peak_live_mb=306.6 live_allocs=74407 rss_mb=307.6 peak_rss_mb=309.0 gather_ms_p50=27.64 p99=48.22 guarded=false digest=727b8307c23ac08aa38d56949976762a05bf11711c1f9ee639b8db0a8e8b3887
+=== arm K4000l (MEMBERS=4000) 21:13:46 loadavg=4.29 4.68 4.02 9/370 1002945 ===
+--- K4000l exit=0 loadavg=8.40 5.76 4.43 11/372 1003982; summary: summary ran=1186 held_max=1 gs=25.8 live_mb=96.4 peak_live_mb=97.7 live_allocs=22765 rss_mb=100.2 peak_rss_mb=100.5 gather_ms_p50=37.25 p99=84.92 guarded=false digest=23b31cb3517fe44c4233749de29af38222103fb2a5d93e25d165d353fcc538ae
+=== arm K10000q (MEMBERS=10000) 21:14:43 loadavg=7.80 5.68 4.41 2/365 1003991 ===
+--- K10000q exit=0 loadavg=4.29 5.06 4.27 1/362 1005015; summary: summary ran=784 held_max=0 gs=10.3 live_mb=253.3 peak_live_mb=256.8 live_allocs=59392 rss_mb=259.3 peak_rss_mb=261.1 gather_ms_p50=69.74 p99=104.38 guarded=false digest=eb51e6d97b435653296abaad31a6c475fc4e8dd00ada43cf24fd9e1b64724d39
+=== arm K10000l (MEMBERS=10000) 21:15:39 loadavg=4.29 5.06 4.27 8/369 1005028 ===
+--- K10000l exit=0 loadavg=8.33 6.06 4.66 11/329 1006037; summary: summary ran=749 held_max=0 gs=0.0 live_mb=128.5 peak_live_mb=131.9 live_allocs=29380 rss_mb=132.4 peak_rss_mb=133.7 gather_ms_p50=66.16 p99=158.86 guarded=false digest=293a4a6408be558bce5df162e06e7e9e00cd12659a5112bc0b09481f60cb776a
+=== arm K4000u (MEMBERS=4000 UNPACED no per-frame gather) 21:16:36 loadavg=8.33 6.06 4.66 2/322 1006188 ===
+--- K4000u exit=0 loadavg=6.17 5.73 4.59 2/324 1006551; summary: summary ran=3000 held_max=71 gs=743.7 live_mb=649.0 peak_live_mb=760.0 live_allocs=161349 rss_mb=724.5 peak_rss_mb=725.2 gather_ms_p50=0.00 p99=0.00 guarded=false digest=0ffa84baaf033d2d14726e942b6229f1f3c688462daa48c46826e2a45bc3b6b5
+=== arm K10000u (MEMBERS=10000 UNPACED no per-frame gather) 21:16:59 loadavg=6.17 5.73 4.59 2/324 1006556 ===
+--- K10000u exit=0 loadavg=5.32 5.57 4.55 2/327 1006773; summary: summary ran=3000 held_max=3 gs=46.5 live_mb=498.8 peak_live_mb=501.4 live_allocs=115076 rss_mb=446.3 peak_rss_mb=448.0 gather_ms_p50=0.00 p99=0.00 guarded=false digest=c456154213fad8f790b56694baa970476ec81d147439554b2fe3a2c7bbc9e537
+== analysis (every number in dossier.md's table and the pin-law fit)
+arm                load catE held_max   froz pin kB/scan    r2   B/entry cat_mean  arr/gs live MB end rss kB/s   eng50    gat50  seen   fram     gs
+K10000l  4.38 4.56 2.83 8/548 969834 7826        0  False           0  0.00         0        0  0.0000        0.0        0   11.15  66.8  10028    735      5
+K10000q  8.95 5.20 2.92 2/559 968739 7851        0  False           0  0.00         0        0  0.0000        0.0        0    7.09  74.1  10028    806     10
+K10000u  5.30 5.22 3.32 3/539 973606 8617        3   True       77137  0.83      9291     8302  0.0775      540.5    67887    1.24   0.0   2230   3000     46
+K1000l   2.11 2.92 2.99 11/543 990149 1028      290   True         477  0.90       482      991  0.0968      187.8      448    3.16  14.4   1028   2852   3028
+K1000q   1.87 3.13 3.06 2/555 989248 1028        2  False           0  0.00         0        0  0.0000        0.0        0    0.15   7.0   1028   3000   4472
+K1600l   2.47 1.68 1.38 8/522 962215 1603      271  False         984  0.89       650     1514  0.0956      374.1      957    2.90  13.5   1628   2799   2856
+K1600q   5.28 1.89 1.43 1/525 961155 1609      356  False         859  0.95       554     1552  0.0960      427.1      828    0.83   9.7   1628   3000   3739
+K2400l   2.91 2.50 1.75 8/522 964528 2264       22   True       11455  0.99      6557     1747  0.0946      271.8    11444    6.42  28.4   2428   1518    243
+K2400q   5.60 2.79 1.79 1/515 963279 2428      256  False        1140  0.72       493     2312  0.0961      478.5      965    1.45  13.7   2428   2739   2685
+K4000l   4.20 3.68 2.30 10/554 967340 2449        1   True           0  0.00         0        0  0.0000        0.0        0    1.06  37.9   4028   1061     26
+K4000q   8.54 4.15 2.36 2/556 966256 3761       11   True       26787  0.99      8955     2991  0.0923      374.1    26654    1.34  27.5   4028   1623    129
+K4000u   6.03 5.35 3.32 5/499 972756 3877       68   True       12252  0.79      3570     3432  0.0968      651.7    12530    8.01   0.0   1885   3000    713
+
+early-flight pins (first 40 held increments — the checker's window):
+arm       pin kB/scan    r2   B/entry  cat_mean    allocs  rss kB/scan
+K10000u         77137  0.83      9291      8302     17104        67887
+K1000l           2130  0.96      2313       921       740         2048
+K1600l           4756  0.91      3461      1374      1373         4622
+K1600q           4288  0.91      2981      1439      1246         4116
+K2400l          11455  0.99      6557      1747      3142        11444
+K2400q           7938  0.94      3733      2126      2229         7869
+K4000q          26787  0.99      8955      2991      6639        26654
+K4000u          19521  0.96      5804      3363      4845        18206
+
+early-window pin law over catalogue entries:
+  cat=    921  pin=      2130 kB/scan      2313 B/entry
+  cat=   1374  pin=      4756 kB/scan      3461 B/entry
+  cat=   1439  pin=      4288 kB/scan      2981 B/entry
+  cat=   1747  pin=     11455 kB/scan      6557 B/entry
+  cat=   2126  pin=      7938 kB/scan      3733 B/entry
+  cat=   2991  pin=     26787 kB/scan      8955 B/entry
+  cat=   3363  pin=     19521 kB/scan      5804 B/entry
+  pin/scan exponent vs cat: 1.86 (r2 0.904); per-entry exponent: 0.86 (r2 0.670)
+  2048-count fence crosses 0.97 GB at pin 0.47 MB/scan (between cat - and 920.9573378839591)
+  2048-count fence crosses 8.0 GB at pin 3.91 MB/scan (between cat 920.9573378839591 and 1374.108367626886)
+
+per-arm summaries (verbatim):
+  K10000l: ran=735 held_max=0 gs=5.2 live_mb=206.2 peak_live_mb=209.7 live_allocs=46895 rss_mb=211.8 peak_rss_mb=213.4 gather_ms_p50=66.82 p99=143.81 guarded=false digest=20b0fb6cdb635d902ad5e1392c5ca72c4c11cef1dd5763aa15ddddf48928b17e
+  K10000q: ran=806 held_max=0 gs=10.3 live_mb=253.5 peak_live_mb=257.0 live_allocs=59402 rss_mb=259.5 peak_rss_mb=261.3 gather_ms_p50=74.08 p99=92.90 guarded=false digest=38c507abcf9dedc836220e62efde928b7112916414f5cbb8221c69d9001772bc
+  K10000u: ran=3000 held_max=3 gs=46.5 live_mb=541.3 peak_live_mb=544.0 live_allocs=124759 rss_mb=486.3 peak_rss_mb=488.1 gather_ms_p50=0.00 p99=0.00 guarded=false digest=dd7f7a34bfdf5d0cd71bf77ab0d6af02d7bfc34b69c55e8b32088ae16c5aa60f
+  K1000l: ran=2852 held_max=290 gs=3028.3 live_mb=187.9 peak_live_mb=187.9 live_allocs=74638 rss_mb=183.4 peak_rss_mb=183.4 gather_ms_p50=14.37 p99=23.89 guarded=false digest=987aeaa6b473046c016ea84fbbb8c27a72e629132945dea850d2f0bdfcad5bc7
+  K1000q: ran=3000 held_max=2 gs=4471.9 live_mb=34.1 peak_live_mb=89.2 live_allocs=11800 rss_mb=91.4 peak_rss_mb=91.4 gather_ms_p50=6.97 p99=9.35 guarded=false digest=16b6f7949a4491f45c7c77c877c9771878be573da267bab6e2214f92b5aa0120
+  K1600l: ran=2799 held_max=271 gs=2856.0 live_mb=374.2 peak_live_mb=374.7 live_allocs=147806 rss_mb=366.4 peak_rss_mb=366.5 gather_ms_p50=13.46 p99=21.61 guarded=false digest=5b0cfe4eee86183b9fe7e74f0cbfa824b66c809b5a4c0a88aa95dd7a485e5b22
+  K1600q: ran=3000 held_max=356 gs=3738.7 live_mb=427.4 peak_live_mb=427.7 live_allocs=176504 rss_mb=414.3 peak_rss_mb=414.3 gather_ms_p50=9.67 p99=12.77 guarded=false digest=16c387296898cba65c9ed0b1447879418ace1ebb09ce6b74917aee9d6092bd4d
+  K2400l: ran=1518 held_max=22 gs=242.7 live_mb=271.9 peak_live_mb=272.6 live_allocs=73428 rss_mb=274.0 peak_rss_mb=274.0 gather_ms_p50=28.36 p99=80.87 guarded=false digest=323a1af11d6c591219ff2f977a538fe918b0580ca5db92ac1405ab347749f95b
+  K2400q: ran=2739 held_max=256 gs=2685.3 live_mb=478.6 peak_live_mb=478.8 live_allocs=147548 rss_mb=437.4 peak_rss_mb=437.4 gather_ms_p50=13.70 p99=22.58 guarded=false digest=9af451e177496d8c6d83ac7031b0050ab971cea58f28c44b88ced9d7b73eb557
+  K4000l: ran=1061 held_max=1 gs=25.8 live_mb=96.5 peak_live_mb=97.7 live_allocs=22780 rss_mb=99.9 peak_rss_mb=100.0 gather_ms_p50=37.88 p99=82.67 guarded=false digest=0c76f2723057d45f168420e089cafd001e11987fba576c6ced728b66dfb127c5
+  K4000q: ran=1623 held_max=11 gs=129.1 live_mb=374.3 peak_live_mb=375.5 live_allocs=91716 rss_mb=375.7 peak_rss_mb=376.2 gather_ms_p50=27.46 p99=40.96 guarded=false digest=79159b17c7e041e6cfc13683c35f64831a47a289d0bb9c5dcc606e66aed7718c
+  K4000u: ran=3000 held_max=68 gs=712.7 live_mb=651.9 peak_live_mb=760.0 live_allocs=161892 rss_mb=722.1 peak_rss_mb=722.6 gather_ms_p50=0.00 p99=0.00 guarded=false digest=a3ac9005e1772d2334dc7868ca8f25bb4956af0ddca17950d3ea3b4d466a6f22
+
+phase windows (40 held each — the pin declines as the crowd dissolves):
+  K1000l:
+    held 1->41:     1924 kB/scan  cat~927    2075 B/entry  gs 52-465
+    held 41->81:      434 kB/scan  cat~963     451 B/entry  gs 465-878
+    held 81->121:      400 kB/scan  cat~1011     396 B/entry  gs 878-1291
+    held 121->161:      449 kB/scan  cat~1028     437 B/entry  gs 1291-1704
+    held 161->201:      341 kB/scan  cat~1028     332 B/entry  gs 1704-2117
+    held 201->241:      289 kB/scan  cat~1028     281 B/entry  gs 2118-2530
+    held 241->281:      314 kB/scan  cat~1028     305 B/entry  gs 2532-2944
+  K1600l:
+    held 1->41:     4071 kB/scan  cat~1452    2804 B/entry  gs 52-485
+    held 41->81:      331 kB/scan  cat~1522     218 B/entry  gs 486-898
+    held 81->121:      873 kB/scan  cat~1555     561 B/entry  gs 899-1312
+    held 121->161:      986 kB/scan  cat~1575     626 B/entry  gs 1312-1725
+    held 161->201:      832 kB/scan  cat~1588     524 B/entry  gs 1725-2138
+    held 201->241:      739 kB/scan  cat~1598     462 B/entry  gs 2138-2551
+  K1600q:
+    held 1->41:     3684 kB/scan  cat~1469    2509 B/entry  gs 72-485
+    held 41->81:      329 kB/scan  cat~1523     216 B/entry  gs 486-898
+    held 81->121:      871 kB/scan  cat~1555     560 B/entry  gs 899-1312
+    held 121->161:      983 kB/scan  cat~1575     624 B/entry  gs 1312-1725
+    held 161->201:      828 kB/scan  cat~1588     521 B/entry  gs 1725-2138
+    held 201->241:      735 kB/scan  cat~1598     460 B/entry  gs 2138-2551
+    held 241->281:      755 kB/scan  cat~1602     471 B/entry  gs 2552-2964
+    held 281->321:      670 kB/scan  cat~1606     417 B/entry  gs 2966-3378
+  K2400q:
+    held 1->41:     6533 kB/scan  cat~2237    2921 B/entry  gs 52-465
+    held 41->81:     -458 kB/scan  cat~2358    -194 B/entry  gs 465-877
+    held 81->121:      809 kB/scan  cat~2428     333 B/entry  gs 878-1291
+    held 121->161:     1179 kB/scan  cat~2428     485 B/entry  gs 1291-1704
+    held 161->201:      842 kB/scan  cat~2428     347 B/entry  gs 1704-2117
+    held 201->241:      785 kB/scan  cat~2428     323 B/entry  gs 2118-2530
+  K4000u:
+    held 1->41:    15589 kB/scan  cat~3506    4447 B/entry  gs 31-444
+
+K10000u per-held-scan deltas (the first includes birth churn; 2nd/3rd are the pin):
+  held 0->1: +-0.3 MB  cat=7959  (-0.0 kB/entry)
+  held 1->2: +1.9 MB  cat=8156  (0.2 kB/entry)
+  held 2->3: +1.8 MB  cat=8437  (0.2 kB/entry)
+
+per-transition pins (live_b delta on held +1 — the capture's own allocation):
+arm          n  median kB     p25     p75  B/entry  allocs
+K10000u      3       1846    -257    1875      226      14
+K1000l     290        233     173     277      227      94
+K1000q     369        163     121     183      158     127
+K1600l     274        367     333     432      234     216
+K1600q     358        439     401     543      277     275
+K2400l      22        498     475     583      224      61
+K2400q     257        695     626     773      286     257
+K4000q      11        994     928    1039      287      40
+K4000u      68       1005     936    1085      261     108
+  -> capture pin vs window candidates (the floor term of the fence):
+     cat=  1028       233 kB/scan     227 B/entry
+     cat=  1572       367 kB/scan     234 B/entry
+     cat=  1586       439 kB/scan     277 B/entry
+     cat=  2230       498 kB/scan     224 B/entry
+     cat=  2428       695 kB/scan     286 B/entry
+     cat=  3461       994 kB/scan     287 B/entry
+     cat=  3850      1005 kB/scan     261 B/entry
+     cat=  8156      1846 kB/scan     226 B/entry
+     linear fit: pin = 226 B x candidates  (r2 0.974)

@@ -1,0 +1,165 @@
+diff --git a/crates/universe/examples/flowcrowd.rs b/crates/universe/examples/flowcrowd.rs
+new file mode 100644
+index 00000000..01550fb8
+--- /dev/null
++++ b/crates/universe/examples/flowcrowd.rs
+@@ -0,0 +1,159 @@
++//! The FLOW crowd rung (the page's direction 3): the held-scan pin measured in REAL BYTES at
++//! capture (a counting global allocator — 7bd9's instrument, not the RSS slope), in the PACED
++//! player loop (one frame per 1/60 s of wall, one warm view gather per frame), quiet or loaded,
++//! crowd K = 1e3..1e4 members. Print-only instrument: the engine is untouched.
++//!
++//! cargo run --release -p emergent-universe --example flowcrowd -- [<wall seconds> [<rtf>]]
++//! env: MEMBERS=<crowd size>  UNPACED=1 (run frames back to back, b77d's loop)
++//!      LIVE_GUARD_B=<bytes> (stop the flight before live allocations pass this; default 1.5e9)
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::time::{Duration, Instant};
++
++static LIVE_B: AtomicU64 = AtomicU64::new(0); // live allocation bytes
++static LIVE_A: AtomicU64 = AtomicU64::new(0); // live allocation count
++static PEAK_B: AtomicU64 = AtomicU64::new(0);
++
++struct Counting;
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc(l);
++        if !p.is_null() {
++            LIVE_B.fetch_add(l.size() as u64, Relaxed);
++            LIVE_A.fetch_add(1, Relaxed);
++            PEAK_B.fetch_max(LIVE_B.load(Relaxed), Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        System.dealloc(p, l);
++        LIVE_B.fetch_sub(l.size() as u64, Relaxed);
++        LIVE_A.fetch_sub(1, Relaxed);
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, new: usize) -> *mut u8 {
++        let q = System.realloc(p, l, new);
++        if !q.is_null() {
++            LIVE_B.fetch_add((new as i64 - l.size() as i64) as u64, Relaxed);
++        }
++        q
++    }
++}
++#[global_allocator]
++static ALLOC: Counting = Counting;
++
++/// (resident now, peak resident) from /proc (Linux; the shipped proc_pid_rusage path is macOS-only).
++fn rss() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        let kb = |v: &str| v.trim().trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1024;
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = kb(v);
++            }
++            if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = kb(v);
++            }
++        }
++    }
++    (now, peak)
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let seconds: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(50.0);
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let gather_every: usize = std::env::var("GATHER_EVERY").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++     let members: u64 = std::env::var("MEMBERS").ok().and_then(|s| s.parse().ok()).unwrap_or(1000);
++    let paced = std::env::var("UNPACED").is_err();
++    let guard: u64 = std::env::var("LIVE_GUARD_B").ok().and_then(|s| s.parse().ok()).unwrap_or(1_500_000_000);
++    let budget_ms = 12.0;
++    let frames = (seconds * 60.0) as usize;
++
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, members, 0).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let (b_build, a_build) = (LIVE_B.load(Relaxed), LIVE_A.load(Relaxed));
++    println!(
++        "flowcrowd sizeofBinding={} sizeofTuple={}",
++        std::mem::size_of::<emergent_universe::bind::Binding>(),
++        std::mem::size_of::<(usize, emergent_universe::bind::Binding, emergent_space::orbit::Scalar)>(),
++    );
++    println!(
++        "flowcrowd members={members} bodies={bodies} paced={paced} gather_every={gather_every} rtf={rtf} budget_ms={budget_ms} guard_b={guard} build_s={build:.2} build_live_mb={:.1} build_live_allocs={a_build} cat={}",
++        b_build as f64 / 1e6,
++        p.u.catalogue_live()
++    );
++    if let Ok(l) = std::fs::read_to_string("/proc/loadavg") {
++        println!("machine: loadavg \"{}\" ncpu {}", l.trim(), std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0));
++    }
++
++    let mut cache = ViewCache::default();
++    let mut held_max = 0usize;
++    let mut next = Instant::now();
++    let mut ran = 0usize;
++    let mut guarded = false;
++    let mut gather_ms: Vec<f64> = Vec::new();
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(55) {
++            break;
++        }
++        if paced {
++            next += Duration::from_nanos(16_666_667);
++            let now = Instant::now();
++            if now < next {
++                std::thread::sleep(next - now);
++            }
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros(12_000)) }, i64::MAX);
++        let engine_ms = start.elapsed().as_secs_f64() * 1e3;
++        let (mut seen, mut gms) = (0usize, 0.0f64);
++        if f % gather_every == 0 {
++            let tg = Instant::now();
++            seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
++            gms = tg.elapsed().as_secs_f64() * 1e3;
++        }
++        gather_ms.push(gms);
++        let held = p.u.held_scans();
++        held_max = held_max.max(held);
++        let (r, _) = rss();
++        println!(
++            "probe f={f} gs={:.1} held={held} live_b={} live_a={} rss_mb={:.1} cat={} ev={} engine_ms={engine_ms:.2} gather_ms={:.2} seen={seen}",
++            p.u.now as f64 * TICK_SECONDS,
++            LIVE_B.load(Relaxed),
++            LIVE_A.load(Relaxed),
++            r as f64 / 1e6,
++            p.u.catalogue_live(),
++            frame.events,
++            gather_ms.last().copied().unwrap_or(0.0),
++        );
++        ran += 1;
++        if LIVE_B.load(Relaxed) > guard {
++            guarded = true;
++            break;
++        }
++    }
++    let mut g: Vec<_> = gather_ms.clone();
++    g.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let gp = |q: f64| if g.is_empty() { 0.0 } else { g[((g.len() - 1) as f64 * q).round() as usize] };
++    let digest = p.u.digest();
++    let (r, peak) = rss();
++    println!(
++        "summary ran={ran} held_max={held_max} gs={:.1} live_mb={:.1} peak_live_mb={:.1} live_allocs={} rss_mb={:.1} peak_rss_mb={:.1} gather_ms_p50={:.2} p99={:.2} guarded={guarded} digest={digest}",
++        p.u.now as f64 * TICK_SECONDS,
++        LIVE_B.load(Relaxed) as f64 / 1e6,
++        PEAK_B.load(Relaxed) as f64 / 1e6,
++        LIVE_A.load(Relaxed),
++        r as f64 / 1e6,
++        peak as f64 / 1e6,
++        gp(0.5),
++        gp(0.99),
++    );
++}
