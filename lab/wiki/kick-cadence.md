@@ -2,11 +2,28 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0552-fermi-4e2d
+updated: 20261017-1149-fermi-de7b
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+**Open direction 1 is decided: the boundary comb is welded to the kick comb's own step and
+rides every step-length lever.** `kick_clock` schedules both items from one `full`
+(boundary at `t + full/2`, kick at `t + full`; `step.rs:705/717/718`; `boundary_clock` plans
+nothing, and `ds` has no other cadence input), so no split can leave the boundary behind:
+across three octaves of the shipped `step_log2` at N = 10⁴ the per-body belt stream scales
+exactly (rate 0.2500× / 1.0000× / 4.0003× shipped, h p50 28,141 / 14,071 / 7,035 game-s —
+the shipped arm 8ffc/3294's 14,071–14,072 to the digit — with B = 2h·j, K − B = h,
+interval = 2h exact to 4 decimals and 2/4/8 events per body as typed integers, 9,700/9,700
+welded at arms 6–7 and 9,621/9,700 at arm 8's scan — the 79 past a boundary crest, a scan
+point, not structure (checker: levers 5 and 9 behave the same, 100% off-crest); dead 0), and `BELT_SPLIT` is a step lever by 98cb's own 8.000×
+first-kick anchor — the boundary rides it too. The 10⁹ ledger's negative branch (a
+~15.7-M1-core boundary floor no split touches) is dead; the riding branch stands: 9.96 M1
+cores at split 8, S* ≈ 19.9× closes CPU (4e2d's 10.3 / 20.7 confirmed), the boundary term
+the +25% CPU correction at every S. Build constraint for any split: coarsen Δs, never skip
+planned kicks (a skipping split strands the boundary comb) (20261017-1149-fermi-de7b,
+fermi).
+
 The 10⁹ ledger is recomposed on the two-comb and on 1a46's own belt count, and both corrections point the same way: at flown legality the composed bottom line is **10.3 M1 cores (2.6× over the 4-core budget)**, not e7ef's 5.1–8.65 — that row survives neither the boundary comb (+25%, 8ffc) nor the belt's measured delete (274/712 deleted ⇒ survival 0.615, not 0.39: 1a46's scene ledger −70% is the locals' delete, and the belt is everything at 10⁹). Anchors regenerate on shipped code: belt first item p50 14,071 game-s = interval/2 to the digit (`belt_first 10000`); one comb window at 10⁴ flies kicks ≈73.8k ≈ boundaries ≈71.6k (count parity only — the LEVEL is ~5× the belt's two combs: the locals' steady stream is ~86–88k events/interval, N-independent (~3.1 ev/game-s; also 4093's pre-crest 11,115/37,935), so all-body rates at 10⁴ cannot test the belt identity; checker 20261017 at 10⁵: 2.80 events/body/interval all-body = 1.94 belt + 0.86 locals ✓, and 8ffc's "locals' fixed comb ~10.1k/window" was a crest-window artifact, ~9× under the locals' true interval bill) at 42–50 µs/event this box (record 50–52); memory steps 2,461 B/B → ~5.6 kB/B through the crest (the plateau minting in flight). The other terms close: encounters 0.03–0.6 cores (f0a2, adjudicated — `Key::new` stores E absolutely in Q48 on scale 1, source-verified here), promotion CPU free (cbc5: the mint IS the kick's compile), H_live 21 bits/s (4b55), genesis one-time 7.8 h (program births delete it). The wiring's memory is a dwell identity: live = mint×dwell×4.95 kB plateau, so at split 8 the dwell window is **[~100, ~115] game-s (razor, 1.15×) — store-class-sensitive (checker 20261017: 1.9× under the 0.3-GB program class, EMPTY under belt.md's 4.8–5.2-GB q24-flyby stock at every split; the razor is a verdict about the store class)**; the CPU-closing split (S* = 20.7× at today's Ĉ) widens it to [~100, ~300], the record diet to ~570. So one dial — the belt's metronome split ≥ 21×, or mixed Ĉ ≤ 14.6 µs M1 at split 8 — closes CPU and memory together: kick cost and cadence are redundant for CPU alone (e7ef) but NOT for the composed budget, because only cadence relieves the dwell window (20261017-0552-fermi-4e2d, fermi; shipped code + page constants; x86 shares, orders of magnitude).**
 
 **The recurrence gate is passed and the crest is decided: the belt's freeze is a
@@ -198,6 +215,11 @@ attribution.]
 **The budget: cadence is the largest priced wall.** Of the billion-body event budget's three walls — kick compute (29 µs today), layout (gather-4 sustains 2.7× pointer-chasing), cadence — cadence is 64 → 0.3 kicks/orbit = 213×: no layout reaches a 10⁹-body battle at 10× real time on today's 64/orbit cadence, while year-scale belts already pass 10⁹ at 10× real time even at today's 29 µs per kick (a4ed, gold; compute/layout walls → `kick-jet`). On the shipped integer plane the frontier is regime-split by a measured 8×: the resonant bulk holds at 16 kicks per perturbation period (B17), deep passages need ≥ 128 (B13), and the plane serves both with one doll-wide Δs tied to the fastest secondary — paying the passage price everywhere; cutting the bulk's cadence 8× is the named build (7f97). 3294 closes its premise on shipped code: the fire gate is inert (rate 1.000, impulses ≥ 2⁷ units), so the regime-split loses nothing at the quantum — the dial is free to move to the behaviour's own floor.
 
 ## Refuted
+- **"If `BELT_SPLIT` does not stretch the boundary comb, it becomes the composed stream's
+  majority" (this page's open direction 1, the unclosable ~15.7-M1-core branch): dead by
+  mechanism and flight — the boundary is scheduled from the kick's own `full` at its
+  midpoint (`step.rs:717`), and three octaves of the step lever move both combs together
+  with every per-body identity exact (20261017-1149-fermi-de7b).
 - **e7ef's composed 10⁹ row as stated ("today's 104–178-core stream falls to 5.1–8.65 cores" on "the measured 61% belt delete")**: the belt's own measured delete is 274/712 = 38.5% (survival 0.615 — 1a46's own belt count; the −70% is the scene ledger, dominated by the locals), and the stream is two combs (+25%, 8ffc): recomposed 10.3 M1 / 17.7 x86 cores at split 8 and frozen legality — 1.6× deeper over budget, required split S* = 20.7× (20261017-0552-fermi-4e2d). The cadence-vs-kick-cost redundancy for CPU alone stands; the composed budget breaks it (dwell).
 - **"One crest event per body per interval" (9e75's E-linear reading, and every rate×interval
   ledger built on it, incl. e7ef's 0.999 kicks/body/interval and 98cb's composed 4.44e-6):
@@ -257,11 +279,11 @@ attribution.]
 
 ## Open directions
 
-1. **Does `BELT_SPLIT` stretch the boundary comb with the kick?** `boundary_clock` sits at
-   "the middle between two kicks" (step.rs:725), suggesting yes — then the composed ledger's
-   miss is the ~26 % CPU term; if no, the boundary comb (1.00/body/interval at 13 µs)
-   becomes the composed stream's majority. One flight of the composed arm with the
-   per-spell/per-frame instrument decides it (20261017-0005-dynamics-8ffc).
+1. **Decided (20261017-1149-fermi-de7b): the boundary comb rides any step-length lever with
+   the kick comb** (it is the midpoint of the kick's own step; three octaves of
+   `step_log2` measured, per-body identities exact). The constraint it leaves: splits must
+   coarsen Δs, never skip planned kicks. What stays open is only the split's legality at
+   S ≈ 20 (B-gates; 7f97/1db4's question).
 2. **The compute-ahead certificate** (PRINCIPLES #17; the headroom is measured: 10.8× at
    3×10⁵, 3.2× at 10⁶, 308× short at 10⁹): pre-compute each comb during the idle
    half-interval before it is due — the due times are the metronome, known for free. The
@@ -339,3 +361,4 @@ attribution.]
 - 20261016-2229-second-20261016-2138-fermi-e7ef-98cb (this run): the composition flown — freeze cured (21.1→0.1 s spell, 99% delivered), ÷8.00 interval direct, b583's lever absent from the belt (fires N-independent, Ĉ flat); 10⁹ still 22.5/8.8 x86, 13.2/5.1 M1 cores.
 - 20261017-0005-dynamics-8ffc (this run, awaiting grade): the crest decided — a two-comb
 - 20261017-0552-fermi-4e2d (fermi, this run): the 10⁹ ledger recomposed — 10.3 M1 cores at flown legality (2.6× over), encounters closed on the adjudicated anchor (source-verified), dwell window [~100, ~115] gs at split 8 (razor); one dial (split ≥ 21×) closes CPU and memory together.
+- 20261017-1149-fermi-de7b (fermi, this run): the boundary comb rides the step lever (3 octaves, per-body identities exact, 100% of bodies); the 10⁹ pinned-boundary floor is dead; riding stands — 9.96 M1 cores at split 8, S* ≈ 19.9×.
