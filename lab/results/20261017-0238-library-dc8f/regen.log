@@ -1,0 +1,28 @@
+highlights indexed: 4580  distinct books: 770
+all 5 quotes verbatim: OK
+debt law: |dA| ~ t^2.15  (two published points)
+debt at 1e7 gs: 2746.936 deg  (= fence go-live scale)
+reset interval holding one quantum: T* = 1e+07 gs = 2^8.5 carried kicks
+
+k  re-kick every 2^k kicks   interval (gs)   add-back / deleted stream   budget?
+ 6      64 kicks            1.8e+06        1.562%                    yes
+ 7     128 kicks           3.61e+06        0.781%                    yes
+ 8     256 kicks           7.21e+06        0.391%                    yes
+ 9     512 kicks           1.44e+07        0.195%                    yes
+10    1024 kicks           2.88e+07        0.098%                    yes
+11    2048 kicks           5.77e+07        0.049%                    yes
+12    4096 kicks           1.15e+08        0.024%                    yes
+
+OFF drift median predicted at 18,000 gs (x10 per x2): 1.98e-04
+  -> vs the 4,500-gs seed band 2.0e-6: x99; an envelope frozen
+     at any flown horizon is passed by construction; freeze the slope.
+
+dwell dial (burn, published [8792]): miss % by dwell game-s
+  dwell    5 gs -> miss 75%
+  dwell   17 gs -> miss 73%
+  dwell   40 gs -> miss 72%
+  dwell   60 gs -> miss 72%
+  dwell   80 gs -> miss 71%
+  dwell  100 gs -> miss 14%
+
+wrote work/derived.json
