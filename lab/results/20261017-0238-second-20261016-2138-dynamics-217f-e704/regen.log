@@ -1,0 +1,29 @@
+   Compiling emergent-allocator v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.56s
+== build ok 03:38:29 load 1.18 ==
+== S1: 4-cell original geometry, 3 reps (nondeterminism of the latch) ==
+RESULT mode=batch arm=shipped cells=4 per=8 stagger=2000 seed=1 bodies=44 stages=17 horizon=34000 wall_ms=405 rollbacks=2 rolled_reg=5 wasted=5983 merges=100 splits=140 avoided=1272 promises=467 escal=4.0 escal_max=4.0 regions=38 chr_per_s=83951 digest=5bf2c3f5379c5bbd7af0f09b6ccca54b9da71d4d24c3d396f1badb80dd7148dc 7701faf8d0ca56853d096bec5900ed3b4eae7c8cc0a48070b9861b74e5c8487e
+RESULT mode=batch arm=shipped cells=4 per=8 stagger=2000 seed=1 bodies=44 stages=17 horizon=34000 wall_ms=332 rollbacks=1 rolled_reg=4 wasted=4383 merges=67 splits=67 avoided=649 promises=1664 escal=2.0 escal_max=2.0 regions=38 chr_per_s=102410 digest=5bf2c3f5379c5bbd7af0f09b6ccca54b9da71d4d24c3d396f1badb80dd7148dc 7701faf8d0ca56853d096bec5900ed3b4eae7c8cc0a48070b9861b74e5c8487e
+RESULT mode=batch arm=shipped cells=4 per=8 stagger=2000 seed=1 bodies=44 stages=17 horizon=34000 wall_ms=429 rollbacks=2 rolled_reg=5 wasted=5983 merges=117 splits=148 avoided=1234 promises=477 escal=4.0 escal_max=4.0 regions=38 chr_per_s=79254 digest=5bf2c3f5379c5bbd7af0f09b6ccca54b9da71d4d24c3d396f1badb80dd7148dc 7701faf8d0ca56853d096bec5900ed3b4eae7c8cc0a48070b9861b74e5c8487e
+== S2: 128 cells / 1408 bodies, horizon 20k, 2 reps x 3 arms (interleaved) ==
+RESULT DNFTMO(120s) batch 128 8 30 5 4000 1
+RESULT mode=batch arm=decay cells=128 per=8 stagger=30 seed=1 bodies=1408 stages=5 horizon=20000 wall_ms=13469 rollbacks=7 rolled_reg=15 wasted=101748 merges=403 splits=1388 avoided=4683 promises=29743 escal=1.0 escal_max=1.0 regions=283 chr_per_s=1485 digest=d75dee4ae74cdf1ca0cbdfcb6423b390d6175feec40d15236a9efba56b7f52fe 42e4e3b4ae27c3474c3b6493e2f50239e9f83f87cd4391ebd72ee76f7e9ad61c
+RESULT mode=batch arm=local cells=128 per=8 stagger=30 seed=1 bodies=1408 stages=5 horizon=20000 wall_ms=14264 rollbacks=8 rolled_reg=17 wasted=110156 merges=398 splits=1562 avoided=4683 promises=29116 escal=1.0 escal_max=1.0 regions=283 chr_per_s=1402 digest=d75dee4ae74cdf1ca0cbdfcb6423b390d6175feec40d15236a9efba56b7f52fe 42e4e3b4ae27c3474c3b6493e2f50239e9f83f87cd4391ebd72ee76f7e9ad61c
+RESULT mode=batch arm=shipped cells=128 per=8 stagger=30 seed=1 bodies=1408 stages=5 horizon=20000 wall_ms=10586 rollbacks=7 rolled_reg=15 wasted=475825 merges=110 splits=0 avoided=53 promises=111 escal=128.0 escal_max=128.0 regions=1 chr_per_s=1889 digest=d75dee4ae74cdf1ca0cbdfcb6423b390d6175feec40d15236a9efba56b7f52fe 42e4e3b4ae27c3474c3b6493e2f50239e9f83f87cd4391ebd72ee76f7e9ad61c
+RESULT mode=batch arm=decay cells=128 per=8 stagger=30 seed=1 bodies=1408 stages=5 horizon=20000 wall_ms=13781 rollbacks=7 rolled_reg=15 wasted=102169 merges=396 splits=1369 avoided=4652 promises=29838 escal=1.0 escal_max=1.0 regions=1247 chr_per_s=1451 digest=d75dee4ae74cdf1ca0cbdfcb6423b390d6175feec40d15236a9efba56b7f52fe 42e4e3b4ae27c3474c3b6493e2f50239e9f83f87cd4391ebd72ee76f7e9ad61c
+RESULT mode=batch arm=local cells=128 per=8 stagger=30 seed=1 bodies=1408 stages=5 horizon=20000 wall_ms=16815 rollbacks=8 rolled_reg=17 wasted=667376 merges=601 splits=1921 avoided=5161 promises=32085 escal=1.0 escal_max=1.0 regions=1247 chr_per_s=1189 digest=d75dee4ae74cdf1ca0cbdfcb6423b390d6175feec40d15236a9efba56b7f52fe 42e4e3b4ae27c3474c3b6493e2f50239e9f83f87cd4391ebd72ee76f7e9ad61c
+== S2b: 128 cells, horizon 6k, decay wedge census (3 tries, 60 s each) ==
+RESULT DNFTMO(60s) env=ES_DECAY=1 batch 128 8 30 2 3000 1
+RESULT mode=batch arm=decay cells=128 per=8 stagger=30 seed=1 bodies=1408 stages=2 horizon=6000 wall_ms=4102 rollbacks=6 rolled_reg=13 wasted=156077 merges=97 splits=660 avoided=472 promises=2263 escal=1.0 escal_max=1.0 regions=105 chr_per_s=1463 digest=49f5fc2b778c63415046e74676727a166abe898e828f31589b6a5603e6e81cb1 232911645a7e138239c7b25f8533979e48f793bc24b6246561e4e0d13a13a58c
+RESULT DNFTMO(60s) env=ES_DECAY=1 batch 128 8 30 2 3000 1
+== S3: 1280 cells / 14080 bodies, horizon 6k, 1 rep x 3 arms ==
+RESULT mode=batch arm=shipped cells=1280 per=8 stagger=30 seed=1 bodies=14080 stages=2 horizon=6000 wall_ms=55986 rollbacks=7 rolled_reg=14 wasted=1942391 merges=1286 splits=12 avoided=280 promises=1648 escal=128.0 escal_max=128.0 regions=1 chr_per_s=107 digest=f0695d29dc3b302865a20ee45dfd16ce8563b74e26355c5812992fe4df8d0aa7 a19963c5694e2cda1ba44effb85a31a1c3b5c5e6e280c49dfd83299f4d4814fa
+RESULT DNFTMO(240s) env=ES_DECAY=1 batch 1280 8 30 2 3000 1
+RESULT DNFTMO(240s) env=ES_LOCAL=1 batch 1280 8 30 2 3000 1
+== S4: frames harness, 128 cells, 2 s, rate 600, 1 rep x 3 arms ==
+RESULT mode=frames arm=shipped cells=128 per=8 stagger=30 seed=1 bodies=1408 hz=60 rate=600 seconds=2 frames=120 deadline_misses=2 small_misses=2 accel_drops=2 present_per_s=590.0 buffer_p50=140.0 buffer_p99=156.0 frontier=1328 rollbacks=4 wasted=14119 merges=59 avoided=0 escal=16.0 escal_max=16.0 regions=1
+RESULT mode=frames arm=decay cells=128 per=8 stagger=30 seed=1 bodies=1408 hz=60 rate=600 seconds=2 frames=120 deadline_misses=2 small_misses=2 accel_drops=2 present_per_s=590.0 buffer_p50=134.0 buffer_p99=152.0 frontier=1328 rollbacks=4 wasted=22350 merges=29 avoided=0 escal=1.0 escal_max=1.0 regions=487
+RESULT mode=frames arm=local cells=128 per=8 stagger=30 seed=1 bodies=1408 hz=60 rate=600 seconds=2 frames=120 deadline_misses=64 small_misses=2 accel_drops=64 present_per_s=286.0 buffer_p50=0.0 buffer_p99=148.0 frontier=672 rollbacks=4 wasted=17902 merges=88 avoided=258 escal=1.0 escal_max=1.0 regions=860
+== S5: relativistic no-conflict control, 1280 cells, horizon 6k ==
+RESULT DNFTMO(150s) batch 1280 8 30 2 3000 1
+== done 03:51:29 ==
