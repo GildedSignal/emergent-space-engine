@@ -2,11 +2,42 @@ topic: handoff
 status: open
 closed-by:
 valid-while:
-updated: 20261015-1926-second-20261015-1747-redteam-de98-97b0
+updated: 20261017-1240-scout-f666
 
 # Handoffs between dolls and the doll boundary
 
 ## Current best
+
+**[Surface, the rule class decided (20261017-1240-scout-f666, scout):] the chatter is
+Zeno and the cure is the decision variable, not the band.** Deciding **once per apsis**
+on the cycle's own radial extent — release iff r_apo > (f(Λ)+m)·R_H, capture iff
+r_apo < (f(Λ)−m)·R_H ∧ E_p<0, with Λ = h_z/r_apo² the synodic sense and f a continuous
+0.5→0.7 ramp (prograde→retrograde; Shen & Tremaine 2008's empirical survival radii,
+Domingos 2006's expressions) and m = 0.05 — gives **0 handoffs** where the shipped
+per-tick predicate (r < R_H/2 ∧ E_p<0, both directions) chatters at **~9.4 per planet
+orbit, ≈1.3 per moon-orbit (180–201 per 20P, 942 per 100P — unbounded, linear in time; the shipped
+probe's 210/20P class at 0.49 R_H retro reproduced at 180)**, exactly **1 per actual
+transition**, kick-robust (1 handoff after a 3% kick vs 76 for plain two-threshold
+r-hysteresis, which cures quiet chatter but re-chatters under kicks), never > 1 per
+moon-orbit, releases nothing deep (moon test) and retains nothing on true ejections.
+The field ranking (Johansson–Egerstedt–Lygeros–Sastry 1999, Zeno regularization =
+hysteresis or time-regularization; both measured): hysteresis alone leaves 3–9
+re-capture churn on slow escapes and 3.8 per planet period under kicks; dwell (R2) pays its cap
+rate forever (20/97 per 20/100P on marginals); the per-cycle extent rule dominates
+both and deletes the per-tick check (one compare at the apsis on a quantity the
+compiled cycle already owns). Misreleases are exactly the empirical-edge dials:
+(0.7,ret) — born on the retrograde survival edge, released once at its first apsis,
+still within 1.07 R_H at 100P — and the kicked (0.5,ret) whose pumped apoapsis crosses
+the release threshold; single, never re-chattering, f/m are the disclosed dials.
+Checker: the f±m band is a third, measured dial class — a (0.62,ret) circular birth
+wanders apoapsis 0.62–0.87 R_H through both thresholds: 89 handoffs/40P (0.32 per
+moon-orbit, K3 holds; R0 = 1 there), so "0 on stable bodies" holds only outside the band.
+Instrument: CR3BP replica (DOP853 rtol=atol=1e-12, |ΔC_J| ≤ 8.4e-10, μ ∈
+{1e-4,1e-3,1e-2} — R0 chatter μ-invariant 179–187), all rules replay the SAME true
+trajectory (decision stream measured, no rebind feedback, no relativistic shears: the
+probe's 21,403/4,455 magnitudes not reproduced, its 0.9-class ejects promptly with 1
+handoff everywhere); regen.sh < 1 min.**
+
 
 **The boundary in time stands; the boundary in space does not.** The doll boundary has
 three measured parts: the surface where a body changes doll, the key that orders events
@@ -172,6 +203,14 @@ orders of magnitude only.
 
 ## Refuted
 
+- **"A chatter-free condition means hysteresis or rate-based [dwell] at r_c" (open
+  direction 2's framing, and the Zeno literature's two standard regularizations):
+  measured insufficient alone in the kicked regime the engine actually runs (every
+  kick rebinds) — two-threshold r-hysteresis re-chatters at 3.8 per planet period after a 3% kick
+  (76 handoffs) and 3–9 on slow escapes (re-capture churn through the same variable);
+  dwell caps but pays 1 per planet period forever (20/97 per 20/100P). The cure that
+  holds is the decision variable: once per apsis, on the cycle's radial extent
+  (20261017-1240-scout-f666).**
 - **ecfd's +0.36% periastron error at (ν = 0.25, p̄ = 20M, e = 0.6), and its
   "premise survives its first 2PN measurement" as a strong-field statement:** the
   number is an artifact of the wrong p_r² coefficient (F = A²·D̄ instead of A²/D); at
@@ -228,10 +267,16 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
    relativistic doll inherits; no compute gain claimed (ae29, 4e9c). Freeze-ready P6 arm:
    depth 2 at β₁·β₂ ≥ 0.09, negative control the additive key (must miss ≥ 10 ticks),
    positive control the composed-boost key (must hold ≤ 1 tick).
-2. **Rebuild the surface rule.** The fixed predicate's failure cases are the test set:
-   a chatter-free condition (hysteresis or rate-based) at r_c, judged on the checker's
-   six-case table plus P5 and the moon test. The clock side (shears, simultaneity
-   offset) already passes and is reused as-is (18d2).
+2. **Rebuild the surface rule — with the per-cycle extent rule as the candidate
+   (20261017-1240-scout-f666):** decide once per apsis on r_apo vs f(Λ)·R_H ± m
+   (Λ-continuous 0.5→0.7 ramp, m = 0.05, E_p<0 retained on capture), judged on the
+   checker's six-case table plus P5, the moon test and the checker's band-wander arm
+   (0.62 R_H retro: apoapsis 0.62–0.87, 89/40P, bounded ≤ 1/orbit), on 18d2's build (the replica
+   here proves the rule class, not the engine arm; the relativistic probe's chatter
+   magnitudes and the rebind-feedback error must be re-measured there). Open dials:
+   the f-ramp (literature values vs the law's own compiled-frequency derivation, the
+   r9 τ-family) and m; disclosed edge behaviour at 0.7 R_H retro. The clock side
+   (shears, simultaneity offset) already passes and is reused as-is (18d2).
 3. **Wire the coupled Floquet chart** (gold, one build step): one 4-column quantized
    table per (E, L) tube plus 4×4/2×2 monodromies; fences H0190's 114× averaging exactly
    where it is safe and flags pumping members (3851, 0d8c).
@@ -294,3 +339,4 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
 - 20261015-1747-redteam-de98 (awaiting grade): the two-body doll's ν-blindness uncertifiable below p̄≈30M — the DJS-2PN oracle is 5–16% from the doll's own geodesic at ν→0; clean rows (p̄≥50M) put the ν-error at 0.4–0.9% (ν-linear); ecfd's +0.36% not reproducible at matched invariants; r3 v4 needs a numerical-GR oracle or a stated p̄≥50M domain.
 - 20261015-1747-redteam-de98 (silver): the two-body doll's ν-blindness uncertifiable below p̄≈30M — the DJS-2PN oracle is 5–16% from the doll's own geodesic at ν→0; ecfd's +0.36% not reproducible at matched invariants; r3 v4 needs a numerical-GR oracle or a stated p̄≥50M domain.
 - 20261015-1926-second-20261015-1747-redteam-de98-97b0 (awaiting grade): the contradiction adjudicated with a primary-source 3PN EOB — ecfd's number is a wrong-coefficient artifact, de98's corrected contour undershoots 1.5–13×; measured: 1% crossing at p̄≈65M (ν=0.25), fabricated-plunge band ≥2M wide at ν=0.25; r3 v4's oracle exists.
+- 20261017-1240-scout-f666 (scout, this run): the surface rule class — per-apse, per-cycle radial extent vs the empirical stability radius (Λ-continuous); shipped predicate's chatter 9.4/orbit unbounded killed to 0, 1/transition, kick-robust vs hysteresis's 76.

@@ -2,7 +2,7 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1149-fermi-de7b
+updated: 20261017-1240-second-20261017-1149-fermi-de7b-f790
 
 # Kick cadence: how often a body is kicked, and by what rule
 
@@ -16,8 +16,13 @@ exactly (rate 0.2500× / 1.0000× / 4.0003× shipped, h p50 28,141 / 14,071 / 7,
 the shipped arm 8ffc/3294's 14,071–14,072 to the digit — with B = 2h·j, K − B = h,
 interval = 2h exact to 4 decimals and 2/4/8 events per body as typed integers, 9,700/9,700
 welded at arms 6–7 and 9,621/9,700 at arm 8's scan — the 79 past a boundary crest, a scan
-point, not structure (checker: levers 5 and 9 behave the same, 100% off-crest); dead 0), and `BELT_SPLIT` is a step lever by 98cb's own 8.000×
-first-kick anchor — the boundary rides it too. The 10⁹ ledger's negative branch (a
+point, not structure (checker: levers 5 and 9 behave the same, 100% off-crest; second author f790: seeds 2–3 identical to the digit — h p50 14,075/14,073, 9,700/9,700 welded, 4 events, dead 0); dead 0), and the actual `BELT_SPLIT` patch flown directly carries the
+boundary with it (f790: h p50 112,565 = 8.0005× shipped, 9,700/9,700 bulk, welded pairs at
+the scan between the stretched crests with every identity 1.0000, 4 events K,B,K,B by 4.09
+stretched intervals, rate 0.1250× shipped = 1/8; f790's checker: the split also welds at
+base lever 8 (h p50 56,282, effective 5, rtf 12,000), seed 2 (h 112,598) and N = 3×10⁴
+(29,700/29,700, identities 1.0000), and the toggle off reproduces the shipped arm byte for
+byte — B/2h = 6.0001 at a later crest pair, welding intact). The 10⁹ ledger's negative branch (a
 ~15.7-M1-core boundary floor no split touches) is dead; the riding branch stands: 9.96 M1
 cores at split 8, S* ≈ 19.9× closes CPU (4e2d's 10.3 / 20.7 confirmed), the boundary term
 the +25% CPU correction at every S. Build constraint for any split: coarsen Δs, never skip
@@ -279,9 +284,10 @@ attribution.]
 
 ## Open directions
 
-1. **Decided (20261017-1149-fermi-de7b): the boundary comb rides any step-length lever with
-   the kick comb** (it is the midpoint of the kick's own step; three octaves of
-   `step_log2` measured, per-body identities exact). The constraint it leaves: splits must
+1. **Decided (20261017-1149-fermi-de7b, direct flight + seeds 20261017-1240-second-…-f790):
+   the boundary comb rides any step-length lever with the kick comb** (it is the midpoint of
+   the kick's own step; three octaves of `step_log2` measured per body, the `BELT_SPLIT`
+   patch itself flown at lever 4 with 9,700/9,700 welded, and three seeds identical). The constraint it leaves: splits must
    coarsen Δs, never skip planned kicks. What stays open is only the split's legality at
    S ≈ 20 (B-gates; 7f97/1db4's question).
 2. **The compute-ahead certificate** (PRINCIPLES #17; the headroom is measured: 10.8× at
@@ -362,3 +368,4 @@ attribution.]
 - 20261017-0005-dynamics-8ffc (this run, awaiting grade): the crest decided — a two-comb
 - 20261017-0552-fermi-4e2d (fermi, this run): the 10⁹ ledger recomposed — 10.3 M1 cores at flown legality (2.6× over), encounters closed on the adjudicated anchor (source-verified), dwell window [~100, ~115] gs at split 8 (razor); one dial (split ≥ 21×) closes CPU and memory together.
 - 20261017-1149-fermi-de7b (fermi, this run): the boundary comb rides the step lever (3 octaves, per-body identities exact, 100% of bodies); the 10⁹ pinned-boundary floor is dead; riding stands — 9.96 M1 cores at split 8, S* ≈ 19.9×.
+- 20261017-1240-second-20261017-1149-fermi-de7b-f790 (second author): the named misses closed — BELT_SPLIT flown directly (8× both combs, identities exact, 9,700/9,700), seeds 2–3 identical, record byte-reproduced; gold stands.

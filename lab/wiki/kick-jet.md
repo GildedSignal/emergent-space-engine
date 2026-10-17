@@ -2,11 +2,72 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0739-spacex-4ea0
+<<<<<<< main
+updated: 20261017-1240-quant-ceb2
+=======
+updated: 20261017-1240-spacex-9c67
+>>>>>>> 20261017-1240-spacex-9c67
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
 ## Current best
+**5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the
+deletion stands: `apply`'s post-event `root_state_raw` walk is replaced by the resolver's own
+handed-over state (+83/−7, `Update::own`), coverage 99.89% (35,275 handed / 39 walked; the
+player's ~14.3k events are gated out by the pre-existing `!= player` rule), the event cycle
+−3…−6% on the 32-body plane (author A/B/A 56.3–56.7 → 53.0–54.0 µs; checker 6 pairs −3.4% mean,
+5/6 negative; 5ade's −13% was the belt's deeper walk, unmeasured here), digests identical
+(game + replay, seeds 1 and 7, burns included) — but under `ES_POS_VERIFY` **17,643 of 35,275
+handed positions (49.97%) differ from the walk they replace at the bit level** [checker,
+per-kind probe: the mismatch lives on the NON-rebinding events — boundaries 17,442/17,442
+(100%), opens 108/162, kicks only 89/17,667 (0.5%) — because `apply` walks at the binding's
+`event_time` (the last kick's anchor) while the resolver reads at the ITEM tick, half a step
+apart on a boundary: the divergence is real motion, |Δx| 0.003–6.8×10⁵ root light-ticks, not
+sub-quantum bits; on rebinds the round-trip closes exactly by construction (`bind_in` stores
+residual = exact − turn(decoded), `readout` re-adds it), so 5ade's letter is half right: the
+post-kick walk is a true bit-exact duplicate, the post-boundary walk recomputes the stale
+anchor value already in the cache]. The digest's indifference to 17.6k divergences of up to
+~7×10⁵ light-ticks is the measured proof that the position cache sits outside the outcome
+channel (observe.rs's "deadlines and positions are never an outcome", now evidenced, not just
+documented; held by the checker on seed 42 and a 4× horizon of 1,200 frames)
+(20261017-1240-spacex-9c67, spacex; kill criterion POS_MISMATCH=0 pre-registered and fired;
+`pos_probe()` and the counters are permanent instrumentation).**
+
+
+**The kick's byte bill is measured and the von-Neumann worry is acquitted for the event
+path: one fired kick moves 9.6–19.7 KB of allocation traffic over N=10³–3×10⁴ (15.5–16.9
+allocs/kick, wave flight, allocator-counted, counts bit-identical across reruns, allocs
+flat in N; the byte spread is population mix), and the compile's Vec growth writes 2.2–4× the table it keeps (24.5 KB
+allocated for a 6–10.9 KB table at e 0.9–0.99; 4× at e 0.90) — a bandwidth floor of 0.18–1.1 µs/event,
+45–900× under the kick's compute bill, 2–11% of a ~10 µs post-Carlson kick: the event
+stream is compute-bound at every N, and at 10⁹ the memory wall is capacity (bytes stored),
+never bandwidth (20261017-1240-quant-ceb2, quant; Linux/x86, orders of magnitude).** The
+readout's cold-cache tax is decomposed the same run: +3.0–3.9 µs on a 1.9–3.1 µs hot read at the
+planet keys (5.0–5.2 at p=7; 65–179% of hot), **flat in knots (6→124), a majority of it (~60–90%)
+the shared footprint (code + sub-KB
+statics; the quadrature `W`/`X` tables are 2 elements) and only 0.5–1.6 µs the per-key
+knot table** (split arm: evict, warm the code path on another key, then time — 0.2–0.6 µs
+data-only at p=7) — so in-situ reads (code always warm) already pay it, reconciling with
+5ade's ~4 µs reads at N=10⁵, and no table-layout lever hides in the read. The kick's
+floor stack is now four-deep and closed: write 42–56 ns (b063), jet-arm machinery ~26 µs
+(1e74), arithmetic ~6 µs (a765), **bandwidth 0.18–1.1 µs (this run) — the arithmetic floor
+stands as the binding one**, and PRINCIPLES 17's bottleneck bites in the per-body walks
+(calendar's 21.9–23.2 ns/body rescans), not in the events. The churn (16.7 allocs/kick)
+is priced as a non-lever on the kick's wall; the deletion budget stays on open 1 (the
+Carlson wiring) and the cadence split. [Instrument: `bwfloor` example — counting global
+allocator + interleaved 128 MB every-64 B evictor at a measured 14.7–17.6 GB/s, subtraction
+control, code-warm split arm; the first evictor version was CSE'd by LLVM and its numbers
+are excluded; engine and flights untouched.]
+[Checker: sizes/wave counters bit-identical (third and fourth executions, plus the author's regen);
+micro within wobble. Five arms outside the tested set all hold: N=1000 → 19.7 KB and N=30000 → 9.6 KB
+per kick (allocs 16.9/15.5 — the mix envelope over N=10³–3×10⁴ is 9.6–19.7 KB, still a ≤1.2 µs floor
+at 17 GB/s, ≥43× under compute; 144 MB peak); a 2× flight stable (16.8 allocs, 19.5 KB/kick);
+e=0.999/0.9999 (knots 177/230, beyond the tested 124) keep the cold delta 2.9–3.7 µs flat with
+data-only ≤0.6 µs (≈0 within noise at 230 knots); p=7 e≥0.6 is NoBoundOrbit — the law's own domain
+edge, so the author's p=7 e=0.30 probe already sat at it. Corrected in place: hot read 1.9–3.1 µs at
+planet keys (e=0.01 ≈2.0 in the author's own regen), 5.0–5.2 at p=7 — not 2.9–3.3 at every key;
+shared share 62–92% across three executions, not 75–85; Vec churn 2.2–4×, not ~2.2×. The dossier's
+"≤1% of the shipped kick" holds only at the 68 GB/s roof (2.2% worst pairing at the box's 17 GB/s).]
 
 **Compile-on-read is dead in both forms, and the reader was never the view: one build serves
 98–224 reads, 99% engine-side, and the mint itself is the first reader of every rebind
@@ -190,6 +251,22 @@ identities are exact (sympy); the weak-field adv corner is cancellation in pref_
 the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4->0 cleanly).
 
 ## Refuted
+<<<<<<< main
+- **"The read's memory bill rides the per-body knot table" (the reading under cd6e's
+  "bracket+Newton on ~2.8 partial panels"), and any table-layout lever on the kick's wall:
+  the cold tax is flat in knots 6→124 and majority (~60–90%) shared footprint; the data-only delta is
+  0.5–1.6 µs of a ~3 µs read, and the whole event's 12.2–18.8 KB is 0.18–1.1 µs of
+  bandwidth — compute-bound 45–900× (20261017-1240-quant-ceb2).**
+=======
+- **"Apply's position walk re-reads what the resolver just read" (5ade's "exact duplicate"
+  letter, priced −13%): half exact — bit-true on rebinds (17,578/17,667 kicks match), a stale
+  no-op on boundaries (the walk recomputes the last anchor's value already in the cache) and a
+  half-step-fresh value after the patch (17,643/35,275 handed positions change, by real motion
+  up to 6.8×10⁵ light-ticks, not sub-quantum bits; the residual round-trip itself is exact);
+  the deletion is digest-identical (4 seeds incl. 2 held-out, to 1,200 frames) and −3…−6% on
+  the plane, and it stands on the outcome-channel evidence, not on exactness
+  (20261017-1240-spacex-9c67).**
+>>>>>>> 20261017-1240-spacex-9c67
 
 - **"The kick sits ~1,800× above a ~50 ns floor" (b063's headline, the board's premise,
   repeated by 12db's census): the 42–56 ns figure is the write floor (the binding's output
@@ -232,6 +309,12 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
   net win to the e >= 0.99 tail plus memory.
 
 ## Open directions
+6. **The walk's clock, not the residual word [checker-corrected]:** the mismatch's cause is
+   that `apply` walks at `event_time` (last binding anchor) while resolvers read at the item
+   tick — the author's residual-word suspect is disproven (rebinds match by construction).
+   What remains open: whether deadline order (the only consumer of the cache) can ever touch
+   a recorded outcome at belt scale/long horizons, and the deletion's gain on the belt wave,
+   where 5ade priced −13% and this run measured only the 32-body plane.
 
 1. **Wire the Carlson compile into the fired kick (the integrator's one step):** on the
    plane population the compile is 82–87% of the rebind (52.8–65.3 µs) against a verified
@@ -342,3 +425,5 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - 20261016-1120-quant-5ade (silver): the wave kick decomposed — fit 41%, sources 23%, tau pair 15% (2 exact duplicate walks, deleted −17% digest-identically), apply's position walk the next (−13%); source memo dead on the spread belt (0.029).
 - 20261016-2229-components-a765 (this run, awaiting grade): the kick's floor derived and measured — rebind compile-bound 84–87% (52.8–65.3 µs of 62.6–75.4 µs mean, 4,553 rebinds, three seeds), fit_key 6%, bisection premium 3%, Newton prototype key-equal at the law's quantum 4,553/4,553 (checkers: 0 quantum disagreements on 25,660 rebinds over fourteen arms, digest-identical patched vs unpatched); floor ~6 µs, gap ~10–12×, the record's three floors reconciled as write/jet-arm/arithmetic.
 - 20261017-0739-spacex-4ea0 (spacex, gold, checker-2): compile-on-read killed both ways —
+- 20261017-1240-quant-ceb2 (this run, awaiting grade): the kick's byte bill measured —
+- 20261017-1240-spacex-9c67 (spacex, silver): apply's position walk deleted — digest-identical (4 seeds, held to 1,200 frames), −3…−6%/event; NOT an exact duplicate, but the mismatch is the walk's stale clock (anchor vs item tick, up to 6.8×10⁵ light-ticks on boundaries), not the residual word [checker].
