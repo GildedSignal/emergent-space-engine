@@ -1,0 +1,54 @@
+--- warm ---
+  case bo=0.9 be=0.999 Toward: rows 7680/7680, dropped 0
+  case bo=0 be=0.999 Toward: rows 7680/7680, dropped 0
+  case bo=0.9 be=0.9999 Toward: rows 7680/7680, dropped 0
+  case bo=0 be=0.9 Across: rows 7680/7680, dropped 0
+  case bo=0.5 be=0.5 Away: rows 7680/7680, dropped 0
+warm: rows found 38400/38400 (1.000000), readouts/emitter median 2.000 p99 2.922 worst 4.000
+--- poisoned ---
+  case bo=0.9 be=0.999 Toward: rows 7680/7680, dropped 0
+  case bo=0 be=0.999 Toward: rows 7678/7680, dropped 2
+  case bo=0.9 be=0.9999 Toward: rows 7680/7680, dropped 0
+  case bo=0 be=0.9 Across: rows 7680/7680, dropped 0
+  case bo=0.5 be=0.5 Away: rows 7680/7680, dropped 0
+poisoned: rows found 38398/38400 (0.999948), readouts/emitter median 2.000 p99 5.125 worst 5.219
+--- cold ---
+  case bo=0.9 be=0.999 Toward: rows 7676/7680, dropped 4
+  case bo=0 be=0.999 Toward: rows 7676/7680, dropped 4
+  case bo=0.9 be=0.9999 Toward: rows 7676/7680, dropped 4
+  case bo=0 be=0.9 Across: rows 7680/7680, dropped 0
+  case bo=0.5 be=0.5 Away: rows 7680/7680, dropped 0
+cold: rows found 38388/38400 (0.999687), readouts/emitter median 3.656 p99 6.000 worst 6.016
+--- amnesiac ---
+  case bo=0.9 be=0.999 Toward: rows 7680/7680, dropped 0
+  case bo=0 be=0.999 Toward: rows 7680/7680, dropped 0
+  case bo=0.9 be=0.9999 Toward: rows 7680/7680, dropped 0
+  case bo=0 be=0.9 Across: rows 7680/7680, dropped 0
+  case bo=0.5 be=0.5 Away: rows 7680/7680, dropped 0
+amnesiac: rows found 38400/38400 (1.000000), readouts/emitter median 2.500 p99 4.000 worst 4.016
+{
+ "warm": {
+  "rows_found": 1,
+  "readouts_median": 2,
+  "readouts_p99": 2.921875
+ },
+ "poisoned": {
+  "rows_found": 0.9999479166666667,
+  "readouts_median": 2,
+  "readouts_p99": 5.125
+ },
+ "cold": {
+  "rows_found": 0.9996875,
+  "readouts_median": 3.65625,
+  "readouts_p99": 6
+ },
+ "amnesiac": {
+  "rows_found": 1,
+  "readouts_median": 2.5,
+  "readouts_p99": 4
+ }
+}Verdict: PASS; warm passed every criterion; killed: poisoned, cold
+warm candidate pass
+poisoned candidate fail tail
+cold candidate fail med,tail
+amnesiac negative fail med,tail
