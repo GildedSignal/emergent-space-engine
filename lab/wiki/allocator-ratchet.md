@@ -2,94 +2,115 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261016-2138-dynamics-217f
+updated: 20261017-0238-second-20261016-2138-dynamics-217f-e704
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
 ## Current best
 
-**The rollback controller has no restoring force, and the conflict process quenches itself
-exactly at the derived bound (20261016-2138-dynamics-217f, dynamics lens, shipped
-`crates/allocator` + public-API trajectory instrument; patch = the `ratchet` example and the
-default-off `ES_DECAY` arm).** `escalation *= 2` at every rollback (`alloc.rs:1410`) is
-global (one conflict doubles every region's margin) and never decays. Conflict factory
-(derived, not fitted): a Fermi cannon — a light body between two closing m=16384 bouncers,
-~2× per bounce, measured 64→16384 quanta/chronon within 200 chronons on the bare stepper —
-outruns the per-stride forecast (margin·vmax from the last anchor) into a neighbour region's
-true box before any planned merge catches it. Newtonian battery (4 cells, staggered
-ignitions, 17 stages × 2000 chronons): conflicts fire at ignition only (1–4 rollbacks,
-run-to-run timing-nondeterministic — the checker's identical reruns latched ×2, ×2 and ×4;
-the fix phase saw ×16), then zero forever — the
-quench, because forecast growth `margin·E·vmax + (E−1)` ≥ any achievable post-anchor speed
-makes promises unbreakable — while escalation froze at its ignition power of 2 through stage
-17 and the checker's 40-stage run (80,000 chronons; digest-identical across arms at both
-horizons; stride AIMD
-restored to the 256-chronon grid in the same run: one controller of the pair self-heals, the
-other latches). The tax: `merges_avoided` 72–90/stage latched — but the ×50 contrast against
-the 1–2/stage relativistic twin is law-confounded: the decay arm at escalation 1.0 on the
-**same Newtonian scene** still pays ~54/stage, so the ratchet-attributable component is
-~×1.5, and the checker's flight of the frames harness (60 Hz, rates 15k/30k, 3 reps/arm)
-shows no shipped-vs-decay deadline-miss separation at 44 bodies — the tax is unproven where
-the player feels it (regions
-parked at planned merge windows that fresh anchors then undo). The decay arm's own cost:
-re-opening the window refires conflicts (6 rollbacks / 10,832 wasted ops at stage 1 vs 2 /
-5,656 shipped in the regen run). Under `Law::Relativistic` no
-geometry tried fired any conflict — including the checker's 200-unit cells, closer than the
-author's 600: at c-cap the conflict window is one stride (≤ c·stride ≈
-256 units) and the plan catches the rest; no relativistic geometry has ever latched the
-ratchet. The 10-line decay mirror (`ES_DECAY`: halve the
-escalation at every conflict-free sync grid; off = shipped verbatim) restores the equilibrium
-— conflicts still fire when real, escalation rides the boundary at 1–2 instead of freezing —
-at **bit-identical outcome digests** to the shipped arm (`964ee2e0…`/`74db660c2e`, both arms):
-the certificate moves scheduling, never results. Splits re-fine the partition after the
-coarsening (4→32 regions; one checker rerun sat at 9 regions for ~6 stages, so this too is
-one sample), so the latch's measured cost is the standing avoided-merge tax,
-not permanent region collapse. min_region=1 (config knob) throughout so clusters stay
-separate regions.
+**The rollback controller has no restoring force, and at scale neither it nor its 10-line
+decay mirror is adoptable: the ratchet's latch level grows with the conflict wave and the
+mirror falls into a livelock basin (20261016-2138-dynamics-217f, dynamics lens, 44 bodies;
+20261017-0238-second-…-e704, second author, 44 → 14,080 bodies; shipped
+`crates/allocator` + public-API instrument `tax`, patch in the run's `work/patch.diff`).**
+`escalation *= 2` at every rollback (`alloc.rs`) is global and never decays; conflicts
+self-quench exactly at the derived bound (forecast growth `margin·E·vmax + (E−1)` ≥
+achievable speed). The second author flew the checker's named experiment (≥10⁴ bodies,
+interleaved arms, batch + frames): the frozen latch level is 2^(rollbacks) and so **grows with
+the conflict wave** — measured E = 4 → 32 → 64–256 at 44 → 88 → 1,408 → 14,080 bodies (1–2 →
+5 → 6–8 rollbacks; checker correction: the level **saturates at 2⁶–2⁸ from ~10³ bodies** —
+the 14,080-body sample latched at 128 in both checker-side runs, and at 64/128/256 across
+three same-scene runs, so "256" was one draw; stagger 30, Fermi-cannon battery) — and at
+14,080 bodies the scene ends as **one region at ~82 chronons/s** (74 s for 6,000 chronons,
+checker rerun 56 s at 107; at 28,160 bodies 1,500 chronons run in ~149 s at 10 chronons/s
+with E=512=2⁹ at 9 rollbacks — checker 2; the earlier "DNF at 150 s" was the timeout, and
+the latch clears 2⁸ at the next decade, so the 2⁶–2⁸ "saturation" is a band, not a cap —
+the collapse's cost is a ≥10⁴-body fact; caveat: the battery's sweep lights physically couple the row, so
+the collapse is part physics — the attribution experiment is named below). Note: the
+instrument's `seed` argument is dead code (`Rng(7+13i)` ignores it), so every measurement is
+one world per size.
+The ES_DECAY mirror (halve at every sync grid) and
+the per-region ES_LOCAL variant both **livelock** in the narrow-margin regime they create:
+at 1,408 bodies runs DNF in 5 of 9 narrow-margin tries with all 8 workers burning CPU
+(decay 2/5, local 3/4; another local run ground through 185 rollbacks vs 7–8 clean —
+per-lineage doublings decay before the quench globalises), and both DNF > 240 s at 14,080
+bodies where shipped finishes in 74 s; shipped at margin 0.5/1.0/2.0 never wedged (the
+ratchet's latch absorbs recurrence by latching higher — 25 rollbacks at margin 0.5, still
+3.5 s; checker correction: the margin-0.5 rerun also finished wedge-free but in another
+basin — 79 rollbacks, E≈6×10²⁹, 8.5 s — so the census numbers are one draw; and shipped
+itself DNF'd once at 128 cells/20k horizon, 1 of 6 tries across author+checker runs, so
+"permanence prevents livelock" is a tendency, not a guarantee). The ratchet's permanence is
+what prevents the livelock; the mirror's equilibrium sits inside it. Where arms finish,
+outcome digests are **bit-identical across all arms and reps** (4, 8, 128 cells;
+`d75dee4a…`/`42e4e3b4…`; checker extends: also across arms at stagger 300, and across arm
+and margin at the 6k horizon) — the certificate moves scheduling, never results. Frames
+harness at 1,408 bodies (60 Hz, rate 600, 3 interleaved reps × 3 arms): present 575–585,
+no player-visible separation for shipped vs decay (the 44-body nil extends) — but the
+checker's 2 further ES_LOCAL frames runs **both collapsed** (present 286 and 312 of 600,
+64 and 58 deadline misses, buffer p50 0 and 22): the local arm has a player-visible ruin
+tail the author's 3 reps missed; at 10⁴
+bodies the visible surface is the collapse itself, not per-frame misses. The 44-body
+avoided-merge tax inverted at scale: the decay arm pays MORE avoided merges (4,614 vs 32 at
+1,408 bodies) — late narrow-margin plans get undone more. Checker's stagger-300 probe
+(ignitions every 300 chronons, same 1,408 bodies): zero rollbacks, E=1, 133 regions end —
+the wave's simultaneity, not crossings per se, drives both latch and collapse; that
+no-conflict many-region regime itself runs at only 248–287 chronons/s (28k promises
+exceeded, regroup churn), so at 1,408 bodies the one-region state is the faster one — the
+collapse's cost is a ≥10⁴-body fact. min_region=1 throughout.
 
 ## Refuted
 
 - **"The rollback response is a controller"**: it is half a controller — the AIMD stride
-  half restores (+1/accepted, halved on rollback), the escalation half only doubles; measured
-  frozen at its ignition power of 2 for 32,000 (author) and 80,000 (checker) chronons after
-  the last conflict; the exponent itself is a nondeterministic sample, 2–16 across runs
+  half restores, the escalation half only doubles (20261016-2138-dynamics-217f).
+- **"Rollbacks cascade"**: measured self-quenching at the derived bound
   (20261016-2138-dynamics-217f).
-- **"Rollbacks cascade"** (the lens's branching-ratio worry): measured self-quenching — each
-  rollback widens every forecast, so conflicts go extinct at the derived bound; the danger is
-  the permanent over-margin, not a cascade (20261016-2138-dynamics-217f).
-- **"Conflicts are a Newtonian-law pathology, so nothing needs measuring"**: the mechanism is
-  law-independent (any post-anchor acceleration past margin·vmax breaks a promise); the
-  relativistic quench is a one-stride window, not an absence — sub-stride-scale region
-  geometries are unmeasured (20261016-2138-dynamics-217f; the checker's 200-unit-cell probe,
-  closer than any author scene, still fired zero).
+- **"The 10-line decay mirror restores the equilibrium"** — at scale it restores a livelock:
+  recurring conflicts under re-narrowed margins wedge the allocator (all workers spinning,
+  no progress), 1/3 tries at 1,408 bodies, DNF > 240 s at 14,080
+  (20261017-0238-second-…-e704). The mirror also refires conflicts by design (6 rollbacks
+  vs 2 at 44 bodies, the first checker).
+- **"The ratchet's latch is a constant (×4) tax"** — the latch level is 2^(conflicts before
+  quench) and grows with the conflict wave / scene size
+  (20261017-0238-second-…-e704); the 44-body ×4 was the smallest sample.
+- **"Per-region escalation fixes the wrong locality"** — ES_LOCAL matches the decay arm's
+  counters when it finishes (4,690 vs 4,614 avoided) and wedges more often (3/4 at 1,408
+  bodies); the binding defect is the missing bound, not the scope
+  (20261017-0238-second-…-e704).
 
 ## Open directions
 
-1. **The frames-harness flight** (this run's named next experiment): conflict-prone scene
-   under `run_frames` — deadline misses, present rate, buffer — shipped arm vs `ES_DECAY`,
-   pricing the avoided-merge tax where the player feels it. Batch mode can hide it (regions
-   idle under the goal cap anyway). **Checker's first flight: no separation** — deadline
-   misses shipped [1,1,1]/[5,8,1] vs decay [1,1,1]/[7,1,1] at rates 15k/30k, 44 bodies,
-   noise-dominated; a tax must beat this bar at scale before adoption is worth more than
-   hygiene.
-2. **Per-region escalation**: the ratchet is global but conflicts are local; a slow region
-   far from a conflict inherits ×2 forever. The decay mirror is the 10-line fix; locality is
-   the representation fix (PRINCIPLES: "local laws").
-3. **Margin from the law, not from history**: the quench bound says the safe margin is
-   `c/vmax` at genesis — the escalation state may be deletable outright for relativistic
-   scenes (margin 2 + c-cap already made every tried geometry conflict-free).
-4. The real conflict rate of the flown universe (encounters, burns, the belt) — every
-   measurement so far, including this one, is a synthetic cannon.
+1. **Cap the escalation** (`*= 2` then `min(cap)`): keeps the quench (the anti-livelock
+   property the mirror loses) while bounding the latch's scale-coupled fan. One line,
+   untested — the named next experiment (20261017-0238-second-…-e704).
+2. **Separate the collapse's physics from its margin**: a conflict factory whose lights do
+   not sweep-couple the row (ignition without cluster crossing) would show how much of the
+   one-region end state at 10⁴ bodies the over-margin forces (20261017-0238-second-…-e704).
+3. **Name the livelock's cycle**: instrument the spinning state (which loop, which
+   condition never clears); the wedge is the mirror-class arms' ruin and its mechanism is
+   only inferred (narrow margin + recurring conflicts + many regions), not opened
+   (20261017-0238-second-…-e704).
+4. **Margin from the law, not from history** (relativistic scenes): the c-cap makes the
+   conflict window one stride; the escalation state may be deletable outright there — the
+   relativistic control produces no RESULT at 128 cells either (DNF 90 s, checker) nor at
+   14,080 bodies (100–150 s), so the no-conflict throughput ceiling is unmeasured at every
+   size ≥128 cells (checker 2: at 8 cells / 88 bodies it finishes — 6,000 chronons in 15 s,
+   388 chronons/s, zero rollbacks, E=1, 88 regions — so the law-derived margin kills every
+   conflict at every size tried; what is unmeasured is the many-region regime's cost).
+5. The real conflict rate of the flown universe (encounters, burns, the belt) — every
+   measurement so far is a synthetic cannon.
 
 ## Contradictions
 
-None open.
+- The 1,280-cell one-region end state: physical sweep-coupling (the lights cross every
+  cluster by construction) versus margin-forced coalescing — unseparated
+  (20261017-0238-second-…-e704, open direction 2). The checker's stagger-300 run (no
+  conflicts, no collapse) leans toward the wave, not the margin.
+- Shipped's own ruin tail: never wedged in the author's margin census, yet DNF'd once at
+  128 cells/20k horizon (1/6 author+checker tries) — frequency and basin uncharacterised
+  (checker, regen + adversarial runs).
 
 ## Runs
 - 20261016-2138-dynamics-217f (this run, awaiting grade): the rollback ratchet measured —
-  global, permanent, self-quenching conflicts, AIMD the only restoring half; decay mirror
-  digest-identical.
 - 20261016-2138-dynamics-217f (silver, checked): mechanism, quench and digest invariance
-  reproduced and extended (80k chronons, 200-unit relativistic cells); tax magnitude
-  law-confounded (~×1.5 same-scene, not ×50), frames flight shows no separation at 44 bodies,
-  latch exponent nondeterministic across runs.
+- 20261016-2138-dynamics-217f (silver, checked): the rollback ratchet measured — global,
+- 20261017-0238-second-20261016-2138-dynamics-217f-e704 (gold, checked): the

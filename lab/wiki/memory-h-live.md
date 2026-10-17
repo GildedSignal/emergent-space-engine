@@ -2,11 +2,36 @@ topic: memory-h-live
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0005-system-efd4
+updated: 20261017-0238-inversion-470f
 
 # Memory at 10⁹ in 8 GB: live information per body (H_live), scars, the standing representation
 
 ## Current best
+
+**The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical
+outcome.** At 400 fleet members the same flight (same seed, args, binary, quiet machine) either
+peaks at ~44 MB or grows **~11 kB of live Rust allocations per game-second to 220.9 MB / 83,768
+live allocations by 20,000 game-s, frees ~78k allocations in one bulk drop, and leaves peak RSS
+at 206 MB forever** (allocator retention) — 5 of 15 quiet-machine seed-1 coast flights took the
+growing path; the split is machine-load-dependent, not a coin [checker, same run: 9/9 flights
+grew under 9-way concurrent load (seeds 1 and 5), 0/3 alone; second checker: 8/8 under 8-way
+load, 8/8 with the counting allocator removed — not an instrument artifact — and 2/4 quiet];
+every other arm was flat in
+every run (both burn arms, seed-2 coast, the shipped
+48-member plane over 40,000 game-s, the 3,000-body belt). Every shipped counter is flat
+throughout (bodies, catalogue_live, bytes_per_body at a constant 5.9 kB/body, the stats ledger,
+slices frozen; settle +0 kB; mapping count constant — the growth is live allocations in the
+main heap, seen only by a counting GlobalAlloc). The trigger is the wall-budget path, not the
+game state. d3fe's clean ruin rate is otherwise dead on main: fleets dissolve by ~3,000 game-s
+at every size flown, the fleet-slice bill is one-time (events 17.6→~2/gs at dissolution), and
+the long-lived-battle case is unreachable by growing the fleet
+(20261017-0238-inversion-470f, inversion; probe `ruin_probe.rs`, the player's own loop unpaced
+at rtf 100, seeds 1–3, the bench's burn script as an arm; not an 8 GB ruin at this scene — a
+4.7× path-dependent multiplier on any single-run memory-wall measurement, counter-invisible
+until fenced). Not 400-specific [checker]: N=100 grows ~3.9 kB/gs, N=800 ~29 kB/gs to 183 MB
+RSS by 6,000 gs under load, N=1600 ~54 kB/gs to 327 MB [second checker: growth ∝ N]; the flat
+path is stable flat to 60,000 gs. What reopens the clean
+refutation: a checker whose fresh runs never grow.
 
 **The standing catalogue is a cache pretending to be state, and its duplication is now measured
 with controls: 99.6% under co-orbital concentration, 0.4% on the belt** (20261017-0005-system-efd4,
@@ -145,9 +170,11 @@ The one unbounded grower is the compiled-cycle catalogue, and it is a
 churn leak (one entry per ship ever created; 20261011-2235-second-…-e4cc, gold;
 20261011-2132-spacex-91a0), with H_live itself saturating despite continuous kicks
 (fleet 17.8–22.3 bits/member, ships 45.5–49.9 bits/ship, second-half slopes ≈ 0).
-A reachable ruin state remains: peak RSS grows ~0.2 kB per surviving member per
+A reachable ruin state was claimed: peak RSS grows ~0.2 kB per surviving member per
 game-second through any battle that stays live, and both instruments were blind to
-it (20261006-0030-taleb-d3fe, silver).
+it (20261006-0030-taleb-d3fe, silver) [re-measured 20261017-0238-inversion-470f: the rate as
+stated is dead at shipped size, but a stochastic wall-path-dependent growth of the same kind
+survives at 400 members — see Current best].
 
 **What binds at 10⁹ is regime-dependent, and both gold verdicts stand.** The hot
 side is two per-body terms: 6.9 KB live per hot body with N_hot ≈ 1.3–2.7×10⁴ at
@@ -193,6 +220,14 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
 (20261012-1621-second-…-09a1).
 
 ## Refuted
+
+- "A reachable ruin state: peak RSS grows ~0.2 kB per surviving member per game-second
+  through any battle that stays live" (d3fe, silver): at shipped size (48 members) and on the
+  belt plane, dead on main at 4–7× the flown horizon — fleets dissolve by ~3,000 game-s, the
+  slice bill is one-time, RSS +0.001 kB/gs over 40,000 game-s in every flat run. NOT refuted as
+  a class: 5-of-15 runs at 400 members grow ~11 kB/gs of live allocations to a 221 MB peak
+  (bulk-freed at 20,000 gs, peak RSS retained) with every shipped counter flat, trigger
+  wall-path, un-isolated (20261017-0238-inversion-470f).
 
 - "H_live at 10⁹ ≈ 5×10³ bits/s with rebinds 36.5/s and the player nil" — a 10³
   text slip on a 2.2× sign-flipped-Newton bug; truth 0.0798 rebinds/s, player
@@ -394,3 +429,6 @@ code path (`soi_truth.py`, 21.1 bits/s; 20261012-1621-second-…-09a1).
 - 20261012-1117-second-20261012-1019-spacex-3463-c304 (gold): the 845 MB at 4,000 members is unpruned rebind history (~10 kB/ship-kick; settle bypasses the prune) plus 19 kB/handout.
 - 20261012-1438-second-20261012-1340-scout-d80d-b2fd (silver): twin-rates predict sealed-scar memory, not traffic; 1.8% depart permanently at ~40 bits each.
 - 20261017-0005-system-efd4 (gold): standing catalogue duplication measured with controls — 99.6% co-orbital, 0.4% belt; intern+eviction is one structure; intern flown by the checker (digests bit-identical).
+- 20261017-0238-inversion-470f (this run): peak memory is wall-path-dependent, not canonical: 5-of-15 flights at 400 members grow ~11 kB/gs of live allocs to a 221 MB peak (bulk-freed at 20,000 gs, RSS retained) with every shipped counter flat; shipped size and belt flat; fleets dissolve by ~3,000 gs; slices one-time.
+- checker (20261017-0238-inversion-470f): reproduced 3× (regen flipped arms: 40k flat, r1+r4 grew); load is the knob — 9/9 grew under load (N=100/400/800, seeds 1/5), 0/3 alone; long-run rate 9.0 kB/gs (the ~11 is the first-6,000-gs window); prune-starvation is the open mechanism lead.
+- second-checker (20261017-0238-inversion-470f): 20 of 22 fresh flights grew (8/8 under 8-way

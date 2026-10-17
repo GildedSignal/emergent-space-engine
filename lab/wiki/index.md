@@ -6,13 +6,14 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
 | [calendar](calendar.md) | open | 1 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
+| [library-directions](library-directions.md) | open | 1 | **Five verbatim-quoted lessons from Julien's Readwise library (4580 highlights indexed, |
 | [representation-premises](representation-premises.md) | open | 1 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
-| [allocator-ratchet](allocator-ratchet.md) | open | 2 | **The rollback controller has no restoring force, and the conflict process quenches itself |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [birth-stagger](birth-stagger.md) | open | 3 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
+| [allocator-ratchet](allocator-ratchet.md) | open | 4 | **The rollback controller has no restoring force, and at scale neither it nor its 10-line |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
@@ -32,5 +33,5 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 77 | **The kick's floor is derived and measured, and the premise under 71 runs is inverted: the |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
-| [memory-h-live](memory-h-live.md) | open | 106 | **The standing catalogue is a cache pretending to be state, and its duplication is now measured |
+| [memory-h-live](memory-h-live.md) | open | 107 | **The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical |
 | [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |
