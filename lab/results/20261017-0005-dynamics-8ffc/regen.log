@@ -1,0 +1,79 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.32s
+=== armA: 300000 coast 150 1800
+=== armB: 100000 coast 60 3600
+=== armC: 300000 coast 100 300
+
+=== work/armA.log: N=300000 (rung N=300000 (300028 bodies), coast, rtf 1800, 150 s of wall time, engine budget 12 ms; build 13.04 s, peak footprint 704 MB (now 704 MB))
+  crest    mid_gs     d_mid        E    E/N  kick%   width  wall_s  us/ev   law
+      1     14715         -   300081  1.000  98.8%    2984    21.8   51.6  1.01
+      2     30214     15499   257107  0.857   0.9%    3058     4.0   10.8  1.03
+      3     44324     14110   295142  0.984  98.6%    3925    21.5   51.7  1.01
+      4     57525     13201   252213  0.841   1.5%    3966     5.1   13.4  1.08
+      5     70917     13392   296799  0.989  97.7%    5630    22.3   53.0  1.02
+      6     85725     14807   223606  0.745   1.9%    3512     4.1   12.3  1.06
+      7    100165     14441   291608  0.972  97.3%    5950    21.5   51.9  1.02
+  spacing (all crests): 15499 14110 13201 13392 14807 14441
+  kick comb: n=4 spacing 29609 26593 29248 (mean 28483, interval 28142)
+  kick comb: E 300081 295142 296799 291608 -> decay 0.984 1.006 0.983
+  kick comb: width 2984 3925 5630 5950
+  boundary comb: n=3 spacing 27311 28200 (mean 27755, interval 28142)
+  boundary comb: E 257107 252213 223606 -> decay 0.981 0.887
+  boundary comb: width 3058 3966 3512
+  baseline between crests: 212843 events over 108822 game-s = 2.0 ev/game-s, engine 6.17 ms/frame median-ish over 1675 frames
+  ledger@rtf100: crest bill 18.5 s of compute per 28142 game-s at N=300000; whole-engine budget 203 s; headroom 10.9x
+    N=   300,000: crest bill      18.5 s vs budget 203 s -> FITS (10.95x headroom)
+    N= 1,000,000: crest bill      61.7 s vs budget 203 s -> FITS (3.28x headroom)
+    N=1,000,000,000: crest bill   61687.0 s vs budget 203 s -> DOES NOT FIT (0.00x headroom)
+
+=== work/armB.log: N=100000 (rung N=100000 (100028 bodies), coast, rtf 3600, 60 s of wall time, engine budget 12 ms; build 4.27 s, peak footprint 237 MB (now 237 MB))
+  crest    mid_gs     d_mid        E    E/N  kick%   width  wall_s  us/ev   law
+      1     14823         -   107805  1.078  95.0%    6074     7.9   51.4  1.03
+      2     30798     15975    96603  0.966   4.1%    6062     2.1   14.5  1.09
+      3     41876     11078   107294  1.073  94.5%    6384     8.1   52.0  1.05
+      4     57876     16000    91344  0.913   4.8%    5991     2.2   15.3  1.12
+      5     70096     12220   110920  1.109  92.3%    8284     8.4   52.6  1.04
+      6     86892     16796    86850  0.869   6.1%    6756     2.3   16.2  1.17
+      7     97900     11009    84129  0.841  92.1%    5717     6.5   53.4  1.05
+  spacing (all crests): 15975 11078 16000 12220 16796 11009
+  kick comb: n=4 spacing 27053 28220 27804 (mean 27692, interval 28142)
+  kick comb: E 107805 107294 110920 84129 -> decay 0.995 1.034 0.758
+  kick comb: width 6074 6384 8284 5717
+  boundary comb: n=3 spacing 27078 29016 (mean 28047, interval 28142)
+  boundary comb: E 96603 91344 86850 -> decay 0.946 0.951
+  boundary comb: width 6062 5991 6756
+  ledger@rtf100: crest bill 7.1 s of compute per 28142 game-s at N=100000; whole-engine budget 203 s; headroom 28.7x
+    N=   100,000: crest bill       7.1 s vs budget 203 s -> FITS (28.67x headroom)
+    N= 1,000,000: crest bill      70.7 s vs budget 203 s -> FITS (2.87x headroom)
+    N=1,000,000,000: crest bill   70681.1 s vs budget 203 s -> DOES NOT FIT (0.00x headroom)
+
+=== work/armC.log: N=300000 (rung N=300000 (300028 bodies), coast, rtf 300, 100 s of wall time, engine budget 12 ms; build 13.07 s, peak footprint 705 MB (now 705 MB))
+  crest    mid_gs     d_mid        E    E/N  kick%   width  wall_s  us/ev   law
+      1     15466         -   234213  0.781  99.2%    1138    16.8   51.0  1.01
+  baseline between crests: 150522 events over 26090 game-s = 5.8 ev/game-s, engine 1.67 ms/frame median-ish over 4992 frames
+  ledger@rtf100: crest bill 11.9 s of compute per 28142 game-s at N=300000; whole-engine budget 203 s; headroom 17.0x
+    N=   300,000: crest bill      11.9 s vs budget 203 s -> FITS (16.96x headroom)
+    N= 1,000,000: crest bill      39.8 s vs budget 203 s -> FITS (5.09x headroom)
+    N=1,000,000,000: crest bill   39816.2 s vs budget 203 s -> DOES NOT FIT (0.01x headroom)
+=== A 3e5 rtf1800 (N=300000)
+  kick window 1 [ 11800, 18500]: kicks  310225 (1.034/body)  bnd  10138
+  kick window 2 [ 39942, 46642]: kicks  308066 (1.027/body)  bnd  10207
+  kick window 3 [ 68083, 74783]: kicks  301183 (1.004/body)  bnd  10276
+  kick window 4 [ 96224,102924]: kicks  294114 (0.980/body)  bnd  10046
+  bnd  window 1 [ 25500, 32500]: bnd  310429 (1.035/body)  kicks  11113
+  bnd  window 2 [ 53642, 60642]: bnd  306513 (1.022/body)  kicks  10684
+  bnd  window 3 [ 81783, 88783]: bnd  296992 (0.990/body)  kicks  10565
+  gap [19k,25k]: events 18605 over 5949 game-s = 3.13 ev/game-s
+=== B 1e5 rtf3600 (N=100000)
+  kick window 1 [ 11800, 18500]: kicks  110185 (1.102/body)  bnd  10112
+  kick window 2 [ 39942, 46642]: kicks  109470 (1.095/body)  bnd  10272
+  kick window 3 [ 68083, 74783]: kicks  107254 (1.073/body)  bnd  10302
+  kick window 4 [ 96224,102924]: kicks   80239 (0.802/body)  bnd   6983
+  bnd  window 1 [ 25500, 32500]: bnd  110366 (1.104/body)  kicks  11073
+  bnd  window 2 [ 53642, 60642]: bnd  109022 (1.090/body)  kicks  10710
+  bnd  window 3 [ 81783, 88783]: bnd  106202 (1.062/body)  kicks  10692
+  gap [19k,25k]: events 18695 over 5948 game-s = 3.14 ev/game-s
+=== C 3e5 rtf300 (N=300000)
+  kick window 1 [ 11800, 18500]: kicks  310224 (1.034/body)  bnd  10138
+  bnd  window 1 [ 25500, 32500]: bnd     820 (0.003/body)  kicks    962
+  gap [19k,25k]: events 18634 over 5995 game-s = 3.11 ev/game-s
+regen done

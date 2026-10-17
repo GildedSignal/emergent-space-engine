@@ -1,0 +1,64 @@
+# Predictions — the belt crest's recurrence (limit cycle vs genesis transient)
+
+Written before the decisive flights. Question (promotion dir 3 / kick-cadence 9e75-checker2):
+the belt's first-kick crest — one clamp per flight, never printed past crest 2 — is it a
+standing limit cycle with period = the doll interval, a shearing transient, or a growing
+queue? Decides (a) the "≥ 19.3 h of clamped time per 2.814e4-game-s interval at 10⁹"
+extrapolation (4093/9e75), which assumes per-interval recurrence, and (b) whether idle-time
+compute-ahead (PRINCIPLES #17) is a periodic certificate or a genesis warmup.
+
+Arms (shipped `nladder`, coast; patch = print-only instrument: Linux footprint from 9e75,
+per-spell table, per-frame trace, wall cap raised — no law, no schedule change):
+- A (decisive): `300000 coast 150 1800` — must reach crest 4 (presented ≥ ~101k game-s).
+- B (N-control): `100000 coast 60 3600` — 4 crests at 10⁵.
+- C (near-player pace, optional): `300000 coast 120 300` — crest 1 + post-crest idle.
+
+## P1 — recurrence (the headline)
+Crests recur at epochs 14,072 + k·28,141.5 game-s, spacing constant to ±1%. Crests 2–4
+each carry E ≥ 0.5·E₁ (in clamped-spell events). Falsified if crest 2 carries < 0.1·E₁:
+then the crest is a genesis transient, the 19.3-h-per-interval 10⁹ figure collapses to a
+one-time genesis bill, and compute-ahead is a genesis warmup only.
+
+## P2 — E per crest
+E_k within ±20% across k at both N (a standing wave, not accumulation). If E grows > 1.5×
+per interval instead, the event queue is minting faster than it drains — an instability
+reading, and the 10⁹ extrapolation is an underestimate.
+
+## P3 — width and shear
+Crest 1's game-time width (presented advance over its spell) ≈ 1,400–1,900 game-s
+(9e75: spell_presented 1,461–1,851). Width grows ≤ 3× per interval (3294's shear reading);
+if width → > 50% of the interval by crest 3, the crest becomes a plateau and the spike
+model dies.
+
+## P4 — the clamp law (instrument control)
+Every spell: Ĉ = spell_ms/events ∈ [45, 60] µs AND spell_wall ≈ E·Ĉ/0.72 within ±10%
+(9e75's law, ratios 1.01–1.04). A spell that fails it means the spell is not
+budget-clamped (machine contention) — its timing is void, its event counts stand
+(deterministic).
+
+## P5 — N-scaling
+E ≈ 0.95–1.05 events per body per crest at both N; crest epochs identical in game-time.
+
+## P6 — composition
+Crest events ≥ 90% kicks (belt metronome), boundaries minor; the locals' comb contributes
+< 10% of crest E.
+
+## P7 — the compute-ahead ledger (the consequence)
+Crest bill E·Ĉ per interval vs the whole-engine budget over one interval at the player's
+rtf 100 (0.72 s/s × 281.4 s = 202.6 s of compute): fits with ≥ 2× headroom at 3×10⁵
+(bill ≈ 15 s) and at 10⁶ (bill ≈ 50 s, extrapolated E = 1.0/body); does NOT fit at 10⁹
+(bill ≈ 13.9 h vs 203 s — capacity-bound ~250×, so at 10⁹ recurrence changes the failure
+from once to every interval). If P1 fails, only the genesis crest needs pre-computing.
+
+## Kill criteria
+- K1 (fires on P1): crest 2 E < 0.1·E₁ → recurrence reading killed; corrected 10⁹ bill =
+  one crest; report the corrected ledger.
+- K2 (fires on P4): any spell off the clamp law → that spell's timing void; if crest
+  epochs (game-time, deterministic) also disagree with 28,141.5 spacing > 5%, the
+  one-doll-grid premise is wrong → re-derive from the measured crest periods.
+- K3 (fires on P7): measured E/body outside [0.5, 2.0] → the "one event per body per
+  crest" identity broken; re-attribute before any ledger.
+
+Controls: crest 1 must reproduce 9e75 (spell 20.9–23.5 s / E ≈ 298–305k at 3×10⁵;
+7.0–7.7 s / E ≈ 96–100k at 10⁵); rtf-invariance of crest epochs (A rtf 1800 vs B rtf 3600);
+spells merge only if < 60 frames apart (1 s wall), else counted separately.
