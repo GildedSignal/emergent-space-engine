@@ -1,0 +1,23 @@
+       ν  u_ISCO doll   u_ISCO 2PN  r shift %
+   1e-06    0.1666667    0.1666667      -0.00
+    0.01    0.1666667    0.1669611      -0.18
+     0.1    0.1666667    0.1697299      -1.80
+    0.25    0.1666667    0.1748975      -4.71
+
+k (periastron advance, circular-adjacent), doll vs 2PN EOB:
+         u      ν         k_doll          k_2PN  rel diff %    exact Schw.
+    0.0500    0.1       1.226658       1.218485     -0.6663       1.226658
+    0.0200    0.1       0.414713       0.413793     -0.2217       0.414713
+    0.0010    0.1       0.018935       0.018933     -0.0100       0.018935
+    0.0500   0.25       1.226658       1.206255     -1.6633       1.226658
+    0.0200   0.25       0.414713       0.412415     -0.5541       0.414713
+    0.0010   0.25       0.018935       0.018930     -0.0251       0.018935
+
+Controls:
+  ν=1e-6: u_ISCO = 0.166666695988 vs 1/6 = 0.166666666667  -> PASS
+  ν=1e-6: k(1/20) = 1.226657448 vs doll 1.226657530 vs exact closed form 1.226657530 -> PASS
+  planted -2νu³ (sign flip): u_ISCO = 0.160019 < doll's 1/6 = 0.166667 (moves outward, opposite to 2PN 0.174897) -> PASS (instrument sees sign)
+
+Band (ν=1/4): circular binaries with r ∈ (5.718 M, 6.000 M) are stable per 2PN, plunged by the doll: width 0.282 M (4.7% of the doll's ISCO)
+
+wrote eob2pn.json
