@@ -1,0 +1,392 @@
+diff --git a/crates/universe/examples/read_census.rs b/crates/universe/examples/read_census.rs
+new file mode 100644
+index 00000000..d7230d95
+--- /dev/null
++++ b/crates/universe/examples/read_census.rs
+@@ -0,0 +1,118 @@
++//! The read census: who reads the body store during a flight, how often, and what each read
++//! hits. The plane with `N` more ships (`scenario::plane_extra`, the ladder's population),
++//! flown the way the page flies it (`frame_to`, 12 ms engine budget), the player coasting or
++//! burning forward at level 8 from the first second. Counters start at the first second (the
++//! opening exodus is not the read stream). With `--features prof` the census prints; without
++//! it the run is the shipped engine and prints the same digest (the counters are the only
++//! difference). After the flight, one pass of `binding_at` and one of `rec` over every body
++//! price the hit path on this box (the clone the scan pays per candidate).
++//!
++//! cargo run --release -p emergent-universe --example read_census [--features prof] -- <N> <coast|burn> [<wall seconds> [<rtf>]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = 12.0;
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    println!("census: n={n} bodies={bodies} flight={flight} rtf={rtf} seconds={seconds} prof={}", emergent_universe::prof::ENABLED);
++    let mut t_first = None;
++    let mut s_first = None;
++    let mut alive = true;
++    for f in 0..frames {
++        if f == 60 {
++            if burn {
++                let t = p.u.now;
++                let _ = p.u.input(t, word(1, 8));
++            }
++            t_first = Some(p.u.now);
++            s_first = Some(p.u.stats);
++            let _ = emergent_universe::prof::take();
++            let _ = emergent_universe::prof::reads::take();
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        if !p.u.rec(p.player).alive {
++            println!("player lost at frame {f}");
++            alive = false;
++            break;
++        }
++    }
++    let digest = p.u.digest();
++    let (t0, s0) = (t_first.unwrap_or(p.u.now), s_first.unwrap_or(p.u.stats));
++    let game_s = (p.u.now - t0) as f64 * emergent_universe::view::TICK_SECONDS;
++    let kicks = p.u.stats.kicks - s0.kicks;
++    let events = p.u.stats.events() - s0.events();
++    println!(
++        "flight: game {game_s:.1} s after the first second, kicks {kicks} events {events} alive {alive}; digest {digest}"
++    );
++    if emergent_universe::prof::ENABLED {
++        let (b, r) = emergent_universe::prof::reads::take();
++        let mut total = 0u64;
++        let mut tot_cur = 0u64;
++        let mut tot_hist = 0u64;
++        for k in 0..emergent_universe::prof::reads::NR {
++            let (c, cur, hist) = (b[k * 3], b[k * 3 + 1], b[k * 3 + 2]);
++            if c > 0 || r[k] > 0 {
++                println!(
++                    "  {:<32} binding_at {:>10} (current {:>10}, history {:>8}, miss {:>4}) = {:.3e}/body/game-s | rec {:>8} = {:.3e}/body/game-s",
++                    emergent_universe::prof::reads::NAMES[k],
++                    c,
++                    cur,
++                    hist,
++                    c - cur - hist,
++                    c as f64 / bodies as f64 / game_s.max(1e-9),
++                    r[k],
++                    r[k] as f64 / bodies as f64 / game_s.max(1e-9)
++                );
++            }
++            total += c;
++            tot_cur += cur;
++            tot_hist += hist;
++        }
++        println!(
++            "  total binding_at {total} = {:.3e}/body/game-s (current {tot_cur}, history {tot_hist}, miss {}); scans held {}",
++            total as f64 / bodies as f64 / game_s.max(1e-9),
++            total - tot_cur - tot_hist,
++            p.u.held_scans()
++        );
++    }
++    // The hit path's price on this box: one binding_at and one rec per body, at the flight's end.
++    {
++        let ctx = p.u.ctx();
++        let t = p.u.now;
++        let mut c = 0u64;
++        let tb = Instant::now();
++        for i in 0..ctx.bodies.len() {
++            if ctx.bodies.alive(i) && ctx.bodies.binding_at(i, t).is_some() {
++                std::hint::black_box(i);
++                c += 1;
++            }
++        }
++        let ns_read = tb.elapsed().as_nanos() as f64 / c.max(1) as f64;
++        let tb = Instant::now();
++        for i in 0..ctx.bodies.len() {
++            if ctx.bodies.alive(i) {
++                std::hint::black_box(ctx.bodies.rec(i).events);
++            }
++        }
++        let ns_rec = tb.elapsed().as_nanos() as f64 / c.max(1) as f64;
++        println!(
++            "hit path: binding_at {:.1} ns, rec {:.1} ns over {c} bodies; Binding {} B, BodyRec {} B",
++            ns_read,
++            ns_rec,
++            std::mem::size_of::<emergent_universe::bind::Binding>(),
++            std::mem::size_of::<emergent_universe::body::BodyRec>()
++        );
++    }
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..61ebccd8 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -127,6 +127,7 @@ impl BodyStore for PlainBodies {
+         self.recs.len()
+     }
+     fn rec(&self, i: usize) -> BodyRec {
++        crate::prof::reads::hit_rec();
+         self.recs[i].clone()
+     }
+     fn put(&mut self, i: usize, r: BodyRec) {
+@@ -152,12 +153,22 @@ impl BodyStore for PlainBodies {
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
+         let r = &self.recs[i];
+         if t >= r.b.event_time {
++            crate::prof::reads::hit(0);
+             return Some(r.b.clone());
+         }
+         let h = &self.history[i];
+         // Segments are contiguous and ascending in `until`: the first with `until > t`.
+         let k = h.partition_point(|s| s.until <= t);
+-        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
++        match h.get(k).filter(|s| s.b.event_time <= t) {
++            Some(s) => {
++                crate::prof::reads::hit(1);
++                Some(s.b.clone())
++            }
++            None => {
++                crate::prof::reads::hit(2);
++                None
++            }
++        }
+     }
+     fn event_time(&self, i: usize) -> Tick {
+         self.recs[i].b.event_time
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..f823d2e5 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -59,6 +59,7 @@ pub struct Ctx<'a> {
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        crate::prof::reads::set(crate::prof::reads::STATE);
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         b.cartesian(t)
+     }
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..980485cc 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -160,6 +160,7 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        crate::prof::reads::set(crate::prof::reads::SCAN_ME);
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+@@ -177,6 +178,7 @@ impl Encounters for PlayerNeighbourhood {
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+             }
++            crate::prof::reads::set(crate::prof::reads::SCAN_OTHER);
+             let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
+             if other.doll != me.doll {
+                 continue;
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index fda3b93e..9db16713 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -131,6 +131,7 @@ struct Source {
+ }
+ 
+ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
++    crate::prof::reads::set(crate::prof::reads::EXT);
+     let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
+     let Trajectory::Cycle(c) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
+     let key = c.key();
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..d074a415 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -154,6 +154,7 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+ 
+ /// Body `i`'s binding at `t` and its state there, completed between kicks ([`partial`], or the ramp [`credit`]), in the units of its doll.
+ pub fn ramped(ctx: &Ctx, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
++    crate::prof::reads::set(crate::prof::reads::OBSERVE);
+     let b = ctx.bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+     let (p, v) = ramped_in(ctx, i, t, &b)?;
+     Ok((b, p, v))
+@@ -186,6 +187,7 @@ fn root_state_with(ctx: &Ctx, i: usize, t: Tick, ramp: bool) -> Res<([f64; 2], [
+     let (b, p, v) = if ramp {
+         ramped(ctx, i, t)?
+     } else {
++        crate::prof::reads::set(crate::prof::reads::RAW);
+         let b = ctx.bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         let (p, v) = b.cartesian(t)?;
+         (b, p, v)
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..a87faf98 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -106,4 +106,89 @@ mod on {
+ }
+ 
+ pub use on::{add, count, t, take, T};
++
++/// The read census: who reads the body store, and what each read hits. Counters only, no
++/// timing; the feature `prof` gates every cost. A read is one [`crate::body::BodyStore`]
++/// call (`binding_at` or `rec`); the reason is set by the reader right before its call.
++pub mod reads {
++    pub const SCAN_OTHER: usize = 0;
++    pub const SCAN_ME: usize = 1;
++    pub const STATE: usize = 2;
++    pub const EXT: usize = 3;
++    pub const OBSERVE: usize = 4;
++    pub const HANDOFF: usize = 5;
++    pub const RAW: usize = 6;
++    pub const OTHER: usize = 7;
++    pub const REC_ADVANCE: usize = 8;
++    pub const REC_SETTLE: usize = 9;
++    pub const REC_DECIDE: usize = 10;
++    pub const REC_REPLAN: usize = 11;
++    pub const REC_SCAN: usize = 12;
++    pub const REC_DIGEST: usize = 13;
++    pub const REC_OTHER: usize = 14;
++    pub const NR: usize = 15;
++    pub const NAMES: [&str; NR] = [
++        "scan: candidate",
++        "scan: the player",
++        "state_of (sources, centres)",
++        "ext::source (kick sources)",
++        "observe (credit/ramped)",
++        "handoff centre",
++        "root_state_raw (own body)",
++        "other",
++        "rec: advance (per event)",
++        "rec: settle batch",
++        "rec: decide (player)",
++        "rec: replan (hand-out)",
++        "rec: player_scan",
++        "rec: digest",
++        "rec: other",
++    ];
++
++    #[cfg(feature = "prof")]
++    mod on {
++        use super::NR;
++        use std::cell::Cell;
++        use std::sync::atomic::{AtomicU64, Ordering};
++        static B: [AtomicU64; NR * 3] = [const { AtomicU64::new(0) }; NR * 3];
++        static R: [AtomicU64; NR] = [const { AtomicU64::new(0) }; NR];
++        thread_local! {
++            static TAG: Cell<usize> = const { Cell::new(super::OTHER) };
++        }
++        #[inline(always)]
++        pub fn set(reason: usize) {
++            TAG.with(|t| t.set(reason));
++        }
++        /// A `binding_at` call that hit the current binding (outcome 0), a retired one (1), or nothing (2).
++        #[inline(always)]
++        pub fn hit(outcome: usize) {
++            let r = TAG.with(|t| t.get());
++            B[r * 3].fetch_add(1, Ordering::Relaxed);
++            B[r * 3 + 1 + outcome].fetch_add(1, Ordering::Relaxed);
++        }
++        #[inline(always)]
++        pub fn hit_rec() {
++            let r = TAG.with(|t| t.get());
++            R[r].fetch_add(1, Ordering::Relaxed);
++        }
++        pub fn take() -> ([u64; NR * 3], [u64; NR]) {
++            let b = std::array::from_fn(|i| B[i].swap(0, Ordering::Relaxed));
++            let r = std::array::from_fn(|i| R[i].swap(0, Ordering::Relaxed));
++            (b, r)
++        }
++    }
++    #[cfg(not(feature = "prof"))]
++    mod on {
++        #[inline(always)]
++        pub fn set(_reason: usize) {}
++        #[inline(always)]
++        pub fn hit(_outcome: usize) {}
++        #[inline(always)]
++        pub fn hit_rec() {}
++        pub fn take() -> ([u64; 0], [u64; 0]) {
++            ([], [])
++        }
++    }
++    pub use on::{hit, hit_rec, set, take};
++}
+ pub const ENABLED: bool = cfg!(feature = "prof");
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..deb93b6e 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -792,6 +792,7 @@ impl Work<'_, '_> {
+     fn capture(&mut self, t: Tick, st: IntegerState, child: u16) -> Res<()> {
+         let from = self.rec.b.doll;
+         let centre = self.ctx.dolls[child as usize].centre.expect("centre");
++        crate::prof::reads::set(crate::prof::reads::HANDOFF);
+         let cs = self.ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?.readout(t)?;
+         let rel = relative(&st, &cs, self.ctx.dolls[from as usize].shift, self.ctx.dolls[child as usize].shift)?;
+         self.handoff_to(t, rel, child)
+@@ -801,6 +802,7 @@ impl Work<'_, '_> {
+         let from = self.rec.b.doll;
+         let to = self.ctx.dolls[from as usize].parent.expect("a child doll has a parent");
+         let centre = self.ctx.dolls[from as usize].centre.expect("centre");
++        crate::prof::reads::set(crate::prof::reads::HANDOFF);
+         let cs = self.ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?.readout(t)?;
+         let abs = absolute(&st, &cs, self.ctx.dolls[from as usize].shift, self.ctx.dolls[to as usize].shift)?;
+         self.handoff_to(t, abs, to)
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..c9965e6c 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -741,6 +741,7 @@ impl Universe {
+             }
+             // ...and the ships with an item before the player's: after the player's own item (below), which reads none of them.
+         }
++        crate::prof::reads::set(crate::prof::reads::REC_ADVANCE);
+         let rec = self.bodies.rec(i);
+         let t_process = crate::prof::t();
+         let item = if crate::prof::ENABLED { rec.plan.first().map(|it| (it.what, rec.ext.is_some())) } else { None };
+@@ -899,6 +900,7 @@ impl Universe {
+         match made {
+             Ok(i) => {
+                 let t_replan = crate::prof::t();
++                crate::prof::reads::set(crate::prof::reads::REC_REPLAN);
+                 let upd = step::replan(&self.ctx(), i, self.bodies.rec(i), l.tick);
+                 crate::prof::add(crate::prof::H_REPLAN, t_replan);
+                 self.apply(i, upd);
+@@ -951,6 +953,7 @@ impl Universe {
+         let moons = std::mem::take(&mut self.lanes.moons);
+         self.pull(&moons, max);
+         self.lanes.moons = moons;
++        crate::prof::reads::set(crate::prof::reads::REC_SETTLE);
+         let recs: Vec<(usize, BodyRec)> = keyed.iter().map(|&(_, e)| (e, self.bodies.rec(e))).collect();
+         let threads = self.threads.min(recs.len()).max(1);
+         let updates: Vec<(usize, Update)> = {
+@@ -1121,6 +1124,7 @@ impl Universe {
+     }
+ 
+     fn take(&mut self, p: usize, t: Tick, keys: u8) {
++        crate::prof::reads::set(crate::prof::reads::REC_DECIDE);
+         let rec = self.bodies.rec(p);
+         let t_decide = crate::prof::t();
+         let upd = step::decide(&self.ctx(), p, rec, t, keys);
+@@ -1159,6 +1163,7 @@ impl Universe {
+     fn encounters_for_player(&mut self) {
+         let Some(p) = self.player else { return };
+         let t = self.bodies.event_time(p);
++        crate::prof::reads::set(crate::prof::reads::REC_SCAN);
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+@@ -1281,7 +1286,8 @@ impl Universe {
+             put_s(&mut h, d.surface);
+         }
+         for i in 0..self.bodies.len() {
+-            let r = self.bodies.rec(i);
++        crate::prof::reads::set(crate::prof::reads::REC_DIGEST);
++        let r = self.bodies.rec(i);
+             put(&mut h, r.kind as i128);
+             put(&mut h, r.alive as i128);
+             put(&mut h, r.b.doll as i128);

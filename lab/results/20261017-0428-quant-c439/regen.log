@@ -1,0 +1,28 @@
+== build (plain, then prof) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 14.85s
+    Finished `release` profile [optimized + debuginfo] target(s) in 16.84s
+== machine state ==
+6.8.0-111-generic
+8
+ 04:44:59 up 50 days, 19:47,  0 user,  load average: 4.82, 2.84, 1.85
+               total        used        free      shared  buff/cache   available
+Mem:           15934        2164        5095          34        9069       13769
+== bit identity: plain vs prof, same args (digest must match) ==
+flight: game 1896.2 s after the first second, kicks 4858 events 16183 alive true; digest d1822b886fbea8579b4dbe1ce08854865059da9dcc1f964b7d2e481db29def1f
+flight: game 1897.2 s after the first second, kicks 4858 events 16212 alive true; digest d1822b886fbea8579b4dbe1ce08854865059da9dcc1f964b7d2e481db29def1f
+== arms ==
+flight: game 1898.5 s after the first second, kicks 3624 events 11115 alive true; digest 23b2e49756ab4a95587febfd245443787fd648526bc0a2cb512aec6650e31cb2
+  total binding_at 64935 = 3.411e-3/body/game-s (current 62141, history 2794, miss 0); scans held 0
+flight: game 1898.1 s after the first second, kicks 4858 events 16215 alive true; digest c53c2de67985807bbeb376cf675fed79067bcea62185d6c3ca98f49ba18c862e
+  total binding_at 188245 = 9.915e-4/body/game-s (current 188057, history 188, miss 0); scans held 0
+flight: game 1898.5 s after the first second, kicks 3624 events 11115 alive true; digest f98d6b13272d801cefa5987dd16345ff144ed6b5d0778c8d1220c33b2587f2d3
+  total binding_at 64935 = 3.419e-4/body/game-s (current 62141, history 2794, miss 0); scans held 0
+flight: game 14898.1 s after the first second, kicks 34230 events 65154 alive true; digest 2f26827c1c98458773e7c5fe8f1da47dc3fba4490b348664b3cdf5b2ea17e4b8
+  total binding_at 375361 = 2.512e-3/body/game-s (current 375143, history 218, miss 0); scans held 0
+== reads/scan and reads/event (from the raw logs) ==
+burn 1e4   scans   2127  reads/scan   70.0  events   16212  reads/event  2.84 (state_of 0.87 raw 1.42 rec 0.55)
+coast 1e4  scans    184  reads/scan  184.1  events   11115  reads/event  3.41 (state_of 0.97 raw 1.80 rec 0.63)
+burn 1e5   scans   2127  reads/scan   70.0  events   16215  reads/event  2.84 (state_of 0.87 raw 1.42 rec 0.55)
+coast 1e5  scans    184  reads/scan  184.1  events   11115  reads/event  3.41 (state_of 0.97 raw 1.80 rec 0.63)
+wave 1e4   scans   2511  reads/scan   60.6  events   65154  reads/event  4.28 (state_of 1.57 raw 1.81 rec 0.89)
+== done ==
