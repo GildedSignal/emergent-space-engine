@@ -1,0 +1,27 @@
+== build pristine ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 40.34s
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.09s
+== apply patch, build patched ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 41.73s
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.65s
+== identity + coverage (verify mode) ==
+pure kick (resolve) 33.5 us (3000 kicks of 3000)
+own readout 3.33 us
+secondaries (moon) 3.32 us
+tide 3.30 us
+root_state (the position cache after every event) 6.94 us
+rec() clone 0.05 us
+whole universe over 30000000000 ticks: 54.8 us per kick/open/boundary (49617 items), ships 145.9 us per item
+pos probe (handed, walked, mismatch): (35275, 39, 17643)
+== digest identity, seeds 1 and 7 ==
+seed1: digest SAME | replay SAME | med 46.436 -> 45.634
+seed7: digest SAME | replay SAME | med 43.843 -> 44.087
+== interleaved timing, 3 pairs ==
+P1 pristine whole universe over 30000000000 ticks: 52.3 us per kick/open/boundary (49617 items), ships 143.1 us per item
+P1 patched whole universe over 30000000000 ticks: 49.2 us per kick/open/boundary (49617 items), ships 137.1 us per item
+P2 pristine whole universe over 30000000000 ticks: 51.9 us per kick/open/boundary (49617 items), ships 143.1 us per item
+P2 patched whole universe over 30000000000 ticks: 51.7 us per kick/open/boundary (49617 items), ships 138.6 us per item
+P3 pristine whole universe over 30000000000 ticks: 58.3 us per kick/open/boundary (49617 items), ships 160.0 us per item
+P3 patched whole universe over 30000000000 ticks: 60.8 us per kick/open/boundary (49617 items), ships 159.1 us per item
+== restore tree ==
+done
