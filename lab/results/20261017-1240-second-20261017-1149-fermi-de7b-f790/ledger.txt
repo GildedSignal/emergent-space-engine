@@ -1,0 +1,11 @@
+ split | x86 riding | M1 riding | M1 boundary-pinned floor
+     1 |     143.4c |    79.71c |                   15.67c
+     8 |      17.9c |     9.96c |                   15.67c
+  20.7 |       6.9c |     3.85c |                   15.67c
+    58 |       2.5c |     1.37c |                   15.67c
+S* to 4 M1 cores, riding: 19.9x  (pinned branch: a 15.7-core floor no split touches)
+measured anchors (this run, N=10^4, shipped counters + per-body plans):
+  6: h p50 28141 gs, 2 events/body by ~4.1-4.3 intervals (rate 3.554e-05/gs/body = 0.2500x shipped)
+  7: h p50 14071 gs, 4 events/body by ~4.1-4.3 intervals (rate 1.421e-04/gs/body = 1.0000x shipped)
+  8: h p50 7035 gs, 8 events/body by ~4.1-4.3 intervals (rate 5.686e-04/gs/body = 4.0003x shipped)
+  split(=4,98cb): h p50 112565 gs, 4 events/body by ~4.1-4.3 intervals (rate 1.777e-05/gs/body = 0.1250x shipped)

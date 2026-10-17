@@ -1,0 +1,625 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..6b9bd0da 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -61,7 +61,7 @@ impl Trajectory {
+             Self::Plunge(p) => p.orbit_state(time),
+         }
+     }
+-    fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
++    pub fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
+         match self {
+             Self::Cycle(c) => c.at_radius(r),
+             Self::Passage(p) => p.at_radius(r),
+diff --git a/crates/universe/examples/belt_combs.rs b/crates/universe/examples/belt_combs.rs
+new file mode 100644
+index 00000000..72a140c5
+--- /dev/null
++++ b/crates/universe/examples/belt_combs.rs
+@@ -0,0 +1,174 @@
++//! Are the belt's two combs welded to one step? The kick comb and the boundary comb are both
++//! scheduled from the body's own next step (`kick_clock`: boundary at `t + full/2`, next kick at
++//! `t + full`, both from the one `full = ticks(time(y, ds))`), so any lever that lengthens the
++//! step — `Config::step_log2`, and any cadence split built the same way — must stretch both
++//! combs together, with the boundary always at the kick's midpoint. This example measures that
++//! on shipped code: at genesis each belt body's first kick `h`; between the kick crest and the
++//! boundary crest (every belt body then holds its full welded pair) the standing plans — one
++//! Boundary and one Kick item, `B = 2h`, `K − B = h`, `interval = 2h`, `B ≡ 0 (mod interval)`;
++//! and after two full intervals the per-body fired-event count (2 kicks + 2 boundaries at the
++//! shipped lever, 1 + 1 at one octave coarser) with the shipped global counters. If the
++//! boundary comb had a metronome of its own, the plan pair would break and the counts would
++//! part ways when `step_log2` moves.
++//!
++//! cargo run --release -p emergent-universe --example belt_combs [-- <N> <rtf> <scan_gs> <end_gs> <step_log2> <seed>]
++use emergent_universe::body::What;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::universe::Budget;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn pct(v: &mut Vec<f64>, p: f64) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[(((v.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let edge = |x: f64| x.min(1.0 - x); // distance to the interval's edge (a multiple of iv prints as 0 or 1−ε)
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2400.0);
++    let scan_gs: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20_000.0);
++    let end_gs: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(60_000.0);
++    let step_log2: i32 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(7);
++    let seed: u64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let cfg = Config { step_log2, ..Config::default() };
++    let t0 = Instant::now();
++    let mut p = plane_extra(cfg, seed, Order::Sparse, 1, 48, n).unwrap();
++    let build_s = t0.elapsed().as_secs_f64();
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    let belt = |k: usize| k >= locals; // the ladder's ships: locals about Home and the Moon first, then the belt
++
++    // Genesis: each belt body's plan holds its first Kick at h (half of its first step), plus terminals.
++    let mut h = vec![0.0f64; n];
++    let mut ev0 = vec![0u64; n];
++    let (mut g_kick, mut g_bound, mut g_other) = (0u64, 0u64, 0u64);
++    for k in 0..n {
++        let r = p.u.rec(base + k);
++        ev0[k] = r.events;
++        if !belt(k) {
++            continue;
++        }
++        let mut first = i64::MAX;
++        for it in r.plan.iter() {
++            match it.what {
++                What::Kick(_) => {
++                    g_kick += 1;
++                    first = first.min(it.t);
++                }
++                What::Boundary => g_bound += 1,
++                _ => g_other += 1,
++            }
++        }
++        h[k] = first as f64 * TICK_SECONDS;
++    }
++    println!(
++        "combs: n={n} (belt {}) rtf={rtf} scan={scan_gs} end={end_gs} step_log2={step_log2} seed={seed} build_s={build_s:.1} | genesis belt plans: kick items {g_kick}, boundary items {g_bound}, other {g_other}; h p50 {:.0} p01 {:.0} p99 {:.0} game-s; h<60k {} h>=60k {}",
++        n - locals,
++        pct(&mut h[locals..].to_vec(), 0.5),
++        pct(&mut h[locals..].to_vec(), 0.01),
++        pct(&mut h[locals..].to_vec(), 0.99),
++        h[locals..].iter().filter(|&&x| x < 60_000.0).count(),
++        h[locals..].iter().filter(|&&x| x >= 60_000.0).count()
++    );
++
++    // Fly to just past the first kick crest, before the first boundary crest: every belt body
++    // then holds the full welded pair {Boundary at 2h, Kick at 3h}.
++    let mut fly_to = |p: &mut emergent_universe::scenario::Plane, gs: f64| -> bool {
++        let target = (gs / TICK_SECONDS) as i64;
++        while p.u.now < target {
++            if t0.elapsed().as_secs_f64() > 140.0 {
++                return false;
++            }
++            let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), i64::MAX);
++        }
++        true
++    };
++    let ok = fly_to(&mut p, scan_gs);
++    let scan_now = p.u.now as f64 * TICK_SECONDS;
++    let (mut pair, mut kick_only, mut other) = (0usize, 0usize, 0usize);
++    let (mut b_over_2h, mut kmb_over_h, mut iv_over_2h, mut b_mod) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    for k in 0..n {
++        if !belt(k) {
++            continue;
++        }
++        let r = p.u.rec(base + k);
++        let (mut b, mut kk) = (0i64, 0i64);
++        let (mut nb, mut nk) = (0u64, 0u64);
++        for it in r.plan.iter() {
++            match it.what {
++                What::Boundary => {
++                    nb += 1;
++                    b = it.t;
++                }
++                What::Kick(_) => {
++                    nk += 1;
++                    kk = it.t;
++                }
++                _ => {}
++            }
++        }
++        if nb == 1 && nk == 1 {
++            pair += 1;
++            let (bi, ki, hi, iv) = (b as f64, kk as f64, h[k] / TICK_SECONDS, r.interval as f64);
++            b_over_2h.push(bi / (2.0 * hi));
++            kmb_over_h.push((ki - bi) / hi);
++            iv_over_2h.push(iv / (2.0 * hi));
++            b_mod.push(edge((bi % iv) / iv));
++        } else if nb == 0 && nk == 1 {
++            kick_only += 1;
++        } else {
++            other += 1;
++        }
++    }
++    println!(
++        "combs: scan at {scan_now:.0} game-s: belt plans {pair} welded pairs ({kick_only} kick-only, {other} other) of {} | B/2h: p50 {:.4} p01 {:.4} p99 {:.4} | (K−B)/h: p50 {:.4} p01 {:.4} p99 {:.4} | interval/2h: p50 {:.4} p01 {:.4} p99 {:.4} | (B mod iv)/iv: p50 {:.4} p99 {:.4}",
++        n - locals,
++        pct(&mut b_over_2h.clone(), 0.5), pct(&mut b_over_2h, 0.01), pct(&mut b_over_2h.clone(), 0.99),
++        pct(&mut kmb_over_h.clone(), 0.5), pct(&mut kmb_over_h.clone(), 0.01), pct(&mut kmb_over_h.clone(), 0.99),
++        pct(&mut iv_over_2h.clone(), 0.5), pct(&mut iv_over_2h.clone(), 0.01), pct(&mut iv_over_2h.clone(), 0.99),
++        pct(&mut b_mod.clone(), 0.5), pct(&mut b_mod.clone(), 0.99)
++    );
++
++    // Fly two full intervals: 2 kicks + 2 boundaries per belt body at the shipped lever.
++    let stats0 = p.u.stats;
++    let ok2 = ok && fly_to(&mut p, end_gs);
++    let game_s = p.u.now as f64 * TICK_SECONDS - scan_now;
++    let s = &p.u.stats;
++    let (kicks, boundaries, opens) = (s.kicks - stats0.kicks, s.boundaries - stats0.boundaries, s.opens - stats0.opens);
++    let mut per_body = Vec::new();
++    let mut dead = 0usize;
++    for k in 0..n {
++        if !belt(k) {
++            continue;
++        }
++        let r = p.u.rec(base + k);
++        dead += (!r.alive) as usize;
++        per_body.push((r.events - ev0[k]) as f64);
++    }
++    println!(
++        "combs: end at {:.0} game-s ({ok2}) | window {game_s:.0} gs: kicks {kicks} boundaries {boundaries} opens {opens}, boundaries/kicks {:.4} | belt fired events per body: p50 {:.2} p01 {:.0} p99 {:.0}; dead {dead}",
++        p.u.now as f64 * TICK_SECONDS,
++        if kicks > 0 { boundaries as f64 / kicks as f64 } else { f64::NAN },
++        pct(&mut per_body.clone(), 0.5),
++        pct(&mut per_body.clone(), 0.01),
++        pct(&mut per_body.clone(), 0.99),
++    );
++    println!(
++        "combs: ladder: n={n} step_log2={step_log2} rtf={rtf} game_end={:.0} h_p50={:.0} pairs={pair} kick_only={kick_only} other={other} B2h_p50={:.4} kmBh_p50={:.4} iv2h_p50={:.4} bmod_p50={:.4} b_per_k={:.4} belt_ev_p50={:.2} dead={dead} ok={ok2}",
++        p.u.now as f64 * TICK_SECONDS,
++        pct(&mut h[locals..].to_vec(), 0.5),
++        pct(&mut b_over_2h, 0.5),
++        pct(&mut kmb_over_h, 0.5),
++        pct(&mut iv_over_2h, 0.5),
++        pct(&mut b_mod, 0.5),
++        if kicks > 0 { boundaries as f64 / kicks as f64 } else { f64::NAN },
++        pct(&mut per_body, 0.5),
++    );
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e27d7b9e 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,6 +14,7 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+@@ -21,13 +22,35 @@ extern "C" {
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    unsafe {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr());
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        // Linux: resident pages now, and the kernel's high-water mark for the peak.
++        let now = std::fs::read_to_string("/proc/self/statm")
++            .ok()
++            .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++            .map(|pages| pages * 4096)
++            .unwrap_or(0);
++        let peak = std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|s| {
++                s.lines()
++                    .find(|l| l.starts_with("VmHWM:"))
++                    .and_then(|l| l.split_whitespace().nth(1).and_then(|kb| kb.parse::<u64>().ok()))
++            })
++            .map(|kb| kb * 1024)
++            .unwrap_or(0);
++        (now, peak)
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -54,7 +77,7 @@ fn main() {
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
+-    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
++    let mut rows: Vec<(usize, f64, u64, f64, f64)> = Vec::new(); // frame, ms, events, deficit game-s (target-presented), presented advance game-s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+     let (mut held_max, mut truncated) = (0usize, false);
+@@ -64,7 +87,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs(std::env::var("LADDER_GUARD_S").ok().and_then(|v| v.parse().ok()).unwrap_or(55)) {
+             truncated = true;
+             break;
+         }
+@@ -86,7 +109,7 @@ fn main() {
+                 stage_calls[k] += calls[k];
+             }
+         }
+-        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS, frame.ticks as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -156,8 +179,49 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    // The freeze, measured directly. `frame_to` sets target = presented + want each frame, so the per-frame lag
++    // (target - presented) can never exceed rtf/60 and saturates whenever any frame stalls: it does not measure a
++    // freeze. These do: the deficit integral (game-seconds of presented time the budget did not deliver, summed
++    // over every frame after the first second) and the longest clamped spell (a maximal run of consecutive frames
++    // with a positive deficit) with its own event count and engine time. spell_frames/60 is the spell's wall length
++    // under the game's real 60-fps pacing (per-frame work is budget-capped, so pacing does not change it).
++    let mut deficit_s = 0.0f64;
++    let (mut lag_frames, mut lag_events, mut lag_ms) = (0usize, 0u64, 0.0f64);
++    let mut spell = (0usize, 0usize, 0u64, 0.0f64, 0.0f64); // len, at frame, events, ms, presented advance game-s
++    let mut run = (0usize, 0usize, 0u64, 0.0f64, 0.0f64);
++    for r in late.iter() {
++        if r.3 > 0.0 {
++            deficit_s += r.3;
++            lag_frames += 1;
++            lag_events += r.2;
++            lag_ms += r.1;
++            if run.0 == 0 {
++                run.1 = r.0;
++            }
++            run = (run.0 + 1, run.1, run.2 + r.2, run.3 + r.1, run.4 + r.4);
++        } else {
++            if run.0 > spell.0 {
++                spell = run;
++            }
++            run = (0, 0, 0, 0.0, 0.0);
++        }
++    }
++    if run.0 > spell.0 {
++        spell = run;
++    }
++    println!(
++        "freeze: lag_frames={lag_frames} deficit_s={deficit_s:.0} spell_at={} spell_frames={} spell_wall_s={:.1} spell_events={} spell_presented_s={:.1} spell_ms={:.0} spell_us_per_ev={:.1} lag_events={lag_events} lag_ms={lag_ms:.0}",
++        spell.1, spell.0, spell.0 as f64 / 60.0, spell.2, spell.4, spell.3, spell.3 * 1e3 / spell.2.max(1) as f64
++    );
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    use std::sync::atomic::Ordering;
++    println!(
++        "impact_guess: fires={} fallbacks={} window_readouts={} (b583's retired search; 0 fires = the population never runs it)",
++        emergent_universe::step::IMPACT_GUESS_FIRES.load(Ordering::Relaxed),
++        emergent_universe::step::IMPACT_GUESS_FALLBACKS.load(Ordering::Relaxed),
++        emergent_universe::step::IMPACT_WINDOW_READOUTS.load(Ordering::Relaxed)
++    );
+ }
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index fda3b93e..1674b30d 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -123,10 +123,12 @@ pub fn cbrt(x: Scalar) -> Res<Scalar> {
+     Ok(y)
+ }
+ 
+-/// What a source of the doll gives the clock: its semi-major axis and period, in the doll's units.
++/// What a source of the doll gives the clock: its mass, orbit band and period, in the doll's units.
+ struct Source {
+     gm: Scalar,
+     axis: Scalar,
++    peri: Scalar,
++    apo: Scalar,
+     period: Scalar,
+ }
+ 
+@@ -139,9 +141,12 @@ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+     if !den.is_positive() {
+         return Err(Error::Refused("a source on an unbound orbit"));
+     }
+-    Ok(Source { gm: ctx.info[j].gm, axis: b.to_doll(key.periapsis.mul(k)?.div(den)?)?, period: b.to_doll(c.period()?)? })
++    let peri = b.to_doll(key.periapsis)?;
++    let axis = peri.mul(k)?.div(den)?;
++    Ok(Source { gm: ctx.info[j].gm, peri, apo: axis.add(axis)?.sub(peri)?, axis, period: b.to_doll(c.period()?)? })
+ }
+ 
++
+ /// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(Δs, c, b)`.
+ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) -> Res<(Scalar, Scalar, Scalar)> {
+     let host = ctx.dolls[d as usize].unit.mu;
+@@ -164,3 +169,37 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) ->
+     let ds = period.scale(-kicks_log2)?.div(fprime(c, b)?)?;
+     Ok((Scalar::power_of_two(log2_floor(ds) as i16), c, b))
+ }
++
++/// The bulk regime's clearance from a source's band, in that source's Hill radii (lab run
++/// 20261016-2229-...-98cb): a body whose orbit stays this far from every source's band never makes a
++/// deep passage, so 7f97's measured bulk cadence (16 kicks per perturbation period, `step_log2 − 3`)
++/// serves it; inside it the shipped cadence stays (B13's deep passages need ≥ 128).
++pub const BULK_HILL: i64 = 4;
++
++/// Whether a clock body of doll `d` with the orbit band `[peri, apo]` (doll units) is in the bulk
++/// regime: from constants only (the sources' bands and Hill radii at `t`), never the state. `false`
++/// on any doubt (an unbound body, a pruned source): the shipped cadence is the safe side.
++pub fn bulk_regime(ctx: &Ctx, d: u16, t: Tick, except: usize, peri: Scalar, apo: Scalar) -> Res<bool> {
++    let host = ctx.dolls[d as usize].unit.mu;
++    let mut bulk = true;
++    for &j in &ctx.sources[d as usize] {
++        if j == except {
++            continue;
++        }
++        let s = source(ctx, j, t)?;
++        // The bands' gap: zero when they overlap.
++        let gap = if peri.sub(s.apo)?.is_positive() {
++            peri.sub(s.apo)?
++        } else if s.peri.sub(apo)?.is_positive() {
++            s.peri.sub(apo)?
++        } else {
++            Scalar::ZERO
++        };
++        let hill = s.axis.mul(cbrt(s.gm.div(host.mul(Scalar::integer(3))?)?)?)?;
++        let clear = hill.mul(Scalar::integer(BULK_HILL))?;
++        if !gap.sub(clear)?.is_positive() {
++            bulk = false;
++        }
++    }
++    Ok(bulk)
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..5079d1be 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -44,6 +44,7 @@ use emergent_space::{
+     binding::{IntegerState, Trajectory},
+     orbit::Scalar,
+ };
++use std::sync::atomic::{AtomicU64, Ordering};
+ use std::sync::Arc;
+ 
+ pub const MIN_STEP: i64 = 2 * 64;
+@@ -117,6 +118,36 @@ pub fn aligned(step: i64, t: Tick) -> i64 {
+     }
+ }
+ 
++/// Whether the genesis stagger is on (lab run 20261015-1338-...-f82a, composed for
++/// 20261016-2229-second-20261016-2138-fermi-e7ef-98cb): see [`Work::plan_clock`]. Read once; off by
++/// default, so the shipped tree is bit-identical without it.
++fn stagger_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("STAGGER_GENESIS").is_ok_and(|v| v != "0"));
++    *ON
++}
++
++/// The offset of a body's first clock begin: `splitmix64(id) mod span`, a fixed constant of the body.
++fn genesis_stagger(i: usize, span: u64) -> u64 {
++    if !stagger_on() || span == 0 {
++        return 0;
++    }
++    let mut z = (i as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    z ^= z >> 31;
++    z % span
++}
++
++/// Whether the regime split of the clock's cadence is on (lab run 20261016-2229-...-98cb): the bulk
++/// gets an 8× coarser `Δs` (7f97's measured split, `step_log2 − 3`) when the body's regime — from
++/// constants only, never the state — is the bulk ([`crate::ext::bulk_regime`]). Off by default.
++fn belt_split_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("BELT_SPLIT").is_ok_and(|v| v != "0"));
++    *ON
++}
++
+ /// The kind of an item, the third part of its canonical key (tick, body, kind): a kick before an impact before
+ /// an open before the boundary, and a scheduled decision after all of them at its tick.
+ fn rank(w: What) -> u8 {
+@@ -254,7 +285,16 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+ }
+ 
+ /// The tick of the tube's next periapsis passage at or after `after`, if it has one.
+-fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
++pub fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
++    Ok(periapsis_epoch(b, after)?
++        .map(|at| i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis")))
++        .transpose()?)
++}
++
++/// The tube's next periapsis at or after `after` as the doll's time, unrounded: the epoch every
++/// mirror around a periapsis must use (`next_periapsis` is its ceiling, and a rounded epoch
++/// moves a mirrored crossing by up to a tick).
++fn periapsis_epoch(b: &Binding, after: Tick) -> Res<Option<Scalar>> {
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+     let at = match &b.entry.trajectory {
+@@ -272,7 +312,7 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+             peri
+         }
+     };
+-    Ok(Some(i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis"))?))
++    Ok(Some(at))
+ }
+ 
+ /// The impact the tube holds: the first tick at or after `after` where it is below `surface` (the doll's units). That is
+@@ -282,6 +322,15 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// found by bisection on that branch: the answer is the same however far ahead it is. None when the periapsis is above the
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
++///
++/// The trajectory already holds this question's inverse ([`Trajectory::at_radius`]: a knot lookup and
++/// one partial quadrature, exact): the outbound crossing's offset from the periapsis, mirrored to the
++/// inbound fall this bracket covers around the unrounded periapsis epoch. The predicate reads the
++/// turned tube plus its integer offset, so the readout's crossing sits within
++/// `‖offset‖ + a few quanta` of `|dr/dt|` per tick of the tube's — both closed-form — and that whole
++/// window is verified against the predicate itself, exactly as `next_exit` verifies its passage
++/// guess: the answer is the bisection's answer whatever the guess does, and the bisection stays as
++/// the fallback.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
+@@ -306,6 +355,46 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     if !inside(hi)? {
+         return Ok(None);
+     }
++    // The structural guess: the tube's own crossing, mirrored. `g` is the first tick at or after
++    // the tube's crossing (the mirror is exact in the integer law); the readout's crossing lies
++    // within `window` ticks either side (the offset's reach over the fall speed, both known), so
++    // the walk verifies `g, g±1, …, g±window` against the predicate and accepts the first tick
++    // that is inside with its predecessor outside — the bisection's answer, by the branch's
++    // monotonicity. Nothing outside the window is trusted: a miss falls through to the bisection.
++    if std::env::var("IMPACT_GUESS").map_or(true, |v| v != "0") {
++    if let (Some(peri), Some((off, at))) = (
++        periapsis_epoch(b, after)?,
++        b.entry.unit.to_tube(surface).ok().and_then(|r| b.entry.trajectory.at_radius(r).ok()),
++    ) {
++        let guess = b.to_doll(off).ok().and_then(|off| peri.sub(off).ok()).and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok()).and_then(|t| i64::try_from(t).ok());
++        if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
++            if let Some(k) = crossing_window(b, &at) {
++                let (mut reads, mut hit) = (0u32, None);
++                'walk: for d in 0..=k {
++                    for t in [Some(g + d), (d > 0).then_some(g - d)].into_iter().flatten() {
++                        if t <= lo || t > hi {
++                            continue;
++                        }
++                        reads += 1;
++                        if inside(t)? {
++                            reads += 1;
++                            if !inside(t - 1)? {
++                                hit = Some(t);
++                                break 'walk;
++                            }
++                        }
++                    }
++                }
++                IMPACT_WINDOW_READOUTS.fetch_add(reads as u64, Ordering::Relaxed);
++                if let Some(t) = hit {
++                    IMPACT_GUESS_FIRES.fetch_add(1, Ordering::Relaxed);
++                    return Ok(Some(t));
++                }
++                IMPACT_GUESS_FALLBACKS.fetch_add(1, Ordering::Relaxed);
++            }
++        }
++    }
++    }
+     while hi - lo > 1 {
+         let mid = lo + (hi - lo) / 2;
+         if inside(mid)? {
+@@ -317,6 +406,28 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     Ok(Some(hi))
+ }
+ 
++/// The crash search's structural guess, instrumented for the bench and the kick replay: how often
++/// the verified window answered (fires), how often it missed and the bisection ran (fallbacks),
++/// and the readouts the window spent. Counters only; never an outcome.
++pub static IMPACT_GUESS_FIRES: AtomicU64 = AtomicU64::new(0);
++pub static IMPACT_GUESS_FALLBACKS: AtomicU64 = AtomicU64::new(0);
++pub static IMPACT_WINDOW_READOUTS: AtomicU64 = AtomicU64::new(0);
++
++/// How many ticks either side of the tube's crossing the readout's crossing can sit: the integer
++/// offset's L1 reach (an upper bound on its radial effect) plus the turn's few quanta, over the
++/// crossing's closed-form fall speed `|dr/dt|` per tick, capped where a grazing fall would make
++/// the walk dearer than the bisection it saves.
++fn crossing_window(b: &Binding, at: &emergent_space::orbit::OrbitState) -> Option<i64> {
++    const CAP: i64 = 8;
++    let reach = (b.residual.position[0].unsigned_abs() + b.residual.position[1].unsigned_abs()).saturating_add(8);
++    let reach = Scalar::raw(reach.min(i64::MAX as u128) as i128, b.units.0 as i32).ok()?;
++    let fall = b.to_doll(at.radial_velocity).ok()?.abs().mul(time_of(1, b.clock_exp).ok()?).ok()?;
++    if fall.is_zero() {
++        return None;
++    }
++    Some((reach.div(fall).ok()?.fixed_ceil(0).ok()? as i64).saturating_add(1).min(CAP))
++}
++
+ /// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
+ /// and `t`: a clock reads its tube's length. `shift` is the doll's clock exponent.
+ pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar> {
+@@ -622,12 +733,16 @@ impl Work<'_, '_> {
+ 
+     /// Begin (or begin again, after a decision or a handoff) the clock at tick `t`, where the state is synchronised: the
+     /// constants of the clock are derived if the body has none, the register is projected onto `K = 0`, and the first kick
+-    /// is planned at the middle of the first step.
++    /// is planned at the middle of the first step. The cadence exponent is the shipped `step_log2`, or 8× coarser for a
++    /// body in the bulk regime when `BELT_SPLIT` is set; a body's *first* begin is staggered by a hash of its id when
++    /// `STAGGER_GENESIS` is set (both off by default: the shipped tree is bit-identical without them).
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
+-        if self.rec.ext.is_none() {
++        let first = self.rec.ext.is_none();
++        if first {
+             let st = self.rec.b.readout(t)?;
+-            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
++            let kicks_log2 = if belt_split_on() { self.kicks_log2_for()? } else { self.ctx.cfg.step_log2 };
++            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, kicks_log2)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
+@@ -642,6 +757,13 @@ impl Work<'_, '_> {
+         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+             half = half.min((self.thrust_step(t)? / 2).max(1));
+         }
++        // The genesis stagger (f82a): every clock of a population begins at the same tick, so the first kicks of the
++        // whole belt land in one window (the standing wave train, 3294). A body's *first* clock begin shifts its first
++        // kick by a fixed hash of its id, spread over one interval: constants-only, no state feedback. It moves kick
++        // ticks, so it changes digests; later re-begins (decisions, handoffs, refusals) are untouched.
++        if first && half > 0 {
++            half += genesis_stagger(self.i, 2 * half as u64) as Tick;
++        }
+         self.rec.ext = Some(ext);
+         self.rec.plan.clear();
+         self.rec.anchor = t;
+@@ -653,6 +775,28 @@ impl Work<'_, '_> {
+         self.plan_terminal(t)
+     }
+ 
++    /// The kicks-per-period exponent this body uses under `BELT_SPLIT`: the shipped `step_log2`, or
++    /// 8× coarser for the bulk — a body whose orbit stays clear of every source's band by
++    /// [`crate::ext::BULK_HILL`] Hill radii, from constants only. Any doubt keeps the shipped cadence.
++    fn kicks_log2_for(&self) -> Res<i32> {
++        let bulk = match self.rec.b.entry.trajectory.key() {
++            Some(key) => {
++                let k = key.shape()?;
++                let den = k.scale(1)?.sub(Scalar::ONE)?;
++                if den.is_positive() {
++                    let peri = self.rec.b.to_doll(key.periapsis)?;
++                    let axis = peri.mul(k)?.div(den)?;
++                    let apo = axis.add(axis)?.sub(peri)?;
++                    Some(crate::ext::bulk_regime(self.ctx, self.rec.b.doll, self.rec.b.event_time, self.i, peri, apo)?)
++                } else {
++                    None
++                }
++            }
++            None => None,
++        };
++        Ok(if bulk == Some(true) { self.ctx.cfg.step_log2 - 3 } else { self.ctx.cfg.step_log2 })
++    }
++
+     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {

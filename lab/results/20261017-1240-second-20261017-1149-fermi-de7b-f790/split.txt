@@ -1,0 +1,4 @@
+combs: n=10000 (belt 9700) rtf=24000 scan=160000 end=460000 step_log2=7 seed=1 build_s=0.5 | genesis belt plans: kick items 9700, boundary items 0, other 0; h p50 112565 p01 107003 p99 115784 game-s; h<60k 0 h>=60k 9700
+combs: scan at 160400 game-s: belt plans 9700 welded pairs (0 kick-only, 0 other) of 9700 | B/2h: p50 1.0000 p01 0.9992 p99 1.0005 | (K−B)/h: p50 1.0000 p01 0.9985 p99 1.0010 | interval/2h: p50 1.0000 p01 0.9985 p99 1.0010 | (B mod iv)/iv: p50 0.0003 p99 0.0008
+combs: end at 460400 game-s (true) | window 300000 gs: kicks 463784 boundaries 472847 opens 0, boundaries/kicks 1.0195 | belt fired events per body: p50 4.00 p01 3 p99 4; dead 0
+combs: ladder: n=10000 step_log2=7 rtf=24000 game_end=460400 h_p50=112565 pairs=9700 kick_only=0 other=0 B2h_p50=1.0000 kmBh_p50=1.0000 iv2h_p50=1.0000 bmod_p50=0.0003 b_per_k=1.0195 belt_ev_p50=4.00 dead=0 ok=true
