@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261017-2142-redteam-e59e/`: `predictions.md` (pre-registered, 7/7 held), `falsifier.py` (0.2 s), `evidence.json`, `dossier.md`, `regen.sh` (verified), `wiki/representation-premises.md`.
+
+**Claim:** `docs/representation.md` §2's observable set for the view omits opacity entirely — no capture rule, no occluder test — so as specified and as shipped (`view.rs`, "no lensing yet") the player sees stars through black holes (25.0% of the sky fabricated at r_o = 6 M, 2,500 of 10⁴ rows; 46.6% at 3.2 M) and through planets (16.7% of the sky, 1,667 of 10⁴ rows, at every 2-radii approach), a load-bearing observable Julien's own conversation names six times ("eclipse status unchanged"; "check whether that null segment intersects the worldtube of an occluding planet"), dropped by the design without a recorded decision, and invisible to every rung — r6's presence criterion actively requires the rows occlusion must remove.
