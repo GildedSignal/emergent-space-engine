@@ -1,0 +1,274 @@
+diff --git a/crates/universe/examples/stagger_legality.rs b/crates/universe/examples/stagger_legality.rs
+new file mode 100644
+index 00000000..2d121d03
+--- /dev/null
++++ b/crates/universe/examples/stagger_legality.rs
+@@ -0,0 +1,198 @@
++//! The birth stagger's legality, v2 (lab runs 20261017-1829-taleb-75d6 + 20261017-1918-second-...-d5c3): does the
++//! stagger change the law's error CLASS on the belt? v1 measured ed3a's `ES_STAGGER` (the first kick offset by a
++//! uniform id-derived fraction of one step, weight and interval unchanged) against a ref8 ladder read at each arm's
++//! OWN horizon tick — the checker showed that readout carries a phase artifact (the stagger moves `t_wave_end`, the
++//! quantity that set the tick) and that ref8 shares tick-0 anchoring with the off arm. v2 fixes the instrument and
++//! runs the missing arm:
++//!   - every arm reads at the SAME absolute ticks, passed explicitly (`at:T1,T2`), from the off arm's base;
++//!   - the finest ladder is ref9 (`step_log2 = 9`, 4x the kicks), ref8 kept for the ladder line;
++//!   - `sym` = `ES_STAGGER_SYM`: the symmetric clock start (the whole clock begins at `t + off`, so the first
++//!     interval [t+off, t+off+2·half) is split exactly at its midpoint; the tube drifts free until then). Its kick
++//!     grid is ed3a's (first kick at `half + off`); only the first step's split differs. The `lead` column shows it:
++//!     at the first rebind, off/sym lead = half, ed3a's on lead = half + off.
++//! Arms: off (shipped) | on (ES_STAGGER) | sym (ES_STAGGER_SYM) | ref8 | ref9 | base (prints the common horizon
++//! base: t_wave_end of the OFF arm and the shortest birth period; no settling).
++//!   cargo run --release -p emergent-universe --example stagger_legality -- <arm> <seed> <n> <at:T1,T2 | m1,m2>
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::to_f64;
++use emergent_universe::scenario::{ladder_ship, PlanetSpec, STAR_RADIUS};
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++use std::io::Write;
++
++fn die(msg: &str) -> ! {
++    eprintln!("stagger_legality: {msg}");
++    std::process::exit(2);
++}
++
++fn key_of(u: &Universe, i: usize) -> (f64, u64, i16, u32) {
++    let b = &u.rec(i).b;
++    let k = match b.entry.trajectory.key() {
++        Some(k) => k,
++        None => die(&format!("body {i} has no bounded key")),
++    };
++    (to_f64(k.periapsis), k.k, k.k_exponent, b.tube.periapsis_angle)
++}
++
++/// The radial period in ticks (doll time -> ticks through `to_doll`).
++fn period_ticks(u: &Universe, i: usize) -> f64 {
++    let b = &u.rec(i).b;
++    let per = match &b.entry.trajectory {
++        Trajectory::Cycle(c) => c.period().unwrap_or_else(|e| die(&format!("period: {e:?}"))),
++        _ => die(&format!("body {i} not a cycle")),
++    };
++    to_f64(b.to_doll(per).unwrap_or_else(|e| die(&format!("to_doll: {e:?}"))))
++}
++
++struct Ctx {
++    arm: String,
++    seed: u64,
++    belt: Vec<usize>,
++    firsts: Vec<i64>,
++    periods: Vec<f64>,
++}
++
++
++fn snap(u: &Universe, c: &Ctx, h: usize, tick: i64, w: &mut dyn Write) {
++    for (j, &i) in c.belt.iter().enumerate() {
++        let r = u.rec(i);
++        let (p, k, ke, ang) = key_of(u, i);
++        writeln!(
++            w,
++            "{},{},{},{},{},{},{},{},{},{},{:.3},{:.17e},{},{},{},{},{}",
++            c.arm,
++            c.seed,
++            i,
++            h,
++            tick,
++            r.alive as u8,
++            r.refusals,
++            r.events,
++            r.step,
++            c.firsts[j],
++            c.periods[j],
++            p,
++            k,
++            ke,
++            ang,
++            r.b.event_time,
++            r.b.kick.lead
++        )
++        .unwrap();
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let arm = args.get(1).cloned().unwrap_or_else(|| die("arm: off|on|sym|ref8|ref9|base"));
++    let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let n: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(128);
++    let es = std::env::var_os("ES_STAGGER").is_some();
++    let sy = std::env::var_os("ES_STAGGER_SYM").is_some();
++    if es && sy {
++        die("ES_STAGGER and ES_STAGGER_SYM are both set (the arms are exclusive)");
++    }
++    match arm.as_str() {
++        "on" if !es => die("arm=on but ES_STAGGER is not set (the arm would silently be off)"),
++        "sym" if !sy => die("arm=sym but ES_STAGGER_SYM is not set"),
++        "off" | "ref8" | "ref9" | "base" if es || sy => die("a stagger gate is set but the arm does not use it"),
++        _ => {}
++    }
++    // The horizon list: `at:T1,T2` = absolute ticks identical across arms (the v2 fix; v1 read each arm at its
++    // own `t_wave_end + m·p_min`, a tick the stagger moves by design — the checker's readout artifact).
++    let horizons: Vec<i64> = match args.get(4) {
++        Some(s) if s.starts_with("at:") => s[3..].split(',').filter_map(|m| m.parse().ok()).collect(),
++        _ if arm == "base" => Vec::new(),
++        _ => die("v2 requires at:T1,... (the common absolute readout tick)"),
++    };
++    let step_log2 = match arm.as_str() {
++        "ref8" => 8,
++        "ref9" => 9,
++        _ => Config::default().step_log2,
++    };
++    let t0 = std::time::Instant::now();
++    let cfg = Config { step_log2, ..Config::default() };
++    let mut u = Universe::new(Scalar::raw(STAR_RADIUS as i128, 0).unwrap_or_else(|_| die("radius")), cfg);
++    // The plane's own planets, verbatim (scenario::PLANETS): Cinder sets the doll's shortest secondary,
++    // so the belt's ds is the plane's ds.
++    let spec_of = |p: &PlanetSpec| OrbitSpec {
++        doll: 0,
++        periapsis: Scalar::raw(p.periapsis as i128, 0).unwrap_or_else(|_| die("periapsis")),
++        e_q48: p.e_q48,
++        clockwise: false,
++        angle: p.angle,
++        phase: p.phase,
++    };
++    let mut planets = Vec::new();
++    for p in emergent_universe::scenario::PLANETS.iter() {
++        let b = u
++            .add_body(Kind::Planet, spec_of(p), Scalar::ZERO)
++            .unwrap_or_else(|e| die(&format!("planet: {e:?}")));
++        let surface = Scalar::raw(p.radius as i128, -p.mass_log2).unwrap_or_else(|_| die("surface"));
++        u.add_doll(p.name, b, p.mass_log2, surface)
++            .unwrap_or_else(|e| die(&format!("doll: {e:?}")));
++        planets.push(b);
++    }
++    // The belt: ladder_ship k in [n, 2n) of extra = 2n (the ladder's belt lane; home_doll unused there).
++    let mut belt = Vec::new();
++    for k in n..2 * n {
++        let (spec, radius) = ladder_ship(seed, k, 2 * n, 1).unwrap_or_else(|e| die(&format!("ladder_ship: {e:?}")));
++        belt.push(u.add_body(Kind::Ship, spec, radius).unwrap_or_else(|e| die(&format!("ship: {e:?}"))));
++    }
++    u.start().unwrap_or_else(|e| die(&format!("start: {e:?}")));
++    let build_ms = t0.elapsed().as_millis();
++    // The wave (per arm) and the shortest belt period (from the birth keys, shared by all arms).
++    let firsts: Vec<i64> = belt
++        .iter()
++        .map(|&i| u.rec(i).plan.iter().map(|it| it.t).min().unwrap_or(i64::MAX))
++        .collect();
++    let t_wave_end = *firsts.iter().max().unwrap();
++    let mut sorted = firsts.clone();
++    sorted.sort_unstable();
++    let periods: Vec<f64> = belt.iter().map(|&i| period_ticks(&u, i)).collect();
++    let p_min = periods.iter().cloned().fold(f64::INFINITY, f64::min);
++    println!(
++        "# arm={arm} seed={seed} n={n} step_log2={step_log2} stagger_env={es} stagger_sym_env={sy} build_ms={build_ms} bodies={}",
++        u.n_bodies()
++    );
++    println!(
++        "# first_kick_ticks min={} p50={} max={} width={}",
++        sorted[0],
++        sorted[sorted.len() / 2],
++        *sorted.last().unwrap(),
++        t_wave_end - sorted[0]
++    );
++    println!("# p_min_ticks={p_min:.0} horizon_base={t_wave_end}");
++    if arm == "base" {
++        // The common base for every arm's horizons: the OFF arm's wave end (no offset in it) and the shared
++        // shortest birth period. regen.sh turns this into at:T1,T2 for all arms of the seed.
++        println!("# BASE t_wave_end={t_wave_end} p_min={p_min:.17e}");
++        return;
++    }
++    let c = Ctx { arm: arm.clone(), seed, belt, firsts, periods };
++    let mut w = std::io::BufWriter::new(std::io::stdout().lock());
++    writeln!(w, "arm,seed,body,horizon,tick,alive,refusals,events,step_ticks,first_kick,period_ticks,periapsis_f64,k48,k_exp,angle32,event_time,lead").unwrap();
++    snap(&u, &c, 0, 0, &mut w);
++    for (h, &t_h) in horizons.iter().enumerate() {
++        let ts = std::time::Instant::now();
++        u.settle(t_h);
++        let ms = ts.elapsed().as_millis();
++        let st = &u.stats;
++        // Everything stdout goes through the one writer: an unbuffered println! next to the
++        // BufWriter interleaves mid-row at a buffer boundary (it corrupted rows before).
++        writeln!(
++            w,
++            "# horizon {} tick={} settle_ms={} events={} kicks={} digest={}",
++            h + 1, t_h, ms, st.events(), st.kicks, u.digest()
++        )
++        .unwrap();
++        snap(&u, &c, h + 1, t_h, &mut w);
++        if h == 0 {
++            for (name, &i) in emergent_universe::scenario::PLANETS.iter().map(|p| p.name).zip(planets.iter()) {
++                let (p, k, ke, ang) = key_of(&u, i);
++                writeln!(w, "# planet {name}: periapsis={p:.17e} k48={k} k_exp={ke} angle={ang}").unwrap();
++            }
++        }
++    }
++    let _ = w.flush();
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..2453e5ac 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -133,6 +133,16 @@ pub(crate) fn insert(plan: &mut Vec<Item>, it: Item) {
+     plan.insert(at, it);
+ }
+ 
++/// The birth stagger's offset (lab run 20261015-0128-fermi-ed3a): a uniform id-derived fraction of one step
++/// `2·half`, by the splitmix64 finalizer — a pure function of the body's id (no new state). Both gates
++/// (`ES_STAGGER`, `ES_STAGGER_SYM`) draw the same offset for a body; what differs is what the clock does with it.
++fn stagger_off(i: usize, step: i64) -> i64 {
++    let mut z = (i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    (((z ^ (z >> 31)) >> 33) as u128 * step as u128 >> 31) as i64
++}
++
+ /// Sigma-delta: add `dv` (scalars, velocity units) to the carry in `2^-16` of the quantum `2^exp`,
+ /// return the whole quanta to apply and the new carry.
+ fn quantize(dv: V2, exp: i16, carry: [i64; 2]) -> Res<([i64; 2], [i64; 2])> {
+@@ -624,6 +634,28 @@ impl Work<'_, '_> {
+     /// constants of the clock are derived if the body has none, the register is projected onto `K = 0`, and the first kick
+     /// is planned at the middle of the first step.
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
++        // ES_STAGGER_SYM (lab run 20261017-1918-second-20261017-1829-taleb-75d6-d5c3, default unset = shipped
++        // verbatim): the SYMMETRIC birth stagger. The offset draw is the same uniform id-derived fraction of one
++        // step ES_STAGGER uses — scaled by the step the clock derives at `t`, so both arms share the offset and
++        // the shifted kick grid — but the whole clock then starts at `t + off`: the constants, the projection,
++        // the step and its midpoint kick are all re-derived there, so the first interval [t+off, t+off+2·half)
++        // is split exactly at its midpoint and the tube drifts free until `t + off` (a reader before it reads
++        // the tube alone: `lead = 0`). ES_STAGGER instead fires that same first kick off a clock anchored at
++        // `t`: its first half-drift is `half + off` long against a step of `2·half` — the one asymmetry.
++        if t == 0
++            && self.rec.kind == crate::body::Kind::Ship
++            && std::env::var_os("ES_STAGGER_SYM").is_some()
++            && std::env::var_os("ES_STAGGER").is_none()
++        {
++            self.plan_clock_at(t)?;
++            let off = stagger_off(self.i, self.rec.step);
++            self.rec.ext = None;
++            return self.plan_clock_at(t + off);
++        }
++        self.plan_clock_at(t)
++    }
++
++    fn plan_clock_at(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
+         if self.rec.ext.is_none() {
+             let st = self.rec.b.readout(t)?;
+@@ -649,7 +681,18 @@ impl Work<'_, '_> {
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+         self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
+-        insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
++        // ES_STAGGER (lab run 20261015-0128-fermi-ed3a, default unset = shipped verbatim): stagger the birth grid of
++        // the root doll's ships over one step, so the first-kick wave arrives spread (bf21's generation choice). The
++        // offset is a pure function of the body's id (no new state); the kick's weight is unchanged, only its time.
++        let off = if t == 0
++            && self.rec.kind == crate::body::Kind::Ship
++            && std::env::var_os("ES_STAGGER").is_some()
++        {
++            stagger_off(self.i, 2 * half)
++        } else {
++            0
++        };
++        insert(&mut self.rec.plan, Item { t: t + half + off, what: What::Kick(0) });
+         self.plan_terminal(t)
+     }
+ 
