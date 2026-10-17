@@ -1,0 +1,216 @@
+diff --git a/crates/universe/examples/stagger_legality.rs b/crates/universe/examples/stagger_legality.rs
+new file mode 100644
+index 00000000..c91d1c3d
+--- /dev/null
++++ b/crates/universe/examples/stagger_legality.rs
+@@ -0,0 +1,183 @@
++//! The birth stagger's legality (lab run 20261017-1829-taleb-75d6): does the stagger (ed3a's `ES_STAGGER`:
++//! a root-doll ship's first kick offset by a uniform id-derived fraction of one step) change the law's error
++//! CLASS on the belt, or only redistribute the bounded sampling offset the shipped cadence already has
++//! (ad35: systematic ~0.5·n^-2.1, not noise)? Lean scene — the star, the three planets, and n belt ships drawn
++//! by `ladder_ship` (k in [n, 2n) of extra = 2n: the ladder's own belt population; no fleet, no locals, no
++//! player) — so a whole belt ORBIT is affordable. Arms:
++//!   off  shipped bits (`ES_STAGGER` unset in the environment);
++//!   on   `ES_STAGGER` set (the patch must be applied; a pristine build ignores it — the probe checks and exits);
++//!   ref  shipped bits at `Config::step_log2 = 8` (2x the kicks: the converged reference of the same law).
++//!
++//! Horizons: past the last first kick, then `mult` x the shortest belt period, each resolved by `settle`
++//! (the canonical cut). Per body and horizon the tube's exact key is printed — k (mantissa of 1/(1+e), a u64),
++//! the periapsis angle (Q32 turns, a u32), the periapsis distance (an exact dyadic Scalar; printed as f64 with
++//! 17 digits) — plus alive/refusals/events, the current step, the body's first-kick tick and birth period.
++//! The universe digest and the planets' keys are printed per horizon (controls: planets identical off vs on;
++//! off identical to a pristine build's off, checked by regen.sh out-of-band).
++//!
++//! cargo run --release -p emergent-universe --example stagger_legality -- <off|on|ref> <seed> <n> <mults> ; env ES_STAGGER=1 for on
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::to_f64;
++use emergent_universe::scenario::{ladder_ship, PlanetSpec, STAR_RADIUS};
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++use std::io::Write;
++
++fn die(msg: &str) -> ! {
++    eprintln!("stagger_legality: {msg}");
++    std::process::exit(2);
++}
++
++fn key_of(u: &Universe, i: usize) -> (f64, u64, i16, u32) {
++    let b = &u.rec(i).b;
++    let k = match b.entry.trajectory.key() {
++        Some(k) => k,
++        None => die(&format!("body {i} has no bounded key")),
++    };
++    (to_f64(k.periapsis), k.k, k.k_exponent, b.tube.periapsis_angle)
++}
++
++/// The radial period in ticks (doll time -> ticks through `to_doll`).
++fn period_ticks(u: &Universe, i: usize) -> f64 {
++    let b = &u.rec(i).b;
++    let per = match &b.entry.trajectory {
++        Trajectory::Cycle(c) => c.period().unwrap_or_else(|e| die(&format!("period: {e:?}"))),
++        _ => die(&format!("body {i} not a cycle")),
++    };
++    to_f64(b.to_doll(per).unwrap_or_else(|e| die(&format!("to_doll: {e:?}"))))
++}
++
++struct Ctx {
++    arm: String,
++    seed: u64,
++    belt: Vec<usize>,
++    firsts: Vec<i64>,
++    periods: Vec<f64>,
++}
++
++fn snap(u: &Universe, c: &Ctx, h: usize, tick: i64, w: &mut dyn Write) {
++    for (j, &i) in c.belt.iter().enumerate() {
++        let r = u.rec(i);
++        let (p, k, ke, ang) = key_of(u, i);
++        writeln!(
++            w,
++            "{},{},{},{},{},{},{},{},{},{},{:.3},{:.17e},{},{},{},{}",
++            c.arm,
++            c.seed,
++            i,
++            h,
++            tick,
++            r.alive as u8,
++            r.refusals,
++            r.events,
++            r.step,
++            c.firsts[j],
++            c.periods[j],
++            p,
++            k,
++            ke,
++            ang,
++            r.b.event_time
++        )
++        .unwrap();
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let arm = args.get(1).cloned().unwrap_or_else(|| die("arm: off|on|ref"));
++    let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let n: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(128);
++    let mults: Vec<f64> = args
++        .get(4)
++        .map(|s| s.split(',').filter_map(|m| m.parse().ok()).collect())
++        .unwrap_or(vec![1.0, 2.0]);
++    let stagger_env = std::env::var_os("ES_STAGGER").is_some();
++    if arm == "on" && !stagger_env {
++        die("arm=on but ES_STAGGER is not set (pristine build: the arm would silently be off)");
++    }
++    let t0 = std::time::Instant::now();
++    if arm != "on" && stagger_env {
++        die("ES_STAGGER is set but arm is not on");
++    }
++    let cfg = if arm == "ref" { Config { step_log2: 8, ..Config::default() } } else { Config::default() };
++    let mut u = Universe::new(Scalar::raw(STAR_RADIUS as i128, 0).unwrap_or_else(|_| die("radius")), cfg);
++    // The plane's own planets, verbatim (scenario::PLANETS): Cinder sets the doll's shortest secondary,
++    // so the belt's ds is the plane's ds.
++    let spec_of = |p: &PlanetSpec| OrbitSpec {
++        doll: 0,
++        periapsis: Scalar::raw(p.periapsis as i128, 0).unwrap_or_else(|_| die("periapsis")),
++        e_q48: p.e_q48,
++        clockwise: false,
++        angle: p.angle,
++        phase: p.phase,
++    };
++    let mut planets = Vec::new();
++    for p in emergent_universe::scenario::PLANETS.iter() {
++        let b = u
++            .add_body(Kind::Planet, spec_of(p), Scalar::ZERO)
++            .unwrap_or_else(|e| die(&format!("planet: {e:?}")));
++        let surface = Scalar::raw(p.radius as i128, -p.mass_log2).unwrap_or_else(|_| die("surface"));
++        u.add_doll(p.name, b, p.mass_log2, surface)
++            .unwrap_or_else(|e| die(&format!("doll: {e:?}")));
++        planets.push(b);
++    }
++    // The belt: ladder_ship k in [n, 2n) of extra = 2n (the ladder's belt lane; home_doll unused there).
++    let mut belt = Vec::new();
++    for k in n..2 * n {
++        let (spec, radius) = ladder_ship(seed, k, 2 * n, 1).unwrap_or_else(|e| die(&format!("ladder_ship: {e:?}")));
++        belt.push(u.add_body(Kind::Ship, spec, radius).unwrap_or_else(|e| die(&format!("ship: {e:?}"))));
++    }
++    u.start().unwrap_or_else(|e| die(&format!("start: {e:?}")));
++    let build_ms = t0.elapsed().as_millis();
++    // The wave (per arm) and the shortest belt period (from the birth keys, shared by all arms).
++    let firsts: Vec<i64> = belt
++        .iter()
++        .map(|&i| u.rec(i).plan.iter().map(|it| it.t).min().unwrap_or(i64::MAX))
++        .collect();
++    let t_wave_end = *firsts.iter().max().unwrap();
++    let mut sorted = firsts.clone();
++    sorted.sort_unstable();
++    let periods: Vec<f64> = belt.iter().map(|&i| period_ticks(&u, i)).collect();
++    let p_min = periods.iter().cloned().fold(f64::INFINITY, f64::min);
++    let c = Ctx { arm: arm.clone(), seed, belt, firsts, periods };
++    println!(
++        "# arm={arm} seed={seed} n={n} step_log2={} stagger_env={stagger_env} build_ms={build_ms} bodies={}",
++        cfg.step_log2,
++        u.n_bodies()
++    );
++    println!(
++        "# first_kick_ticks min={} p50={} max={} width={}",
++        sorted[0],
++        sorted[sorted.len() / 2],
++        *sorted.last().unwrap(),
++        t_wave_end - sorted[0]
++    );
++    println!("# p_min_ticks={p_min:.0} horizon_base={t_wave_end}");
++    let mut w = std::io::BufWriter::new(std::io::stdout().lock());
++    writeln!(w, "arm,seed,body,horizon,tick,alive,refusals,events,step_ticks,first_kick,period_ticks,periapsis_f64,k48,k_exp,angle32,event_time").unwrap();
++    snap(&u, &c, 0, 0, &mut w);
++    for (h, m) in mults.iter().enumerate() {
++        let t_h = (t_wave_end as f64 + m * p_min) as i64;
++        let ts = std::time::Instant::now();
++        u.settle(t_h);
++        let ms = ts.elapsed().as_millis();
++        let st = &u.stats;
++        // Everything stdout goes through the one writer: an unbuffered println! next to the
++        // BufWriter interleaves mid-row at a buffer boundary (it corrupted rows before).
++        writeln!(
++            w,
++            "# horizon {} mult={} tick={} settle_ms={} events={} kicks={} digest={}",
++            h + 1, m, t_h, ms, st.events(), st.kicks, u.digest()
++        )
++        .unwrap();
++        snap(&u, &c, h + 1, t_h, &mut w);
++        if h == 0 {
++            for (name, &i) in emergent_universe::scenario::PLANETS.iter().map(|p| p.name).zip(planets.iter()) {
++                let (p, k, ke, ang) = key_of(&u, i);
++                writeln!(w, "# planet {name}: periapsis={p:.17e} k48={k} k_exp={ke} angle={ang}").unwrap();
++            }
++        }
++    }
++    let _ = w.flush();
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..dde8c3c0 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -649,7 +649,21 @@ impl Work<'_, '_> {
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+         self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
+-        insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
++        // ES_STAGGER (lab run 20261015-0128-fermi-ed3a, default unset = shipped verbatim): stagger the birth grid of
++        // the root doll's ships over one step, so the first-kick wave arrives spread (bf21's generation choice). The
++        // offset is a pure function of the body's id (no new state); the kick's weight is unchanged, only its time.
++        let off = if t == 0
++            && self.rec.kind == crate::body::Kind::Ship
++            && std::env::var_os("ES_STAGGER").is_some()
++        {
++            let mut z = (self.i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
++            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++            (((z ^ (z >> 31)) >> 33) as u128 * (2 * half) as u128 >> 31) as i64
++        } else {
++            0
++        };
++        insert(&mut self.rec.plan, Item { t: t + half + off, what: What::Kick(0) });
+         self.plan_terminal(t)
+     }
+ 

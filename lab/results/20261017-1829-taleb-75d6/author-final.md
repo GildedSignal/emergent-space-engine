@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place: pre-registered predictions, six arm runs, analysis with controls green, regen script, dossier, and the folded wiki page; the tree carries only the ES_STAGGER hunk (ed3a, verbatim) plus the probe, which `run.sh` will snapshot as the patch.
+
+**Claim (one sentence):** The birth stagger as ed3a built it is killed as a birth default on the quiet belt — its offset moves the first kick's time without moving its Strang interval, leaving every belt body a one-time, unbiased, non-compounding element error 15–23× the shipped cadence's own per-orbit band (median |Δln a| 4.0×10⁻⁷ vs 1.7×10⁻⁸ against the same law's converged self, |z| ≤ 1.05, growth slope 0.35 vs 0.41) — so the 10⁹ birth-wave cure survives its first hour only as the named one-line successor: start the whole clock at `t + off`, keeping the wave spread without ever creating the asymmetry.
