@@ -1,0 +1,328 @@
+diff --git a/crates/allocator/examples/finpol.rs b/crates/allocator/examples/finpol.rs
+new file mode 100644
+index 00000000..b7ecd5d7
+--- /dev/null
++++ b/crates/allocator/examples/finpol.rs
+@@ -0,0 +1,123 @@
++//! Adjudicates the wiki conflict on `allocator-ratchet`: is the shipped finality assert
++//! (`alloc.rs:1451`) a property of the frame harness on any *churn* scene (b966:
++//! 14/35 draws at the keeping-up rate, reproduced three windows) or an artifact of one
++//! scene family (5d87: 18/18 frames arms survive on the wave family; batch-only grid
++//! defect)? This instrument separates the two variables the disputed runs confound —
++//! internal velocity spread (split-then-reclash churn) and bulk approach — and adds the
++//! arms neither ran in frames: on-grid chunks, window 32, min_region 32, churn dose.
++//!
++//! Scenes: `selfchurn` (ONE loose gas cluster, internal spread only, no approach),
++//! `crossing` (two churn clusters on perpendicular paths meeting mid-run), `wave`
++//! (zero-spread Pass slabs head-on: a planned merge, no churn — 5d87's class),
++//! `drift` (b966's scene, for continuity). Modes: frames | chunks | batch.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example finpol -- \
++//!         <scene> <mode> [n] [seconds|horizon] [chunk] [rate] [vmax] [seed]
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig, Report};
++use emergent_lattice::{chronon::Chronon, law::{Law, Response, World}, worlds};
++use std::sync::Arc;
++
++fn gas(q: i64, n: u64, vmax: i64, seed: u64, id: u64, off: [i64; 2]) -> World {
++    scenes::loose_gas(n, q, vmax, seed, id, off)
++}
++
++/// Two uniform-velocity Pass slabs closing head-on: they merge where they meet and
++/// nothing ever scatters — bulk motion and a real planned merge with zero churn.
++fn wave(q: i64, n: u64, seed: u64) -> Vec<World> {
++    let v = q / 8;
++    (0..2)
++        .map(|i| {
++            let w = worlds::random(n, 300, q, 1, seed + 50 + i, Response::Pass);
++            let off = if i == 0 { [-120, 0] } else { [120, 0] };
++            let drift = if i == 0 { [v, 0] } else { [-v, 0] };
++            scenes::world(&w, scenes::place(&w, 1_000_000 + 1000 * i as u64, off, 0, 1, drift))
++        })
++        .collect()
++}
++
++fn build(scene: &str, q: i64, n: u64, vmax: i64, seed: u64) -> Vec<World> {
++    match scene {
++        "selfchurn" => vec![gas(q, 2 * n, vmax, seed, 1, [0, 0])],
++        "crossing" => {
++            // Two churn clusters on perpendicular paths meeting near the origin mid-run
++            // (4000 units at q/16 per chronon ≈ chronon 250 per axis).
++            let mk = |seed: u64, id: u64, axis: usize, sign: i64| -> World {
++                let g = gas(q, n, vmax, seed, id, [0, 0]);
++                let mut b = g.bodies.clone();
++                b.iter_mut().for_each(|x| {
++                    x.x[axis] += sign * 4000 * q;
++                    x.k[axis] -= sign * q / 16;
++                });
++                scenes::world(&g, b)
++            };
++            vec![mk(seed, 1, 0, -1), mk(seed + 1, n + 1, 1, -1)]
++        }
++        "wave" => wave(q, n, seed),
++        "drift" => {
++            let speed = q / 8;
++            let mut ws = vec![gas(q, n, vmax, seed, 1, [-140, 0]), gas(q, n, vmax, seed + 1, n + 1, [140, 0])];
++            ws[0].bodies.iter_mut().for_each(|b| b.k[0] += speed);
++            ws[1].bodies.iter_mut().for_each(|b| b.k[0] -= speed);
++            ws
++        }
++        _ => panic!("scene must be selfchurn | crossing | wave | drift"),
++    }
++}
++
++fn row(tag: &str, r: &Report) {
++    println!(
++        "| {tag:<34} | {:>5.1}s | rb {:>3} | merges {:>4} | avoided {:>5} | regions {:>5} | E {:>5.0} | present/s {:>6.1} | frontier {:>5} | wasted {:>7} |",
++        r.wall_seconds, r.regions.rollbacks, r.regions.merges, r.regions.merges_avoided,
++        r.regions.last, r.regions.speed_escalation, r.sim.present_chronons_per_wall_second,
++        r.finality.frontier, r.regions.wasted_ops,
++    );
++}
++
++fn main() {
++    let q = 256i64;
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let scene = a.first().cloned().unwrap_or("selfchurn".into());
++    let mode = a.get(1).cloned().unwrap_or("frames".into());
++    let n: u64 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(120);
++    let hs: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(6.0);
++    let chunk: i64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(128);
++    let rate: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(600.0);
++    let vmax: i64 = a.get(6).and_then(|s| s.parse().ok()).unwrap_or(8);
++    let seed: u64 = a.get(7).and_then(|s| s.parse().ok()).unwrap_or(11);
++    let window: i64 = std::env::var("FINPOL_WINDOW").ok().and_then(|s| s.parse().ok()).unwrap_or(16);
++    let min_region: i64 = std::env::var("FINPOL_MINREGION").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++
++    let ws = scenes::with_law(build(&scene, q, n, vmax, seed), Law::Relativistic);
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let cfg = Config {
++        p_workers: 3, e_workers: 4, min_region: min_region.max(0) as usize, speed_margin: 0.5,
++        window, observer: [0, 0], view_radius: 300 * 256,
++        ..Config::default()
++    };
++    let mut al = Allocator::new(ws, factory, cfg).expect("scene");
++    let tag = format!("{scene}/{mode} n{n} r{rate} v{vmax} s{seed} w{window} m{min_region}");
++    match mode.as_str() {
++        "frames" => {
++            let r = al.run_frames(&FrameConfig { hz: 120.0, seconds: hs, rate, ahead_seconds: 0.25, record: false });
++            row(&tag, &r);
++            let f = r.frames.as_ref().expect("frames report");
++            println!("frames: {} drawn, misses {}, accel drops {}", f.frames, f.deadline_misses, f.acceleration_drops);
++        }
++        "chunks" => {
++            let horizon = hs as i64;
++            let mut tick = 0i64;
++            loop {
++                let next = (tick + chunk).min(horizon);
++                let r = al.run_to(next);
++                println!("chunk->{next}: frontier {}, rb {}, regions {}", r.finality.frontier, r.regions.rollbacks, r.regions.last);
++                tick = next;
++                if tick >= horizon { break; }
++            }
++        }
++        "batch" => {
++            let r = al.run_to(hs as i64);
++            row(&tag, &r);
++        }
++        _ => panic!("mode must be frames | chunks | batch"),
++    }
++}
+diff --git a/crates/allocator/examples/race.rs b/crates/allocator/examples/race.rs
+new file mode 100644
+index 00000000..1d84ec96
+--- /dev/null
++++ b/crates/allocator/examples/race.rs
+@@ -0,0 +1,46 @@
++//! Lab 20261017-1447-dynamics-fd35: the finality race on sustained-overlap churn (four dense
++//! Bounce gases, light-cone finality on; `sabotage` optionally forces rollbacks the shipped
++//! finality tests use), frames harness. One process per arm so a firing assert ends only
++//! that arm. HAZ/PRE/RB/FIRE lines go to stderr (the instrument in alloc.rs); one summary
++//! row to stdout.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example race -- \
++//!         <n-per-cluster> <seed> <min_region> <rate> <seconds> [window] [stride_max] [vmax] [spacing] [sabotage] [ahead]
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig};
++use emergent_lattice::{chronon::Chronon, law::{Law, World}};
++use std::sync::Arc;
++
++fn scene_churn(n: u64, seed: u64, vmax: i64, spacing: i64) -> Vec<World> {
++    // Four dense Bounce gases on a 2x2 grid `spacing` units apart (box side ~65 units at
++    // n = 400): overlap or approach churn; `sabotage` widens forecasts into conflicts.
++    let q = 256;
++    let ws = (0..4u64)
++        .map(|c| scenes::loose_gas(n, q, vmax, seed * 10 + c, c * 1_000_000, [(c as i64 % 2) * spacing, (c as i64 / 2) * spacing]))
++        .collect();
++    scenes::with_law(ws, Law::Relativistic)
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let n: u64 = a.first().unwrap_or(&"400".into()).parse().unwrap();
++    let seed: u64 = a.get(1).unwrap_or(&"11".into()).parse().unwrap();
++    let min_region: usize = a.get(2).unwrap_or(&"1".into()).parse().unwrap();
++    let rate: f64 = a.get(3).unwrap_or(&"900".into()).parse().unwrap();
++    let seconds: f64 = a.get(4).unwrap_or(&"3".into()).parse().unwrap();
++    let window: i64 = a.get(5).unwrap_or(&"16".into()).parse().unwrap();
++    let stride_max: u32 = a.get(6).unwrap_or(&"8".into()).parse().unwrap();
++    let vmax: i64 = a.get(7).unwrap_or(&"64".into()).parse().unwrap();
++    let spacing: i64 = a.get(8).unwrap_or(&"40".into()).parse().unwrap();
++    let sabotage: Option<u64> = a.get(9).and_then(|s| s.parse().ok()).map(|k: u64| k.max(1));
++    let ahead: f64 = a.get(10).unwrap_or(&"0.3".into()).parse().unwrap();
++    let scene = scene_churn(n, seed, vmax, spacing);
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let cfg = Config { min_region, window, stride_max, observer: [0, 0], sabotage, speed_margin: if sabotage.is_some() { 0.0 } else { 1.0 }, ..Config::default() };
++    let mut al = Allocator::new(scene, factory, cfg).expect("scene");
++    let r = al.run_frames(&FrameConfig { hz: 60.0, seconds, rate, ahead_seconds: ahead, record: false });
++    let f = r.frames.as_ref().expect("frames");
++    println!(
++        "SUM n={n} seed={seed} min={min_region} rate={rate} win={window} vmax={vmax} sp={spacing} sab={:?} ahead={ahead} frames={} present/s={:.0} present_end={:.0} rollbacks={} rgn0={} splits={} chr/s={:.0}",
++        sabotage, f.frames, r.sim.present_chronons_per_wall_second, r.sim.present_end, r.regions.rollbacks, r.regions.initial, r.regions.splits, r.sim.region_chronons_per_wall_second
++    );
++}
+diff --git a/crates/allocator/src/alloc.rs b/crates/allocator/src/alloc.rs
+index 8e8d8dc2..1b9f9bc5 100644
+--- a/crates/allocator/src/alloc.rs
++++ b/crates/allocator/src/alloc.rs
+@@ -395,6 +395,8 @@ struct State<S> {
+     giants: usize,
+     rng: Rng,
+     last_finalize: Option<Instant>,
++    /// Publish counter for the lab race instrument (print-only).
++    haz_pubs: u64,
+ }
+ 
+ struct Job<S> {
+@@ -1045,6 +1047,27 @@ impl<S: Stepper + Send + 'static> State<S> {
+         self.classify(d.id, c);
+         self.fresh.push(d.id);
+         let Some((world, end, comps)) = d.end else { return };
++        // Lab instrument (print-only): mirror the upcoming certify scan with the measured
++        // box. `D` is the largest fin_hi − s0 this stride's clash would restore, over the
++        // clashing lineages' descendants; D > 0 means the finality assert in rollback WILL
++        // fire if certify returns this clash (it decides with the same predicate).
++        {
++            let r = &self.regions[&d.id];
++            let (start, stop, truth, rad) = (r.verified, r.tick, r.bbox.hull(&end), r.rmax);
++            let (w0, w1) = (self.window(start), self.window(stop - 1));
++            let mut danger: Option<(i64, u64, i64)> = None; // (fin_hi − s0, truth lineage, s0)
++            for (_, list) in self.truths.range(w0..=w1) {
++                for t in list.iter().filter(|t| t.id != d.id && !separated(&truth, rad, &t.bbox, t.r)) {
++                    let s0 = start.min(t.start);
++                    let desc = self.descendants(&[d.id, t.id]);
++                    let fin = desc.iter().filter_map(|id| self.regions.get(id)).map(|x| x.fin_hi).max().unwrap_or(Tick::MIN);
++                    if danger.is_none_or(|(x, ..)| fin - s0 > x) {
++                        danger = Some((fin - s0, t.id, s0));
++                    }
++                }
++            }
++            eprintln!("PRE id={} s={} e={} D={:?}", d.id, start, stop, danger);
++        }
+         let front = self.frontier();
+         if let Err(clashes) = self.certify(d.id, &end) {
+             self.rollback(clashes);
+@@ -1409,7 +1432,12 @@ impl<S: Stepper + Send + 'static> State<S> {
+         self.st.rollbacks += 1;
+         self.escalation *= 2.0;
+         clashes.sort_by_key(|&(id, s)| (s, id));
+-        let mut restored: Vec<(u64, Tick)> = Vec::new();
++        // Lab instrument (print-only, e517): PRE's closure is the descendants of the clashing
++        // lineages; rollback's `affected` is union-find over shared snapshots and can pull in
++        // siblings outside that closure. `out` measures the gap directly: affected ids outside
++        // the union of PRE's per-pair closures, and the restore margin they alone would carry.
++        let precl = self.descendants(&clashes.iter().map(|&(id, _)| id).collect::<Vec<_>>());
++         let mut restored: Vec<(u64, Tick)> = Vec::new();
+         for (lid, s0) in clashes {
+             // Regions restored earlier in this rollback already carry any of this lineage's
+             // bodies from an earlier (or equal) start, which is as valid.
+@@ -1446,6 +1474,24 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 assert!(self.regions.keys().all(|id| !desc.contains(id) || done.contains(id)), "a live clashing lineage keeps its snapshot at its stride start");
+                 continue;
+             }
++            // Lab instrument (print-only): the exact assert inputs, logged before the assert
++            // (which stays untouched): every affected region's published fin_hi against this
++            // pair's restore tick s0. RB is the subcritical margin when it passes; FIRE
++            // precedes the panic when it does not.
++            for id in &affected {
++                let r = &self.regions[id];
++                if r.fin_hi > s0 {
++                    eprintln!("FIRE id={id} s0={s0} fin_hi={}", r.fin_hi);
++                }
++            }
++            let out: Vec<(u64, i64)> = affected.iter().filter(|id| !precl.contains(id)).map(|id| (*id, self.regions[id].fin_hi)).collect();
++            let mo = out.iter().map(|&(_, f)| f).max().unwrap_or(s0) - s0;
++             eprintln!(
++                "RB lid={lid} s0={s0} s={s} aff={:?} m={} out={:?} mo={}",
++                 affected.iter().map(|id| (id, self.regions[id].fin_hi)).collect::<Vec<_>>(),
++                affected.iter().map(|id| self.regions[id].fin_hi).max().unwrap_or(s0) - s0,
++                out, mo
++             );
+             for id in &affected {
+                 let r = &self.regions[id];
+                 assert!(r.fin_hi <= s0, "rollback of region {id} from {s0} would revise its published tick {}", r.fin_hi);
+@@ -1661,6 +1707,49 @@ impl<S: Stepper + Send + 'static> State<S> {
+         coalesce(groups.into_values().collect()).iter().find(|e| e.ids.contains(&id)).is_none_or(|e| e.ids.len() == 1)
+     }
+ 
++    /// Lab race instrument (print-only, 20261017-1447-dynamics-fd35). One HAZ line per
++    /// publish: the frontier, the highest published tick `F`, the deepest live truth start
++    /// `S` (the smallest s0 any future clash could force), their global margin `g = F − S`,
++    /// and the per-pair armed margin `A`: the largest `fin_hi − s0` over every pair of an
++    /// in-flight stride's hard-speed reach hull and a live truth it could still touch, with
++    /// s0 = min(stride start, truth start) and the fin_hi maximised over both lineages'
++    /// descendants (a superset of rollback's snapshot closure). `A > 0` means some future
++    /// clash on that pair would fire the finality assert; `A ≤ 0` proves no clash can.
++    fn hazard(&mut self, present: f64) {
++        self.haz_pubs += 1;
++        let front = self.frontier();
++        let (mut finmax, mut nbusy) = (Tick::MIN, 0usize);
++        for r in self.regions.values() {
++            finmax = finmax.max(r.fin_hi);
++            nbusy += r.busy as usize;
++        }
++        let smin = self.truths.values().flatten().map(|t| t.start).min();
++        let gm = smin.map_or(Tick::MIN, |s| finmax - s);
++        let mut armed: Option<(i64, u64, u64, i64)> = None; // (danger, busy id, truth lineage, s0)
++        if let Some(v) = self.lightcone {
++            let busy: Vec<u64> = self.regions.values().filter(|r| r.busy).map(|r| r.id).collect();
++            for bid in busy {
++                let b = &self.regions[&bid];
++                let grow = v.saturating_mul((b.stride_end - b.verified).max(0));
++                let hull = b.bbox.hull(&b.bbox.grow(grow));
++                for t in self.truths.values().flatten() {
++                    if t.id == bid || separated(&hull, b.rmax, &t.bbox, t.r) {
++                        continue;
++                    }
++                    let s0 = b.verified.min(t.start);
++                    let desc = self.descendants(&[bid, t.id]);
++                    let fin = desc.iter().filter_map(|id| self.regions.get(id)).map(|r| r.fin_hi).max().unwrap_or(Tick::MIN);
++                    let danger = fin - s0;
++                    if armed.is_none_or(|(d, ..)| danger > d) {
++                        armed = Some((danger, bid, t.id, s0));
++                    }
++                }
++            }
++        }
++        let a = armed.map_or(String::from("-"), |(d, b, t, s)| format!("{d} b{b} t{t} s{s}"));
++        eprintln!("HAZ p={} t={:.2} f={} F={} S={} g={} b={} A={}", self.haz_pubs, present, front, finmax, smin.unwrap_or(-1), gm, nbusy, a);
++    }
++
+     fn finished(&self) -> bool {
+         match self.goal {
+             Goal::Batch(t) => self.regions.values().all(|r| !r.busy && r.verified == t),
+@@ -1734,6 +1823,8 @@ impl<S: Stepper + Send + 'static> Shared<S> {
+         if g.dirty {
+             g.dirty = false;
+             g.finalize();
++            let present = f64::from_bits(self.present.load(Relaxed));
++            g.hazard(present);
+             let v = Arc::new(g.view());
+             let old = std::mem::replace(&mut *self.view.lock().unwrap(), v);
+             drop(old);
+@@ -1868,6 +1959,7 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
+             giants: 0,
+             rng: Rng(0x5117A),
+             last_finalize: None,
++            haz_pubs: 0,
+         };
+         let sh = Arc::new(Shared {
+             state: Mutex::new(st),
