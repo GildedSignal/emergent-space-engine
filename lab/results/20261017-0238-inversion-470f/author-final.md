@@ -1,0 +1,4 @@
+Working...
+Everything is in place — artifacts, regen (ran clean: "regen done: 10 arms"), pre-registered predictions, dossier, and the folded wiki page. Final state verified: patch = the probe example; all run files under 5 MB; the leaked instance preserved.
+
+**The claim, in one sentence:** the plane's peak memory is decided by the wall path, not the game — the same 400-member flight either peaks at ~44 MB or grows ~11 kB of live Rust allocations per game-second to 220.9 MB by 20,000 game-s and then frees ~78k allocations in one bulk drop (peak RSS retained at 206 MB forever), with every shipped counter flat, in 5 of 15 runs, so memory is not a canonical outcome of an engine whose law is, and the board's memory-wall letters carry an unmeasured 1–4.7× schedule factor until the cached structure is isolated.

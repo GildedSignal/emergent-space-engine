@@ -1,0 +1,219 @@
+diff --git a/crates/universe/examples/ruin_probe.rs b/crates/universe/examples/ruin_probe.rs
+new file mode 100644
+index 00000000..23837fbe
+--- /dev/null
++++ b/crates/universe/examples/ruin_probe.rs
+@@ -0,0 +1,213 @@
++// The ruin probe (inversion lens): does a battle that stays live turn the plane's one-time bills
++// into a rate? Flies the player's own loop (budgeted engine advance + view gather, the session's
++// shape; optionally the bench's scripted burns, scheduled at canonical ticks) headless and
++// unpaced, and prints one CSV row per chunk of game time: resident and peak RSS, the shipped
++// counters (bodies, catalogue, store bytes), the fleet's surviving members, the cumulative event
++// ledger, and the frame tail of the chunk.
++// `ruin_probe GAME_SECONDS RTF SEED MEMBERS CHUNK_GAME_S [burn] [dense]`
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::{gather_cached, ViewCache};
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// Counting allocator: (live bytes, live allocations, total allocations, total frees).
++static LIVE_B: AtomicU64 = AtomicU64::new(0);
++static LIVE_N: AtomicU64 = AtomicU64::new(0);
++static TOTAL_A: AtomicU64 = AtomicU64::new(0);
++static TOTAL_F: AtomicU64 = AtomicU64::new(0);
++
++struct Census;
++
++unsafe impl GlobalAlloc for Census {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        LIVE_B.fetch_add(l.size() as u64, Ordering::Relaxed);
++        LIVE_N.fetch_add(1, Ordering::Relaxed);
++        TOTAL_A.fetch_add(1, Ordering::Relaxed);
++        System.alloc(l)
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        LIVE_B.fetch_sub(l.size() as u64, Ordering::Relaxed);
++        LIVE_N.fetch_sub(1, Ordering::Relaxed);
++        TOTAL_F.fetch_add(1, Ordering::Relaxed);
++        System.dealloc(p, l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
++        LIVE_B.fetch_add(n as i64 as u64 - l.size() as u64, Ordering::Relaxed);
++        TOTAL_A.fetch_add(1, Ordering::Relaxed);
++        System.realloc(p, l, n)
++    }
++}
++
++#[global_allocator]
++static CENSUS: Census = Census;
++
++fn census() -> (u64, u64, u64, u64) {
++    (LIVE_B.load(Ordering::Relaxed), LIVE_N.load(Ordering::Relaxed), TOTAL_A.load(Ordering::Relaxed), TOTAL_F.load(Ordering::Relaxed))
++}
++
++fn rss_hwm_kb() -> (f64, f64) {
++    // /proc/self/statm: size resident ... in pages; /proc/self/status: VmHWM in kB.
++    let page = 4096.0;
++    let resident = std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|s| s.split_whitespace().nth(1).and_then(|f| f.parse::<f64>().ok()))
++        .map(|p| p * page / 1024.0)
++        .unwrap_or(0.0);
++    let hwm = std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines().find(|l| l.starts_with("VmHWM:")).and_then(|l| {
++                l.split_whitespace().nth(1).and_then(|f| f.parse::<f64>().ok())
++            })
++        })
++        .unwrap_or(0.0);
++    (resident, hwm)
++}
++
++fn maps_kb() -> (usize, f64, f64) {
++    // (mapping count, total mapped kB, [heap] kB): where the process's address space is.
++    let txt = std::fs::read_to_string("/proc/self/maps").unwrap_or_default();
++    let (mut n, mut total, mut heap) = (0usize, 0.0f64, 0.0f64);
++    for l in txt.lines() {
++        let Some((r, _)) = l.split_once(' ') else { continue };
++        let Some((a, b)) = r.split_once('-') else { continue };
++        if let (Ok(a), Ok(b)) = (u64::from_str_radix(a, 16), u64::from_str_radix(b, 16)) {
++            n += 1;
++            total += (b - a) as f64 / 1024.0;
++            if l.contains("[heap]") {
++                heap = (b - a) as f64 / 1024.0;
++            }
++        }
++    }
++    (n, total, heap)
++}
++
++fn p99(v: &[f64]) -> f64 {
++    if v.is_empty() {
++        return 0.0;
++    }
++    let mut s = v.to_vec();
++    s.sort_by(|a, b| a.total_cmp(b));
++    s[((s.len() as f64 - 1.0) * 0.99).round() as usize]
++}
++
++/// The bench's own player (xtask/src/universe/mod.rs::script): a short burn every four seconds of
++/// game time, forward, forward and right, reverse, left.
++fn script(n: usize) -> u8 {
++    let slot = n / 240;
++    if n % 240 < 20 {
++        [1, 9, 2, 4, 1, 1 | 4, 2, 8][slot % 8]
++    } else {
++        0
++    }
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let game_s: f64 = a.first().map(|s| s.parse().unwrap()).unwrap_or(6000.0);
++    let rtf: f64 = a.get(1).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let seed: u64 = a.get(2).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let members: u64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(48);
++    let chunk_s: f64 = a.get(4).map(|s| s.parse().unwrap()).unwrap_or(500.0);
++    let burn = a.get(5).map(|s| s == "burn").unwrap_or(false);
++    let dense = a.get(6).map(|s| s == "dense").unwrap_or(false);
++    let extra: usize = a.get(7).map(|s| s.parse().unwrap()).unwrap_or(0);
++    let order = if dense { Order::Dense } else { Order::Sparse };
++    let t_build = Instant::now();
++    let mut p = if extra > 0 {
++        emergent_universe::scenario::plane_extra(Config::default(), seed, order, 1, members, extra).unwrap()
++    } else {
++        plane(Config::default(), seed, order, 1, members).unwrap()
++    };
++    let mut cache = ViewCache::default();
++    let build_ms = t_build.elapsed().as_secs_f64() * 1e3;
++    let frames = (game_s * 60.0 / rtf) as usize;
++    let per_chunk = (chunk_s * 60.0 / rtf) as usize;
++    if burn {
++        // The bench's decisions at canonical ticks (mod.rs::canonical_log, level 0): the wall's
++        // own frames never move a decision.
++        let per_frame = rtf / 60.0 / emergent_universe::view::TICK_SECONDS;
++        let mut word = 0u8;
++        for n in 1..=frames {
++            let w = emergent_universe::thrust::word(script(n), 0);
++            if w != word {
++                word = w;
++                let _ = p.u.schedule(((n - 1) as f64 * per_frame).round() as i64, w);
++            }
++        }
++    }
++    println!(
++        "case game_s={game_s} rtf={rtf} seed={seed} members={members} extra={extra} chunk={chunk_s} burn={burn} dense={dense} frames={frames} build_ms={build_ms:.0} rss0={:.0}",
++        rss_hwm_kb().0
++    );
++    println!("game_s,tick,rss_kb,hwm_kb,bodies,cat_live,store_bytes,fleet_alive,fleet_members,lost,dissolved,kicks,opens,boundaries,handoffs,slices,leavers,events,chunk_ev_per_gs,frame_ms_p99,frame_ms_max,maps,total_map_kb,heap_kb,live_bytes,live_allocs,cum_allocs,cum_frees");
++    let (mut prev_events, mut prev_gs) = (0u64, 0.0f64);
++    let mut chunk_frames: Vec<f64> = Vec::new();
++    let wall = Instant::now();
++    for n in 1..=frames {
++        let f0 = Instant::now();
++        let u = &mut p.u;
++        u.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), i64::MAX);
++        if gather_cached(&p.u, &p.names, &mut cache).is_none() {
++            println!("no view at frame {n}: the player is lost; stopping");
++            break;
++        }
++        chunk_frames.push(f0.elapsed().as_secs_f64() * 1e3);
++        if n % per_chunk == 0 {
++            let u = &p.u;
++            let s = &u.stats;
++            let ev = s.events();
++            let (rss, hwm) = rss_hwm_kb();
++            let (maps_n, map_total, heap) = maps_kb();
++            let (lb, ln, ta, tf) = census();
++            let gs = n as f64 * rtf / 60.0;
++            let (alive, fm) = match u.fleets.first() {
++                Some(f) => (f.live(), f.members()),
++                None => (false, 0),
++            };
++            println!(
++                "{gs:.0},{},{rss:.0},{hwm:.0},{},{},{},{},{},{},{},{},{},{},{},{},{},{ev},{:.3},{:.2},{:.2},{},{},{},{},{},{},{}",
++                u.now,
++                u.n_bodies(),
++                u.catalogue_live(),
++                u.bytes_per_body() * u.n_bodies(),
++                alive,
++                fm,
++                s.lost,
++                s.dissolved,
++                s.kicks,
++                s.opens,
++                s.boundaries,
++                s.handoffs,
++                s.slices,
++                s.leavers,
++                (ev - prev_events) as f64 / (gs - prev_gs),
++                p99(&chunk_frames),
++                chunk_frames.iter().cloned().fold(0.0, f64::max),
++                maps_n,
++                map_total,
++                heap,
++                lb,
++                ln,
++                ta,
++                tf,
++            );
++            prev_events = ev;
++            prev_gs = gs;
++            chunk_frames.clear();
++        }
++    }
++    // The settle: what the canonical cut costs in memory (c304: settle bypasses the prune).
++    let (r0, _) = rss_hwm_kb();
++    let now = p.u.now;
++    p.u.settle(now);
++    let d = p.u.digest();
++    let (r1, h1) = rss_hwm_kb();
++    println!("settle rss {r0:.0}->{r1:.0} kb hwm {h1:.0} kb; digest {d}; held_scans {} pending_handouts {}", p.u.held_scans(), p.u.pending_handouts());
++    println!("wall_s {:.1}", wall.elapsed().as_secs_f64());
++}
