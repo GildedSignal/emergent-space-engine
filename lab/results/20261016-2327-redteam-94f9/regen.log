@@ -1,0 +1,41 @@
+==============================================================================
+VALIDATION (anchors must pass before any measurement counts)
+V1 candidate(nu=0) vs 30-digit independent quadrature: max rel err = 5.688e-07 over 6 orbits (want <2e-6: nu=1e-8 map round-trip noise)
+V2 candidate(nu=0) circular Omega^2-u^3:  max rel err = 1.051e-09 (nu=1e-8 cap)
+V3 truth(0.25) E(x): a1=-0.770909497 vs -0.770833333 | a2=-2.763546307 vs -2.783854167 | fit resid 1.9e-05 (want: a1<1e-3, a2<1e-2; remainder is fit truncation)
+V4 e=0.05: dphi/T_r = 0.011210190933 vs Omega_circ = 0.011247499401 (rel 3.3e-03)
+
+==============================================================================
+THE FLANK: gaps (truth-candidate)/truth at matched (Hhat, j), nu=0.25
+   p/M    e |  adv rad     gap% B1(1%) | per (cand)     gap% B2(0.1%) | rate gap%
+   100  0.0 |     circ       --     -- |  6275.3881   0.0078       ok |    0.0078
+   100  0.3 |   0.0629   0.5320     ok |  7436.2886   0.0068       ok |    0.5252
+   100  0.6 |   0.0629   0.5682     ok | 12507.4022   0.0040       ok |    0.5641
+    50  0.0 |     circ       --     -- |  2215.9724   0.0327       ok |    0.0327
+    50  0.3 |   0.1321   1.1130   FAIL |  2706.2632   0.0283       ok |    1.0844
+    50  0.6 |   0.1323   1.1921   FAIL |  4512.9624   0.0170       ok |    1.1748
+    20  0.0 |     circ       --     -- |   558.6295   0.2408     FAIL |    0.2408
+    20  0.3 |   0.3913   3.3326   FAIL |   757.5042   0.2141     FAIL |    3.1119
+    20  0.6 |   0.3938   3.6258   FAIL |  1226.1804   0.1333     FAIL |    3.4879
+    12  0.0 |     circ       --     -- |   258.7104   0.8614     FAIL |    0.8614
+    12  0.3 |   0.8338   7.7929   FAIL |   409.4015   0.8730     FAIL |    6.8601
+    12  0.6 |   0.8501   8.9284   FAIL |   634.6523   0.5867     FAIL |    8.2931
+
+nu-scaling at p=20, e=0.3 (prediction P5: gaps ~ linear in nu):
+  nu=0.25: advance gap 3.3326%   T_r gap 0.2141%
+  nu=0.10: advance gap 1.3143%   T_r gap 0.0858%
+
+Threshold crossings (nu=0.25, e=0.3), scan p in [8,200]M then bisect:
+  advance gap crosses 1% at p ~ 55.2M
+  T_r gap crosses 0.1% at p ~ 27.8M
+
+ISCO (circular plunge boundary), prediction P3:
+  nu= 0.00: candidate u_ISCO=0.166696 (r=5.999M)   truth u_ISCO=0.166696 (r=5.999M)   radius shift +0.0%
+  nu= 0.10: candidate u_ISCO=0.166667 (r=6.000M)   truth u_ISCO=0.169730 (r=5.892M)   radius shift +1.8%
+  nu= 0.25: candidate u_ISCO=0.166667 (r=6.000M)   truth u_ISCO=0.174897 (r=5.718M)   radius shift +4.9%
+
+Capture boundary at E=1 (B4's scene), prediction P4:
+  nu= 0.00: candidate (u*,j*)=(0.2500,4.0000)   truth (0.2500,4.0000)   j* gap 0.00%   capture radius gap 0.00%
+  nu= 0.10: candidate (u*,j*)=(0.2500,4.0000)   truth (0.2549,3.9743)   j* gap 0.64%   capture radius gap 1.93%
+  nu= 0.25: candidate (u*,j*)=(0.2500,4.0000)   truth (0.2634,3.9331)   j* gap 1.67%   capture radius gap 5.08%
+=== regen complete; compare with dossier.md ===

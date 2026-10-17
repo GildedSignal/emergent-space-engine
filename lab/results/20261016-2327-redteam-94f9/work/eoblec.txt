@@ -1,0 +1,893 @@
+arXiv:0802.4047v1  [gr-qc]  27 Feb 2008
+Introductory lectures on the Eﬀective One Body
+formalism
+Thibault Damour
+Institut des Hautes Etudes Scientiﬁques, 35 route de Chartres,
+F-91440 Bures-sur-Yvette, France
+Abstract
+The Eﬀective One Body (EOB) formalism is an analytical appro ach
+which aims at providing an accurate description of the motio n and radi-
+ation of coalescing binary black holes. We present a brief re view of the
+basic elements of this approach.
+1 Introduction
+A network of ground-based interferometric gravitational wave ( GW) detectors
+(LIGO/VIRGO/GEO/... ) is currently taking data near its planned sensitivity.
+Coalescing black hole binaries are among the most promising, and most exciting,
+GW sources for these detectors. In order to successfully detec t GWs from
+coalescing black hole binaries, and to be able to reliably measure the ph ysical
+parameters of the source (masses, spins, ... ), it is necessary to know in advance
+the shape of the GW signals emitted by inspiralling and merging black hole s.
+Indeed, the detection and subsequent data analysis of GW signals is made by
+using a large bank of templates that accurately represent the GW waveforms
+emitted by the source.
+Here, we shall introduce the reader to one promising strategy tow ard having
+an accurate analytical 1 description of the motion and radiation of binary black
+holes, which covers all its stages (inspiral, plunge, merger and ring- down): the
+Eﬀective One Body approach [1, 2, 3, 4]. As early as 2000 [2] this method
+made several quantitative and qualitative predictions concerning t he dynamics
+of the coalescence, and the corresponding GW radiation, notably: (i) a blurred
+1Here we use the adjective ‘analytical’ for methods that solv e explicit (analytically given)
+ordinary diﬀerential equations (ODE), even if one uses stan dard (Runge-Kutta-type) numeri-
+cal tools to solve them. The important point is that, contrar y to 3d numerical relativity simula-
+tions, numerically solving ODE’s is extremely fast, and can therefore be done (possibly even in
+real time) for a dense sampling of theoretical parameters, s uch as orbital ( ν = m1 m2/M, . . .)
+or spin (ˆa1 = S1/Gm21, θ1, ϕ1, . . .) parameters.
+1
+transition from inspiral to a ‘plunge’ that is just a smooth continuat ion of the
+inspiral, (ii) a sharp transition, around the merger of the black holes , between
+a continued inspiral and a ring-down signal, and (iii) estimates of the r adiated
+energy and of the spin of the ﬁnal black hole. In addition, the eﬀect s of the
+individual spins of the black holes were investigated within the EOB [4, 5 ] and
+were shown to lead to a larger energy release for spins parallel to th e orbital
+angular momentum, and to a dimensionless rotation parameter J/E 2 always
+smaller than unity at the end of the inspiral (so that a Kerr black hole can
+form right after the inspiral phase). All those predictions have be en broadly
+conﬁrmed by the results of the recent numerical simulations perfo rmed by several
+independent groups [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] (fo r a review of
+numerical relativity results see [18]). Note that, in spite of the high c omputer
+power used in these simulations, the calculation of one suﬃciently long waveform
+(corresponding to speciﬁc values of the many continuous paramet ers describing
+the two arbitrary masses, the initial spin vectors, and other initial data) takes on
+the order of two weeks. This is a very strong argument for develop ing analytical
+models of waveforms.
+Those recent breakthroughs in numerical relativity (NR) open the possibility
+of comparing in detail the EOB description to NR results. This EOB/NR com-
+parison has been recently initiated in several works [19, 20, 21, 22, 23, 24, 25].
+The level of analytical/numerical agreement is unprecedented, co mpared to
+what has been previously achieved when comparing other types of a nalytical
+waveforms to numerical ones. For instance, [24] found that the m aximal de-
+phasing between a recent, very accurate NR simulation of 30 GW cyc les during
+late inspiral [17] and EOB could be reduced below 10 −3 GW cycles. The same
+comparison exhibited also an excellent agreement between the amplit udes of
+the NR and EOB waveforms. If the reader wishes to put the EOB res ults in
+contrast with other (Post-Newtonian or hybrid) approaches he c an consult, e.g.,
+[26, 27, 17, 28, 29, 30].
+Before reviewing some of the technical aspects of the EOB method , let us
+indicate some of the historical roots of this method. First, we note that the
+EOB approach comprises three, rather separate, ingredients:
+(1) a description of the conservative (Hamiltonian) part of the dyn amics of
+two black holes;
+(2) an expression for the radiation-reaction part of the dynamics ;
+(3) a description of the GW waveform emitted by a coalescing binary s ystem.
+For each one of these ingredients, the essential inputs that are u sed in EOB
+developments are high-order post-Newtonian (PN) expanded res ults which have
+been obtained by many years of work, by many researchers (see r eferences be-
+low). However, one of the key ideas in the EOB philosophy is to avoid us ing
+PN results in their original ‘Taylor-expanded’ form ( i.e. c0 +c1v +c2v2 +
+c3v3 + · · · +cnvn), but to use them instead in some resummed form ( i.e. some
+2
+non-polynomial function of v, deﬁned so as to incorporate some of the expected
+non-perturbative features of the exact result). The basic ideas and techniques
+for resumming each ingredient of the EOB are diﬀerent and have diﬀe rent his-
+torical roots. Concerning the ingredient (1), i.e. the EOB Hamiltonian, it was
+inspired by an approach to electromagnetically interacting quantum two-body
+systems introduced by Br´ ezin, Itzykson and Zinn-Justin [31]. The resummation
+of the ingredient (2), i.e. the EOB radiation-reaction force F , was inspired by
+the Pad´ e resummation of the ﬂux function introduced by Damour, Iyer and
+Sathyaprakash [32]. As for the ingredient (3), i.e. the EOB description of the
+waveform emitted by a coalescing black hole binary, it was mainly inspire d by
+the work of Davis, Ruﬃni and Tiomno [33] which discovered the tran sition be-
+tween the plunge signal and a ringing tail when a particle falls into a blac k hole.
+Additional motivation for the EOB treatment of the transition from plunge to
+ring-down came from work on the, so-called, ‘close limit approximation ’ [34].
+Let us ﬁnally note that the EOB approach has been recently improve d by
+following a methodology consisting of studying, element by element, t he physics
+behind each feature of the waveform, and on systematically compa ring vari-
+ous EOB-based waveforms with ‘exact’ waveforms obtained by NR a pproaches.
+Among these ‘exact’ NR waveforms, it has been useful to consider the small-
+mass-ratio limit ν ≡m1m2/(m1 +m2)2 ≪ 1, in which one can use the well con-
+trollable ‘laboratory’ of numerical simulations of test particles (with an added
+radiation-reaction force) moving in black hole backgrounds [23].
+2 Motion and radiation of binary black holes:
+post-Newtonian expanded results
+Before discussing the various resummation techniques used in the E OB ap-
+proach, let us brieﬂy recall the ‘Taylor-expanded’ results that ha ve been ob-
+tained by pushing to high accuracies the post-Newtonian (PN) meth ods.
+Concerning the orbital dynamics of compact binaries, we recall tha t the
+2.5PN-accurate2 equations of motion have been derived in the 1980’s [35, 36,
+37, 38]. Pushing the accuracy of the equations of motion to the 3PN (∼ (v/c)6)
+level proved to be a non-trivial task. At ﬁrst, the representatio n of black holes
+by delta-function sources and the use of the (non diﬀeomorphism in variant)
+Hadamard regularization method led to ambiguities in the computation of the
+badly divergent integrals that enter the 3PN equations of motion [3 9, 40]. This
+problem was solved by using the (diﬀeomorphism invariant) dimensional regu-
+larization method ( i.e. analytic continuation in the dimension of space d) which
+allowed one to complete the determination of the 3PN-level equation s of mo-
+tion [41, 42]. They have also been derived by an Einstein-Infeld-Hoﬀm ann-type
+surface-integral approach [43]. The 3.5PN terms in the equations o f motion are
+also known [44, 45, 46].
+2As usual ‘ n-PN accuracy’ means that a result has been derived up to (and i ncluding)
+terms which are ∼ (v/c)2n ∼ (GM/c2r)n fractionally smaller than the leading contribution.
+3
+Concerning the emission of gravitational radiation, two diﬀerent gravitational-
+wave generation formalisms have been developed up to a high PN accuracy:
+(i) the Blanchet-Damour-Iyer formalism [47, 48, 49, 50, 51, 52, 53 ] combines
+a multipolar post-Minkowskian (MPM) expansion in the exterior zone w ith a
+post-Newtonian expansion in the near zone; while (ii) the Will-Wiseman- Pati
+formalism [54, 55, 56, 44] uses a direct integration of the relaxed Ein stein equa-
+tions. These formalisms were used to compute increasingly accurat e estimates of
+the gravitational waveforms emitted by inspiralling binaries. These e stimates in-
+clude both normal, near-zone generated post-Newtonian eﬀects (at the 1PN [48],
+2PN [57, 58, 54], and 3PN [59, 60] levels), and more subtle, wave-zon e generated
+(linear and non-linear) ‘tail eﬀects’ [51, 61, 62, 53]. However, tech nical prob-
+lems arose at the 3PN level. The representation of black holes by ‘delt a-function’
+sources causes the appearance of dangerously divergent integr als in the 3PN mul-
+tipole moments. The use of Hadamard (partie ﬁnie) regularization did not allow
+one to unambiguously compute the needed 3PN-accurate quadrup ole moment.
+Only the use of the (formally) diﬀeomorphism-invariant dimensional regular-
+ization method allowed one to complete the 3PN-level gravitational-radiatio n
+formalism [63].
+The works mentioned in this Section (see [64] for a detailed account and more
+references) ﬁnally lead to PN-expanded results for the motion and radiation of
+binary black holes. For instance, the equations of motion are given in the form
+(a = 1, 2;i = 1, 2, 3)
+d2zia
+dt2 =Ai consa +AiRRa , (1)
+where
+Acons =A0 +c−2A2 +c−4A4 +c−6A6, (2)
+denotes the ‘conservative’ 3PN-accurate terms, while
+ARR =c−5A5 +c−7A7, (3)
+denotes the time-asymmetric contibutions, linked to ‘radiation reac tion’.
+On the other hand, if we consider for simplicity the inspiralling motion of
+a quasi-circular binary system, the essential quantity describing t he emitted
+gravitational waveform is the phase φ of the quadrupolar gravitational wave
+amplitude h(t) ≃ a(t) cos(φ(t) + δ). PN theory allows one to derive several
+diﬀerent functional expressions for the gravitational wave phas eφ, as a function
+either of time or of the instantaneous frequency. For instance, a s a function
+of time, φ admits the following explicit expansion in powers of θ ≡ νc3(tc −
+t)/5GM (where tc denotes a formal ‘time of coalescence’, M ≡ m1 +m2 and
+ν ≡m1m2/M2)
+φ(t) = φc −ν−1θ5/8
+(
+1 +
+7∑
+n=2
+(an +a′n ln θ)θ−n/8
+)
+, (4)
+with some numerical coeﬃcients an,a ′n which depend only on the dimensionless
+(symmetric) mass ratio ν ≡m1m2/M2. The derivation of the 3.5PN-accurate
+4
+expansion (4) uses both the 3PN-accurate conservative acceler ation (2) and a
+3.5PN extension of the (fractionally) 1PN-accurate radiation reac tion acceler-
+ation (3) obtained by assuming a balance between the energy of the binary
+system and the gravitational-wave energy ﬂux at inﬁnity (see, e.g., [64]).
+3 Conservative dynamics of binary black holes:
+the Eﬀective One Body approach
+The PN-expanded results brieﬂy reviewed in the previous Section ar e expected
+to yield accurate descriptions of the motion and radiation of binary b lack holes
+only during their early inspiralling stage, i.e. as long as the PN expansion pa-
+rameter γe = GM/c2R (where R is the distance between the two black holes)
+stays signiﬁcantly smaller than the value ∼ 16 where the orbital motion is ex-
+pected to become dynamically unstable (‘last stable circular orbit’ an d begin-
+ning of a ‘plunge’ leading to the merger of the two black holes). One ne eds a
+better description of the motion and radiation to describe the late inspiral (say
+γe /greaterorsimilar 112 ), as well as the subsequent plunge and merger. One possible strat-
+egy for having a complete description of the motion and radiation of b inary
+black holes, covering all the stages (inspiral, plunge, merger, ring- down), would
+then be to try to ‘stitch together’ PN-expanded analytical result s describing the
+early inspiral phase with 3 d numerical results describing the end of the inspi-
+ral, the plunge, the merger and the ring-down of the ﬁnal black hole , see, e.g.,
+Refs. [65, 20].
+However, we wish to argue that the EOB approach makes a better u se of all
+the analytical information contained in the PN-expanded results (1 )-(3). The
+basic claim (ﬁrst made in [1, 2]) is that the use of suitable resummation methods
+should allow one to describe, by analytical tools, a suﬃciently accurate approx-
+imation of the entire waveform , from inspiral to ring-down, including the non-
+perturbative plunge and merger phases. To reach such a goal, one needs to make
+use of several tools: (i) resummation methods, (ii) exploitation of t he ﬂexibility
+of analytical approaches, (iii) extraction of the non-perturbativ e information
+contained in various numerical simulations, (iv) qualitative understa nding of
+the basic physical features which determine the waveform.
+Let us start by discussing the ﬁrst tool used in the EOB approach: the
+systematic use of resummation methods. Two such methods have b een employed
+(and combined), and some evidence has been given that they do sign iﬁcantly
+improve the convergence properties of PN expansions. The ﬁrst m ethod is the
+use of Pad´ e approximants. It has been shown in Ref. [32] that near-diagonal
+Pad´ e approximants of the radiation reaction force3 F seemed to provide a good
+3W e henceforth denote by F the Hamiltonian version of the radiation reaction term ARR,
+Eq. (3), in the (PN-expanded) equations of motion. It can be h euristically computed up to
+(absolute) 5.5PN [59, 66, 63] and even 6PN [67] order by assum ing that the energy radiated
+in gravitational waves at inﬁnity is balanced by a loss of the dynamical energy of the binary
+system.
+5
+representation of F down to the last stable orbit (which is expected to occur
+whenR ∼ 6GM/c2, i.e. whenγe ≃ 16 ). The second method is a novel approach
+to the dynamics of compact binaries, which constitutes the core of the Eﬀective
+One Body (EOB) method.
+For simplicity of exposition, let us ﬁrst explain the EOB method at the
+2PN level. The starting point of the method is the 2PN-accurate Ham ilto-
+nian describing (in Arnowitt-Deser-Misner-type coordinates) the conservative,
+or time symmetric, part of the equations of motion (1) ( i.e. the truncation
+Acons = A0 +c−2A2 +c−4A4 of Eq. (2)) say H2PN(q1 − q2, p1, p2). By going
+to the center of mass of the system ( p1 + p2 = 0), one obtains a PN-expanded
+Hamiltonian describing the relative motion , q = q1 − q2, p = p1 = −p2:
+H relative2PN (q, p) = H0(q, p) + 1c2 H2(q, p) + 1c4 H4(q, p), (5)
+where H0(q, p) = 12µ p2 + GM µ|q| (with M ≡ m1 +m2 and µ = m1m2/M)
+corresponds to the Newtonian approximation to the relative motion , while H2
+describes 1PN corrections and H4 2PN ones. It is well known that, at the New-
+tonian approximation, H0(q, p) can be thought of as describing a ‘test particle’
+of mass µ orbiting around an ‘external mass’ GM . The EOB approach is a gen-
+eral relativistic generalization of this fact. It consists in looking for an ‘external
+spacetime geometry’ gextµν (xλ;GM ) such that the geodesic dynamics of a ‘test
+particle’ of mass µ withingextµν (xλ,GM ) is equivalent (when expanded in powers
+of 1/c2) to the original, relative PN-expanded dynamics (5).
+Let us explain the idea, proposed in [1], for establishing a ‘dictionary’ b e-
+tween the real relative-motion dynamics, (5), and the dynamics of an ‘eﬀective’
+particle of mass µ moving in gextµν (xλ,GM ). The idea consists in ‘thinking quan-
+tum mechanically’ 4. Instead of thinking in terms of a classical Hamiltonian,
+H(q, p) (such as H relative2PN , Eq. (5)), and of its classical bound orbits, we can
+think in terms of the quantized energy levels E(n,ℓ ) of the quantum bound
+states of the Hamiltonian operator H( ˆq, ˆp). These energy levels will depend on
+two (integer valued) quantum numbers n and ℓ. Here (for a spherically sym-
+metric interaction, as appropriate to H relative), ℓ parametrizes the total orbital
+angular momentum ( L2 =ℓ(ℓ + 1) ℏ2), while n represents the ‘principal quan-
+tum number’ n =ℓ +nr + 1, where nr (the ‘radial quantum number’) denotes
+the number of nodes in the radial wave function. The third ‘magnetic quantum
+number’ m (with −ℓ ≤m ≤ℓ) does not enter the energy levels because of the
+spherical symmetry of the two-body interaction (in the center of of mass frame).
+For instance, a non-relativistic Coulomb (or Newton!) interaction
+H0 = 12µ p2 + GMµ|q| (6)
+4This is related to an idea emphasized many times by John Archi bald Wheeler: quantum
+mechanics can often help us in going to the essence of classic al mechanics.
+6
+gives rise to the well-known result
+E0(n,ℓ ) = − 12µ(GMµn ℏ )2 , (7)
+which depends only on n (this is the famous Coulomb degeneracy). When
+considering the PN corrections to H0, as in Eq. (5), one gets a more complicated
+expression of the form
+Erelative2PN (n,ℓ ) = − 12µ α2n2 [1 + α2c2 (c11nℓ + c20n2)
++α4
+c4
+(c13
+nℓ3 + c22n2ℓ2 + c31n3ℓ + c40n4)], (8)
+where we have set α ≡ GMµ/ ℏ = Gm 1m2/ℏ, and where we consider, for
+simplicity, the (quasi-classical) limit where n and ℓ are large numbers. The
+2PN-accurate result (8) had been derived by Damour and Sch¨ afe r [68] as early
+as 1988. The dimensionless coeﬃcients cpq are functions of the symmetric mass
+ratioν ≡µ/M, for instance c40 = 18 (145 − 15ν +ν2). In classical mechanics ( i.e.
+for large n andℓ), it is called the ‘Delaunay Hamiltonian’, i.e. the Hamiltonian
+expressed in terms of the action variables 5 J =ℓℏ = 12π∮ pϕdϕ, and N =nℏ =
+Ir +J, with Ir = 12π∮ prdr.
+The energy levels (8) encode, in a gauge-invariant way, the 2PN-ac curate
+relative dynamics of a ‘real’ binary. Let us now consider an auxiliary pr oblem:
+the ‘eﬀective’ dynamics of one body, of mass µ, following a geodesic in some
+‘external’ (spherically symmetric) metric 6
+gextµν dxµdxν = −A(R)c2dT 2 +B(R)dR2 +R2(dθ2 + sin2θdϕ 2). (9)
+Here, the a priori unknown metric functions A(R) and B(R) will be constructed
+in the form of an expansion in GM/c2R:
+A(R) = 1 + a1
+GM
+c2R +a2
+(GM
+c2R
+)2
++a3
+(GM
+c2R
+)3
++ · · · ;
+B(R) = 1 + b1
+GM
+c2R +b2
+(GM
+c2R
+)2
++ · · ·, (10)
+where the dimensionless coeﬃcients an,b n depend on ν. From the Newtonian
+limit, it is clear that we should set a1 = −2. By solving (by separation of
+variables) the ‘eﬀective’ Hamilton-Jacobi equation
+gµνeﬀ ∂Seﬀ∂xµ ∂Seﬀ∂xν +µ2c2 = 0,
+5W e consider, for simplicity, ‘equatorial’ motions with m = ℓ, i.e., classically, θ = π2 .6It is convenient to write the ‘external metric’ in Schwarzsc hild-like coordinates. Note that
+the external radial coordinate R diﬀers from the two-body ADM-coordinate relative distance
+RADM = |q|. The transformation between the two coordinate systems has been determined
+in Refs. [1, 3].
+7
+Seﬀ = −Eeﬀt +Jeﬀϕ +Seﬀ (R), (11)
+one can straightforwardly compute (in the quasi-classical, large qu antum num-
+bers limit) the Delaunay Hamiltonian Eeﬀ(Neﬀ,J eﬀ ), with Neﬀ = neﬀ ℏ, Jeﬀ =
+ℓeﬀ ℏ (where Neﬀ = Jeﬀ +I eﬀR , with I eﬀR = 12π∮ peﬀR dR, P eﬀR = ∂Seﬀ(R)/dR).
+This yields a result of the form
+Eeﬀ(neﬀ,ℓ eﬀ) = µc2 − 12µ α2n2eﬀ [1 + α2c2 ( ceﬀ11neﬀℓeﬀ + ceﬀ20n2eﬀ) (12)
++α4
+c4
+( ceﬀ13
+neﬀℓ3eﬀ + ceﬀ22n2eﬀℓ2eﬀ + ceﬀ31n3eﬀℓeﬀ + ceﬀ40n4eﬀ)] ,
+where the dimensionless coeﬃcients ceﬀpq are now functions of the unknown co-
+eﬃcientsan,b n entering the looked for ‘external’ metric coeﬃcients (10).
+At this stage, one needs (as in the famous AdS/CFT corresponden ce) to
+deﬁne a ‘dictionary’ between the real (relative) two-body dynamic s, summarized
+in Eq. (8), and the eﬀective one-body one, summarized in Eq. (12). As, on both
+sides, quantum mechanics tells us that the action variables are quan tized in
+integers (Nreal = nℏ, Neﬀ = neﬀ ℏ, etc.) it is most natural to identify n = neﬀ
+and ℓ = ℓeﬀ. One then still needs a rule for relating the two diﬀerent energies
+Erelativereal and Eeﬀ. Ref. [1] proposed to look for a general map between the
+real energy levels and the eﬀective ones (which, as seen when comp aring (8)
+and (12), cannot be directly identiﬁed because they do not include t he same
+rest-mass contribution 7), namely
+Eeﬀ
+µc2 −1 = f
+(Erelativereal
+µc2
+)
+= Erelativereal
+µc2
+(
+1 +α1
+Erelativereal
+µc2 +α2
+(Erelativereal
+µc2
+)2
++ · · ·
+)
+.
+(13)
+The ‘correspondence’ between the real and eﬀective energy leve ls is illustrated
+in Fig. 1.
+Finally, identifying Eeﬀ(n,ℓ )/µc2 tof (Erelativereal /µc2) yields six equations, re-
+lating the six coeﬃcients ceﬀpq (a2,a 3;b1,b 2) to the six cpq(ν) and to the two
+energy coeﬃcients α1 and α2. It is natural to set b1 = +2 (so that the lin-
+earized eﬀective metric coincides with the linearized Schwarzschild me tric with
+massM =m1 +m2). One then ﬁnds that there exists a unique solution for the
+remaining ﬁve unknown coeﬃcients a2,a 3,b 2,α 1 and α2. This solution is very
+simple:
+a2 = 0, a 3 = 2ν, b 2 = 4 − 6ν, α 1 = ν2, α 2 = 0. (14)
+Note, in particular, that the map between the two energies is simply
+Eeﬀ
+µc2 = 1 + Erelativerealµc2 (1 + ν2 Erelativerealµc2 ) = s −m21c4 −m22c42m1m2c4 (15)
+7Indeed Etotalreal = M c2 + Erelativereal = M c2 + Newtonian terms + 1PN /c2 + · · · , while
+Eeﬀective = µc2 + N + 1PN/c2 + · · · .
+8
+Figure 1: Sketch of the correspondence between the quantized e nergy levels of
+the real and eﬀective conservative dynamics. n denotes the ‘principal quantum
+number’ (n =nr +ℓ + 1, withnr = 0, 1,... denoting the number of nodes in the
+radial function), while ℓ denotes the (relative) orbital angular momentum ( L2 =
+ℓ(ℓ+1) ℏ2). Though the EOB method is purely classical, it is conceptually useful
+to think in terms of the underlying (Bohr-Sommerfeld) quantization conditions
+of the action variables IR and J to motivate the identiﬁcation between n andℓ
+in the two dynamics.
+where s = ( E totreal)2 ≡ (Mc 2 +Erelativereal )2 is Mandelstam’s invariant. Note also
+that, at 2PN accuracy, the crucial ‘ gext00 ’ metric coeﬃcient A(R) (which fully
+encodes the energetics of circular orbits) is given by the remarkab ly simple PN
+expansion
+A2PN(R) = 1 − 2u + 2νu 3, (16)
+where u ≡GM/c2R and ν ≡µ/M ≡m1m2/(m1 +m2)2.
+The dimensionless parameter ν ≡ µ/M varies between 0 (in the test mass
+limit m1 ≪ m2) and 14 (in the equal-mass case m1 = m2). When ν → 0,
+Eq. (16) yields back, as expected, the well-known Schwarzschild tim e-time met-
+ric coeﬃcient −gSchw00 = 1 − 2u = 1 − 2GM/c2R. One therefore sees in Eq. (16)
+the rˆ ole ofν as a deformation parameter connecting a well-known test-mass
+result to a non trivial and new 2PN result. It is also to be noted that t he
+1PN EOB result A1PN(R) = 1 − 2u happens to be ν-independent, and therefore
+identical to ASchw = 1 − 2u. This is remarkable in view of the many non-trivial
+ν-dependent terms in the 1PN relative dynamics. The physically real 1 PN ν-
+9
+dependence happens to be fully encoded in the function f (E) mapping the two
+energy spectra given in Eq. (15) above.
+Let us emphasize the remarkable simplicity of the 2PN result (16). Th e
+2PN Hamiltonian (5) contains eleven rather complicated ν-dependent terms.
+After transformation to the EOB format, the dynamical informat ion contained
+in these eleven coeﬃcients gets compactiﬁed into the very simple additional
+contribution + 2νu 3 in A(R), together with an equally simple contribution in
+the radial metric coeﬃcient: ( A(R)B(R))2PN = 1 − 6νu 2. This compactiﬁ-
+cation process is even more drastic when one goes to the next (con servative)
+post-Newtonian order: the 3PN level, i.e. additional terms of order O(1/c6) in
+the Hamiltonian (5). As mentioned above, the complete obtention of the 3PN
+dynamics has represented quite a theoretical challenge and the ﬁn al, resulting
+Hamiltonian is quite complicated. Even after going to the center of ma ss frame,
+the 3PN additional contribution 1c6 H6(q, p) to Eq. (5) introduces eleven new
+complicated ν-dependent coeﬃcients. After transformation to the EOB forma t
+[3], these eleven new coeﬃcients get ‘compactiﬁed’ into only three additional
+terms: (i) an additional contribution to A(R), (ii) an additional contribution
+to B(R), and (iii) a O(p4) modiﬁcation of the ‘external’ geodesic Hamiltonian.
+For instance, the crucial 3PN gext00 metric coeﬃcient becomes
+A3PN(R) = 1 − 2u + 2νu 3 +a4νu 4, (17)
+where
+a4 = 943 − 4132π2 ≃ 18.6879027. (18)
+Remarkably, it is found that the very simple 2PN energy map Eq. (15) does not
+need to be modiﬁed at the 3PN level.
+The fact that the 3PN coeﬃcient a4 in the crucial ‘eﬀective radial potential’
+A3PN(R), Eq. (17), is rather large and positive indicates that the ν-dependent
+nonlinear gravitational eﬀects lead, for comparable masses ( ν ∼ 14 ), to a last
+stable (circular) orbit (LSO) which has a higher frequency and a larg er binding
+energy than what a naive scaling from the test-particle limit ( ν → 0) would
+suggest. Actually, the PN-expanded form (17) of A3PN(R) does not seem to
+be a good representation of the (unknown) exact function AEOB(R) when the
+(Schwarzschild-like) relative coordinate R becomes smaller than about 6 GM/c2
+(which is the radius of the LSO in the test-mass limit). It was therefo re sug-
+gested [3] to further resum 8 A3PN(R) by replacing it by a suitable Pad´ e ( P )
+approximant. For instance, the replacement of A3PN(R) by
+A13(R) ≡P 13 [A3PN(R)] = 1 +n1u1 +d1u +d2u2 +d3u3 (19)
+ensures that the ν = 14 case is smoothly connected with the ν = 0 limit.
+8The PN-expanded EOB building blocks A(R), B(R), . . . already represent a resummation
+of the PN dynamics in the sense that they have compactiﬁed the many terms of the original
+PN-expanded Hamiltonian within a very concise format. But o ne should not refrain to further
+resum the EOB building blocks themselves, if this is physica lly motivated.
+10
+The use of (19) was suggested before one had any (reliable) non-p erturbative
+information on the binding of close black hole binaries. Later, a compa rison
+with some ‘waveless’ numerical simulations of circular black hole binarie s [69]
+has given some evidence that (19) is physically adequate. In Refs. [4 , 69] it was
+also emphasized that, in principle, the comparison between numerica l data and
+EOB-based predictions should allow one to determine the eﬀect of th e unknown
+higher PN contributions to Eq. (17). For instance, one can add a 4P N-like
+term + a5νu 5 in Eq. (17), and then Pad´ e the resulting radial function, say
+A14 = P 14 [A3PN +a5νu 5]. Comparing the predictions of A14[a5] to numerical
+data might then determine what is the physically preferred ‘eﬀective ’ value of
+the unknown coeﬃcient a5. This is an example of the useful ﬂexibility [70]
+of analytical approaches: the fact that one can tap numerically-b ased, non-
+perturbative information to improve the EOB approach.
+4 Description of radiation-reaction eﬀects in the
+Eﬀective One Body approach
+In the previous Section we have described how the EOB method enco des the
+conservative part of the relative orbital dynamics into the dynamic s of an ’ef-
+fective’ particle. Let us now brieﬂy discuss how to complete the EOB dynamics
+by deﬁning a resummed expression describing radiation reaction eﬀects. One
+is interested in circularized binaries, which have lost their initial eccen tricity
+under the inﬂuence of radiation reaction. For such systems, it is en ough to
+include a radiation reaction force in the pϕ equation of motion. More precisely,
+we are using phase space variables r,p r,ϕ,p ϕ associated to polar coordinates
+(in the equatorial plane θ = π2 ). Actually it is convenient to replace the radial
+momentum pr by the momentum conjugate to the ‘tortoise’ radial coordinate
+R∗ =
+∫
+dR(B/A)1/2, i.e. PR∗ = (A/B)1/2PR. The real EOB Hamiltonian is
+obtained by ﬁrst solving Eq. (15) to get Etotalreal = √s in terms of Eeﬀ , and then
+by solving the eﬀective Hamiltonian-Jacobi equation 9 to get Eeﬀ in terms of the
+eﬀective phase space coordinates qeﬀ and peﬀ . The result is given by two nested
+square roots (we henceforth set c = 1):
+ˆHEOB(r,p r∗,ϕ ) = H realEOBM =√1 + 2ν ( ˆHeﬀ − 1), (20)
+where
+ˆHeﬀ =
+√
+p2r∗ +A(r)
+(
+1 + p2ϕ
+r2 +z3
+p4r∗
+r2
+)
+, (21)
+withz3 = 2ν (4 − 3ν). Here, we are using suitably rescaled dimensionless (eﬀec-
+tive) variables: r =R/GM ,pr∗ =PR∗/µ,pϕ =Pϕ/µGM , as well as a rescaled
+9Completed by the O(p4) terms that must be introduced at 3PN.
+11
+time t =T/GM . This leads to equations of motion of the form
+dr
+dt =
+(A
+B
+)1/2 ∂ ˆHEOB
+∂p r∗
+,
+dpr∗
+dt = −
+(A
+B
+)1/2 ∂ ˆHEOB
+∂r ,
+Ω ≡ dϕdt = ∂ ˆHEOB∂p ϕ ,
+dpϕ
+dt = ˆFϕ. (22)
+As explained above the EOB metric function A(r) is deﬁned by Pad´ e resumming
+the Taylor-expanded result (10) obtained from the matching betw een the real
+and eﬀective energy levels (one uses a similar Pad´ e resumming for B(r), or
+rather for D(r) ≡ A(r)B(r)). One similarly needs to resum the ϕ component
+of the radiation reaction which has been introduced on the r.h.s. of t he last
+equation (22). During the quasi-circular inspiral ˆFϕ is known (from the PN
+work mentioned in Section 2 above) in the form of a Taylor expansion o f the
+form
+ˆF Taylorϕ = − 325 ν Ω5r4ω ˆF Taylor(vϕ), (23)
+where vϕ ≡ Ωrω, rω ≡rψ 1/3 (with ψ deﬁned as in Eq. (22) of [71]), and
+ˆF Taylor(v) = 1 + A2(ν)v2 +A3(ν)v3 +A4(ν)v4 +A5(ν)v5
++A6(ν, logv)v6 +A7(ν)v7 +A8(ν = 0, logv)v8, (24)
+where we have added to the known 3.5PN-accurate comparable-ma ss result the
+small-mass-ratio 4PN contribution [72].
+Following [32], one resums ˆF Taylor by using the following Pad´ e resummation
+approach. First, one chooses a certain number vpole which is intended to repre-
+sent the value of vϕ at which the exact angular momentum ﬂux would become
+inﬁnite if one were to formally analytically continue ˆFϕ along unstable circular
+orbits below the Last Stable Orbit (LSO): then, given vpole, one deﬁnes the
+resummed ˆF (vϕ) as
+ˆF resummed(vϕ) =
+(
+1 − vϕ
+vpole
+)−1
+P 44
+[(
+1 − vϕ
+vpole
+)
+ˆF Taylor(vϕ)
+]
+, (25)
+where P 44 denotes a (4 , 4) Pad´ e approximant. It has recently been shown [24]
+that the ﬂexibility in the choice of vpole could be advantageously used to get
+a close agreement with NR data. The quality of the agreement with NR data
+obtained by such a ‘ﬂexed’ Pad´ e resummation is illustrated (in the sm all mass-
+ratio limit) in Fig. 2.
+12
+0.1 0.15 0.2 0.25 0.3 0.35 0.4
+0.95
+1
+1.05
+1.1
+FP33(v)/FN(v)
+v
+ 
+ 
+Exact
+v6, vpole= 3−1/2
+v6, vpole= 0.53
+Figure 2: This ﬁgure illustrates how the Pad´ e resummation of the (N ewton-
+normalized) 3PN-expanded angular momentum ﬂux ˆF Taylor(v) = F (v)/FN (v)
+nicely agrees with the exact, numerical ﬂux when using a suitably ‘ﬂex ed’ value
+of vpole. The solid curve is the exact, numerical ﬂux [76]. The empty circles
+denote the (3, 3) Pad´ e resummation usingvpole = 0.53. The dashed curve, below
+the other two, denote the (3,3) Pad´ e resummation using the valuevpole = 1/
+√
+3,
+as originally suggested [32].
+Let us note that the EOB method is not restricted to planar motions . In
+particular, the entire method has been extended to the case of cir cularized
+motions of spinning black holes [4, 5, 75]. In this case, one must work with
+more phase space variables, q, p, S1 and S2, and include spin eﬀects in the
+radiation reaction.
+5 Eﬀective One Body waveforms
+To end this brief review, let us sketch the deﬁnition of accurate wav eforms
+within the EOB approach. The construction of EOB waveforms is bas ed on
+several separate inputs:
+• high-accuracy, PN-expanded inspiralling waveforms as basic inputs (see
+references above);
+• a speciﬁc resummation of the inspiral-plus-plunge waveform hinsplunge(t)
+(which includes the resummation of an inﬁnite number of ‘leading log-
+13
+arithms’ entering the Multipolar-post-Minkowskian expansion of ta il ef-
+fects, the resummation of the 5PN-accurate 10 ‘non-tail’ ℓ = 2, m = 2
+waveform11, and the parametrization of some non-quasi-circular eﬀects)
+[23, 24]:
+(Rc2
+GM
+)
+hinsplunge22 (t) = −8
+√π
+5 ν(rω Ω)2F22f NQC22 e−2iΦ ; (26)
+• a simpliﬁed representation of the transition between plunge and ring -down
+by smoothly matching, on a (2 p + 1)-toothed “comb” ( tm −pδ,...,t m −
+δ,t m,t m+δ,...,t m+pδ) centered around a matching time tm, the inspiral-
+plus-plunge waveform to a ring-down waveform, made of the super position
+of several 12 quasi-normal-mode complex frequencies,
+(Rc2
+GM
+)
+hringdown22 (t) =∑
+N
+C+Ne−σ+N (t−tm), (27)
+withσ+N =αN +iω N , and where the label N refers to indices (ℓ,ℓ ′,m,n ),
+with (ℓ,m ) = (2, 2) being the Schwarzschild-background multipolarity of
+the considered (metric) waveform hℓm, with n = 0, 1, 2... being the ‘over-
+tone number’ of the considered Kerr-background Quasi-Normal- Mode, and
+ℓ′ the degree of its associated spheroidal harmonics Sℓ′m(aσ,θ ). As dis-
+cussed in [2] and [23] the physics of the transition between plunge a nd ring-
+down (which was ﬁrst understood in the classic work of Davis, Ruﬃni and
+Tiomno [33]) suggests to choose as matching time tm, in the comparable-
+mass case, the EOB time when the EOB orbital frequency Ω( t) reaches
+its maximum value.
+Here, we have been describing the 3 +2-PN-accurate resummed EOB wave-
+form introduced in [23, 24]. A less accurate, restricted (0-PN) EOB waveform
+(together with a simpliﬁed matching procedure; δ → 0) has been used by Buo-
+nanno and collaborators [21].
+Finally, one deﬁnes a complete, quasi-analytical EOB waveform (cov ering
+the full process from inspiral to ring-down) as:
+hEOB22 (t) = θ(tm −t)hinsplunge22 (t) +θ(t −tm)hringdown22 (t), (28)
+where θ(t) denotes Heaviside’s step function.
+An example of this complete EOB waveform is represented in Fig. 3.
+10The 3PN-accurate part of the ‘non-tail’ waveform is known in the comparable-mass case
+ν ⁄= 0. The 4PN and 5PN pieces are only known in the test-mass limi t ν → 0 [72, 73].
+11See [74] for an independent derivation of the non-resummed 3 PN-accurate ℓ = 2, m = 2
+waveform.
+12Refs. [23, 25] use p = 2, i.e. a 5-teethed comb, and, correspondingly, 5 positive-freque ncy
+Kerr Quasi-Normal Modes.
+14
+0 500 1000 1500 2000 2500 3000 3500−2
+−1.5
+−1
+−0.5
+0
+0.5
+1
+1.5
+2
+t
+Re(rh22)/ν
+ 
+ 
+Figure 3: This ﬁgure illustrates a complete resummed EOB quadrupola r (ℓ = 2,
+m = 2) waveform (28) (using a5 = 20, ¯aRR = 30 and a suitably ﬂexed vpole),
+with, about, 29 GW cycles of inspiral, ∼ 1 GW cycle during plunge, and ∼ 4
+GW cycles of ring-down. Ref. [24] has shown that the inspiral part o f the EOB
+waveform agreed with the Caltech-Cornell NR data [17] within ±0.001 GW
+cycles, while Ref. [25] has shown that the late-inspiral-plunge-ringd own part
+of the EOB waveform agrees with an Albert Einstein Institute NR wav eform
+within ±0.005 GW cycles.
+Recent comparisons between EOB waveforms and full, 3-dimensiona l NR
+waveforms have exhibited an excellent level of agreement. After a prelimi-
+nary comparison done in [19], Buonanno et al. [21] compared restricted EOB
+waveforms to NR waveforms computed by the NASA-Goddard grou p. In the
+equal-mass case (ν = 1/4), they found that the dephasing between (restricted)
+EOB and NR waveforms (covering late inspiral, merger and ring-down ) stayed
+within ±0.030 GW cycles over 14 GW cycles. In the case of a mass ratio 4 : 1
+(ν = 0.16), the dephasing stayed within ±0.035 GW cycles over 9 GW cycles.
+The resummed EOB waveform has been compared to two diﬀerent (equal-mass)
+NR waveforms: (i) in the comparison with the very accurate inspirallin g simula-
+tion of the Caltech-Cornell group [17] the dephasing stayed smaller than ±0.001
+GW cycles over 30 GW cycles (and the amplitudes agreed at the ∼ 10−3 level)
+[24]; (ii) in the comparison with a late-inspiral-merger-ringdown NR wav eform
+computed by the Albert Einstein Institute group, the dephasing st ayed smaller
+than ±0.005 GW cycles over 12 GW cycles. See Ref. [77] for another EOB/NR
+comparison. All these comparisons have used the natural ﬂexibility of the EOB
+15
+formalism [4, 70], i.e. the possibility to tune EOB parameters representing yet
+uncalculated eﬀects (such as a5 in A(r) or vpole).
+We hope to have shown here the usefulness of the EOB formalism in ac -
+curately describing the general relativistic motion and radiation of c oalescing
+black hole binaries.
+Acknowledgments. I thank Alessandro Nagar for many fruitful interactions,
+and the conveners of the Second Stueckelberg meeting for organ izing a stimulat-
+ing workshop. I am also grateful to Alessandro Nagar and Marie-Cla ude Vergne
+for help with the ﬁgures, and Eric Poisson for providing the data of F ig. 2.
+16
+References
+[1] A. Buonanno and T. Damour: Eﬀective one-body approach to ge n-
+eral relativistic two-body dynamics, Phys. Rev. D 59, 084006 (1999)
+[arXiv:gr-qc/9811091].
+[2] A. Buonanno and T. Damour: Transition from inspiral to plunge
+in binary black hole coalescences, Phys. Rev. D 62, 064015 (2000)
+[arXiv:gr-qc/0001013].
+[3] T. Damour, P. Jaranowski and G. Sch¨ afer: On the determinat ion of
+the last stable orbit for circular general relativistic binaries at the
+third post-Newtonian approximation, Phys. Rev. D 62, 084011 (2000)
+[arXiv:gr-qc/0005034].
+[4] T. Damour: Coalescence of two spinning black holes: An eﬀective o ne-
+body approach, Phys. Rev. D 64, 124013 (2001) [arXiv:gr-qc/0103018].
+[5] A. Buonanno, Y. Chen and T. Damour: Transition from inspiral to plunge
+in precessing binaries of spinning black holes, Phys. Rev. D 74, 104005
+(2006) [arXiv:gr-qc/0508067].
+[6] F. Pretorius: Evolution of binary black hole spacetimes, Phys. Re v. Lett.
+95 (2005) 121101, arXiv:gr-qc/0507014.
+[7] M. Campanelli, C. O. Lousto, P. Marronetti and Y. Zlochower: Ac curate
+evolutions of orbiting black-hole binaries without excision, Phys. Rev . Lett.
+96, 111101 (2006) [arXiv:gr-qc/0511048].
+[8] M. Campanelli, C. O. Lousto and Y. Zlochower: Gravitational radia tion
+from spinning-black-hole binaries: The orbital hang up, Phys. Rev. D 74,
+041501 (2006) [arXiv:gr-qc/0604012].
+[9] J. G. Baker, J. Centrella, D. I. Choi, M. Koppitz and J. van Meter : Binary
+black hole merger dynamics and waveforms, Phys. Rev. D 73, 104002
+(2006) [arXiv:gr-qc/0602026].
+[10] J. G. Baker, J. Centrella, D. I. Choi, M. Koppitz, J. R. van Mete r and
+M. C. Miller: Getting a kick out of numerical relativity, Astrophys. J.
+653, L93 (2006) [arXiv:astro-ph/0603204].
+[11] J. G. Baker, M. Campanelli, F. Pretorius and Y. Zlochower: Comp arisons
+of binary black hole merger waveforms, Class. Quant. Grav. 24, S25 (2007)
+[arXiv:gr-qc/0701016].
+[12] J. A. Gonzalez, U. Sperhake, B. Bruegmann, M. Hannam and S. Husa: To-
+tal recoil: the maximum kick from nonspinning black-hole binary inspira l,
+Phys. Rev. Lett. 98, 091101 (2007) [arXiv:gr-qc/0610154].
+17
+[13] S. Husa, J. A. Gonzalez, M. Hannam, B. Bruegmann and U. Sper hake:
+Reducing phase error in long numerical binary black hole evolutions wit h
+sixth order ﬁnite diﬀerencing, arXiv:0706.0740v1 [gr-qc].
+[14] M. Koppitz, D. Pollney, C. Reisswig, L. Rezzolla, J. Thornburg, P . Di-
+ener and E. Schnetter: Getting a kick from equal-mass binary black hole
+mergers, Phys. Rev. Lett. 99, 041102 (2007) [arXiv:gr-qc/0701163].
+[15] L. Rezzolla, E. N. Dorband, C. Reisswig, P. Diener, D. Pollney, E. Schnet-
+ter and B. Szilagyi: Spin Diagrams for Equal-Mass Black-Hole Binaries
+with Aligned Spins, arXiv:0708.3999 [gr-qc].
+[16] L. Rezzolla, P. Diener, E. N. Dorband, D. Pollney, C. Reisswig, E. Schnet-
+ter and J. Seiler: The ﬁnal spin from the coalescence of aligned-spin black-
+hole binaries, The Astrophysical Journal, Volume 674, Issue 1, pp. L29-L32
+(2008), arXiv:0710.3345 [gr-qc].
+[17] M. Boyle et al. : High-accuracy comparison of numerical relativity simu-
+lations with post-Newtonian expansions, Phys. Rev. D 76, 124038 (2007)
+[arXiv:0710.0158 [gr-qc]].
+[18] F. Pretorius: Binary Black Hole Coalescence, The ‘ﬁnal version’ of this
+Lecture Note will appear in the book: ‘Relativistic Objects in Compact Bi-
+naries: From Birth to Coalescence’ Editor: Colpi et al. Pulisher: Spr inger
+Verlag, Canopus Publishing Limited, arXiv:0710.1338 [gr-qc].
+[19] A. Buonanno, G. B. Cook and F. Pretorius: Inspiral, merger an d ring-
+down of equal-mass black-hole binaries, Phys. Rev. D 75, 124018 (2007),
+arXiv:gr-qc/0610122.
+[20] Y. Pan et al.: A data-analysis driven comparison of analytic and numerical
+coalescing binary waveforms: nonspinning case, Phys. Rev. D 77, 024014
+(2008), arXiv:0704.1964[gr-qc].
+[21] A. Buonanno, Y. Pan, J. G. Baker, J. Centrella, B. J. Kelly,
+S. T. McWilliams and J. R. van Meter: Toward faithful templates for n on-
+spinning binary black holes using the eﬀective-one-body approach, Phys.
+Rev. D 76, 104049 (2007), [arXiv:0706.3732 [gr-qc]].
+[22] T. Damour and A. Nagar: Final spin of a coalescing black-hole bi-
+nary: an Eﬀective-One-Body approach, Phys. Rev. D 76, 044003 (2007),
+arXiv:0704.3550v2 [gr-qc].
+[23] T. Damour and A. Nagar: Faithful Eﬀective-One-Body wavefo rms of
+small-mass-ratio coalescing black-hole binaries, Phys. Rev. D 76, 064028
+(2007), [arXiv:0705.2519 [gr-qc]].
+[24] T. Damour and A. Nagar: Comparing Eﬀective-One-Body gravit ational
+waveforms to accurate numerical data, Phys. Rev. D 77, 024043 (2008),
+arXiv:0711.2628 [gr-qc].
+18
+[25] T. Damour, A. Nagar, E. N. Dorband, D. Pollney and L. Rezzolla: Faith-
+ful Eﬀective-One-Body waveforms of equal-mass coalescing black -hole bi-
+naries, Submitted to Phys. Rev. D, arXiv:0712.3003v1 [gr-qc].
+[26] P. Ajith et al. : Phenomenological template family for black-hole coales-
+cence waveforms, Class. Quant. Grav. 24, S689 (2007), [arXiv:0704.3764
+[gr-qc]].
+[27] M. Hannam, S. Husa, U. Sperhake, B. Brugmann and J. A. Gonz alez:
+Where post-Newtonian and numerical-relativity waveforms meet, t o be
+published in Physical Review D15, arXiv:0706.1305 [gr-qc].
+[28] P. Ajith et al. : A template bank for gravitational waveforms from coalesc-
+ing binary black holes: I. non-spinning binaries, arXiv:0710.2335 [gr-q c].
+[29] A. Gopakumar, M. Hannam, S. Husa and B. Brugmann: Comparis on be-
+tween numerical relativity and a new class of post-Newtonian gravit ational-
+wave phase evolutions: the non-spinning equal-mass case, arXiv:07 12.3737
+[gr-qc].
+[30] M. Hannam, S. Husa, B. Br¨ ugmann and A. Gopakumar: Compar ison be-
+tween numerical-relativity and post-Newtonian waveforms from sp inning
+binaries: the orbital hang-up case, arXiv:0712.3787v2 [gr-qc].
+[31] E. Brezin, C. Itzykson and J. Zinn-Justin: Relativistic balmer fo rmula
+including recoil eﬀects, Phys. Rev. D 1, 2349 (1970).
+[32] T. Damour, B. R. Iyer and B. S. Sathyaprakash: Improved ﬁlt ers for grav-
+itational waves from inspiralling compact binaries, Phys. Rev. D 57, 885
+(1998) [arXiv:gr-qc/9708034].
+[33] M. Davis, R. Ruﬃni and J. Tiomno: Pulses of gravitational radiat ion of
+a particle falling radially into a schwarzschild black hole, Phys. Rev. D 5,
+2932 (1972).
+[34] R. H. Price and J. Pullin: Colliding black holes: The Close limit, Phys.
+Rev. Lett. 72, 3297 (1994) [arXiv:gr-qc/9402039].
+[35] T. Damour and N. Deruelle: Radiation Reaction And Angular Momen tum
+Loss In Small Angle Gravitational Scattering, Phys. Lett. A 87, 81 (1981).
+[36] T. Damour: Gravitational Radiation And The Motion Of Compact B od-
+ies, 1983. in Gravitational Radiation, edited by N. Deruelle and T. Piran,
+North-Holland, Amsterdam, pp 59-144.
+[37] G. Sch¨ afer, The gravitational quadrupole radiation reaction force and the
+canonical formalism of ADM, Annals Phys. 161, 81 (1985).
+[38] S. M. Kopejkin: Astron. Zh. 62, 889-904 (1985).
+19
+[39] P. Jaranowski and G. Sch¨ afer: 3rd post-Newtonian higher o rder Hamilton
+dynamics for two-body point-mass systems, Phys. Rev. D 57 (1998) 7274-
+7291; Erratum-ibid. D 63 (2001) 029902, arXiv:gr-qc/9712075.
+[40] L. Blanchet and G. Faye: General relativistic dynamics of compa ct bina-
+ries at the third post-Newtonian order, Phys. Rev. D 63 (2001) 062005,
+arXiv:gr-qc/0007051.
+[41] T. Damour, P. Jaranowski and G. Sch¨ afer: Dimensional regu larization
+of the gravitational interaction of point masses, Phys. Lett. B 513, 147
+(2001), arXiv:gr-qc/0105038.
+[42] L. Blanchet, T. Damour and G. Esposito-Far` ese: Dimensional regulariza-
+tion of the third post-Newtonian dynamics of point particles in harmo nic
+coordinates, Phys. Rev. D 69, 124007 (2004), arXiv:gr-qc/0311052.
+[43] Y. Itoh and T. Futamase: New derivation of a third post-Newto nian equa-
+tion of motion for relativistic compact binaries without ambiguity, Phy s.
+Rev. D 68, 121501(R), (2003).
+[44] M. E. Pati and C. M. Will: Post-Newtonian gravitational radiation and
+equations of motion via direct integration of the relaxed Einstein equ ations.
+II: Two-body equations of motion to second post-Newtonian orde r, and
+radiation-reaction to 3.5 post-Newton, Phys. Rev. D 65, 104008 (2002),
+arXiv:gr-qc/0201001.
+[45] C. K¨ onigsd¨ orﬀer, G. Faye and G. Sch¨ afer: Binary black-hole dynamics at
+the third-and-a-half post-Newtonian order in the ADM formalism, P hys.
+Rev. D 68, 044004-1-19 (2003).
+[46] S. Nissanke and L. Blanchet: Gravitational radiation reaction in the equa-
+tions of motion of compact binaries to 3.5 post-Newtonian order, Cla ss.
+Quant. Grav. 22, 1007 (2005), arXiv:gr-qc/0412018.
+[47] L. Blanchet and T. Damour: Radiative gravitational ﬁelds in gene ral rel-
+ativity I. General structure of the ﬁeld outside the source, Phil. T rans. R.
+Soc. Lond. A320 (1986), pp 379-430.
+[48] L. Blanchet and T. Damour: Post-Newtonian generation of gra vitational
+waves, Ann. IHP 50 (1989), pp. 377-408.
+[49] T. Damour and B. R. Iyer: Multipole analysis for electromagnetis m and
+linearized gravity with irreducible Cartesian tensors, Physical Revie w D
+43 (1991), pp. 3259-3272.
+[50] T. Damour and B. R. Iyer: Post-Newtonian generation of grav itational
+waves II. The spin moments., Ann. IHP 54 (1991), pp. 115-164.
+[51] L. Blanchet and T. Damour: Hereditary eﬀects in gravitational radiation,
+Phys. Rev. D 46 (1992), pp. 4304-4319.
+20
+[52] L. Blanchet: Second post-Newtonian generation of gravitatio nal radiation,
+Phys. Rev. D 51, 2559 (1995), arXiv:gr-qc/9501030.
+[53] L. Blanchet: Gravitational-wave tails of tails, Class. Quant. Gra v. 15, 113
+(1998) [Erratum-ibid. 22, 3381 (2005)], arXiv:gr-qc/9710038.
+[54] C. M. Will and A. G. Wiseman: Gravitational radiation from compac t
+binary systems: gravitational waveforms and energy loss to seco nd post-
+Newtonian order, Phys.Rev. D 54, 4813 (1996), arXiv:gr-qc/9608012.
+[55] C. M. Will: Generation of post-Newtonian gravitational radiation via
+direct integration of the relaxed Einstein equations, Prog. Theor. Phys.
+Suppl. 136 (1999) 158-167, arXiv:gr-qc/9910057.
+[56] M. E. Pati and C. M. Will: Post-Newtonian gravitational radiation and
+equations of motion via direct integration of the relaxed Einstein equ ations.
+I. Foundations, Phys. Rev. D 62 (2000) 124015, arXiv:gr-qc/0007087.
+[57] L. Blanchet, T. Damour, B. R. Iyer, C. M. Will and A. G. Wiseman: Grav-
+itational radiation damping of compact binary systems to second po st-
+Newtonian order, Phys. Rev. Lett. 74, 3515 (1995), arXiv:gr-qc/9501027.
+[58] L. Blanchet, T. Damour and B. R. Iyer: Gravitational waves fr om in-
+spiralling compact binaries: Energy loss and wave form to second pos t-
+Newtonian order, Phys. Rev. D 51, 5360 (1995) [Erratum-ibid. D 54, 1860
+(1996)], arXiv:gr-qc/9501029.
+[59] L. Blanchet, B. R. Iyer and B. Joguet: Gravitational waves fr om in-
+spiralling compact binaries: Energy ﬂux to third post-Newtonian or-
+der, Phys. Rev. D 65 (2002) 064005; Erratum-ibid. D71 (2005) 129903,
+arXiv:gr-qc/0105098.
+[60] L. Blanchet and B. R. Iyer: Hadamard regularization of the thir d post-
+Newtonian gravitational wave generation of two point masses, Phy s. Rev.
+D 71 (2005) 024004, arXiv:gr-qc/0409094.
+[61] A. G. Wiseman: Coalescing binary systems of compact objects t o
+(post)5/2-Newtonian order. IV. The gravitational wave tail , Phys. Rev.
+D 48, 4757-4770 (1993).
+[62] L. Blanchet and G. Sch¨ afer: Gravitational wave tails, Class. Q . Grav. 10
+2699-2721 (1993).
+[63] L. Blanchet, T. Damour, G. Esposito-Far` ese and B. R. Iyer: Dimen-
+sional regularization of the third post-Newtonian gravitational wa ve
+generation from two point masses, Phys. Rev. D 71 (2005) 124004,
+arXiv:gr-qc/0503044.
+[64] L. Blanchet: Gravitational radiation from post-Newtonian sou rces and
+inspiralling compact binaries, Living Rev. Rel. 5, 3 (2002); Updated article:
+http://www.livingreviews.org/lrr-2006-4.
+21
+[65] J. G. Baker, S. T. McWilliams, J. R. van Meter, J. Centrella, D.-I. Choi,
+B. J. Kelly and M. Koppitz: Binary black hole late inspiral: Simula-
+tions for gravitational wave observations, Phys. Rev. D 75 (2007) 124024,
+[gr-qc/0612117].
+[66] L. Blanchet, T. Damour, G. Esposito-Far` ese and B. R. Iyer: Gravitational
+radiation from inspiralling compact binaries completed at the third pos t-
+Newtonian order, Phys. Rev. Lett. 93 (2004) 091101, arXiv:gr-qc/0406012.
+[67] L. Blanchet, G. Faye, B. R. Iyer and B. Joguet: Gravitational- wave inspiral
+of compact binary systems to 7/2 post-Newtonian order, Phys. R ev. D 65,
+061501 (2002) [Erratum-ibid. D 71, 129902 (2005)], arXiv:gr-qc/0105099.
+[68] T. Damour and G. Sch¨ afer: Higher order relativistic periastro n advances
+and binary pulsars: Nuovo Cim. B 101, 127 (1988).
+[69] T. Damour, E. Gourgoulhon and P. Grandclement: Circular orbit s of coro-
+tating binary black holes: Comparison between analytical and numer ical
+results, Phys. Rev. D 66, 024007 (2002), arXiv:gr-qc/0204011.
+[70] T. Damour, B. R. Iyer, P. Jaranowski and B. S. Sathyapraka sh: Grav-
+itational waves from black hole binary inspiral and merger: The span
+of third post-Newtonian eﬀective-one-body templates, Phys. Re v. D 67,
+064028 (2003) [arXiv:gr-qc/0211041].
+[71] T. Damour and A. Gopakumar: Gravitational recoil during binar y black
+hole coalescence using the eﬀective one body approach, Phys. Rev . D 73,
+124006 (2006) [arXiv:gr-qc/0602117].
+[72] H. Tagoshi and M. Sasaki: PostNewtonian expansion of gravita tional
+waves from a particle in circular orbit around a Schwarzschild black ho le,
+Prog. Theor. Phys. 92, 745 (1994) [arXiv:gr-qc/9405062].
+[73] T. Tanaka, H. Tagoshi and M. Sasaki: Gravitational Waves by a
+Particle in Circular Orbits around a Schwarzschild black hole – 5.5
+Post-Newtonian Formula –, Prog. Theor. Phys. 96 (1996) 1087-1101,
+[arXiv:gr-qc/9701050v1].
+[74] L. E. Kidder: Using Full Information When Computing Modes of Po st-
+Newtonian Waveforms From Inspiralling Compact Binaries in Circular Or -
+bit, to be published in Physical Review D15, arXiv:0710.0614v1 [gr-qc].
+[75] T. Damour, P. Jaranowski and G. Sch¨ afer: 2008, to be subm itted.
+[76] E. Poisson: Gravitational radiation from a particle in circular orb it
+around a black hole. 6. Accuracy of the postNewtonian expansion,
+Phys. Rev. D 52, 5719 (1995) [Addendum-ibid. D 55, 7980 (1997)]
+[arXiv:gr-qc/9505030].
+[77] T. Damour, A. Nagar et al. : in preparation.
+22
