@@ -11,11 +11,11 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
-| [birth-stagger](birth-stagger.md) | open | 4 | **The legality gate is measured and ed3a's patch shape is killed on error class: the stagger as built |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [representation-premises](representation-premises.md) | open | 4 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
+| [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
 | [library-directions](library-directions.md) | open | 6 | **Five lessons take the memory wall's newest hole (the FLOW's load-path pin) and the run attributes it: |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
@@ -34,5 +34,5 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |
-| [memory-h-live](memory-h-live.md) | open **conflict to resolve** | 109 | <<<<<<< main |
+| [memory-h-live](memory-h-live.md) | open **conflict to resolve** | 112 | **The FLOW's held-scan pin is ~0.4-0.55 kB per window candidate per held scan at window |
 | [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |

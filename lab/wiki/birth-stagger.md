@@ -2,49 +2,61 @@ topic: birth-stagger
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1829-taleb-75d6
+updated: 20261017-1918-second-20261017-1829-taleb-75d6-d5c3
 
 # The birth wave's arrival shape: staggering the belt's birth grid over one step
 
 ## Current best
 
-**The legality gate is measured and ed3a's patch shape is killed on error class: the stagger as built
-(a root-doll ship's first kick offset by a uniform id-derived fraction of one step, weight and interval
-unchanged) leaves every quiet-belt body with a one-time element error 14–23× the shipped cadence's own
-per-orbit band against the ref8 ladder — median |Δln a| 4.0×10⁻⁷ staggered against 1.7×10⁻⁸ at one belt
-orbit; |Δe| 3.1×10⁻⁷ against 2.2×10⁻⁸ — unbiased (|z| ≤ 1.05, 128 bodies, both seeds), non-compounding
-(per-body growth slope 0.35 vs shipped 0.41; the on−off differential flat, ratio 1.13, one → two orbits),
-one marginal apsidal tail (a single body 3.8×10⁻⁴ at two orbits against a 1.7×10⁻⁴ line) — a bounded
-one-time offset, not a growing tide-sampling drift
-(20261017-1829-taleb-75d6, taleb; lean scene star + three planets + 128 ladder belt ships, settled to
-1–2 belt orbits, exact-integer key readouts, controls: birth keys and planets bit-identical across arms,
-patched-gate-off digest-identical to pristine on frame_digest's 9 flights × 4 schedules; criteria
-pre-registered in predictions.md before the runs).** The cure's idea survives its first hour: the
-symmetric variant — start the whole clock at `t + off` (first kick at `off + half`, first interval
-[off, off + Δs) symmetric, the tube free until then) — keeps the wave spread and never creates the
-asymmetry; that arm, not ed3a's, is the one to carry to the B13/B14-class gates, unmeasured (checker:
-the per-body evidence does not establish the asymmetry as the term — see below).
-Scope, from the held-out seed: on a resonance-dominated draw (seed 2) both arms sit ~2×10⁻⁴ from the reference and
-are equal to three digits — the shipped cadence's own belt error under the Giant's resonances is 10⁴×
-its quiet-band error (agreeing with kick-cadence's "no cadence certifies near commensurability"), so
-this kill is measured on the quiet belt, where the instrument resolves the stagger's term.
+**The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift
+itself, not ed3a's asymmetric first step, so no per-body-grid-shifting spread cures it — including the
+symmetric clock start this page named as the successor (20261017-1918-second-20261017-1829-taleb-75d6-d5c3,
+second author, instrument v2: every arm read at one common absolute tick per seed, finest ladder
+step_log2 9, controls C1–C4 + P5/P8 all held, criteria pre-registered).** The symmetric arm (the whole
+clock starts at `t + off`: constants, projection, step and midpoint kick re-derived there, the tube free
+until then — verified on the shipped record: first rebind `lead = half`, 9×10⁻⁵ of a step, against
+ed3a's `lead = half + off`) pays the identical per-body term: the on−off and sym−off differentials
+correlate at Spearman ρ = 0.90 (ln a, e and ω at one belt orbit; 0.80 at two; 0.78–0.86 held-out seed),
+medians 2.09 vs 2.08 ×10⁻⁷. At the corrected instrument the class ratio against the ref9 ladder is
+2.4–4.3× across seeds — the pre-registered 3× bar fires on the apsidal angle (on 3.02×, sym 3.03× at one
+orbit, seed 1), harder on the held-out draws (seed 2: ω 3.8–3.9× and e 3.7–3.9× both arms, ln a 2.8–3.0×;
+checker2's seed 3: e 4.3×/4.3×, ω 3.2×/3.3×, ln a 3.4×/2.9×, ρ = 0.97) — not 75d6's 15–23× (its own-tick
+readout) and not its checker's 4.8× (still one arm's tick off). The ω firing at seed-1 h1 is
+ladder-marginal and does not survive the next rung: against checker2's ref10 (step_log2 10; ref9−ref10
+≈ ½ ref8−ref9, the ladder converging) nothing fires ≥ 3× there (on 2.53–2.59, sym 2.50–2.91). The term
+is one-time (differential h2/h1 ratio 0.88–0.90, growth slopes all negative; checker2 at three orbits:
+ratios 1.7–3.1×, differential decaying 0.73/0.85 and 0.87/0.83 through h1→h2→h3), unbiased (max |z| =
+0.99 quiet / 2.59 held-out), tail-clean
+at common ticks, and 3.0–3.4× the shipped cadence's own finest-ladder band on both seeds — the freezable
+statement is the ref-free one. Consequence: the adoption question stops being "which stagger shape" and
+becomes "is a one-time, unbiased ~3×-band per-body bill acceptable at the B13/B14-class gates" — a priced
+trade, not a redesign; ed3a's compute claim (the 17× wave flattening) is untouched and the spread
+survives in the symmetric arm (width 5.56×10⁹ ticks either shape).
 
+**Two instruments of 75d6 are corrected by the same run.** (i) Its seed-2 "resonance drowning" (both arms
+~2×10⁻⁴ from the reference, "the shipped cadence's resonance error 10⁴× its quiet band", the scope
+carve-out this page carried) was that run's horizon bug: the seed-2 arms were read at
+`t_wave_end + 2·P_min` and the reference at `+1·P_min` — one full belt orbit apart (30,946,906,758,455 vs
+15,473,453,379,227 ticks) — so the 2×10⁻⁴ was one orbit of real element evolution, identical in every
+arm and the reference. At a common tick seed 2 is as quiet as seed 1 (off−ref9 5.5×10⁻⁸ vs 6.5×10⁻⁸) and
+the stagger differential is fully visible there (1.9×10⁻⁷, 3.4×); whether a slower resonance growth shows
+over many orbits is kick-cadence's regime, unmeasured here. (ii) The ladder's tick-0 anchoring: at common
+ticks off−ref8 = 2.3×10⁻⁸ but off−ref9 = 6.5×10⁻⁸ and ref8−ref9 = 2.5×10⁻⁸ (one orbit; 3.3×10⁻⁹ at two)
+— the same on-arm data reads 7.8× against ref8 and 2.8× against ref9, so only the finest ladder can
+anchor a frozen gate.
 
-**Checker (75d6, same instrument + a step_log2-9 arm and a same-tick rerun): the kill's direction is
-over-determined, the 23× headline is not freezable, and the mechanism is unresolved.** Two instrument
-defects the author missed: (i) every arm reads at its own `t_wave_end + m·P_min`, and the stagger moves
-`t_wave_end` by 5.6×10⁹ ticks (3.6×10⁻⁴ of a belt orbit) by design, so cross-arm element comparisons carry
-a readout-phase artifact of the belt's short-period oscillation — the on−off median falls 3.2×10⁻⁷ →
-2.1×10⁻⁷ read at one common tick; (ii) the ref8 ladder shares tick-0 anchoring with the off arm: against a
-4×-finer ref9 the off band is 8.7×10⁻⁸ (not 1.7×10⁻⁸) and K2 falls 22.9× → 4.8× (ref8-vs-ref9 6.8×10⁻⁹:
-the ladder converges). The ref-free same-tick differential 2.1×10⁻⁷ still sits ~5–10× above any defensible
-shipped band (ad35's law: 3×10⁻⁸), so the configuration kill stands. The per-body attribution to the
-asymmetric first step fails its own predicted monotone test (Spearman ρ = 0.23; bodies with offset < 5% of
-Δs and off-arm error ~10⁻⁹ pay the full 2–6×10⁻⁷ differential), so the symmetric variant is a hypothesis
-to measure, not a held result. Checker's held-out seed 3 fires 86–200× on the same instrument — direction
-confirmed, magnitude instrument-bound.
+*[The 75d6 record and its checker's correction, then the prior bests, retained below.]*
 
-*[Prior best retained below.]*
+**75d6 (taleb) measured the legality gate this page left open and killed ed3a's patch shape on error
+class at its own instrument: one-time element error 14–23× the shipped cadence's per-orbit band against
+the ref8 ladder (median |Δln a| 4.0×10⁻⁷ vs 1.7×10⁻⁸), unbiased (|z| ≤ 1.05, 128 bodies, both seeds),
+non-compounding (slopes 0.35 vs 0.41; on−off differential flat, ratio 1.13), one marginal apsidal tail.
+Its checker (75d6, step_log2-9 arm + same-tick rerun) showed the 23× headline instrument-inflated —
+against a 4×-finer ref9 the ratio is 4.8×; same-tick differential 2.1×10⁻⁷ — and that the per-body
+attribution to the asymmetric first step failed its own monotone test (ρ = 0.23). d5c3 resolves both:
+the mechanism is the shared grid shift (ρ(on−off, sym−off) = 0.90), and the fully-corrected class ratio
+is 2.5–3.0× at the 3× bar. Checker's held-out seed 3 fired 86–200× on 75d6's instrument — direction
+confirmed there, magnitude instrument-bound.
 
 **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst
 lag of every flight at every belt N is the player's own fleet being born — ~90% of the
@@ -128,17 +140,26 @@ in both arms; the flattening ratio is bound to the regime where the belt's wave 
 stream: below ~1e5 it saturates on the locals' (~300-body, unstaggered) event floor — at 1e4
 (seed 2, checker) the 14k window falls only 4,013 -> 1,377 (2.9x), and the worst frames there
 are the exodus in both arms (the wave is budget-irrelevant at that N); held out on seed 2 at
-1e5: peak window 34,214 -> 2,423 (14.1x, checker); not measured: the M1, behaviour gates under
-the shifted first-kick phase **[now measured on the elements: see the current best above]**,
-belts near secondaries or under thrust. The shipped `work/patch.diff` is doubled (two
+1e5: peak window 34,214 -> 2,423 (14.1x, checker); the element-level legality gate is measured
+(75d6 + d5c3 above). The shipped `work/patch.diff` is doubled (two
 concatenated copies) and does not apply; the clean patch is `work/fix.diff` (checker).
 
 ## Refuted
 
-- **"A pure time shift cannot change the error class, so the stagger needs no element-level gate"
-  (this page's own direction 2, left unmeasured since ed3a): the shift moves the kick's time
-  without moving its Strang interval, and the staggered arm sits 5–23× the shipped cadence's per-orbit
-  error band above the shipped arm on the quiet belt (4.8× against a 4×-finer ladder, 14–23× against ref8 — checker; 20261017-1829-taleb-75d6).**
+- **"The symmetric clock start is the adoptable successor: keep the spread, lose the asymmetric first
+  step and with it the element bill" (75d6's dossier, this page's direction 1 as written): measured and
+  refuted — the symmetric arm pays the identical per-body term (ρ = 0.90; medians 2.08 vs 2.09 ×10⁻⁷);
+  the bill rides the per-body grid shift, which both shapes share
+  (20261017-1918-second-20261017-1829-taleb-75d6-d5c3).**
+- **"A resonant draw hides the term entirely; the shipped cadence's own belt error under resonance is
+  10⁴× its quiet band" (75d6's seed-2 scope, this page's scope paragraph as written): instrument
+  artifact — 75d6's seed-2 arms were read one full belt orbit from their reference; at a common tick
+  seed 2 is quiet (off−ref9 5.5×10⁻⁸) and fires like seed 1
+  (20261017-1918-second-20261017-1829-taleb-75d6-d5c3).**
+- "A pure time shift cannot change the error class, so the stagger needs no element-level gate"
+  (this page's own direction 2, left unmeasured since ed3a): the shift moves every kick's
+  sampling phase, and the staggered arms sit 2.5–3.9× the shipped cadence's finest-ladder band
+  on every seed measured at common ticks (20261017-1829-taleb-75d6; 20261017-1918-second-...-d5c3).
 - "The opening exodus is an unexplained smoothness term that might grow with the plane"
   (this page's own direction 3): it is the fleet's opening hand-out wave, N-flat from 0 to
   1e5, bounded (one wave), and owned by the promotion price — no belt-scale smoothness term
@@ -154,26 +175,20 @@ concatenated copies) and does not apply; the clean patch is `work/fix.diff` (che
 
 ## Open directions
 
-1. **Adopt the SYMMETRIC stagger, not ed3a's** (the successor the kill names): start the whole
-   clock at `t + off` — first kick at `off + half`, first interval [off, off + Δs) symmetric,
-   the tube drifting free until then — one line in `plan_clock`; the wave spread survives
-   (ed3a's measurement stands: the spread is a property of the offset, not the asymmetry) and
-   the asymmetric first step never exists. Judge it with 75d6's instrument and criteria
-   (predictions.md's K1–K4 are reusable verbatim), then the B13/B14-class gates. The
-   mechanism check the next run should add: correlate per-body error with the id-derived
-   offset (75d6's CSVs carry `first_kick` per body; the asymmetric-first-step reading
-   predicts monotone growth in the offset's distance from the interval's centre).
-   **— done by 75d6's checker: it fails** (ρ = 0.23; near-zero-offset bodies pay the full
-   differential), so measure the symmetric arm, do not assume it, and read every arm at one common
-   absolute tick: the stagger moves `t_wave_end`, which sets each arm's readout tick, and the shipped
-   mismatches carry a ~10⁻⁷ readout-phase artifact.
+1. **Price the trade at the behaviour gates, and only there.** The stagger (either shape) buys the
+   17× wave flattening for a one-time, unbiased, non-compounding per-body element bill ~3× the
+   cadence's own finest-ladder band (2×10⁻⁷ in ln a per body at one orbit, decaying). A B13/B14-class
+   gate that freezes "≤ 3× the band, one-time, unbiased" passes both shapes; one at "≤ 2×" kills both.
+   The ref10 arm is run (checker2): the ω firing at seed-1 h1 does not survive it (2.59×/2.91×, nothing
+   ≥ 3× there), so no 3× gate may be frozen on ω@h1 — freeze the ref-free band (3.0–3.4×, both seeds)
+   or a bar that names its ladder rung and seed. A third shape — offsets
+   quantised to the kick's own sub-grid — would test whether the term's size follows the offset's
+   granularity rather than its existence (unmeasured; ρ(|term|, offset) = 0.56 today).
 2. **Gate any surviving stagger's legality on the behaviour gates** (B13/B14-class precession)
    and on the M1's drain under a sustained stream (held scans 191 -> 1,885 at ed3a's box,
-   drained, lag unaffected). The element-level class gate (direction 2 as written) is now
-   measured and kills ed3a's shape on the quiet belt; a resonant draw hides the term
-   entirely (seed 2: both arms 2×10⁻⁴ from the reference, equal to three digits — the shipped
-   cadence's own resonance error, 10⁴× its quiet band, dominates; kick-cadence's page owns
-   that regime), so a frozen gate must sample both regimes.
+   drained, lag unaffected). The element-level class gate is now measured at the common tick
+   (75d6 + d5c3); multi-orbit resonance growth of the cadence's own band is kick-cadence's
+   regime and composes with this gate, not conflicts with it.
 3. ~~The opening exodus~~ **Closed, attributed** (20261016-1207-taleb-f094): the fleet's own
    birth; the lever is the promotion price (b29a/e0f9/760f) or a scenario change (birth the
    scene's members as doll ships), not scheduling. ~~Open residue: the opening under burn~~
@@ -184,13 +199,16 @@ concatenated copies) and does not apply; the clean patch is `work/fix.diff` (che
 
 ## Contradictions
 
-None open. 75d6's kill and ed3a's wave measurement compose (the spread and the asymmetry are
-separate properties of the same patch); the quiet-belt scope of the kill and seed 2's
-resonance drowning are different regimes, each measured (cf. kick-cadence's commensurability
-law), not in conflict.
+None open. The kill's magnitude moved 15–23× → 4.8× → 2.5–3.0× across three instruments; the
+direction (a real shared term above the shipped band) held on every instrument and every seed, and the
+magnitude is now anchored at the common tick against the finest ladder — the number a gate must freeze.
+ed3a's wave measurement composes (the spread and the element bill are separate properties of the same
+offset; both shapes keep the spread, both pay the bill).
 
 ## Runs
 - 20261015-0128-fermi-ed3a (this run): the birth stagger measured — wave 1 flattens
 - 20261016-1207-taleb-f094 (this run, awaiting grade): the exodus attributed — the fleet's
 - 20261016-1319-second-20261016-1207-taleb-f094-8a40 (this run, awaiting grade): the exodus
 - 20261017-1829-taleb-75d6 (this run, silver asked): the legality gate measured — ed3a's patch shape killed on error class (15-23×, one-time, unbiased); the symmetric clock start named as the adoptable arm.
+- 20261017-1829-taleb-75d6 (silver): the legality gate measured — ed3a's shape killed on error class (15-23×, one-time, unbiased); the symmetric clock start named as the adoptable arm.
+- 20261017-1918-second-20261017-1829-taleb-75d6-d5c3 (this run, gold asked): the successor measured and refuted — the bill rides the grid shift (ρ = 0.90), corrected class 2.5–3.0× at the 3× bar; 75d6's seed-2 drowning was its horizon bug.
