@@ -1,0 +1,10 @@
+rung N=3000 (3028 bodies), coast, rtf 1000, 20 s of wall time, engine budget 12 ms; build 0.13 s, peak footprint 11 MB (now 11 MB)
+frames after 1 s: 1140  engine ms p50 3.530 p90 7.005 p99 10.043 max 11.658; over 12 ms: 0; frames behind: 34, worst lag 15.164 s; events/frame p50 28 p99 228 max 334; scans held max 4
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  process (whole)                           1720.6    53.81      31978
+    fit: bind_surface (kicks, hand-outs)     617.1    28.19      21892
+  item: kick (clock)                         106.8     2.38      44902
+    fit again: the coarser word (bind_surface)       0.1     0.00      17092
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (961, 11.66, 326, 15.164) (1122, 11.55, 256, 10.754) (1042, 11.50, 228, 14.560) (481, 11.28, 257, 1.395) (321, 10.98, 334, 5.578)
+ladder: n=3000 bodies=3028 flight=coast rtf=1000 frames=1200 build_s=0.13 foot_build_mb=11 foot_end_mb=22 b_per_body=2736 p50_ms=3.530 p99_ms=10.043 max_ms=11.658 over=0 lag_s=15.164 kicks_per_body_gs=5.652e-4 events_per_body_gs=1.101e-3 refusals=0 dead=0 held_max=4 view_ms=61.4 truncated=false wall_s=5.3

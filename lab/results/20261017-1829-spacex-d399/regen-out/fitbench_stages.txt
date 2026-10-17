@@ -1,0 +1,55 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+warning: unused import: `Budget`
+  --> crates/universe/examples/fitbench.rs:17:25
+   |
+17 | use emergent_universe::{Budget, Config};
+   |                         ^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (example "fitbench") generated 1 warning (run `cargo fix --example "fitbench"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.72s
+     Running `/home/glmlab/lab-target-1/release/examples/fitbench`
+flight: N=3000 belt crossing, 4872610722 game-s, 3.55012603 s wall, kicks 40106, digest 4995f38448103cc2
+captured 24576 bind_surface inputs
+=== SHIPPED (fit.residual computed)
+bind_surface total         n=73728  p50= 16.861us p90= 21.659us p99=346.396us max=1690.548us mean= 25.547us
+from_state: fit_key (cubic inverse)                            3.932 us/call    73872 calls   290.501 ms total
+from_state: compile (shape quadrature)                        12.039 us/call    73872 calls   889.327 ms total
+from_state: at_radius (radius cut + 1 quad + read)             1.136 us/call    73872 calls    83.882 ms total
+from_state: decoded_event (time->psi Newton + read + cartesian)     3.586 us/call    73872 calls   264.911 ms total
+from_state: residual_between                                   0.019 us/call    73872 calls     1.412 ms total
+outbound_at (every time->psi Newton solve)                     2.699 us/call   147732 calls   398.719 ms total
+bind_in: decode (tube replay at the binding tick)              3.588 us/call    73872 calls   265.056 ms total
+bind_in: turn + residual                                       0.331 us/call    73872 calls    24.484 ms total
+quad() evaluations                          1374633
+node() evaluations (isqrt + reciprocal)      983022
+outbound_at() calls                          147732
+outbound_at Newton iterations                440334
+=== DELETE ARM (decoded_event skipped)
+bind_surface total         n=73728  p50= 13.253us p90= 16.356us p99=336.837us max=1480.544us mean= 21.839us
+from_state: fit_key (cubic inverse)                            3.901 us/call    73872 calls   288.158 ms total
+from_state: compile (shape quadrature)                        12.022 us/call    73872 calls   888.113 ms total
+from_state: at_radius (radius cut + 1 quad + read)             1.128 us/call    73872 calls    83.291 ms total
+outbound_at (every time->psi Newton solve)                     2.704 us/call    73866 calls   199.749 ms total
+bind_in: decode (tube replay at the binding tick)              3.610 us/call    73872 calls   266.694 ms total
+bind_in: turn + residual                                       0.331 us/call    73872 calls    24.418 ms total
+quad() evaluations                          1154466
+node() evaluations (isqrt + reciprocal)      823593
+outbound_at() calls                           73866
+outbound_at Newton iterations                220167
+=== SHIPPED again (drift check)
+bind_surface total         n=24576  p50= 16.709us p90= 18.968us p99=344.588us max=1579.127us mean= 25.228us
+from_state: fit_key (cubic inverse)                            3.863 us/call    24624 calls    95.117 ms total
+from_state: compile (shape quadrature)                        11.923 us/call    24624 calls   293.587 ms total
+from_state: at_radius (radius cut + 1 quad + read)             1.123 us/call    24624 calls    27.644 ms total
+from_state: decoded_event (time->psi Newton + read + cartesian)     3.545 us/call    24624 calls    87.283 ms total
+from_state: residual_between                                   0.019 us/call    24624 calls     0.459 ms total
+outbound_at (every time->psi Newton solve)                     2.667 us/call    49244 calls   131.356 ms total
+bind_in: decode (tube replay at the binding tick)              3.539 us/call    24624 calls    87.136 ms total
+bind_in: turn + residual                                       0.327 us/call    24624 calls     8.053 ms total
+quad() evaluations                           458211
+node() evaluations (isqrt + reciprocal)      327674
+outbound_at() calls                           49244
+outbound_at Newton iterations                146778
+drift check: shipped 21.839 -> 25.228 us/call

@@ -1,0 +1,482 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..7ff30d78 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -417,13 +417,19 @@ impl Rebinding {
+         Ok(fit)
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let t_fit = crate::fitprof::t();
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        crate::fitprof::add(crate::fitprof::FIT_KEY, t_fit);
++        let t_compile = crate::fitprof::t();
+         let trajectory = if key.periodic() {
+             Trajectory::Cycle(Orbit::compile(key)?)
+         } else {
+             Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+         };
++        crate::fitprof::add(crate::fitprof::COMPILE, t_compile);
++        let t_at = crate::fitprof::t();
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        crate::fitprof::add(crate::fitprof::AT_RADIUS, t_at);
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+@@ -438,13 +444,24 @@ impl Rebinding {
+             periapsis_angle,
+             clockwise,
+             residual: Residual {
+-                position: [0; 2],
+-                velocity: [0; 2],
++                position: [0, 0],
++                velocity: [0, 0],
+             },
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        // Lab delete arm (20261017-1829-spacex-d399): the flown path (`bind_in`) never
++        // reads `fit.residual` — it keeps its own, from its own tube replay — so the
++        // fit's `decoded_event` here is dead work there. Skipped only when armed.
++        if crate::fitprof::skip_decoded() {
++            return Ok(fit);
++        }
++        let t_dec = crate::fitprof::t();
++        let decoded = fit.decoded_event()?;
++        crate::fitprof::add(crate::fitprof::DECODED, t_dec);
++        let t_res = crate::fitprof::t();
++        fit.residual = Residual::between(state, decoded);
++        crate::fitprof::add(crate::fitprof::RES_BET, t_res);
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/fitprof.rs b/crates/space/src/fitprof.rs
+new file mode 100644
+index 00000000..677fda0b
+--- /dev/null
++++ b/crates/space/src/fitprof.rs
+@@ -0,0 +1,140 @@
++//! Stage counters for the fit path (`Rebinding::from_state`, `bind_surface`), lab run
++//! 20261017-1829-spacex-d399. Off by default: every `add`/`count` pays one relaxed load
++//! and returns; no arithmetic of the law is touched, so digests are identical with this
++//! module present (verified by `ladder_digest`). The delete arm (`FIT_NODECODED`) is the
++//! one switch that changes behaviour, and only when it is armed.
++
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::sync::LazyLock;
++use std::time::Instant;
++
++pub const FIT_KEY: usize = 0;
++pub const COMPILE: usize = 1;
++pub const AT_RADIUS: usize = 2;
++pub const DECODED: usize = 3;
++pub const RES_BET: usize = 4;
++pub const OUTB_AT: usize = 5;
++pub const BIND_DECODE: usize = 6;
++pub const TURN_RES: usize = 7;
++pub const N: usize = 8;
++
++pub const NAMES: [&str; N] = [
++    "from_state: fit_key (cubic inverse)",
++    "from_state: compile (shape quadrature)",
++    "from_state: at_radius (radius cut + 1 quad + read)",
++    "from_state: decoded_event (time->psi Newton + read + cartesian)",
++    "from_state: residual_between",
++    "outbound_at (every time->psi Newton solve)",
++    "bind_in: decode (tube replay at the binding tick)",
++    "bind_in: turn + residual",
++];
++
++pub const C_QUAD: usize = 0;
++pub const C_NODE: usize = 1;
++pub const C_OUTB: usize = 2;
++pub const C_ITERS: usize = 3;
++pub const CN: usize = 4;
++pub const CNAMES: [&str; CN] = [
++    "quad() evaluations",
++    "node() evaluations (isqrt + reciprocal)",
++    "outbound_at() calls",
++    "outbound_at Newton iterations",
++];
++
++const Z: AtomicU64 = AtomicU64::new(0);
++static NS: [AtomicU64; N] = [Z; N];
++static CALLS: [AtomicU64; N] = [Z; N];
++static COUNTS: [AtomicU64; CN] = [Z; CN];
++static ON: AtomicBool = AtomicBool::new(false);
++
++#[inline]
++pub fn t() -> Instant {
++    Instant::now()
++}
++
++#[inline]
++pub fn on() -> bool {
++    ON.load(Ordering::Relaxed)
++}
++
++pub fn set_on(v: bool) {
++    ON.store(v, Ordering::Relaxed);
++}
++
++
++/// Times `outbound_at` across its early returns.
++pub struct Guard(Instant);
++impl Drop for Guard {
++    fn drop(&mut self) {
++        add(OUTB_AT, self.0);
++    }
++}
++pub fn guard() -> Guard {
++    Guard(t())
++}
++#[inline]
++pub fn add(stage: usize, since: Instant) {
++    if !on() {
++        return;
++    }
++    NS[stage].fetch_add(since.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    CALLS[stage].fetch_add(1, Ordering::Relaxed);
++}
++
++#[inline]
++pub fn count(idx: usize) {
++    if !on() {
++        return;
++    }
++    COUNTS[idx].fetch_add(1, Ordering::Relaxed);
++}
++
++/// The lab's delete arm: skip the fit residual's `decoded_event` (the flown path,
++/// `bind_in`, computes its own residual from its own `decode` and never reads
++/// `fit.residual`). Armed by `FIT_NODECODED=1` or `set_skip`.
++static SKIP_ENV: LazyLock<bool> = LazyLock::new(|| std::env::var("FIT_NODECODED").is_ok());
++static SKIP_SET: AtomicBool = AtomicBool::new(false);
++static SKIP_VAL: AtomicBool = AtomicBool::new(false);
++
++#[inline]
++pub fn skip_decoded() -> bool {
++    if SKIP_SET.load(Ordering::Relaxed) {
++        return SKIP_VAL.load(Ordering::Relaxed);
++    }
++    *SKIP_ENV
++}
++
++pub fn set_skip(v: bool) {
++    SKIP_VAL.store(v, Ordering::Relaxed);
++    SKIP_SET.store(true, Ordering::Relaxed);
++}
++
++pub fn report() {
++    for i in 0..N {
++        let ns = NS[i].load(Ordering::Relaxed);
++        let calls = CALLS[i].load(Ordering::Relaxed);
++        if calls == 0 {
++            continue;
++        }
++        println!(
++            "{:<58} {:>9.3} us/call {:>8} calls {:>9.3} ms total",
++            NAMES[i],
++            ns as f64 / calls as f64 / 1000.0,
++            calls,
++            ns as f64 / 1e6
++        );
++    }
++    for i in 0..CN {
++        println!("{:<40} {:>10}", CNAMES[i], COUNTS[i].load(Ordering::Relaxed));
++    }
++}
++
++pub fn reset() {
++    for i in 0..N {
++        NS[i].store(0, Ordering::Relaxed);
++        CALLS[i].store(0, Ordering::Relaxed);
++    }
++    for c in COUNTS.iter() {
++        c.store(0, Ordering::Relaxed);
++    }
++}
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..a468a0dc 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -122,6 +122,8 @@ pub mod events;
+ #[cfg(feature = "profile")]
+ pub mod profile;
+ mod tables;
++/// Lab run 20261017-1829-spacex-d399: digest-neutral stage counters for the fit path.
++pub mod fitprof;
+ 
+ macro_rules! stage {
+     ($i:expr, $e:expr) => {{
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..7fcfbfbd 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -312,6 +312,7 @@ impl OrbitShape {
+         self.k + product(ONE - self.k, cos(psi))
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
++        crate::fitprof::count(crate::fitprof::C_NODE);
+         let cs = cos(psi);
+         let x = self.k + product(ONE - self.k, cs);
+         if x <= 0 {
+@@ -343,6 +344,7 @@ impl OrbitShape {
+         Ok(Integral([excess, t, tau, dt, dtau]))
+     }
+     fn quad(&self, lo: i128, hi: i128) -> Result<Integral> {
++        crate::fitprof::count(crate::fitprof::C_QUAD);
+         let h = hi - lo;
+         if h == 0 {
+             return Ok(Integral::default());
+@@ -778,6 +780,8 @@ impl Orbit {
+         self.read(cycles, k.psi as i128, outbound, k.sum)
+     }
+     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
++        crate::fitprof::count(crate::fitprof::C_OUTB);
++        let _g = crate::fitprof::guard();
+         let s = &self.shape;
+         let mut lo_i = 0;
+         let mut hi_i = s.knots.len();
+@@ -812,6 +816,7 @@ impl Orbit {
+                 Scalar::ZERO
+             })?;
+         for iteration in 0..72 {
++            crate::fitprof::count(crate::fitprof::C_ITERS);
+             let sum = base.sum.add(s.quad(a, psi)?)?;
+             let t = self.time(sum)?;
+             if t.sub(target)?.abs() <= quantum || hi - lo <= 1 {
+diff --git a/crates/universe/examples/fitbench.rs b/crates/universe/examples/fitbench.rs
+new file mode 100644
+index 00000000..515712a5
+--- /dev/null
++++ b/crates/universe/examples/fitbench.rs
+@@ -0,0 +1,87 @@
++//! The belt kick's fit, timed stage by stage on flown inputs (lab run
++//! 20261017-1829-spacex-d399). Phase 1 flies the ladder's `N=3000 belt crossing`
++//! (the read-stream page's regime) with `FITCAP=1` and captures every `bind_surface`
++//! input; phase 2 replays the captured inputs through `bind_surface` K times per arm,
++//! printing the stage table and per-call totals for the shipped arm and the delete arm
++//! (`fit.residual`'s `decoded_event` skipped: the flown path computes its own residual).
++//!
++//! cargo run --release -p emergent-universe --example fitbench
++
++use emergent_space::fitprof;
++use emergent_universe::bind::bind_surface;
++use emergent_universe::fitcap::{self, Cap};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++fn stats(name: &str, us: &mut Vec<f64>) {
++    us.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let q = |p: f64| us[((us.len() as f64 - 1.0) * p) as usize];
++    println!(
++        "{:<26} n={:<6} p50={:7.3}us p90={:7.3}us p99={:7.3}us max={:7.3}us mean={:7.3}us",
++        name,
++        us.len(),
++        q(0.50),
++        q(0.90),
++        q(0.99),
++        us[us.len() - 1],
++        us.iter().sum::<f64>() / us.len() as f64
++    );
++}
++
++fn replay(caps: &[Cap], passes: usize, label: &str) -> Vec<f64> {
++    fitprof::reset();
++    let mut us = Vec::with_capacity(caps.len() * passes);
++    for _ in 0..passes {
++        for c in caps {
++            let t0 = Instant::now();
++            let _ = bind_surface(c.exact, c.t, c.clock_exp, c.edge, c.unit, c.surface);
++            us.push(t0.elapsed().as_secs_f64() * 1e6);
++        }
++    }
++    println!("=== {label}");
++    stats("bind_surface total", &mut us.clone());
++    fitprof::report();
++    us
++}
++
++fn main() {
++    // Phase 1: fly the ladder's belt crossing and capture the flown fit inputs.
++    fitcap::arm();
++    let (n, rtf, wall) = (3000usize, 3000.0f64, 8.0f64);
++    let cut = (wall * rtf / TICK_SECONDS) as i64;
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 4, 48, n).unwrap();
++    let t0 = Instant::now();
++    p.u.schedule((1.0 * rtf / TICK_SECONDS) as i64, word(1, 10)).unwrap();
++    p.u.schedule((4.0 * rtf / TICK_SECONDS) as i64, word(0, 10)).unwrap();
++    for _ in 0..400_000 {
++        if p.u.now >= cut {
++            break;
++        }
++    }
++    p.u.settle(cut);
++    println!(
++        "flight: N={n} belt crossing, {} game-s, {} s wall, kicks {}, digest {}",
++        p.u.now,
++        t0.elapsed().as_secs_f64(),
++        p.u.stats.kicks,
++        &p.u.digest()[..16]
++    );
++    let caps = fitcap::take();
++    fitcap::disarm();
++    println!("captured {} bind_surface inputs", caps.len());
++
++    // Phase 2: replay, shipped arm then delete arm, same captured inputs.
++    fitprof::set_on(true);
++    fitprof::set_skip(false);
++    let _ = replay(&caps, 3, "SHIPPED (fit.residual computed)");
++    fitprof::set_skip(true);
++    let a = replay(&caps, 3, "DELETE ARM (decoded_event skipped)");
++    fitprof::set_skip(false);
++    let b = replay(&caps, 1, "SHIPPED again (drift check)");
++    let (da, db) = (a.iter().sum::<f64>() / a.len() as f64, b.iter().sum::<f64>() / b.len() as f64);
++    println!("drift check: shipped {:.3} -> {:.3} us/call", da, db);
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..4a72c1fe 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,25 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Lab run 20261017-1829-spacex-d399: Linux stand-in (VmRSS now, VmHWM peak) so the
++/// ladder links off the Mac; orders of magnitude only, per the lab README.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let read = |key: &str| -> u64 {
++        std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|s| {
++                s.lines()
++                    .find(|l| l.starts_with(key))
++                    .and_then(|l| l.split_whitespace().nth(1))
++                    .and_then(|v| v.parse::<u64>().ok())
++            })
++            .unwrap_or(0)
++            * 1024
++    };
++    (read("VmRSS:"), read("VmHWM:"))
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..aabe60d2 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -222,6 +222,7 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>,
+ }
+ 
+ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
++    crate::fitcap::maybe_capture(exact, t, clock_exp, edge, unit, surface);
+     let t_fit = crate::prof::t();
+     let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
+     crate::prof::add(crate::prof::FIT, t_fit);
+@@ -273,8 +274,11 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+         i64::try_from(at).map_err(|_| Error::Refused("terminal clock"))?;
+     }
+     let units = (exact.length_exponent, exact.velocity_exponent);
++    let t_dec = emergent_space::fitprof::t();
+     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
++    emergent_space::fitprof::add(emergent_space::fitprof::BIND_DECODE, t_dec);
+     // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
++    let t_turn = emergent_space::fitprof::t();
+     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
+     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
+     let dot = dot2(dp, ep)?;
+@@ -284,6 +288,7 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+         position: [exact.position[0] as i128 - tp[0], exact.position[1] as i128 - tp[1]],
+         velocity: [exact.velocity[0] as i128 - tv[0], exact.velocity[1] as i128 - tv[1]],
+     };
++    emergent_space::fitprof::add(emergent_space::fitprof::TURN_RES, t_turn);
+     Ok(Bound { units, entry, tube, residual, turn, orbit })
+ }
+ 
+diff --git a/crates/universe/src/fitcap.rs b/crates/universe/src/fitcap.rs
+new file mode 100644
+index 00000000..3cc77c03
+--- /dev/null
++++ b/crates/universe/src/fitcap.rs
+@@ -0,0 +1,46 @@
++//! Capture of flown `bind_surface` inputs for the lab's fit bench (run
++//! 20261017-1829-spacex-d399). Off unless `FITCAP=1`: one relaxed load per call.
++//! The captured inputs replay bit-exactly through `bind_surface` (all arguments are
++//! `Copy` integers/scalars; nothing else enters the fit).
++
++use crate::world::Unit;
++use emergent_space::binding::IntegerState;
++use emergent_space::orbit::Scalar;
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::sync::{LazyLock, Mutex};
++
++pub struct Cap {
++    pub exact: IntegerState,
++    pub t: i64,
++    pub clock_exp: i16,
++    pub edge: Option<Scalar>,
++    pub unit: Unit,
++    pub surface: Option<Scalar>,
++}
++pub fn disarm() {
++    ON.store(false, Ordering::Relaxed);
++}
++
++const MAX: usize = 24_576;
++static CAPS: LazyLock<Mutex<Vec<Cap>>> = LazyLock::new(|| Mutex::new(Vec::new()));
++static ON: AtomicBool = AtomicBool::new(false);
++static ENV: LazyLock<bool> = LazyLock::new(|| std::env::var("FITCAP").is_ok());
++
++pub fn arm() {
++    ON.store(true, Ordering::Relaxed);
++}
++
++#[inline]
++pub fn maybe_capture(exact: IntegerState, t: i64, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) {
++    if !ON.load(Ordering::Relaxed) && !*ENV {
++        return;
++    }
++    let mut g = CAPS.lock().unwrap();
++    if g.len() < MAX {
++        g.push(Cap { exact, t, clock_exp, edge, unit, surface });
++    }
++}
++
++pub fn take() -> Vec<Cap> {
++    std::mem::take(&mut *CAPS.lock().unwrap())
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..d117a308 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,5 +1,7 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+ pub mod bind;
++/// Lab run 20261017-1829-spacex-d399: flown bind_surface input capture.
++pub mod fitcap;
+ pub mod body;
+ pub mod ctx;
+ pub mod dash;

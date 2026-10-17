@@ -1,0 +1,30 @@
+flight: N=3000 belt crossing, 4872610722 game-s, 3.410047041 s wall, kicks 40106, digest 4995f38448103cc2
+captured 24576 bind_surface inputs
+=== SHIPPED (fit.residual computed)
+bind_surface total         n=73728  p50= 16.714us p90= 25.800us p99=344.557us max=1610.521us mean= 25.960us
+from_state: fit_key (cubic inverse)                            3.993 us/call    73872 calls   294.953 ms total
+from_state: compile (shape quadrature)                        12.268 us/call    73872 calls   906.257 ms total
+from_state: at_radius (radius cut + 1 quad + read)             1.142 us/call    73872 calls    84.379 ms total
+from_state: decoded_event (time->psi Newton + read + cartesian)     3.628 us/call    73872 calls   268.042 ms total
+from_state: residual_between                                   0.019 us/call    73872 calls     1.422 ms total
+outbound_at (every time->psi Newton solve)                     2.728 us/call   147732 calls   402.998 ms total
+bind_in: decode (tube replay at the binding tick)              3.625 us/call    73872 calls   267.756 ms total
+bind_in: turn + residual                                       0.341 us/call    73872 calls    25.171 ms total
+quad() evaluations                          1374633
+node() evaluations (isqrt + reciprocal)      983022
+outbound_at() calls                          147732
+outbound_at Newton iterations                440334
+=== DELETE ARM (decoded_event skipped)
+bind_surface total         n=73728  p50= 13.210us p90= 17.944us p99=336.648us max=1414.737us mean= 21.950us
+from_state: fit_key (cubic inverse)                            3.940 us/call    73872 calls   291.034 ms total
+from_state: compile (shape quadrature)                        12.049 us/call    73872 calls   890.120 ms total
+from_state: at_radius (radius cut + 1 quad + read)             1.135 us/call    73872 calls    83.827 ms total
+outbound_at (every time->psi Newton solve)                     2.715 us/call    73866 calls   200.521 ms total
+bind_in: decode (tube replay at the binding tick)              3.625 us/call    73872 calls   267.821 ms total
+bind_in: turn + residual                                       0.336 us/call    73872 calls    24.824 ms total
+quad() evaluations                          1154466
+node() evaluations (isqrt + reciprocal)      823593
+outbound_at() calls                           73866
+outbound_at Newton iterations                220167
+=== SHIPPED again (drift check)
+bind_surface total         n=24576  p50= 17.089us p90= 27.670us p99=348.226us max=1567.654us mean= 26.792us
