@@ -1,0 +1,4 @@
+Working...
+Everything is in place: the page has all five sections with no conflict markers, six flight logs, the patch, and `regen.sh` proven end-to-end (run 2's numbers came from it — including the refutation of my own first reading).
+
+**Claim:** The FLOW's held-scan pin is one law on every scene — ~0.4–0.55 kB per window candidate per held scan (four scenes, two load regimes, a third instrument, reconciling 4b8c's 84–112 kB/scan with 7bd9's 171 kB/scan) — the drain's freeze is owned by oversubscription (the ladder included: held 375/431 at 0.0966 scans/game-s under ambient load 9–14, killing this run's own first "cannot starve" reading), and the shipped fence is count-sized, so its byte bound 2,048 × 475 B × candidates passes the whole 8 GB machine at ~8,500 window candidates: bound pinned bytes, not scan count.

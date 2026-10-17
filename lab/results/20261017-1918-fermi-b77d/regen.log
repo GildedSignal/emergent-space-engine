@@ -1,0 +1,54 @@
+== machine state: 3.06 6.05 4.06 2/518 851551 ; MemAvailable:   13475212 kB
+== patch
+nladder.rs already modified; assuming the probe patch is applied
+== build
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.40s
+-rwxr-xr-x 2 glmlab glmlab 9221128 Oct 17 19:38 /home/glmlab/lab-target-2/release/examples/nladder
+== flights (A1/A2: 400-member 470f scene quiet/loaded — the VOID arm; B1/B2: ladder 1e5 quiet/7-way loaded; C/C1: K=1000 crowd loaded/quiet)
+=== arm A1 (MEMBERS=400 N=0) 19:38:05 loadavg=3.05 5.95 4.05 2/516 851931 ===
+--- A1 exit=0 tail:
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (81, 11.86, 84, 1.337) (2407, 11.85, 84, 0.850) (2408, 11.83, 33, 1.636) (172, 11.77, 99, 1.336) (123, 11.77, 92, 1.337)
+ladder: n=0 bodies=28 flight=coast rtf=100 frames=3000 build_s=0.00 foot_build_mb=4 foot_end_mb=44 b_per_body=1327104 p50_ms=0.032 p99_ms=9.455 max_ms=11.865 over=0 lag_s=1.636 kicks_per_body_gs=7.971e-2 events_per_body_gs=2.558e-1 refusals=0 dead=0 held_max=1 view_ms=2.3 truncated=false wall_s=3.1
+=== arm A2 (MEMBERS=400 N=0) 19:38:09 loadavg=2.97 5.88 4.03 11/528 852093 ===
+--- A2 exit=0 tail:
+frames over the budget (first 12): [170, 180, 186, 193, 202, 253, 257, 258, 269, 279, 307, 326]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (307, 12.26, 35, 1.664) (170, 12.19, 38, 1.666) (180, 12.17, 24, 1.666) (431, 12.17, 42, 1.505) (186, 12.15, 113, 1.664)
+ladder: n=0 bodies=28 flight=coast rtf=100 frames=3000 build_s=0.01 foot_build_mb=4 foot_end_mb=70 b_per_body=1277952 p50_ms=0.053 p99_ms=11.982 max_ms=12.265 over=22 lag_s=1.667 kicks_per_body_gs=8.567e-2 events_per_body_gs=2.797e-1 refusals=0 dead=0 held_max=392 view_ms=3.3 truncated=false wall_s=5.3
+=== arm B1 (MEMBERS=48 N=100000) 19:38:17 loadavg=3.40 5.88 4.06 3/521 852111 ===
+--- B1 exit=0 tail:
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (62, 11.15, 52, 1.448) (2380, 9.70, 229, 0.000) (1587, 8.38, 251, 0.000) (1984, 8.20, 198, 0.000) (1190, 8.07, 207, 0.000)
+ladder: n=100000 bodies=100028 flight=coast rtf=100 frames=3000 build_s=4.34 foot_build_mb=237 foot_end_mb=244 b_per_body=2347 p50_ms=0.026 p99_ms=4.978 max_ms=11.154 over=0 lag_s=1.448 kicks_per_body_gs=1.707e-5 events_per_body_gs=4.186e-5 refusals=0 dead=0 held_max=1 view_ms=2038.2 truncated=false wall_s=12.1
+=== arm B2 (MEMBERS=48 N=100000) 19:38:30 loadavg=3.18 5.75 4.03 9/518 852479 ===
+--- B2 exit=0 tail:
+frames over the budget (first 12): [100, 200, 508, 612, 831, 946, 1060, 1167, 1267, 1367, 1467, 1567]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (831, 22.19, 219, 0.371) (1667, 18.65, 237, 0.697) (2469, 18.06, 216, 0.664) (1267, 17.19, 192, 0.408) (2870, 17.13, 190, 0.700)
+ladder: n=100000 bodies=100028 flight=coast rtf=100 frames=3000 build_s=11.03 foot_build_mb=238 foot_end_mb=268 b_per_body=2349 p50_ms=0.040 p99_ms=11.687 max_ms=22.187 over=23 lag_s=1.665 kicks_per_body_gs=1.717e-5 events_per_body_gs=4.231e-5 refusals=0 dead=0 held_max=378 view_ms=5172.4 truncated=false wall_s=28.7
+=== arm C (MEMBERS=1000 N=0) 19:39:01 loadavg=7.08 6.45 4.32 13/533 853079 ===
+--- C exit=0 tail:
+frames over the budget (first 12): [60, 110, 111, 148, 173, 189, 205, 208, 214, 215, 221, 224]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (2913, 21.39, 33, 0.303) (224, 21.27, 4, 1.667) (60, 18.86, 1, 1.667) (274, 18.74, 21, 0.376) (496, 16.12, 200, 1.665)
+ladder: n=0 bodies=28 flight=coast rtf=100 frames=3000 build_s=0.00 foot_build_mb=4 foot_end_mb=186 b_per_body=1454080 p50_ms=0.731 p99_ms=12.523 max_ms=21.388 over=184 lag_s=1.667 kicks_per_body_gs=2.227e-1 events_per_body_gs=6.651e-1 refusals=0 dead=0 held_max=336 view_ms=8.0 truncated=false wall_s=12.5
+=== arm C1 (MEMBERS=1000 N=0) 19:39:15 loadavg=8.54 6.80 4.47 3/522 853658 ===
+--- C1 exit=0 tail:
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (441, 11.98, 105, 1.496) (376, 11.95, 163, 1.506) (360, 11.95, 162, 1.505) (497, 11.95, 142, 1.512) (448, 11.95, 106, 1.337)
+ladder: n=0 bodies=28 flight=coast rtf=100 frames=3000 build_s=0.00 foot_build_mb=4 foot_end_mb=89 b_per_body=1613824 p50_ms=0.062 p99_ms=11.896 max_ms=11.983 over=0 lag_s=1.667 kicks_per_body_gs=1.840e-1 events_per_body_gs=5.288e-1 refusals=0 dead=0 held_max=1 view_ms=5.4 truncated=false wall_s=7.7
+== analysis (every number in dossier.md's table)
+A1: held_max=1 rss_end=44.4MB cat_end=428 growth[167->4754gs] dRSS=16.1MB dHeld=0 = 0 kB/held-scan, 0.0000 held/game-s
+A2: held_max=383 rss_end=69.0MB cat_end=428 growth[105->4417gs] dRSS=47.4MB dHeld=372 = 127 kB/held-scan, 0.0863 held/game-s
+B1: held_max=1 rss_end=243.9MB cat_end=100076 growth[500->4800gs] dRSS=0.1MB dHeld=0 = 0 kB/held-scan, 0.0000 held/game-s
+B2: held_max=369 rss_end=267.4MB cat_end=100076 growth[481->4644gs] dRSS=23.0MB dHeld=358 = 64 kB/held-scan, 0.0860 held/game-s
+C: held_max=328 rss_end=184.5MB cat_end=1028 growth[108->2677gs] dRSS=128.7MB dHeld=249 = 517 kB/held-scan, 0.0969 held/game-s
+C1: held_max=1 rss_end=88.5MB cat_end=1028 growth[150->4072gs] dRSS=40.5MB dHeld=0 = 0 kB/held-scan, 0.0000 held/game-s
+
+C loaded vs C1 quiet held/game-s: 0.0969 vs 0.0000 (load-independent arrival)
+pin/held-scan: loaded 517 kB, quiet 0 kB; per candidate at cat~1028: 251 B
+  latch bound at K=1000: 2048 x 0.25 MB = 0.51 GB
+  latch bound at K=2400: 2048 x 0.60 MB = 1.24 GB
+  latch bound at K=10000: 2048 x 2.51 MB = 5.15 GB
+  latch bound at K=20000: 2048 x 5.03 MB = 10.30 GB
+
+B2 (ladder 1e5 loaded): held_max=369, RSS 243.9->266.9 MB over 4163 gs = 5.525 kB/game-s

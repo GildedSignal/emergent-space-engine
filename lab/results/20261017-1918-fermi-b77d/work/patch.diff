@@ -1,0 +1,74 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..6d4c970b 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,22 +14,25 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+-}
+-
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// (resident now, peak resident over the process's life) in bytes, from /proc on Linux (the shipped
++/// `proc_pid_rusage` path is macOS-only and does not link here; VmHWM carries the same peak role).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        let kb = |v: &str| v.trim().trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1024;
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = kb(v);
++            }
++            if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = kb(v);
++            }
++        }
+     }
+-    (buf[9], buf[30])
++    (now, peak)
+ }
+ 
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -49,11 +52,15 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let members: u64 = std::env::var("MEMBERS").ok().and_then(|s| s.parse().ok()).unwrap_or(48);
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, members, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
++    if let Ok(l) = std::fs::read_to_string("/proc/loadavg") {
++        println!("machine: loadavg \"{}\" ncpu {}", l.trim(), std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0));
++    }
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+@@ -88,6 +95,14 @@ fn main() {
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
++        if f % 60 == 0 {
++            let (rss_now, _) = footprint();
++            let ms60: f64 = rows.iter().rev().take(60).map(|r| r.1).sum();
++            println!(
++                "probe f={f} gs={:.0} ms60={ms60:.1} held_now={} held_max={held_max} rss={:.1}mb cat={} bpb={}",
++                p.u.now as f64 * TICK_SECONDS, p.u.held_scans(), rss_now as f64 / 1e6, p.u.catalogue_live(), p.u.bytes_per_body()
++            );
++        }
+         last_stats = p.u.stats;
+         ran += 1;
+         let rec = p.u.rec(p.player);

@@ -1,0 +1,32 @@
+Grade: silver
+
+**Abstract.** Claim: the FLOW's held-scan pin is ~0.4–0.55 kB per candidate per held scan, the starve-trigger is oversubscription (not scene), and SCAN_BACKLOG must bound pinned bytes, not count. Reproduced on a third load regime (the runner's regen) and by checker arms: a deliberate 9-way load on the 1e5 ladder gives held 422, 76 kB/scan, 0.0966 held/game-s (run 2's ambient regime, now controlled); N=1e4 pins 67 kB/scan (near-set confirmed, not belt-proportional). Falsified outside the tested domain: at K=2,400 the pin is 5–6 MB/scan ≈ 2.2–2.5 kB/entry — superlinear, as 7bd9's own 1,600-member entry already showed — so 8 GB busts at ~2×10³ candidates, not 8,500. Fence defect real and worse; the fence must measure bytes at capture. Silver.
+
+## Reasons
+
+**1. Reproduction (clean tree, probe binary from `work/patch.diff`, same flags).** The runner's regen (`regen.log`, ambient loadavg 3.0–8.5, a third regime the author never flew) reproduces the run-2 pattern: B2 (1e5 ladder, 7-way) held 369–378, RSS 243.9→267.4 MB = 64 kB/held-scan; C (K=1,000, 7-way) 517 kB/scan = 503 B/catalogue-entry at cat 1,028, arrival 0.0969 held/game-s; A1/B1 quiet flat (held 1). Author's table recomputes from its own numbers (415/541/409 B/cand ✓; 2,048×475 B×cands arithmetic ✓). Shipped constants verified: `SCAN_BACKLOG = 2048` (universe.rs:79), drain gate `room < 2·max(scan_ns, 750 µs)` (universe.rs:1189–1192). In every growing log held_now == held_max at every probe — the counted accumulations are distinct, not re-timed (the 5 Oct lesson, checked).
+
+**2. Adversarial arms (mine; probe binary, `~/fermi-check/`).**
+- **B1x9, deliberate 9-way spinners on 8 cores (loadavg 12.6 during flight):** the ladder starves — held 422, RSS 245.4→273.2 MB = **76 kB/scan**, 0.0966 held/game-s, monotone. This closes the dossier's own objection (1): run 2's oversubscribed arm was ambient-owned; it is now controlled. The ladder-starvation result stands on three independent load events (author's regen, runner's regen, this).
+- **B3L, N=1e4 (a decade down; P3's named-but-unflown control):** held 401, 67 kB/scan, 0.0967/game-s. The pin does NOT fall 10× with N — near-set, belt-proportionality dead. The "no 10⁹ consequence on spread belts" half of the claim is confirmed downward.
+- **C24, K=2,400 (a decade up in K — outside the author's range):** catalogue 2,295, held_max only 42 (the scene crawls: p50 8.86 ms, 521 frames over budget, 447.5 game-s presented vs ~4,500 at K=1,000), and the pin is **5.0–5.8 MB/held-scan = 2.2–2.5 kB/entry** — 5–6× the claimed constant. "One law on every scene" is falsified at the next decade, and it was already contradicted inside the page the author folded in (7bd9's checker: ~2 MB/scan at 1,600 members). My arm extends that curve to 2,294 entries.
+
+**3. Predictions.** Pre-registered with kill criteria; P1 VOIDed exactly as specified; P4's pin estimate held, its framing refuted (disclosed); P2/P3 refuted by the author's own regen and reported in a dated postscript that kills the author's own first reading — the discipline worked. File-time ordering is no longer verifiable (the harness re-materialized the folder and regen overwrote the author's logs), but the self-refutation structure argues honesty. Note: the committed `flights/` are the runner's regen (run 3), not run 2 as the dossier's NOTE says — every log head records its load, and run 3 lands between the author's two regimes, reproducing run 2's ladder result at held 369–378.
+
+**4. Novelty.** `docs/HISTORY.md` holds no FLOW/held-scan entries; the record is the topic page. New: the ladder flown under load (7bd9's explicitly named unflown experiment — answered: it starves, pin stays near-set-sized), the trigger decomposition (oversubscription vs scene, now four load regimes), the fence formula per candidate. Extension, not new: the sub-kB pin constant (7bd9 had one scene at ~428 B/cand; the 4b8c "reconciliation" is order-of-magnitude only — 4b8c's arms imply 0.56–0.84 kB/cand). The superlinear regime was already on the page; the run's headline ignored it.
+
+**5. Page (corrected in place).** The proposed page kept both sides of the 4b8c/7bd9 conflict and folds the result in — good — but overstated four places, now fixed: (a) "one law on every scene" → domain-restricted to ≤~10³ entries with the superlinear tail (7bd9 + my C24); (b) the 8,500-candidate 8 GB bust → ~1.5–2×10³ measured, and the byte fence must measure pinned bytes at capture, not candidates × 475 B (undercounts ~5× at K≈2.4×10³); (c) "the freeze is total regardless of load" at crowd scale → bimodal (the runner's regen C1, quiet, drained at held_max 1; 2 of 3 quiet crowd flights froze); (d) a historical run id was edited 0e4d→0e9d — no such branch exists (0e37/0e4d/0e9c) — reverted; the Runs list is append-only.
+
+**6. Goal fit.** Board item "memory at 10⁹ … only what the ladder shows breaking" and the page's named unflown experiment: directly on target, and the crowd channel is a real ruin path the shipped fence cannot stop (worse than claimed). PRINCIPLES: "Measure the way the player will run it: heat and load are part of reality, not noise to sidestep" (Tests) — the run's spine, and it killed its own first reading; the byte fence serves "minimize spike compute" (12) and "errors never compound" (13).
+
+## The one experiment to gold
+
+Fly the crowd arms at K = 1.6×10³–10⁴ with the pin counted in **real bytes at capture** (7bd9's GlobalAlloc instrument), quiet and loaded, in the **paced per-frame loop** (the page's direction-3 rung), and state the pin law including its superlinear term. Then the byte-fence budget is measured rather than modeled and the fence (one counter + drop rule) is adoptable in one step. This run's every number regenerates; the constant does not.
+
+## What the author missed
+
+- The superlinear pin was already in the page they folded in; "one law on every scene" never survived their own citations.
+- The unpaced loop's presented-game-s collapse at heavy K (447.5 gs at K=2,400 vs ~4,500 at K=1,000): real exposure grows on wall time, not game-s — the per-game-s arithmetic hides the worst case's clock.
+- Their own 470f bimodality lesson applies to the quiet crowd (two agreeing flights ≠ a law; the third flipped).
+- The catalogue-entry proxy swings ~2× within their own domain (A2 windows: 155–297 B/cand vs C's 503–541) — an order instrument, not a constant.
+- Editing another run's id in the append-only list without checking the branches.
