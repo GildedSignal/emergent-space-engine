@@ -2,47 +2,75 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1447-dynamics-fd35
+updated: 20261017-1829-second-20261017-1447-dynamics-fd35-e517
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
 ## Current best
 
-**NEW (20261017-1447-dynamics-fd35, dynamics, direction 7 answered on the state side):**
-the race is measurable as a state property on shipped code, and on every draw flown it
+**NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed
+both ways):** the finality assert's FIRING is a pure state property at certify time.
+On 01e7's selfchurn harness (finpol) with fd35's print-only instrument plus one field
+(`out=`: affected ids outside the clash lineages' descendants), 18 protocol draws
+(seeds 11–19 × 2 replicates, frames vmax 2, rate 600) gave **9 fires, and every one
+was decided exactly by PRE's D**: the fatal clash's `D = 16 = fin_hi − s0` preceded
+every FIRE (9/9, in 7/9 on the immediately preceding line), while all 2,286
+non-fatal realized clashes sat at D = 0 (m = 0) — zero exceptions on realized
+clashes. (Checker: PRE `D > 0` without fire is NOT excluded in general — it is the
+armed state; at window 32 it is common, 114–116 `D = 32` lines per draw with 0
+fires. The law is: fire ⇒ D = violation on the fatal pair; realized non-fatal ⇒
+m = 0.)
+**Armed precedes fire** (fd35's P5, the named experiment): every firing draw shows
+HAZ `A > 0` from publish 8–12 (presented t = 0.41, scene start) — an armed lead of
+the whole scene start (~32 chronons, 51–449 publishes). Violations on this family
+are exactly one window (48−32 scene start; s13 twice at 96−80, bc0f's late reclash
+phase); the checker's vmax-8 late-reclash fire measured viol = 48 = 3 windows at
+s0 = 1376 (D = viol still exact) — the invariant is D = viol, not one window.
+**The sibling-closure hole never opens**: `out=` non-empty on 0 of 2,295 RB
+events (mo = 0), fires included — rollback's union-find `affected` coincided with
+PRE's descendants closure on every realized clash, which is why D never misses
+(containment); its exactness is the measured equality, with the derivation still
+open (direction 7).
+**Armed ≠ incidence**: all 9 survivor draws were armed too (95–99% of their
+publishes; fired draws 85–99%) without firing — armed is the possibility state;
+whether a clash realizes on an armed pair stays the wall-clock race. Cost note for
+the fix: on this family a hold-while-armed rule refuses publication for essentially
+the entire scene start on every draw — progress needs the disarm channel (truth
+aging/pruning, the h_nosab episode's resolver), not refusal alone.
+Regeneration fixed: fd35's regen
+`h 0` sabotage trap (now `sab x` → None: the armed episode regenerates, 15 armed
+publishes to A = 128, rb = 0) and its relative-path analyze bug; equality-law churn
+arms rerun under the e517 patch unchanged (579/541 rollbacks — schedule-moved, all
+D = 0, never armed). Certificate soundness note: the D ≤ 0 half decides the assert
+on its own (it mirrors certify's own scan; exact when out = empty — measured
+everywhere); the A ≤ 0 publish-side half misses only strides dispatched between
+publishes, which D still covers at their certify.
+Checker extension (same invariants, wider domain): the batch driver fired 4/9
+(viol 16 = D exact, armed from publish ~20 with ~240-publish leads, `out=` shut)
+and the crossing family, window 8/32 and seeds 21/23 held the equality law with
+2,632 further RB events, `out=` never opening.
+
+**The state side (fd35, direction 7 answered, now with its positive half):** the
+race is measurable as a state property on shipped code, and on every draw flown it
 sits exactly on its boundary. A print-only instrument (HAZ at every publish: max
-published `fin_hi`, deepest live truth start `S`, per-pair armed margin A over in-flight
-stride reach hulls × live truths; PRE before every certify with the measured box: the D
-the upcoming clash would restore; RB/FIRE inside rollback: the exact assert inputs)
-shows: **the equality law — all 8,213 realized clashes across 45 arm-processes restore at exactly
-`fin_hi == s0`** (min D = max D = 0, every RB margin 0): finality's coalescing and the
-certificate's separation pin the same contact tick, so publication rides the boundary as
-an attractor, never past it and never behind it. **The armed episode** (dispersal probe:
-one busy-region × old-truth pair, A = 48 → 128 chronons over 10 publishes while S stuck
-128 below F) resolves by **pruning** (the truth ages out of restorable history, S = −1,
-stride certifies clean), not conflict — the race has two resolution channels, and crash
-incidence is the probability the conflict channel wins while armed > 0. **The negative
+published `fin_hi`, deepest live truth start `S`, per-pair armed margin A over
+in-flight stride reach hulls × live truths; PRE before every certify with the
+measured box: the D the upcoming clash would restore; RB/FIRE inside rollback: the
+exact assert inputs) shows: **the equality law — all 8,213 realized clashes across
+45 arm-processes restore at exactly `fin_hi == s0`** (min D = max D = 0, every RB
+margin 0): finality's coalescing and the certificate's separation pin the same
+contact tick, so publication rides the boundary as an attractor, never past it and
+never behind it. **The armed episode** (dispersal probe, sabotage truly off: 17
+armed publishes to A = 192, several episodes, every one resolved by disarm at
+rb = 0 — checker's rescue, now the regen line) — the race has two resolution
+channels, conflict (fires iff armed > 0 at contact) and pruning. **The negative
 certificate:** armed ≤ 0 at every publish AND D ≤ 0 at every certify ⇒ the finality
-assert is unreachable for that draw — decided from state (fires = 0 on all 45 arm-processes;
-4/13,034 publishes ever armed, all in the one probe — which, the checker found, ran on a
-pre-sabotage build: its SUM lacks the sab echo and starts rgn0=1; regen.sh's `sab 0`
-argument maps to Some(1), so the regen line does not express "no sabotage" and reruns a
-different scene, rgn0=1600, never armed. The phenomenon itself regenerates with sabotage
-truly disabled — checker arm sab=None: 17 armed publishes to A = 192, rb = 0, every episode
-resolved by disarm — and the equality law held on every fresh draw, including the
-checker's window-32, seed-33/101, sab-6 and 8-s arms, all D = 0, 0 fires; min_region 32
-control: 4 rollbacks
-vs ~1,300, never armed; replicate: rollback counts move with the wall clock (1,305 vs
-1,326) while the equality law holds in both). The engine-side fix's test can therefore be
-"armed ≤ 0 maintained" instead of window Monte Carlo, and its measured cost on these
-classes is the refused lead: ≤ 128 chronons once (10 publishes), ≤ 48–96 in churn, 0
-elsewhere. Untested side: no firing assert reproduced here (0/45 vs 7/12 on the
-integrator's selfchurn harness, which lives on its branch) — the positive direction
-(crash ⇒ armed > 0 first) needs one reproduction on that harness; the PRE scan's closure
-is a descendants superset whose "over-arm, never miss" direction is asserted, not shown
-(rollback's `affected` can include snapshot-sharing siblings outside both lineages).
-regen.sh rebuilds instrument + matrix arms in ~6 min (its summary step dies on a
-relative-path bug; run analyze.py from the repo root).
+assert is unreachable for that draw (fires = 0 on all 45 arm-processes + the
+checker's 7 adversarial arms; equality law held on every fresh draw including
+window-32, seed-33/101, sab-6 and 8-s arms; min_region 32 control: 4 rollbacks vs
+~1,300, never armed; replicate: rollback counts move with the wall clock while the
+equality law holds in both). The engine-side fix's test can therefore be "armed ≤ 0
+maintained" instead of window Monte Carlo.
 
 **The finality-assert conflict is resolved and now at protocol strength: the crash is an
 engine-side publish/rollback boundary defect, every overlap class reaches it, and no
@@ -58,7 +86,8 @@ crashes 7/12 (11/17 pooled with the checker), identically on-grid (3/6) and off-
 (survivors finish the whole 1800-horizon in 0.4 s), so horizon class cannot matter
 (bc0f). Panic values per seed are stable across replicates; reachability is a
 wall-clock race with **seed-skewed propensity** (s11 4/4, s15 3/4, s21 0/4; one
-same-seed replicate pair splits). **Two crash phases exist**: scene start under churn
+same-seed replicate pair splits; e517's sweep: s11/13/15/16 2-of-2, s14 1-of-2,
+s12/17/18/19 0-of-2). **Two crash phases exist**: scene start under churn
 (chronon 32–96) and **late quiet-phase reclash** in the dispersed/crossed classes
 (chronon 1120–2720, panic gaps 16–144 = 1–9 windows) — this window crashed vmax-16
 3/6 (4/22 pooled), vmax-8 2/6 (4/18 pooled), crossing 1/4 (the first crossing crash,
@@ -129,12 +158,15 @@ as a complete rule by the churn class above).
 ## Open directions
 
 1. **The engine-side publish/rollback boundary — confirmed necessary at protocol
-   strength** (upgraded by 01e7, bc0f): refuse an advance whose rollback would cross a
-   published tick, or hold publication until the wave quenches (specified by 9b46;
-   reachability now quadruple-confirmed: b966 + 01e7 at scene start, bc0f through
-   on-grid chunks, single-call batch on and off grid, and the late quiet-phase reclash
-   of dispersed/crossed classes). Until it lands, `min_region` is the named exposure
-   knob (it deletes splits, a capability, not the defect).
+   strength** (upgraded by 01e7, bc0f; e517 supplies its test): refuse an advance
+   whose rollback would cross a published tick, or hold publication until the wave
+   quenches (specified by 9b46; reachability quadruple-confirmed: b966 + 01e7 at
+   scene start, bc0f through on-grid chunks, single-call batch on and off grid, and
+   the late quiet-phase reclash of dispersed/crossed classes). e517's cost note: on
+   the churn family the hold rule refuses the whole scene start on every draw —
+   pair it with the disarm channel (truth pruning) or it starves publication.
+   Until it lands, `min_region` is the named exposure knob (it deletes splits, a
+   capability, not the defect).
 2. Window/stride granularity as the race margin (01e7's lead): window 32 survived
    rb 79–114 at 9/9 pooled draws across three windows where window 16 crashed at
    rb ≥ 57; the margin `fin_hi − s0` scales with the grid. More draws per arm before
@@ -142,25 +174,27 @@ as a complete rule by the churn class above).
 3. Open the quiet stall: the no-conflict many-region regime is the family's cost
    floor (< 0.6 chronons/s at 28k, 1.7 at 14k); merge/avoid churn vs per-unit floor
    (9b46, untested).
-4. Seed/load protocol for every allocator verdict (exercised by bc0f): ≥ 3 seeds
-   and ≥ 2 replicates, sweep the load axis (rate × n) before calling anything
-   reachable or safe; incidence lives in bands and is window-fat-tailed — invisible at
-   endpoints and in single windows (9b46, b966, 01e7, bc0f: vmax-16 0/6 in the
-   checker's window, 3/6 in bc0f's).
+4. Seed/load protocol for every allocator verdict (exercised by bc0f, honoured by
+   e517): ≥ 3 seeds and ≥ 2 replicates, sweep the load axis (rate × n) before
+   calling anything reachable or safe; incidence lives in bands and is
+   window-fat-tailed — invisible at endpoints and in single windows (9b46, b966,
+   01e7, bc0f: vmax-16 0/6 in the checker's window, 3/6 in bc0f's; e517: 9/18 on
+   the same family at higher load).
 5. The real conflict rate of the flown universe (encounters, burns, the belt) — the
    churn class here is synthetic Bounce gas; a stirred belt or a battle is sustained
    overlap by construction (e704; 9b46; 01e7's exposure note).
 6. Margin from the law, not from history (relativistic scenes): the c-cap makes the
    conflict window one stride; no-conflict throughput ceiling unmeasured at every size
    ≥ 128 cells (e704 checkers).
-7. **Timing analysis of the race** (bc0f's closing note): the late quiet-phase crashes
-   (few conflicts, publication far along) and the seed-skewed batch propensity suggest
-   the race is between conflict *discovery latency* and *publication cadence*; making
-   incidence a prediction instead of a sampled draw would turn the fix's test into a
-   certificate. **[20261017-1447-dynamics-fd35 answers the state side: the armed
-   margin IS the prediction quantity (equality law + negative certificate above); the
-   named experiment left is one firing reproduction on the integrator's selfchurn
-   harness to time the armed lead before a fire.]**
+7. **Timing analysis of the race — CLOSED both ways (bc0f's note; fd35 state side;
+   e517 positive side).** Incidence stays a wall-clock draw (armed survivors: 9/9
+   survivor draws armed without firing), but the assert's firing is state-decided at
+   certify: PRE D > 0 ⟺ fire, exact on 9 fires (D = 16 = violation) and 2,286
+   non-fatal clashes (D = 0), closures coinciding (`out=` never opened, 0/2,295).
+   The fix's test is the state certificate (armed ≤ 0 ∧ D ≤ 0), not Monte Carlo.
+   What is left for a next run: the *geometry* derivation of why `alone_at` and
+   `certify` pin the same contact tick (fd35's lens note) — the soundness argument
+   the fix will be written against.
 
 ## Contradictions
 
@@ -170,10 +204,10 @@ as a complete rule by the churn class above).
   "unbounded latch is not a reachable ruin" against its checker's 28,160 draw: both
   basin draws (9b46). The tax battery's one-region-at-~10-chronons/s collapse vs
   9b46's wave family: different batteries, opposite cost owners; the churn and the
-  many-regime floor are the battery-independent suspects. fd35's 0/45 arm-processes against
-  01e7/bc0f's 7/12 is a scene-class gap (reconstructed churn classes here, their
-  selfchurn harness there), not a conflict: the equality law and the armed episode are
-  the same boundary both sides of that gap describe.
+  many-regime floor are the battery-independent suspects. fd35's 0/45 arm-processes
+  against 01e7/bc0f's 7/12 was a scene-class gap, now bridged: e517 fired the same
+  assert on the selfchurn harness with fd35's instrument and the equality law held
+  there too — one boundary, both sides measured.
 
 ## Runs
 - 20261016-2138-dynamics-217f (this run, awaiting grade): the rollback ratchet measured —
@@ -191,3 +225,4 @@ as a complete rule by the churn class above).
 - 20261017-1018-taleb-01e7 (silver): conflict resolved — crash is engine-side,
 - 20261017-1149-second-20261017-1018-taleb-01e7-bc0f (this run, awaiting grade):
 - 20261017-1447-dynamics-fd35 (this run, awaiting grade): the race as state — equality
+- 20261017-1829-second-20261017-1447-dynamics-fd35-e517 (this run, awaiting grade):

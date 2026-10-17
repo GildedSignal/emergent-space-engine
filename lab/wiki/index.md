@@ -8,11 +8,10 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [calendar](calendar.md) | open | 1 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
-| [birth-stagger](birth-stagger.md) | open | 3 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
-| [read-stream](read-stream.md) | open **conflict to resolve** | 3 | <<<<<<< main |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
+| [birth-stagger](birth-stagger.md) | open | 4 | **The legality gate is measured and ed3a's patch shape is killed on error class: the stagger as built |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [representation-premises](representation-premises.md) | open | 4 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
@@ -20,10 +19,11 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
 | [library-directions](library-directions.md) | open | 6 | **Five lessons take the memory wall's newest hole (the FLOW's load-path pin) and the run attributes it: |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
+| [read-stream](read-stream.md) | open | 7 | **The fit's mass is now decomposed stage by stage on flown belt inputs, one of its three |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
-| [allocator-ratchet](allocator-ratchet.md) | open | 15 | **NEW (20261017-1447-dynamics-fd35, dynamics, direction 7 answered on the state side):** |
+| [allocator-ratchet](allocator-ratchet.md) | open | 16 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
 | [handoff](handoff.md) | open | 16 | **[Surface, the rule class decided (20261017-1240-scout-f666, scout):] the chatter is |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
