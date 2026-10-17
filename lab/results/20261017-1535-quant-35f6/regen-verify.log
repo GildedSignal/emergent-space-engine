@@ -1,0 +1,53 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.84s
+== census (repeat, conflicts)
+sec_memo: on=false census=true calls=338702 hits=240580 stale=2 conflicts=0 map=98120 clears=0 (repeat=0.710)
+sec_memo: on=false census=true calls=648236 hits=365177 stale=2 conflicts=0 map=283057 clears=0 (repeat=0.563)
+== digests (off vs on, per arm)
+10000_600 off=16096c7825ab6c8fbef9fa2d2e3fe3263b52733559fb6697dfa189de49ea9fe0 on=16096c7825ab6c8fbef9fa2d2e3fe3263b52733559fb6697dfa189de49ea9fe0
+30000_600 off=c264ab6ac0d1b6774adfee524e2a53f80fe3365b37341657a6125c189a7eac55 on=c264ab6ac0d1b6774adfee524e2a53f80fe3365b37341657a6125c189a7eac55
+10000_100 off=16096c7825ab6c8fbef9fa2d2e3fe3263b52733559fb6697dfa189de49ea9fe0 on=16096c7825ab6c8fbef9fa2d2e3fe3263b52733559fb6697dfa189de49ea9fe0
+== stages off vs on (SEC, state_of, kicks, fit) and engine ms
+-- 10000_600 OFF
+frames after 1 s: 3540  engine ms p50 1.253 p90 4.296 p99 10.666 max 11.940; over 12 ms: 0; frames behind: 1, worst lag 0.667 s; events/frame p50 26 p99 235 max 336; scans held max 9
+    fit: bind_surface (kicks, hand-outs)     439.3    18.42      23854
+  item: kick (Wisdom-Holman)                 613.5    15.41      39812
+  item: kick (clock)                         122.4     2.74      44604
+    read stream: secondaries (sources)       139.2    34.06       4087
+      read stream: state_of (one source)     189.8    55.05       3448
+-- 10000_600 ON
+frames after 1 s: 3540  engine ms p50 1.146 p90 3.775 p99 9.937 max 12.263; over 12 ms: 1; frames behind: 0, worst lag 0.000 s; events/frame p50 26 p99 231 max 336; scans held max 9
+    fit: bind_surface (kicks, hand-outs)     436.7    18.42      23711
+  item: kick (Wisdom-Holman)                 513.2    15.41      33299
+  item: kick (clock)                         123.8     2.74      45140
+    read stream: secondaries (sources)        40.8    34.06       1197
+      read stream: state_of (one source)      43.1    55.05        783
+sec_memo: on=true census=false calls=338645 hits=240580 stale=2 conflicts=0 map=98063 clears=0 (repeat=0.710)
+-- 30000_600 OFF
+frames after 1 s: 3540  engine ms p50 1.336 p90 4.786 p99 11.922 max 11.972; over 12 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 26 p99 326 max 469; scans held max 125
+    fit: bind_surface (kicks, hand-outs)     555.2    24.07      23068
+  item: kick (Wisdom-Holman)                 628.8    15.41      40800
+  item: kick (clock)                         380.4     8.39      45317
+    read stream: secondaries (sources)       204.2    39.71       5143
+      read stream: state_of (one source)     254.9    72.00       3540
+-- 30000_600 ON
+frames after 1 s: 3540  engine ms p50 1.195 p90 4.230 p99 11.931 max 12.478; over 12 ms: 1; frames behind: 0, worst lag 0.000 s; events/frame p50 26 p99 326 max 469; scans held max 117
+    fit: bind_surface (kicks, hand-outs)     540.8    24.07      22473
+  item: kick (Wisdom-Holman)                 512.5    15.41      33258
+  item: kick (clock)                         379.1     8.39      45168
+    read stream: secondaries (sources)       106.7    39.71       2688
+      read stream: state_of (one source)     108.2    72.00       1502
+sec_memo: on=true census=false calls=647816 hits=365293 stale=2 conflicts=0 map=282521 clears=0 (repeat=0.564)
+-- 10000_100 OFF
+frames after 1 s: 3540  engine ms p50 0.017 p90 1.445 p99 5.121 max 11.295; over 12 ms: 0; frames behind: 1, worst lag 1.448 s; events/frame p50 0 p99 136 max 334; scans held max 1
+    fit: bind_surface (kicks, hand-outs)      70.4     2.81      25076
+  item: kick (Wisdom-Holman)                 151.3     2.80      54135
+    read stream: secondaries (sources)        19.9     5.62       3544
+      read stream: state_of (one source)      29.2     8.40       3480
+-- 10000_100 ON
+frames after 1 s: 3540  engine ms p50 0.017 p90 1.350 p99 4.568 max 11.767; over 12 ms: 0; frames behind: 1, worst lag 1.448 s; events/frame p50 0 p99 136 max 334; scans held max 1
+    fit: bind_surface (kicks, hand-outs)      71.6     2.81      25519
+  item: kick (Wisdom-Holman)                 134.9     2.80      48267
+    read stream: secondaries (sources)         1.7     5.62        310
+      read stream: state_of (one source)       2.2     8.40        263
+sec_memo: on=true census=false calls=338747 hits=269738 stale=4 conflicts=0 map=69005 clears=0 (repeat=0.796)

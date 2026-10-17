@@ -1,0 +1,746 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..eddcd776 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,22 +14,46 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++#[cfg(target_os = "macos")]
++mod host {
++    extern "C" {
++        fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++    }
++    /// (physical footprint now, its peak over the process's life) in bytes.
++    pub fn footprint() -> (u64, u64) {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
+ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+-fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++#[cfg(target_os = "linux")]
++mod host {
++    /// (resident bytes now, peak resident bytes) from /proc/self/status: the Linux stand-in for the
++    /// Mac's physical footprint (compressed pages are not counted here; orders of magnitude only).
++    pub fn footprint() -> (u64, u64) {
++        let mut now = 0u64;
++        let mut peak = 0u64;
++        if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++            for line in s.lines() {
++                if let Some(v) = line.strip_prefix("VmRSS:") {
++                    now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++                if let Some(v) = line.strip_prefix("VmHWM:") {
++                    peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++            }
++        }
++        (now, peak)
+     }
+-    (buf[9], buf[30])
+ }
+ 
++use host::footprint;
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -156,6 +180,16 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    // one horizon for the A/B bit-safety check: everything due by an absolute tick (the flight's
++    // wall-driven horizon differs run to run with the 12 ms budget's slicing), then digest there.
++    let gs: f64 = std::env::var("ES_DIGEST_GS").ok().and_then(|v| v.parse().ok()).unwrap_or(40_000.0);
++    let common: i64 = (gs / TICK_SECONDS) as i64;
++    let t_settle = Instant::now();
++    p.u.settle(common);
++    let st = p.u.stats;
++    println!("at tick {common} ({} game-s, settle {:.2} s): kicks {} events {} opens {} boundaries {} handoffs {} lost {} refused {} slices {}", common as f64 * TICK_SECONDS, t_settle.elapsed().as_secs_f64(), st.kicks, st.events(), st.opens, st.boundaries, st.handoffs, st.lost, st.refused, st.slices);
++    println!("digest: {}", p.u.digest());
++    println!("{}", p.u.sec_stats());
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..a6351acd 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -45,6 +45,106 @@ impl Default for Config {
+     }
+ }
+ 
++/// The `(j, t)` memo of [`Ctx::state_of`] (the read stream's direction 1): bindings change only at
++/// a body's own writes, so a value read at `(j, t)` stays valid until `j` is written again — every
++/// write bumps `j`'s generation, and a hit is served only when the generation still matches.
++/// Off (`ES_SEC_MEMO` unset) the path is the engine's own; `ES_SEC_CENSUS=1` recomputes every
++/// value anyway and only counts (calls, hits, stale keys, value conflicts), so both arms are
++/// observation.
++pub struct SecMemo {
++    on: bool,
++    census: bool,
++    inner: std::sync::Mutex<SecInner>,
++}
++
++struct SecInner {
++    gen: Vec<u32>,
++    map: std::collections::HashMap<(usize, Tick), (u32, (V2, V2))>,
++    calls: u64,
++    hits: u64,
++    stale: u64,
++    conflicts: u64,
++    clears: u64,
++}
++
++impl SecMemo {
++    pub(crate) fn from_env() -> Self {
++        Self {
++            on: std::env::var("ES_SEC_MEMO").is_ok(),
++            census: std::env::var("ES_SEC_CENSUS").is_ok(),
++            inner: std::sync::Mutex::new(SecInner { gen: Vec::new(), map: std::collections::HashMap::new(), calls: 0, hits: 0, stale: 0, conflicts: 0, clears: 0 }),
++        }
++    }
++
++    fn active(&self) -> bool {
++        self.on || self.census
++    }
++
++    /// The memo's answer for `(j, t)`, if it is fresh.
++    fn get(&self, j: usize, t: Tick) -> Option<(V2, V2)> {
++        let mut s = self.inner.lock().unwrap();
++        s.calls += 1;
++        let g = *s.gen.get(j).unwrap_or(&0);
++        match s.map.get(&(j, t)) {
++            Some(&(kg, v)) if kg == g => {
++                s.hits += 1;
++                Some(v)
++            }
++            Some(_) => {
++                s.stale += 1;
++                None
++            }
++            None => None,
++        }
++    }
++
++    /// Store `(j, t)` (in census mode a hit that recomputes a different value was already counted).
++    fn put(&self, j: usize, t: Tick, v: (V2, V2)) {
++        let mut s = self.inner.lock().unwrap();
++        if s.gen.len() <= j {
++            s.gen.resize(j + 1, 0);
++        }
++        let g = *s.gen.get(j).unwrap_or(&0);
++        if s.map.len() >= (1 << 20) {
++            s.map.clear();
++            s.clears += 1;
++        }
++        s.map.insert((j, t), (g, v));
++    }
++
++    /// A census hit whose recomputed value differs from the stored one: the one number that would
++    /// kill the memo as wired.
++    fn conflict(&self) {
++        self.inner.lock().unwrap().conflicts += 1;
++    }
++
++    /// Every write to body `j` (the universe's apply and rebind paths).
++    pub fn bump(&self, j: usize) {
++        let mut s = self.inner.lock().unwrap();
++        if s.gen.len() <= j {
++            s.gen.resize(j + 1, 0);
++        }
++        s.gen[j] = s.gen[j].wrapping_add(1);
++    }
++
++    /// One line for the dossier: the census and the memo's own account.
++    pub fn stats(&self) -> String {
++        let s = self.inner.lock().unwrap();
++        format!(
++            "sec_memo: on={} census={} calls={} hits={} stale={} conflicts={} map={} clears={} (repeat={:.3})",
++            self.on,
++            self.census,
++            s.calls,
++            s.hits,
++            s.stale,
++            s.conflicts,
++            s.map.len(),
++            s.clears,
++            if s.calls > 0 { s.hits as f64 / s.calls as f64 } else { 0.0 },
++        )
++    }
++}
++
+ pub struct Ctx<'a> {
+     pub dolls: &'a [DollRec],
+     pub bodies: &'a dyn BodyStore,
+@@ -54,11 +154,45 @@ pub struct Ctx<'a> {
+     pub cfg: &'a Config,
+     /// Where each doll's bodies can be, by radius: who a scan must read.
+     pub radial: &'a crate::radial::Radial,
++    /// The `(j, t)` memo of [`Ctx::state_of`] (off unless `ES_SEC_MEMO`/`ES_SEC_CENSUS`).
++    pub sec: &'a SecMemo,
+ }
+ 
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        let ts = crate::prof::t();
++        let out = if self.sec.active() {
++            match self.sec.get(j, t) {
++                Some(hit) => {
++                    if self.sec.census {
++                        // census: recompute regardless and compare, so the arm is pure observation
++                        let v = self.state_of_raw(j, t);
++                        if let Ok(w) = &v {
++                            if *w != hit {
++                                self.sec.conflict();
++                            }
++                            self.sec.put(j, t, *w);
++                        }
++                        v
++                    } else {
++                        Ok(hit)
++                    }
++                }
++                None => {
++                    let v = self.state_of_raw(j, t)?;
++                    self.sec.put(j, t, v);
++                    Ok(v)
++                }
++            }
++        } else {
++            self.state_of_raw(j, t)
++        };
++        crate::prof::add(crate::prof::STATE, ts);
++        out
++    }
++
++    fn state_of_raw(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         b.cartesian(t)
+     }
+@@ -77,6 +211,13 @@ impl Ctx<'_> {
+ 
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++        let ts = crate::prof::t();
++        let out = self.secondaries_raw(d, t, except);
++        crate::prof::add(crate::prof::SEC, ts);
++        out
++    }
++
++    fn secondaries_raw(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
+         let mut out = Vec::new();
+         for &j in &self.sources[d as usize] {
+             if j == except {
+@@ -88,6 +229,7 @@ impl Ctx<'_> {
+         Ok(out)
+     }
+ 
++
+     /// The radius of body `j`'s own surface, in the units of the doll `host` it sits in: the surface of the doll it is the
+     /// centre of (in that doll's units), converted. None for a body that is not the centre of a doll.
+     pub fn surface_in(&self, j: usize, host: u16) -> Res<Option<Scalar>> {
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..84b921b4 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -114,6 +114,13 @@ pub fn credit(bodies: &dyn BodyStore, i: usize, t: Tick, b: &Binding) -> Res<(V2
+ /// partial step replaces), run on past its own end. A binding that is not a clock's (a creation, a handoff, a flush) keeps the
+ /// tube alone. Where the step cannot be read (history pruned, a tube that ends, a kick that never fired) the tube alone is read.
+ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
++    let ts = crate::prof::t();
++    let out = partial_raw(ctx, i, t, b);
++    crate::prof::add(crate::prof::READOUT, ts);
++    out
++}
++
++fn partial_raw(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     let raw = || b.cartesian(t);
+     let k = b.kick;
+     if !k.clock {
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..4d323e72 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -30,8 +30,13 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
+-
++/// `Ctx::secondaries`: the per-event sources rebuild (the read stream's N-linear term).
++pub const SEC: usize = 24;
++/// `Ctx::state_of`: one source's state at `t` (nests inside SEC when called from there).
++pub const STATE: usize = 25;
++/// `observe::partial`: the clock step's mid-field evaluation (holds its secondaries).
++pub const READOUT: usize = 26;
++pub const N: usize = 27;
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+     "  position walk (root_state_raw)",
+@@ -57,8 +62,10 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "  read stream: secondaries (sources)",
++    "    read stream: state_of (one source)",
++    "  readout: partial (clock mid-field eval)",
+ ];
+-
+ #[cfg(feature = "prof")]
+ mod on {
+     use super::N;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..614705e3 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -156,6 +156,8 @@ pub struct Universe {
+     /// How each body made by `add_body` was specified (a secondary's tube is compiled again when its mass is set).
+     specs: Vec<Option<OrbitSpec>>,
+     pub sources: Vec<Vec<usize>>,
++    /// The `(j, t)` memo of `Ctx::state_of` (read-stream direction 1): off unless the env asks.
++    pub(crate) sec: crate::ctx::SecMemo,
+     pub cfg: Config,
+     bodies: Box<dyn BodyStore>,
+     cat: Catalogue,
+@@ -277,12 +279,18 @@ impl Universe {
+             resolved: 0,
+             frames: 0,
+             body_cap: 0,
++            sec: crate::ctx::SecMemo::from_env(),
+         }
+     }
+ 
+     pub fn ctx(&self) -> Ctx<'_> {
+-        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, sec: &self.sec }
+     }
++    /// The `(j, t)` memo's own account (calls, hits, stale keys, conflicts).
++    pub fn sec_stats(&self) -> String {
++        self.sec.stats()
++    }
++
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+     }
+@@ -443,12 +451,13 @@ impl Universe {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+-        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }.tube_unit(i, spec.doll)?;
++        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, sec: &self.sec }.tube_unit(i, spec.doll)?;
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+         tube.key = self.cat.insert(entry.clone())?;
+         rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
++        self.sec.bump(i);
+         self.bodies.put(i, rec);
+         Ok(())
+     }
+@@ -517,7 +526,7 @@ impl Universe {
+ 
+     /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+     fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+-        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }, &mut self.fleets)
++        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, sec: &self.sec }, &mut self.fleets)
+     }
+ 
+     /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
+@@ -637,6 +646,7 @@ impl Universe {
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
+         let t_apply = crate::prof::t();
++        self.sec.bump(i);
+         let retired = !upd.retired.is_empty();
+         for seg in upd.retired.drain(..) {
+             self.cat.release(seg.b.tube.key);
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..eddcd776 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,22 +14,46 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++#[cfg(target_os = "macos")]
++mod host {
++    extern "C" {
++        fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++    }
++    /// (physical footprint now, its peak over the process's life) in bytes.
++    pub fn footprint() -> (u64, u64) {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
+ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+-fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++#[cfg(target_os = "linux")]
++mod host {
++    /// (resident bytes now, peak resident bytes) from /proc/self/status: the Linux stand-in for the
++    /// Mac's physical footprint (compressed pages are not counted here; orders of magnitude only).
++    pub fn footprint() -> (u64, u64) {
++        let mut now = 0u64;
++        let mut peak = 0u64;
++        if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++            for line in s.lines() {
++                if let Some(v) = line.strip_prefix("VmRSS:") {
++                    now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++                if let Some(v) = line.strip_prefix("VmHWM:") {
++                    peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++            }
++        }
++        (now, peak)
+     }
+-    (buf[9], buf[30])
+ }
+ 
++use host::footprint;
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -156,6 +180,16 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    // one horizon for the A/B bit-safety check: everything due by an absolute tick (the flight's
++    // wall-driven horizon differs run to run with the 12 ms budget's slicing), then digest there.
++    let gs: f64 = std::env::var("ES_DIGEST_GS").ok().and_then(|v| v.parse().ok()).unwrap_or(40_000.0);
++    let common: i64 = (gs / TICK_SECONDS) as i64;
++    let t_settle = Instant::now();
++    p.u.settle(common);
++    let st = p.u.stats;
++    println!("at tick {common} ({} game-s, settle {:.2} s): kicks {} events {} opens {} boundaries {} handoffs {} lost {} refused {} slices {}", common as f64 * TICK_SECONDS, t_settle.elapsed().as_secs_f64(), st.kicks, st.events(), st.opens, st.boundaries, st.handoffs, st.lost, st.refused, st.slices);
++    println!("digest: {}", p.u.digest());
++    println!("{}", p.u.sec_stats());
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..a6351acd 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -45,6 +45,106 @@ impl Default for Config {
+     }
+ }
+ 
++/// The `(j, t)` memo of [`Ctx::state_of`] (the read stream's direction 1): bindings change only at
++/// a body's own writes, so a value read at `(j, t)` stays valid until `j` is written again — every
++/// write bumps `j`'s generation, and a hit is served only when the generation still matches.
++/// Off (`ES_SEC_MEMO` unset) the path is the engine's own; `ES_SEC_CENSUS=1` recomputes every
++/// value anyway and only counts (calls, hits, stale keys, value conflicts), so both arms are
++/// observation.
++pub struct SecMemo {
++    on: bool,
++    census: bool,
++    inner: std::sync::Mutex<SecInner>,
++}
++
++struct SecInner {
++    gen: Vec<u32>,
++    map: std::collections::HashMap<(usize, Tick), (u32, (V2, V2))>,
++    calls: u64,
++    hits: u64,
++    stale: u64,
++    conflicts: u64,
++    clears: u64,
++}
++
++impl SecMemo {
++    pub(crate) fn from_env() -> Self {
++        Self {
++            on: std::env::var("ES_SEC_MEMO").is_ok(),
++            census: std::env::var("ES_SEC_CENSUS").is_ok(),
++            inner: std::sync::Mutex::new(SecInner { gen: Vec::new(), map: std::collections::HashMap::new(), calls: 0, hits: 0, stale: 0, conflicts: 0, clears: 0 }),
++        }
++    }
++
++    fn active(&self) -> bool {
++        self.on || self.census
++    }
++
++    /// The memo's answer for `(j, t)`, if it is fresh.
++    fn get(&self, j: usize, t: Tick) -> Option<(V2, V2)> {
++        let mut s = self.inner.lock().unwrap();
++        s.calls += 1;
++        let g = *s.gen.get(j).unwrap_or(&0);
++        match s.map.get(&(j, t)) {
++            Some(&(kg, v)) if kg == g => {
++                s.hits += 1;
++                Some(v)
++            }
++            Some(_) => {
++                s.stale += 1;
++                None
++            }
++            None => None,
++        }
++    }
++
++    /// Store `(j, t)` (in census mode a hit that recomputes a different value was already counted).
++    fn put(&self, j: usize, t: Tick, v: (V2, V2)) {
++        let mut s = self.inner.lock().unwrap();
++        if s.gen.len() <= j {
++            s.gen.resize(j + 1, 0);
++        }
++        let g = *s.gen.get(j).unwrap_or(&0);
++        if s.map.len() >= (1 << 20) {
++            s.map.clear();
++            s.clears += 1;
++        }
++        s.map.insert((j, t), (g, v));
++    }
++
++    /// A census hit whose recomputed value differs from the stored one: the one number that would
++    /// kill the memo as wired.
++    fn conflict(&self) {
++        self.inner.lock().unwrap().conflicts += 1;
++    }
++
++    /// Every write to body `j` (the universe's apply and rebind paths).
++    pub fn bump(&self, j: usize) {
++        let mut s = self.inner.lock().unwrap();
++        if s.gen.len() <= j {
++            s.gen.resize(j + 1, 0);
++        }
++        s.gen[j] = s.gen[j].wrapping_add(1);
++    }
++
++    /// One line for the dossier: the census and the memo's own account.
++    pub fn stats(&self) -> String {
++        let s = self.inner.lock().unwrap();
++        format!(
++            "sec_memo: on={} census={} calls={} hits={} stale={} conflicts={} map={} clears={} (repeat={:.3})",
++            self.on,
++            self.census,
++            s.calls,
++            s.hits,
++            s.stale,
++            s.conflicts,
++            s.map.len(),
++            s.clears,
++            if s.calls > 0 { s.hits as f64 / s.calls as f64 } else { 0.0 },
++        )
++    }
++}
++
+ pub struct Ctx<'a> {
+     pub dolls: &'a [DollRec],
+     pub bodies: &'a dyn BodyStore,
+@@ -54,11 +154,45 @@ pub struct Ctx<'a> {
+     pub cfg: &'a Config,
+     /// Where each doll's bodies can be, by radius: who a scan must read.
+     pub radial: &'a crate::radial::Radial,
++    /// The `(j, t)` memo of [`Ctx::state_of`] (off unless `ES_SEC_MEMO`/`ES_SEC_CENSUS`).
++    pub sec: &'a SecMemo,
+ }
+ 
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        let ts = crate::prof::t();
++        let out = if self.sec.active() {
++            match self.sec.get(j, t) {
++                Some(hit) => {
++                    if self.sec.census {
++                        // census: recompute regardless and compare, so the arm is pure observation
++                        let v = self.state_of_raw(j, t);
++                        if let Ok(w) = &v {
++                            if *w != hit {
++                                self.sec.conflict();
++                            }
++                            self.sec.put(j, t, *w);
++                        }
++                        v
++                    } else {
++                        Ok(hit)
++                    }
++                }
++                None => {
++                    let v = self.state_of_raw(j, t)?;
++                    self.sec.put(j, t, v);
++                    Ok(v)
++                }
++            }
++        } else {
++            self.state_of_raw(j, t)
++        };
++        crate::prof::add(crate::prof::STATE, ts);
++        out
++    }
++
++    fn state_of_raw(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         b.cartesian(t)
+     }
+@@ -77,6 +211,13 @@ impl Ctx<'_> {
+ 
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++        let ts = crate::prof::t();
++        let out = self.secondaries_raw(d, t, except);
++        crate::prof::add(crate::prof::SEC, ts);
++        out
++    }
++
++    fn secondaries_raw(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
+         let mut out = Vec::new();
+         for &j in &self.sources[d as usize] {
+             if j == except {
+@@ -88,6 +229,7 @@ impl Ctx<'_> {
+         Ok(out)
+     }
+ 
++
+     /// The radius of body `j`'s own surface, in the units of the doll `host` it sits in: the surface of the doll it is the
+     /// centre of (in that doll's units), converted. None for a body that is not the centre of a doll.
+     pub fn surface_in(&self, j: usize, host: u16) -> Res<Option<Scalar>> {
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..84b921b4 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -114,6 +114,13 @@ pub fn credit(bodies: &dyn BodyStore, i: usize, t: Tick, b: &Binding) -> Res<(V2
+ /// partial step replaces), run on past its own end. A binding that is not a clock's (a creation, a handoff, a flush) keeps the
+ /// tube alone. Where the step cannot be read (history pruned, a tube that ends, a kick that never fired) the tube alone is read.
+ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
++    let ts = crate::prof::t();
++    let out = partial_raw(ctx, i, t, b);
++    crate::prof::add(crate::prof::READOUT, ts);
++    out
++}
++
++fn partial_raw(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     let raw = || b.cartesian(t);
+     let k = b.kick;
+     if !k.clock {
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..4d323e72 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -30,8 +30,13 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
+-
++/// `Ctx::secondaries`: the per-event sources rebuild (the read stream's N-linear term).
++pub const SEC: usize = 24;
++/// `Ctx::state_of`: one source's state at `t` (nests inside SEC when called from there).
++pub const STATE: usize = 25;
++/// `observe::partial`: the clock step's mid-field evaluation (holds its secondaries).
++pub const READOUT: usize = 26;
++pub const N: usize = 27;
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+     "  position walk (root_state_raw)",
+@@ -57,8 +62,10 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "  read stream: secondaries (sources)",
++    "    read stream: state_of (one source)",
++    "  readout: partial (clock mid-field eval)",
+ ];
+-
+ #[cfg(feature = "prof")]
+ mod on {
+     use super::N;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..614705e3 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -156,6 +156,8 @@ pub struct Universe {
+     /// How each body made by `add_body` was specified (a secondary's tube is compiled again when its mass is set).
+     specs: Vec<Option<OrbitSpec>>,
+     pub sources: Vec<Vec<usize>>,
++    /// The `(j, t)` memo of `Ctx::state_of` (read-stream direction 1): off unless the env asks.
++    pub(crate) sec: crate::ctx::SecMemo,
+     pub cfg: Config,
+     bodies: Box<dyn BodyStore>,
+     cat: Catalogue,
+@@ -277,12 +279,18 @@ impl Universe {
+             resolved: 0,
+             frames: 0,
+             body_cap: 0,
++            sec: crate::ctx::SecMemo::from_env(),
+         }
+     }
+ 
+     pub fn ctx(&self) -> Ctx<'_> {
+-        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, sec: &self.sec }
+     }
++    /// The `(j, t)` memo's own account (calls, hits, stale keys, conflicts).
++    pub fn sec_stats(&self) -> String {
++        self.sec.stats()
++    }
++
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+     }
+@@ -443,12 +451,13 @@ impl Universe {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+-        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }.tube_unit(i, spec.doll)?;
++        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, sec: &self.sec }.tube_unit(i, spec.doll)?;
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+         tube.key = self.cat.insert(entry.clone())?;
+         rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
++        self.sec.bump(i);
+         self.bodies.put(i, rec);
+         Ok(())
+     }
+@@ -517,7 +526,7 @@ impl Universe {
+ 
+     /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+     fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+-        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }, &mut self.fleets)
++        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, sec: &self.sec }, &mut self.fleets)
+     }
+ 
+     /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
+@@ -637,6 +646,7 @@ impl Universe {
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
+         let t_apply = crate::prof::t();
++        self.sec.bump(i);
+         let retired = !upd.retired.is_empty();
+         for seg in upd.retired.drain(..) {
+             self.cat.release(seg.b.tube.key);

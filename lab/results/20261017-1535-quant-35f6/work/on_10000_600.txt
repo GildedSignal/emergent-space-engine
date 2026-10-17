@@ -1,0 +1,36 @@
+rung N=10000 (10028 bodies), coast, rtf 600, 60 s of wall time, engine budget 12 ms; build 0.34 s, peak footprint 27 MB (now 27 MB)
+frames after 1 s: 3540  engine ms p50 1.146 p90 3.775 p99 9.937 max 12.263; over 12 ms: 1; frames behind: 0, worst lag 0.000 s; events/frame p50 26 p99 231 max 336; scans held max 9
+game 35400.0 s after the first second: kicks 65455 (1.844e-4/body/game-s), events 132089 (3.721e-4/body/game-s), stats {opens 430, boundaries 64197, handoffs 1, lost 16, refused 0, slices 2006}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 27 MB at the build's end, 60 MB at the flight's end (now 60 MB); 2470 B a body from the build; dashboard bytes/body 1406; view gather 439.5 ms cold, 104.5 ms warm (10046 seen); catalogue 10076 entries
+stages (µs per frame, calls per frame, ns per call), over the 3540 frames:
+  rekey (all deadlines)                       19.5     1.00      19487
+    position walk (root_state_raw)           234.0    35.76       6543
+  apply (whole)                              261.2    36.73       7111
+  requeue                                     16.0    85.59        187
+  process (whole)                            990.2    36.73      26958
+    fit: bind_surface (kicks, hand-outs)     436.7    18.42      23711
+  take_due                                     0.2    14.01         17
+  prune                                       25.5     1.00      25488
+  encounters: capture (cheap half)            94.4     0.97      97512
+  encounters: held scans answered            422.0     0.97     435919
+  item: kick (Wisdom-Holman)                 513.2    15.41      33299
+  item: kick (clock)                         123.8     2.74      45140
+  item: kick at a changeover level            99.3     0.32     313194
+  item: boundary                             253.5    18.14      13980
+  item: open                                   1.2     0.12      10219
+  item: crash                                  0.0     0.00       4019
+  fleet: battle run_to                         2.2     0.57       3846
+  fleet: advance (whole item)                  2.9     0.57       5199
+  hand-out (a member made a body)              0.2     0.00     118680
+    hand-out: pull planets and moons           0.0     0.00         80
+    hand-out: bind (the member as a tube)       0.0     0.00      35213
+    hand-out: first plan (replan)              0.1     0.00      73158
+    fit again: the coarser word (bind_surface)       0.0     0.00      28673
+    read stream: secondaries (sources)        40.8    34.06       1197
+      read stream: state_of (one source)      43.1    55.05        783
+frames over the budget (first 12): [1401]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (1401, 12.26, 224, 0.000) (1415, 11.94, 238, 0.000) (1419, 11.93, 238, 0.000) (1413, 11.93, 268, 0.000) (1400, 11.92, 231, 0.000)
+at tick 8121017870 (39999.99999911022 game-s, settle 0.59 s): kicks 73025 events 158434 opens 10569 boundaries 71497 handoffs 1 lost 30 refused 0 slices 3342
+digest: 16096c7825ab6c8fbef9fa2d2e3fe3263b52733559fb6697dfa189de49ea9fe0
+sec_memo: on=true census=false calls=338645 hits=240580 stale=2 conflicts=0 map=98063 clears=0 (repeat=0.710)
+ladder: n=10000 bodies=10028 flight=coast rtf=600 frames=3600 build_s=0.34 foot_build_mb=27 foot_end_mb=60 b_per_body=2470 p50_ms=1.146 p99_ms=9.937 max_ms=12.263 over=1 lag_s=0.000 kicks_per_body_gs=1.844e-4 events_per_body_gs=3.721e-4 refusals=0 dead=0 held_max=9 view_ms=104.5 truncated=false wall_s=8.2
