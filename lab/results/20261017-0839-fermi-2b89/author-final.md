@@ -1,0 +1,4 @@
+Working...
+Everything regenerates end-to-end in 8.5 s; the patch is exactly the one print-only example. Deliverables complete: `predictions.md` (pre-registered, with the failures honestly reported), `dossier.md`, `regen.sh` (verified), `probe.out`/`compose.out`, and the resolved `wiki/encounters.md`.
+
+**Claim:** the encounters quantum-anchor dispute was decided on the wrong object — the live path stores no E but a 60-bit-relative velocity word (measured ev = −73, quantum 3.2×10⁻¹⁴ m/s, 2.7×10⁸ finer than f0a2's legacy anchor), at which every Dohnanyi conjunction fires and (from 2¹² quanta, δv/v ≈ 2⁻⁴⁷) mints a new compiled key, so the exact tier is **full**, not empty, 10⁹ closes only through the flux accumulator at every word width, and the anchor itself is a 5–15-bit word-width dial on which both f0a2's and 277d's worlds live.

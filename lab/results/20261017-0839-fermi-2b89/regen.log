@@ -1,0 +1,72 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: function `log2` is never used
+  --> crates/universe/examples/enc_quantum.rs:20:4
+   |
+20 | fn log2(x: f64) -> f64 {
+   |    ^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `emergent-universe` (example "enc_quantum") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.86s
+--- anchors (probe.out) ---
+belt  k=300 doll=0 ev=-73 el=-33 log2|v_comp|max=-15.00 log2|r|=27.00 kick(2^-23 v) = 2^35.0 quanta
+belt  k=301 doll=0 ev=-73 el=-33 log2|v_comp|max=-15.00 log2|r|=27.00 kick(2^-23 v) = 2^35.0 quanta
+belt  k=1200 doll=0 ev=-73 el=-33 log2|v_comp|max=-14.00 log2|r|=25.50 kick(2^-23 v) = 2^36.0 quanta
+belt  k=1650 doll=0 ev=-73 el=-32 log2|v_comp|max=-15.00 log2|r|=27.00 kick(2^-23 v) = 2^35.0 quanta
+belt  k=2998 doll=0 ev=-73 el=-32 log2|v_comp|max=-14.00 log2|r|=26.50 kick(2^-23 v) = 2^36.0 quanta
+belt  k=2999 doll=0 ev=-73 el=-32 log2|v_comp|max=-15.00 log2|r|=26.50 kick(2^-23 v) = 2^35.0 quanta
+local k=1 doll=2 ev=-77 el=-24 log2|v_comp|max=-19.00 log2|r|=35.00 kick(2^-23 v) = 2^35.0 quanta
+local k=150 doll=2 ev=-76 el=-26 log2|v_comp|max=-18.00 log2|r|=34.00 kick(2^-23 v) = 2^35.0 quanta
+belt body k=300: velocity quantum 2^-73 c = 3.174e-14 m/s
+  D=     49 m b=     1e5 v_rel=  3e1: dv = 8.22e-9 m/s = 2^18.0 quanta (carry sees it: true) -> fires: true
+  D=     49 m b=     1e3 v_rel=  3e1: dv = 8.22e-7 m/s = 2^24.6 quanta (carry sees it: true) -> fires: true
+  D=     70 m b=     1e5 v_rel=  1e3: dv = 7.19e-10 m/s = 2^14.5 quanta (carry sees it: true) -> fires: true
+  D= 470000 m b=     1e7 v_rel=  1e3: dv = 2.18e0 m/s = 2^46.0 quanta (carry sees it: true) -> fires: true
+  D=   1000 m b=     2e2 v_rel=  1e3: dv = 1.05e-3 m/s = 2^34.9 quanta (carry sees it: true) -> fires: true
+  D* (1 quantum at b=1e5, v_rel=1000) = 2.47 m
+  D* (1 quantum at b=1e6, v_rel=1000) = 5.33 m
+  D* (1 quantum at b=1e5, v_rel=30) = 0.77 m
+  CONTROL (dv = 0): dk_word=-1, d_periapsis_angle=59 (2^-32 turns), d_periapsis_time=20240601599742 ticks
+  2^12 quanta (2^(-73+12) c): dk_word=-2, d_periapsis_angle=59 (2^-32 turns), d_periapsis_time=20240601599742 ticks
+--- ledger (compose.out) ---
+live quantum 2^-73 c = 3.174e-14 m/s (measured); belt kick = 2^35 quanta
+legacy E-key anchor equivalent (f0a2: 319.3 m^2/s^2 at v~1.9e4 m/s): 8.40e-03 m/s = 2^-35.1 c = 2^37.9 live quanta
+
+D* (partner that flips 1 quantum) at the live word:
+  b=   1e+05 v_rel= 1000: D* =    2.47 m
+  b=   1e+06 v_rel= 1000: D* =    5.33 m
+  b=   1e+05 v_rel=   30: D* =    0.77 m
+
+The two-threshold ladder (measured): word fires at 1 quantum; the compiled KEY mints from 2^12 quanta (dv/v ~ 2^-47):
+  b=   1e+05 v_rel= 1000: D*_word=  2.47 m, D*_key(mint)=    39.6 m
+  b=   1e+06 v_rel= 1000: D*_word=  5.33 m, D*_key(mint)=    85.3 m
+  b=   1e+05 v_rel=   30: D*_word=  0.77 m, D*_key(mint)=    12.3 m
+  b=   1e+07 v_rel= 1000: D*_word= 11.48 m, D*_key(mint)=   183.7 m
+
+The word-width dial (what coarsening the velocity word does; kick stays >= 2^7 quanta until ev = -45):
+  ev=-73: D*(1e5,1e3) =       2.5 m; belt kick = 2^35 quanta
+  ev=-68: D*(1e5,1e3) =       7.9 m; belt kick = 2^40 quanta
+  ev=-64: D*(1e5,1e3) =      19.8 m; belt kick = 2^44 quanta
+  ev=-58: D*(1e5,1e3) =      79.2 m; belt kick = 2^50 quanta
+  ev=-45: D*(1e5,1e3) =    1595.8 m; belt kick = 2^63 quanta
+
+Flip reach at the live word (every crossing pair inside this b fires):
+  D=      49 m v_rel=   30: b_flip = 2.59e+10 m = 0.1732 AU
+  D=      70 m v_rel= 1000: b_flip = 2.27e+09 m = 0.0151 AU
+  D=  470000 m v_rel= 1000: b_flip = 6.86e+20 m = 1000000000.0000 AU
+
+Conjunction + rebind price at 10^9 on the live word (per-pair handling, the dead branch):
+  b<1.0e+05 m v_rel=1000: 5.69e-07/s/body -> 284 pair-events/s -> 0.00114 cores at 4us find, 0.0142 cores if each rebinds (50us)
+  b<2.3e+09 m v_rel=1000: 0.0129/s/body -> 6.45e+06 pair-events/s -> 25.8 cores at 4us find, 322 cores if each rebinds (50us)
+
+The aggregate flux (what MUST be delivered somehow), Dohnanyi [70 m, 470 km], N=1e9:
+  belt mass 2.18e+20 kg, mu_tot 1.46e+10 m^3/s^2, flux 1.66e-13 m/s per s per body
+  ev=-73: 4.66e-09 m/s per 28141.5-s interval = 1.47e+05 quanta/body/interval -> rides the kick stream (2 events/body/interval)
+  ev=-64: 4.66e-09 m/s per 28141.5-s interval = 287 quanta/body/interval -> rides the kick stream (2 events/body/interval)
+  ev=-45: 4.66e-09 m/s per 28141.5-s interval = 0.000547 quanta/body/interval -> sub-quantum: fires every 1829 intervals
+
+Flown-plane cross-check (N=2700 belt ships of 49 m): mutual conjunction rate per body at v_rel=30:
+  N=     2700: 1.19e-08/s/body -> one per 2.7e+00 yr/body; fleet 1.61e-05/s
+  N=  1000000: 4.42e-06/s/body -> one per 7.2e-03 yr/body; fleet 2.21e+00/s
+  N=1000000000: 4.42e-03/s/body -> one per 7.2e-06 yr/body; fleet 2.21e+06/s

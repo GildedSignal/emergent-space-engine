@@ -1,0 +1,150 @@
+diff --git a/crates/universe/examples/enc_quantum.rs b/crates/universe/examples/enc_quantum.rs
+new file mode 100644
+index 00000000..b5e76952
+--- /dev/null
++++ b/crates/universe/examples/enc_quantum.rs
+@@ -0,0 +1,144 @@
++//! The encounters quantum anchor, measured on the shipped live path (run 20261017-0839-fermi-2b89).
++//!
++//! For ladder belt bodies (and locals, as a control): the binding's own word exponents (the live
++//! quanta), the key words, which physical impulse sizes fire, and what a firing impulse moves
++//! (the shared OrbitKey vs the 16-byte tube vs nothing). The engine's own rule (step.rs `kick`):
++//! an impulse fires iff it is nonzero in quanta of `st.velocity_exponent`; sub-quantum impulses
++//! are carried (and `quantize`'s carry itself resolves nothing finer than 2^(ev-16)).
++//!
++//! cargo run --release -p emergent-universe --example enc_quantum
++use emergent_space::binding::IntegerState;
++use emergent_universe::bind::{bind_surface, scalars, Binding};
++use emergent_universe::fleet::Order;
++use emergent_universe::num::Tick;
++use emergent_universe::scenario::{ladder_locals, plane_extra, AU};
++use emergent_universe::Config;
++
++const C: f64 = 299_792_458.0;
++const ROOT_M: f64 = 149_597_870_700.0 / AU as f64; // metres per root unit (AU = 101,300,000)
++
++fn log2(x: f64) -> f64 {
++    x.abs().log2()
++}
++
++/// A scalar's log2 (floor, +/-1): `Scalar::exponent()` is the value's own exponent
++/// (word_for uses it the same way to size 60-bit words).
++fn scalar_log2(s: &emergent_space::scaled::Scalar) -> Option<f64> {
++    Some(s.exponent() as f64)
++}
++
++fn main() {
++    let n = 3000usize;
++    let p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).expect("plane");
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    println!("root unit = {ROOT_M:.1} m (AU = {AU} root units); c = {C:.0} m/s");
++    println!("N = {n}, locals = {locals}, belt = {}", n - locals);
++
++    // ---- tier 1: the live quanta of every belt body, plus a few locals --------------------------
++    let mut belts = Vec::new();
++    for k in [locals, locals + 1, locals + (n - locals) / 3, locals + (n - locals) / 2, n - 2, n - 1] {
++        belts.push(k);
++    }
++    let mut rows: Vec<(usize, i16, i16, f64, f64, f64)> = Vec::new(); // k, el, ev, log2|v|, log2 r, log2 kick quanta
++    for k in belts.iter().chain([1usize, locals / 2].iter()) {
++        let rec = p.u.rec(base + k);
++        let b: &Binding = &rec.b;
++        let t: Tick = b.event_time;
++        let st = b.readout(t).expect("readout");
++        let (x, v) = scalars(&st).expect("scalars");
++        let v0 = scalar_log2(&v[0]).unwrap_or(f64::NAN);
++        let v1 = scalar_log2(&v[1]).unwrap_or(f64::NAN);
++        let speed_log2 = 0.5 * (2.0 * v0.max(v1).max(-999.0) + 0.0); // rough; exact below via fixed
++        let r_log2 = 0.5 * (scalar_log2(&x[0]).unwrap_or(0.0) + scalar_log2(&x[1]).unwrap_or(0.0));
++        let ev = st.velocity_exponent;
++        let el = st.length_exponent;
++        // speed exactly: |v|² = v0²+v1² at a common exponent is awkward with scalars; use max comp.
++        let kick_quanta = speed_log2 - 23.0 - ev as f64; // 2^-23 of speed, in quanta of 2^ev
++        let kind = if *k < locals { "local" } else { "belt " };
++        println!(
++            "{kind} k={k} doll={} ev={ev} el={el} log2|v_comp|max={:.2} log2|r|={:.2} kick(2^-23 v) = 2^{kick_quanta:.1} quanta",
++            b.doll,
++            v0.max(v1),
++            r_log2
++        );
++        if *k >= locals {
++            rows.push((*k, el, ev, v0.max(v1), r_log2, kick_quanta));
++        }
++    }
++
++    // The SI ladder against the measured ev of one belt body.
++    let (k0, _el0, ev0, _v0, _r0, _kq0) = rows[0];
++    let q_si = (ev0 as f64).exp2() * C; // the velocity quantum in m/s
++    println!("\nbelt body k={k0}: velocity quantum 2^{ev0} c = {q_si:.3e} m/s");
++    let rho = 3000.0;
++    let mu = |d_m: f64| 6.674e-11 * (std::f64::consts::PI / 6.0) * rho * d_m * d_m * d_m;
++    for (d, b_m, vrel) in [
++        (49.0_f64, 1.0e5_f64, 30.0_f64),   // two ladder ships, flyby
++        (49.0, 1.0e3, 30.0),               // ships, near pass
++        (70.0, 1.0e5, 1.0e3),              // smallest Dohnanyi rock, belt-typical v_rel
++        (470.0e3, 1.0e7, 1.0e3),           // largest rock, wide pass
++        (1.0e3, 2.0e2, 1.0e3),             // km rock, close pass
++    ] {
++        let dv = 2.0 * mu(d) / (b_m * vrel); // m/s
++        let quanta = (dv / q_si).log2();
++        let carried = dv / (q_si / 65536.0);
++        println!(
++            "  D={d:>7.0} m b={b_m:>8.0e} v_rel={vrel:>5.0e}: dv = {dv:.2e} m/s = 2^{quanta:.1} quanta (carry sees it: {}) -> fires: {}",
++            carried >= 1.0,
++            quanta >= 0.0
++        );
++    }
++    // flip-reach of the smallest rock: b_max = 2 mu / (quantum * v_rel)
++    for (d, vrel) in [(70.0_f64, 1.0e3_f64), (70.0, 30.0), (49.0, 30.0)] {
++        let bmax = 2.0 * mu(d) / (q_si * vrel);
++        println!(
++            "  D={d:.0} m at v_rel={vrel:.0}: flips any partner out to b_max = {bmax:.2e} m ({:.3} AU)",
++            bmax / 149_597_870_700.0
++        );
++    }
++    // the partner diameter that just flips 1 quantum at (b, v_rel)
++    for (b_m, vrel) in [(1.0e5_f64, 1.0e3_f64), (1.0e6, 1.0e3), (1.0e5, 30.0)] {
++        let mu_min = q_si * b_m * vrel / 2.0;
++        let m = mu_min / 6.674e-11;
++        let d = (6.0 * m / (std::f64::consts::PI * rho)).cbrt();
++        println!("  D* (1 quantum at b={b_m:.0e}, v_rel={vrel:.0}) = {d:.2} m");
++    }
++
++    // ---- tier 2: what a firing impulse moves (one belt body, the engine's own rebind) ------------
++    let rec = p.u.rec(base + k0);
++    let b: &Binding = &rec.b;
++    let t: Tick = b.event_time;
++    let st = b.readout(t).expect("readout");
++    let ctx = p.u.ctx();
++    let unit = ctx.tube_unit(base + k0, b.doll).expect("tube unit");
++    let surface = Some(p.u.dolls[b.doll as usize].surface);
++    let before_key = b.entry.trajectory.key().expect("cycle key");
++    let before_tube = b.tube;
++    println!(
++        "\nrebind ladder for belt k={k0} (before: k_word={}, k_exp={}, periapsis_angle={}, periapsis_time={})",
++        before_key.k, before_key.k_exponent, before_tube.periapsis_angle, before_tube.periapsis_time.get()
++    );
++    for i in -1..41i64 {
++        let dv_quanta = if i < 0 { 0 } else { 1i64 << i };
++        let next = IntegerState {
++            velocity: [st.velocity[0] + dv_quanta, st.velocity[1]],
++            ..st
++        };
++        let bound = match bind_surface(next, t, b.clock_exp, None, unit, surface) {
++            Ok(x) => x,
++            Err(e) => {
++                println!("  2^{i:>2} quanta: bind refused: {e:?}");
++                continue;
++            }
++        };
++        let key = bound.entry.trajectory.key().expect("cycle key");
++        let dk = key.k as i64 - before_key.k as i64;
++        let da = bound.tube.periapsis_angle as i64 - before_tube.periapsis_angle as i64;
++        let dt = bound.tube.periapsis_time.get() as i64 - before_tube.periapsis_time.get() as i64;
++        if dk != 0 || da != 0 || dt != 0 {
++            let label = if i < 0 { "CONTROL (dv = 0)".to_string() } else { format!("2^{i:>2} quanta (2^({ev0}+{i}) c)") };
++            println!("  {label}: dk_word={dk}, d_periapsis_angle={da} (2^-32 turns), d_periapsis_time={dt} ticks");
++        }
++    }
++}
