@@ -1,0 +1,4 @@
+Working...
+Run complete. All artifacts verified: `regen.sh` tested green end-to-end, predictions written before the composition and all six held, 5/5 quotes byte-identical by full-text script, no tracked files touched, cache 4.2 MB < 5 MB.
+
+**The claim:** Five verbatim lessons from Julien's Readwise library (4,590 highlights fetched fresh, 5/5 byte-identical) take the 10⁹ ledger's newest hole — with inversion-2373's measured fleet row composed in, the published 10.3-core ledger is **4,510 cores at F = 10⁵ fleets (99.77% fleet)**, the word-width dial spans that one row across **4.5×10⁵×**, and the coarse end deletes the row only by deleting the only fleet finder with it — so the row closes by representation (birth-constant capability + Diophantine due dates) or the dial, never by a cheaper finder (rank certificate ceiling 50× → 90 cores, still 22× over budget).
