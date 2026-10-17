@@ -1,0 +1,364 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..bbf1f914 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -25,6 +25,25 @@ fn product(a: i128, b: i128) -> i128 {
+ fn square_root(a: i128) -> Result<Scalar> {
+     f(a)?.sqrt()
+ }
++// Lab instrument (lab/results/20261017-0739-spacex-4ea0): count and time shape builds, count
++// shape reads. Print-only; no law path reads these.
++pub static SHAPE_READS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static BUILDS: [std::sync::atomic::AtomicU64; 2] = [const { std::sync::atomic::AtomicU64::new(0) }; 2];
++static BUILD_NS: [std::sync::atomic::AtomicU64; 2] = [const { std::sync::atomic::AtomicU64::new(0) }; 2];
++fn note_build(kind: usize, d: std::time::Duration) {
++    use std::sync::atomic::Ordering;
++    BUILDS[kind].fetch_add(1, Ordering::Relaxed);
++    BUILD_NS[kind].fetch_add(d.as_nanos() as u64, Ordering::Relaxed);
++}
++/// (shape reads, [shape builds, passage compiles], [ns, ns]).
++pub fn census_counts() -> (u64, [u64; 2], [u64; 2]) {
++    use std::sync::atomic::Ordering;
++    (
++        SHAPE_READS.load(Ordering::Relaxed),
++        BUILDS.each_ref().map(|c| c.load(Ordering::Relaxed)),
++        BUILD_NS.each_ref().map(|c| c.load(Ordering::Relaxed)),
++    )
++}
+ 
+ /// Exact dimensionless orbit input, with an independent dimensional scale.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+@@ -235,6 +254,12 @@ impl OrbitShape {
+         &self.crossings
+     }
+     fn new(key: ShapeKey) -> Result<Self> {
++        let t = std::time::Instant::now();
++        let r = Self::new_inner(key);
++        note_build(0, t.elapsed());
++        r
++    }
++    fn new_inner(key: ShapeKey) -> Result<Self> {
+         if (key.k == 0 && !key.null) || key.k > UNIT || key.k_exponent > 0 {
+             return Err(Error::Range);
+         }
+@@ -491,6 +516,12 @@ impl OrbitShape {
+         }
+     }
+     fn bound(key: ShapeKey) -> Result<Self> {
++        let t = std::time::Instant::now();
++        let r = Self::bound_inner(key);
++        note_build(0, t.elapsed());
++        r
++    }
++    fn bound_inner(key: ShapeKey) -> Result<Self> {
+         if key.k_exponent != 0 || key.k <= HALF {
+             return Err(Error::NotPeriodic);
+         }
+@@ -683,11 +714,13 @@ impl Orbit {
+         Ok(self.increments[0])
+     }
+     pub fn crossing_time(&self, index: usize) -> Result<Scalar> {
++        SHAPE_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+         self.time(self.shape.knots.get(index).ok_or(Error::Range)?.sum)?
+             .mul(self.time_scale)
+     }
+     /// A specified radial cycle and time within that cycle; no total elapsed clock needed.
+     pub fn at_phase(&self, cycles: u64, normalized_time: Scalar) -> Result<OrbitState> {
++        SHAPE_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+         if normalized_time < Scalar::ZERO {
+             return Err(Error::Range);
+         }
+@@ -726,6 +759,7 @@ impl Orbit {
+         self.read(cycles, psi, outbound, sum)
+     }
+     pub fn state(&self, elapsed: Scalar) -> Result<OrbitState> {
++        SHAPE_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+         if elapsed < Scalar::ZERO {
+             return Err(Error::Range);
+         }
+@@ -1018,6 +1052,12 @@ impl Passage {
+             .transpose()
+     }
+     pub fn compile(key: OrbitKey, outer_radius: Scalar) -> Result<Self> {
++        let t = std::time::Instant::now();
++        let r = Self::compile_inner(key, outer_radius);
++        note_build(1, t.elapsed());
++        r
++    }
++    fn compile_inner(key: OrbitKey, outer_radius: Scalar) -> Result<Self> {
+         if key.periodic() || outer_radius <= key.periapsis {
+             return Err(Error::Topology);
+         }
+@@ -1081,6 +1121,7 @@ impl Passage {
+         self.orbit.key
+     }
+     pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
++        SHAPE_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+         let x = self.key().periapsis.div(radius)?;
+         if self.tail.is_empty() || x >= self.tail[0].0 {
+             return self.orbit.at_radius(radius);
+@@ -1106,6 +1147,7 @@ impl Passage {
+     }
+     /// Signed time since periapsis. Incoming times/angles/proper times are negative.
+     pub fn state(&self, elapsed: Scalar) -> Result<OrbitState> {
++        SHAPE_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+         let t = elapsed.abs().div(self.orbit.time_scale)?;
+         let inner_end = self
+             .orbit
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..96604d94 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -27,13 +27,24 @@ use std::sync::Arc;
+ /// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+ /// about a mass of one, in units of the doll's mass; `unit` converts it to the doll's own units (the
+ /// mantissa of the doll's mass; the identity when the mass is a power of two).
+-#[derive(Debug)]
+ pub struct Entry {
+     pub trajectory: Trajectory,
+     pub clockwise: bool,
+     pub unit: Unit,
++    /// Lab instrument: generation id for the shape-read census (never law state).
++    pub census_id: u32,
+ }
+ 
++impl std::fmt::Debug for Entry {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        // The instrument's id is not part of the record's identity (kick-bench hashes Debug).
++        f.debug_struct("Entry")
++            .field("trajectory", &self.trajectory)
++            .field("clockwise", &self.clockwise)
++            .field("unit", &self.unit)
++            .finish()
++    }
++}
+ /// The catalogue of compiled trajectories behind the tubes' key indexes.
+ #[derive(Default)]
+ pub struct Catalogue {
+@@ -115,6 +126,7 @@ pub struct Binding {
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    crate::census::note_read(entry.census_id);
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+@@ -151,13 +163,17 @@ impl Binding {
+     }
+ 
+     /// The orbit state at `t` (proper time, radius, velocities of the tube).
++    #[track_caller]
+     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
++        crate::census::set_reader(crate::census::classify(std::panic::Location::caller()));
+         Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
+     }
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
++    #[track_caller]
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
++        crate::census::set_reader(crate::census::classify(std::panic::Location::caller()));
+         let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
+         let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+         let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+@@ -170,7 +186,9 @@ impl Binding {
+     }
+ 
+     /// Position and velocity as scalars in the doll's units.
++    #[track_caller]
+     pub fn cartesian(&self, t: Tick) -> Res<(V2, V2)> {
++        crate::census::set_reader(crate::census::classify(std::panic::Location::caller()));
+         scalars(&self.readout(t)?)
+     }
+ }
+@@ -266,7 +284,8 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+     } else { Rebinding::from_state(input, time, edge)? };
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+-    let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
++    let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit, census_id: crate::census::mint_id(crate::census::REBIND) });
++    crate::census::set_reader(crate::census::BIRTH);
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+         let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+         let at = time_of(peri, clock_exp)?.add(unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..e95ab79b
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,129 @@
++//! Print-only census of compiled trajectories: compiles (counted and timed in `crates/space`)
++//! against reads, per binding generation, attributed to the reader that caused them.
++//! Lab instrument (`lab/results/20261017-0739-spacex-4ea0`): counters only, no law path touched,
++//! digests unchanged. The question (kick-jet open direction 2): how many reads does one
++//! generation of a compiled table serve between its mint and its replacement, and by whom —
++//! the quantity that decides whether compile-on-read deletes the kick's compile term or
++//! merely moves it onto the view's per-frame path.
++use std::cell::Cell;
++use std::collections::HashMap;
++use std::panic::Location;
++use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
++use std::sync::{LazyLock, Mutex};
++
++pub const ENGINE: u8 = 0;
++pub const VIEW: u8 = 1;
++pub const OBSERVE: u8 = 2;
++pub const SECONDARIES: u8 = 3;
++pub const STEP: u8 = 4;
++pub const DASH: u8 = 5;
++pub const CHAIN: u8 = 6;
++pub const BIRTH: u8 = 7;
++pub const OTHER: u8 = 8;
++pub const NCLASS: usize = 9;
++pub const NAMES: [&str; NCLASS] = [
++    "engine-default", "view", "observe", "secondaries", "step", "dash", "chain", "birth-read", "other",
++];
++
++pub const SPEC: usize = 0;
++pub const REBIND: usize = 1;
++
++static NEXT_ID: AtomicU32 = AtomicU32::new(1);
++pub static MINTS: [AtomicU64; 2] = [AtomicU64::new(0), AtomicU64::new(0)];
++pub static READS: [AtomicU64; NCLASS] = [const { AtomicU64::new(0) }; NCLASS];
++
++thread_local! {
++    static READER: Cell<u8> = const { Cell::new(ENGINE) };
++}
++
++pub fn classify(loc: &Location<'_>) -> u8 {
++    let f = loc.file();
++    if f.ends_with("view.rs") { VIEW }
++    else if f.ends_with("observe.rs") { OBSERVE }
++    else if f.ends_with("ctx.rs") { SECONDARIES }
++    else if f.ends_with("step.rs") { STEP }
++    else if f.ends_with("dash.rs") { DASH }
++    else if f.ends_with("bind.rs") { CHAIN }
++    else { OTHER }
++}
++
++pub fn mint_id(origin: usize) -> u32 {
++    MINTS[origin].fetch_add(1, Ordering::Relaxed);
++    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
++    if let Ok(mut p) = per_generation().lock() {
++        p.entry(id).or_insert((origin as u8, u8::MAX, 0));
++    }
++    id
++}
++
++pub fn set_reader(c: u8) {
++    READER.with(|r| r.set(c));
++}
++
++fn per_generation() -> &'static Mutex<HashMap<u32, (u8, u8, u64)>> {
++    static P: LazyLock<Mutex<HashMap<u32, (u8, u8, u64)>>> =
++        LazyLock::new(|| Mutex::new(HashMap::new()));
++    &P
++}
++
++/// One decode of one generation (a shape read through the binding): counted and attributed.
++pub fn note_read(id: u32) {
++    let c = READER.with(|r| r.get());
++    READS[c as usize].fetch_add(1, Ordering::Relaxed);
++    if let Ok(mut p) = per_generation().lock() {
++        let e = p.entry(id).or_insert((u8::MAX, c, 0));
++        if e.1 == u8::MAX { e.1 = c; }
++        e.2 += 1;
++    }
++}
++
++pub fn report() {
++    let (shape_reads, compiles, compile_ns) = emergent_space::orbit::census_counts();
++    let mints: Vec<u64> = MINTS.iter().map(|m| m.load(Ordering::Relaxed)).collect();
++    let reads: Vec<u64> = READS.iter().map(|m| m.load(Ordering::Relaxed)).collect();
++    let mut per: Vec<(u32, (u8, u8, u64))> = per_generation().lock().map(|p| p.iter().map(|(k, v)| (*k, *v)).collect()).unwrap_or_default();
++    let attributed: u64 = reads.iter().sum();
++    per.sort_by_key(|(_, v)| v.2);
++    let n_read_gens = per.len() as u64;
++    let total_gens: u64 = mints.iter().sum();
++    let reads_of_read: Vec<u64> = per.iter().map(|(_, v)| v.2).collect();
++    let at = |q: f64| -> u64 {
++        if reads_of_read.is_empty() { return 0; }
++        reads_of_read[(((reads_of_read.len() as f64) - 1.0) * q).round() as usize]
++    };
++    // Never-read generations, split by which class first read the ones that were read.
++    let mut first: [u64; NCLASS] = [0; NCLASS];
++    for (_, v) in &per { if v.1 != u8::MAX { first[v.1 as usize] += 1; } }
++    // reads split by generation origin (0=spec birth, 1=rebind) and never-read by origin
++    let mut reads_origin = [0u64; 2];
++    let mut gens_origin = [0u64; 2];
++    let mut never_origin = [0u64; 2];
++    for (_, v) in &per {
++        let o = (v.0 == 1) as usize;
++        gens_origin[o] += 1;
++        reads_origin[o] += v.2;
++        if v.2 == 0 { never_origin[o] += 1; }
++    }
++    println!(
++        "[shapecensus] shape_reads_total(space,includes engine-internal)={} attributed(decode)={} compiles{{orbit_bound={},passage={}}} compile_ms{{orbit_bound={:.3},passage={:.3}}}",
++        shape_reads, attributed, compiles[0], compiles[1], compile_ns[0] as f64 / 1e6, compile_ns[1] as f64 / 1e6
++    );
++    println!(
++        "[shapecensus] generations: spec={} rebind={} total={} read={} never_read={} reads_per_gen_all={:.2} reads_per_gen_read={:.2} p50={} p99={} max={}",
++        mints[SPEC], mints[REBIND], total_gens, n_read_gens, total_gens - n_read_gens,
++        attributed as f64 / total_gens.max(1) as f64,
++        attributed as f64 / n_read_gens.max(1) as f64,
++        at(0.5), at(0.99), reads_of_read.last().copied().unwrap_or(0)
++    );
++    let names = NAMES;
++    let reads_s: Vec<String> = reads.iter().enumerate().map(|(i, r)| format!("{}={}", names[i], r)).collect();
++    let first_s: Vec<String> = first.iter().enumerate().filter(|(i, v)| **v > 0).map(|(i, v)| format!("{}={}", names[i], v)).collect();
++    println!("[shapecensus] reads_by_class: {}", reads_s.join(" "));
++    println!("[shapecensus] first_reader_of_read_generations: {}", first_s.join(" "));
++    println!(
++        "[shapecensus] by_origin: spec{{gens={} read={} never={} reads={}}} rebind{{gens={} read={} never={} reads={}}} reads_per_rebind_gen={:.2}",
++        mints[SPEC], gens_origin[0], never_origin[0], reads_origin[0],
++        mints[REBIND], gens_origin[1], never_origin[1], reads_origin[1],
++        reads_origin[1] as f64 / gens_origin[1].max(1) as f64
++    );
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..2927e87e 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,5 +1,6 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+ pub mod bind;
++pub mod census;
+ pub mod body;
+ pub mod ctx;
+ pub mod dash;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..dfa7eb4b 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -345,7 +345,7 @@ impl Universe {
+         let key = OrbitKey::bound(unit.to_tube(spec.periapsis)?, spec.e_q48)?;
+         let orbit = Orbit::compile(key)?;
+         let period = unit.to_doll(orbit.period()?)?;
+-        let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
++        let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit, census_id: crate::census::mint_id(crate::census::SPEC) });
+         // Periapsis `phase` of a period before tick 0.
+         let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
+         let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..e0d1df74 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -107,5 +107,6 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+     }))?);
++    emergent_universe::census::report();
+     Ok(u8::from(refused != 0))
+ }
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..c12eecea 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -178,5 +178,6 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "uptime_before": load_before, "uptime_after": uptime("uptime"),
+     });
+     println!("{}", serde_json::to_string_pretty(&report)?);
++    emergent_universe::census::report();
+     Ok(0)
+ }

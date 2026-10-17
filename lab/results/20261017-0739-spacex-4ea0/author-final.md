@@ -1,0 +1,4 @@
+Working...
+Run complete. All deliverables are in `lab/results/20261017-0739-spacex-4ea0/`: predictions (pre-registered), dossier, `regen.sh` (proven end-to-end, 164 s, digests bit-identical to pristine on all four runs), the print-only census patch, and the folded `wiki/kick-jet.md` page.
+
+**Claim:** Compile-on-read is dead in both forms on the shipped engine — the compiled table is the engine's own working set (98–224 reads per build, 99% engine-side: observe 66%, secondaries 19%, step 12%, view 1.0%), and the mint's own birth-read is the first reader of every rebind generation, so the kick's 84–87% compile term can only get cheaper (the Carlson wiring), never moved or deleted by laziness — while eviction would pay ×98 builds, and the memory lever that avoids that bill is sharing (the intern), not eviction.
