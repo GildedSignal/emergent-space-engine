@@ -1,0 +1,182 @@
+diff --git a/crates/allocator/examples/race.rs b/crates/allocator/examples/race.rs
+new file mode 100644
+index 00000000..1d84ec96
+--- /dev/null
++++ b/crates/allocator/examples/race.rs
+@@ -0,0 +1,46 @@
++//! Lab 20261017-1447-dynamics-fd35: the finality race on sustained-overlap churn (four dense
++//! Bounce gases, light-cone finality on; `sabotage` optionally forces rollbacks the shipped
++//! finality tests use), frames harness. One process per arm so a firing assert ends only
++//! that arm. HAZ/PRE/RB/FIRE lines go to stderr (the instrument in alloc.rs); one summary
++//! row to stdout.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example race -- \
++//!         <n-per-cluster> <seed> <min_region> <rate> <seconds> [window] [stride_max] [vmax] [spacing] [sabotage] [ahead]
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig};
++use emergent_lattice::{chronon::Chronon, law::{Law, World}};
++use std::sync::Arc;
++
++fn scene_churn(n: u64, seed: u64, vmax: i64, spacing: i64) -> Vec<World> {
++    // Four dense Bounce gases on a 2x2 grid `spacing` units apart (box side ~65 units at
++    // n = 400): overlap or approach churn; `sabotage` widens forecasts into conflicts.
++    let q = 256;
++    let ws = (0..4u64)
++        .map(|c| scenes::loose_gas(n, q, vmax, seed * 10 + c, c * 1_000_000, [(c as i64 % 2) * spacing, (c as i64 / 2) * spacing]))
++        .collect();
++    scenes::with_law(ws, Law::Relativistic)
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let n: u64 = a.first().unwrap_or(&"400".into()).parse().unwrap();
++    let seed: u64 = a.get(1).unwrap_or(&"11".into()).parse().unwrap();
++    let min_region: usize = a.get(2).unwrap_or(&"1".into()).parse().unwrap();
++    let rate: f64 = a.get(3).unwrap_or(&"900".into()).parse().unwrap();
++    let seconds: f64 = a.get(4).unwrap_or(&"3".into()).parse().unwrap();
++    let window: i64 = a.get(5).unwrap_or(&"16".into()).parse().unwrap();
++    let stride_max: u32 = a.get(6).unwrap_or(&"8".into()).parse().unwrap();
++    let vmax: i64 = a.get(7).unwrap_or(&"64".into()).parse().unwrap();
++    let spacing: i64 = a.get(8).unwrap_or(&"40".into()).parse().unwrap();
++    let sabotage: Option<u64> = a.get(9).and_then(|s| s.parse().ok()).map(|k: u64| k.max(1));
++    let ahead: f64 = a.get(10).unwrap_or(&"0.3".into()).parse().unwrap();
++    let scene = scene_churn(n, seed, vmax, spacing);
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let cfg = Config { min_region, window, stride_max, observer: [0, 0], sabotage, speed_margin: if sabotage.is_some() { 0.0 } else { 1.0 }, ..Config::default() };
++    let mut al = Allocator::new(scene, factory, cfg).expect("scene");
++    let r = al.run_frames(&FrameConfig { hz: 60.0, seconds, rate, ahead_seconds: ahead, record: false });
++    let f = r.frames.as_ref().expect("frames");
++    println!(
++        "SUM n={n} seed={seed} min={min_region} rate={rate} win={window} vmax={vmax} sp={spacing} sab={:?} ahead={ahead} frames={} present/s={:.0} present_end={:.0} rollbacks={} rgn0={} splits={} chr/s={:.0}",
++        sabotage, f.frames, r.sim.present_chronons_per_wall_second, r.sim.present_end, r.regions.rollbacks, r.regions.initial, r.regions.splits, r.sim.region_chronons_per_wall_second
++    );
++}
+diff --git a/crates/allocator/src/alloc.rs b/crates/allocator/src/alloc.rs
+index 8e8d8dc2..b0269b62 100644
+--- a/crates/allocator/src/alloc.rs
++++ b/crates/allocator/src/alloc.rs
+@@ -395,6 +395,8 @@ struct State<S> {
+     giants: usize,
+     rng: Rng,
+     last_finalize: Option<Instant>,
++    /// Publish counter for the lab race instrument (print-only).
++    haz_pubs: u64,
+ }
+ 
+ struct Job<S> {
+@@ -1045,6 +1047,27 @@ impl<S: Stepper + Send + 'static> State<S> {
+         self.classify(d.id, c);
+         self.fresh.push(d.id);
+         let Some((world, end, comps)) = d.end else { return };
++        // Lab instrument (print-only): mirror the upcoming certify scan with the measured
++        // box. `D` is the largest fin_hi − s0 this stride's clash would restore, over the
++        // clashing lineages' descendants; D > 0 means the finality assert in rollback WILL
++        // fire if certify returns this clash (it decides with the same predicate).
++        {
++            let r = &self.regions[&d.id];
++            let (start, stop, truth, rad) = (r.verified, r.tick, r.bbox.hull(&end), r.rmax);
++            let (w0, w1) = (self.window(start), self.window(stop - 1));
++            let mut danger: Option<(i64, u64, i64)> = None; // (fin_hi − s0, truth lineage, s0)
++            for (_, list) in self.truths.range(w0..=w1) {
++                for t in list.iter().filter(|t| t.id != d.id && !separated(&truth, rad, &t.bbox, t.r)) {
++                    let s0 = start.min(t.start);
++                    let desc = self.descendants(&[d.id, t.id]);
++                    let fin = desc.iter().filter_map(|id| self.regions.get(id)).map(|x| x.fin_hi).max().unwrap_or(Tick::MIN);
++                    if danger.is_none_or(|(x, ..)| fin - s0 > x) {
++                        danger = Some((fin - s0, t.id, s0));
++                    }
++                }
++            }
++            eprintln!("PRE id={} s={} e={} D={:?}", d.id, start, stop, danger);
++        }
+         let front = self.frontier();
+         if let Err(clashes) = self.certify(d.id, &end) {
+             self.rollback(clashes);
+@@ -1446,6 +1469,21 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 assert!(self.regions.keys().all(|id| !desc.contains(id) || done.contains(id)), "a live clashing lineage keeps its snapshot at its stride start");
+                 continue;
+             }
++            // Lab instrument (print-only): the exact assert inputs, logged before the assert
++            // (which stays untouched): every affected region's published fin_hi against this
++            // pair's restore tick s0. RB is the subcritical margin when it passes; FIRE
++            // precedes the panic when it does not.
++            for id in &affected {
++                let r = &self.regions[id];
++                if r.fin_hi > s0 {
++                    eprintln!("FIRE id={id} s0={s0} fin_hi={}", r.fin_hi);
++                }
++            }
++            eprintln!(
++                "RB lid={lid} s0={s0} s={s} aff={:?} m={}",
++                affected.iter().map(|id| (id, self.regions[id].fin_hi)).collect::<Vec<_>>(),
++                affected.iter().map(|id| self.regions[id].fin_hi).max().unwrap_or(s0) - s0
++            );
+             for id in &affected {
+                 let r = &self.regions[id];
+                 assert!(r.fin_hi <= s0, "rollback of region {id} from {s0} would revise its published tick {}", r.fin_hi);
+@@ -1661,6 +1699,49 @@ impl<S: Stepper + Send + 'static> State<S> {
+         coalesce(groups.into_values().collect()).iter().find(|e| e.ids.contains(&id)).is_none_or(|e| e.ids.len() == 1)
+     }
+ 
++    /// Lab race instrument (print-only, 20261017-1447-dynamics-fd35). One HAZ line per
++    /// publish: the frontier, the highest published tick `F`, the deepest live truth start
++    /// `S` (the smallest s0 any future clash could force), their global margin `g = F − S`,
++    /// and the per-pair armed margin `A`: the largest `fin_hi − s0` over every pair of an
++    /// in-flight stride's hard-speed reach hull and a live truth it could still touch, with
++    /// s0 = min(stride start, truth start) and the fin_hi maximised over both lineages'
++    /// descendants (a superset of rollback's snapshot closure). `A > 0` means some future
++    /// clash on that pair would fire the finality assert; `A ≤ 0` proves no clash can.
++    fn hazard(&mut self, present: f64) {
++        self.haz_pubs += 1;
++        let front = self.frontier();
++        let (mut finmax, mut nbusy) = (Tick::MIN, 0usize);
++        for r in self.regions.values() {
++            finmax = finmax.max(r.fin_hi);
++            nbusy += r.busy as usize;
++        }
++        let smin = self.truths.values().flatten().map(|t| t.start).min();
++        let gm = smin.map_or(Tick::MIN, |s| finmax - s);
++        let mut armed: Option<(i64, u64, u64, i64)> = None; // (danger, busy id, truth lineage, s0)
++        if let Some(v) = self.lightcone {
++            let busy: Vec<u64> = self.regions.values().filter(|r| r.busy).map(|r| r.id).collect();
++            for bid in busy {
++                let b = &self.regions[&bid];
++                let grow = v.saturating_mul((b.stride_end - b.verified).max(0));
++                let hull = b.bbox.hull(&b.bbox.grow(grow));
++                for t in self.truths.values().flatten() {
++                    if t.id == bid || separated(&hull, b.rmax, &t.bbox, t.r) {
++                        continue;
++                    }
++                    let s0 = b.verified.min(t.start);
++                    let desc = self.descendants(&[bid, t.id]);
++                    let fin = desc.iter().filter_map(|id| self.regions.get(id)).map(|r| r.fin_hi).max().unwrap_or(Tick::MIN);
++                    let danger = fin - s0;
++                    if armed.is_none_or(|(d, ..)| danger > d) {
++                        armed = Some((danger, bid, t.id, s0));
++                    }
++                }
++            }
++        }
++        let a = armed.map_or(String::from("-"), |(d, b, t, s)| format!("{d} b{b} t{t} s{s}"));
++        eprintln!("HAZ p={} t={:.2} f={} F={} S={} g={} b={} A={}", self.haz_pubs, present, front, finmax, smin.unwrap_or(-1), gm, nbusy, a);
++    }
++
+     fn finished(&self) -> bool {
+         match self.goal {
+             Goal::Batch(t) => self.regions.values().all(|r| !r.busy && r.verified == t),
+@@ -1734,6 +1815,8 @@ impl<S: Stepper + Send + 'static> Shared<S> {
+         if g.dirty {
+             g.dirty = false;
+             g.finalize();
++            let present = f64::from_bits(self.present.load(Relaxed));
++            g.hazard(present);
+             let v = Arc::new(g.view());
+             let old = std::mem::replace(&mut *self.view.lock().unwrap(), v);
+             drop(old);
+@@ -1868,6 +1951,7 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
+             giants: 0,
+             rng: Rng(0x5117A),
+             last_finalize: None,
++            haz_pubs: 0,
+         };
+         let sh = Arc::new(Shared {
+             state: Mutex::new(st),

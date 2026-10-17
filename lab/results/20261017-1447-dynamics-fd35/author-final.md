@@ -1,0 +1,4 @@
+Working...
+Run folder complete: predictions (pre-registered), dossier, regen.sh (patch verified apply+build), logs, and the folded topic page.
+
+**Claim:** On shipped allocator code, the finality race is a measurable state property, not a sampling fate — a print-only instrument (HAZ/PRE/RB probes) shows all 8,213 realized conflicts across 45 arm-processes restore at *exactly* `fin_hi == s0` (publication rides the contact boundary as an attractor), the armed margin (publication lead over the deepest restorable truth an in-flight stride can hit) grows in visible episodes that resolve by pruning or by conflict, and a draw with armed ≤ 0 at every publish and D ≤ 0 at every certify provably cannot fire the finality assert — so the engine-side fix's test can be this state certificate instead of window Monte Carlo, with one firing reproduction on the integrator's selfchurn harness as the named experiment left to time the armed lead.
