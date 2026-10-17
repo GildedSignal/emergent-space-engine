@@ -1,0 +1,35 @@
+== 0. patch present (example flow_attr) ==
+-rw-r--r-- 1 glmlab glmlab 3266 Oct 17 13:39 crates/universe/examples/flow_attr.rs
+== 1. quote verification (byte-identical, fresh fetch cached in run folder) ==
+OK  L1 clean slate (book 36375189)
+OK  L2 maximum law (book 36375189)
+OK  L3 invisible accumulation (book 41533337)
+OK  L4 moved bottleneck (book 37017531)
+OK  L5 parade retention (book 28092592)
+5/5 byte-identical
+== 2. build the probe ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.20s
+BIN=/home/glmlab/lab-target-1/release/examples/flow_attr
+== 3a. preflight: kill any stale spinners from a previous regen (they poison the quiet arm) ==
+loadavg=8.04
+== 3. quiet arm (1,200 frames = 2,000 gs; flat path expected on idle CPUs) ==
+gs=  66133 live_B= 15222086 live_n=   6399 peak_B= 43274238 held_scans=    0 handouts=    0 bodies=   428 frame_ms=  0.11
+end live_B=15222086 live_n=6399 peak_B=43274238
+== 4. load arm (6 spinners pinned to the same 2 CPUs; 1,200 frames) ==
+gs=  27957 live_B= 45521566 live_n=  16268 peak_B= 45861022 held_scans=   72 handouts=    0 bodies=   410 frame_ms=  0.09
+end live_B=45521566 live_n=16268 peak_B=45861022
+== 5. assertions ==
+quiet flat: held=0, live 15.2 MB
+PASS: load arm held=72, live 45.5 MB vs quiet 15.2 MB
+== 6. the FLOW arithmetic table (from the record logs) ==
+quiet: FLAT - held_scans 0->0, no accumulation (idle time answers every scan)
+load: live_B 24.0->96.4 MB over 5500 gs = 13.1 kB/gs | held 10->433 (77 scans/ks) | pin 171 kB and 73 allocs per held scan
+  SCAN_BACKLOG latch bound at this pin: 2048 x 171 kB = 0.35 GB
+  latch ETA: 2048/0.08 per gs = 26629 gs (470f bulk-dropped at ~20,000 gs)
+== 7. census anchors (shipped code, grep) ==
+79:const SCAN_BACKLOG: usize = 2048;
+77:/// The scans held for idle time (about 10 KB each: the bindings they read) are answered, inside the frame's budget, before the
+299:    pub fn held_scans(&self) -> usize {
+(the stats ledger never prints the standing held count: the counter existed, unread)
+(no other consumer)
+DONE

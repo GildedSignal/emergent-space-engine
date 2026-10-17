@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261017-1330-library-7bd9/`: dossier.md, predictions.md (scored: P1 half-held, P2 held+sharpened, P3/P4 held), regen.sh (verified green end-to-end, REGEN_EXIT=0), wiki pages (memory-h-live + library-directions), fresh Readwise cache (4,590 highlights), quotes 5/5 byte-identical.
+
+**The claim:** the play-time FLOW's growing path is attributed on shipped code — the accumulator is the held-scans queue (`Universe::scans`): under load idle time vanishes, scans accumulate linearly (measured 13.1 kB/gs ≈ 470f's rate, 171 kB + 73 live allocations per scan's candidate capture), `SCAN_BACKLOG = 2048`'s force-answer is 470f's "bulk drop" (latch ETA 26,629 gs ≈ their 20,000), and the latch's true bound is ~0.35 GB here / ~1.5 GB at formation scenes — so the memory wall carries a load-path pin the record-diet program never touches, and the fence is one decision: bound the backlog by bytes, not by count.

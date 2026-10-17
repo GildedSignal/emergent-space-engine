@@ -1,0 +1,9 @@
+Working...
+Check complete. **Grade: silver** — written to `lab/results/20261017-1330-library-7bd9/check.md`, with two corrections folded into the run's `wiki/memory-h-live.md`.
+
+**What held under reproduction and attack:**
+- `regen.sh` green twice (runner + my read): quiet arm flat (held 0), load arm separates ≥3×; every dossier number regenerates. All code census anchors verified on shipped source (`SCAN_BACKLOG=2048` force-answer at universe.rs:1017, unconditional `prune()` at :1082, the candidates capture at encounter.rs:174–195, the 17×-off "10 KB" comment at :77).
+- Quotes 5/5 byte-identical, independently spot-checked in the raw 4,590-highlight JSON; predictions (13:36) precede every numbers-bearing artifact.
+- The attribution itself survived my strongest attack: the scan rate per *presented* game-s reproduced exactly across two independent checker flights (0.096/gs → latch ETA ≈21,000 gs vs 470f's ~20,000-gs drop, and late allocs/scan ≈ 78k/2048). Premise kills are real: prune starvation dead, growth is per-scan, not per-body.
+
+**Why silver, not gold:** the fence (the deliverable) was never flown, and the author missed four things my adversarial cases exposed: the 216 B/candidate decomposition doesn't close (real ≈400 B); the pin is non-stationary (146→88 kB/scan as the fleet dissolves); the gs unit is conflated (probe prints ticks/6000; nominal vs presented time differ ~1.3× under load — the ETA was unit-lucky and actually *improves* in presented gs); and outside their 400-only range, at 1,600 members the pin reaches ~2 MB/scan, making the 2,048-count latch a multi-GB bound — the byte fence is necessary, not cosmetic. Also recorded: an undisclosed 14:11 re-flight of the record logs contradicting regen.sh's provenance note, and the latch never directly observed firing (my longest flight reached held=1,745, 86% of the way). The gold-making experiment is named: fly the byte-budget fence with digest identity and a flat load arm.

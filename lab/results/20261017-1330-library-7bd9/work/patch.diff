@@ -1,0 +1,82 @@
+diff --git a/crates/universe/examples/flow_attr.rs b/crates/universe/examples/flow_attr.rs
+new file mode 100644
+index 00000000..d511ca05
+--- /dev/null
++++ b/crates/universe/examples/flow_attr.rs
+@@ -0,0 +1,76 @@
++//! FLOW attribution (memory-h-live's open hole, 20261017-0238-inversion-470f):
++//! a counting GlobalAlloc over the player's own loop, with the three budget-deferred
++//! queues (held scans, pending hand-outs) printed beside live bytes, so the growing
++//! path's accumulator is named or the census stands as the instrument.
++//! Usage: flow_attr [members] [frames] — run under external load for the load axis.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::{Budget, Config};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
++use std::time::{Duration, Instant};
++
++static LIVE_B: AtomicUsize = AtomicUsize::new(0);
++static LIVE_N: AtomicU64 = AtomicU64::new(0);
++static PEAK_B: AtomicUsize = AtomicUsize::new(0);
++
++struct Counting;
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc(l);
++        if !p.is_null() {
++            let b = LIVE_B.fetch_add(l.size(), Ordering::Relaxed) + l.size();
++            PEAK_B.fetch_max(b, Ordering::Relaxed);
++            LIVE_N.fetch_add(1, Ordering::Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        System.dealloc(p, l);
++        LIVE_B.fetch_sub(l.size(), Ordering::Relaxed);
++        LIVE_N.fetch_sub(1, Ordering::Relaxed);
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
++        let q = System.realloc(p, l, n);
++        if !q.is_null() {
++            if n >= l.size() {
++                let b = LIVE_B.fetch_add(n - l.size(), Ordering::Relaxed) + (n - l.size());
++                PEAK_B.fetch_max(b, Ordering::Relaxed);
++            } else {
++                LIVE_B.fetch_sub(l.size() - n, Ordering::Relaxed);
++            }
++        }
++        q
++    }
++}
++#[global_allocator]
++static A: Counting = Counting;
++
++fn main() {
++    let members: usize = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(400);
++    let frames: usize = std::env::args().nth(2).map(|s| s.parse().unwrap()).unwrap_or(3600);
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, members as u64).unwrap();
++    println!("frames={frames} members={members} live0={}", LIVE_B.load(Ordering::Relaxed));
++    for f in 0..frames {
++        let start = Instant::now();
++        p.u.frame_to(1.0 / 60.0, 100.0, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, i64::MAX);
++        if !p.u.rec(p.player).alive {
++            println!("dead at frame {f}");
++            break;
++        }
++        if (f + 1) % 300 == 0 {
++            println!(
++                "gs={:7.0} live_B={:9} live_n={:7} peak_B={:9} held_scans={:5} handouts={:5} bodies={:6} frame_ms={:6.2}",
++                p.u.now as f64 / 6000.0,
++                LIVE_B.load(Ordering::Relaxed),
++                LIVE_N.load(Ordering::Relaxed),
++                PEAK_B.load(Ordering::Relaxed),
++                p.u.held_scans(),
++                p.u.pending_handouts(),
++                p.u.n_bodies(),
++                start.elapsed().as_secs_f64() * 1e3,
++            );
++        }
++    }
++    println!("end live_B={} live_n={} peak_B={}", LIVE_B.load(Ordering::Relaxed), LIVE_N.load(Ordering::Relaxed), PEAK_B.load(Ordering::Relaxed));
++}

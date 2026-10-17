@@ -1,0 +1,27 @@
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/lattice)
+   Compiling emergent-lattice-event v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/lattice-event)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+error[E0308]: mismatched types
+   --> crates/universe/examples/flow_attr.rs:52:63
+    |
+ 52 |     let mut p = plane(Config::default(), 1, Order::Sparse, 1, members).unwrap();
+    |                 -----                                         ^^^^^^^ expected `u64`, found `usize`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+note: function defined here
+   --> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe/src/scenario.rs:146:8
+    |
+146 | pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64) -> Res<Plane> {
+    |        ^^^^^
+help: you can convert a `usize` to a `u64` and panic if the converted value doesn't fit
+    |
+ 52 |     let mut p = plane(Config::default(), 1, Order::Sparse, 1, members.try_into().unwrap()).unwrap();
+    |                                                                      ++++++++++++++++++++
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `emergent-universe` (example "flow_attr") due to 1 previous error
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.32s
