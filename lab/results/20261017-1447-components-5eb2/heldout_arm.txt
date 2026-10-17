@@ -1,0 +1,33 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-3/release/examples/refit_probe 10000 20 1800`
+N=10000 (10028 bodies, doll 0 sources 3), rtf 1800, 20 s wall, budget 12 ms
+game 34438 s, events 130901
+stages (µs per frame, calls per frame, ns per call):
+  rekey (all deadlines)                           42.0     1.00      41965
+    position walk (root_state_raw)               738.0   103.72       7115
+  apply (whole)                                  823.8   106.50       7736
+  requeue                                         47.5   210.86        225
+  process (whole)                               3565.1   106.50      33476
+    fit: bind_surface (kicks, hand-outs)        1363.8    53.37      25556
+  take_due                                         0.6    27.94         20
+  prune                                           78.9     1.00      78913
+  encounters: capture (cheap half)               298.3     2.78     107261
+  encounters: held scans answered               1288.0     2.78     463178
+  item: kick (Wisdom-Holman)                    1864.0    44.09      42281
+  item: kick (clock)                             450.8     8.52      52919
+  item: kick at a changeover level               299.0     0.92     326499
+  item: boundary                                 949.2    52.62      18038
+  item: open                                       5.1     0.34      14783
+  item: crash                                      0.0     0.01       4173
+  fleet: battle run_to                             1.4     0.31       4638
+  fleet: advance (whole item)                      2.1     0.31       6843
+  hand-out (a member made a body)                  0.5     0.00     123475
+    hand-out: pull planets and moons               0.0     0.00        131
+    hand-out: bind (the member as a tube)          0.2     0.00      34766
+    hand-out: first plan (replan)                  0.3     0.00      78961
+    fit again: the coarser word (bind_surface)       0.1     0.00      16597
+    readout: one tube decode (Binding::readout)    3159.5   808.84       3906
+    secondaries: source states rebuilt (Ctx::secondaries)     449.1    98.12       4577
+secondaries census: 111858 calls at 13295 distinct (doll, tick) keys; calls at multiplicity >=2 100608/>=4 99513/>=8 99466/>=16 99395/>=64 61332: 89.9% of all calls share a key
+belt states captured: 512
+bind (Rebinding::from_state, edge None) on real belt states: 17743 ns/call median

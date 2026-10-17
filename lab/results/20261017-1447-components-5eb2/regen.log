@@ -1,0 +1,26 @@
+== 0. pristine digests (shipped tree, no patch) ==
+== 1. apply instrument (print-only: nested prof stages + (doll,tick) census) ==
+== 2. parity: patched tree, prof OFF, must be bit-identical ==
+PARITY: bit-identical (digests and counts; wall-time tails ignored)
+== 3. the decisive flights (kick decomposition + census + real-state bind) ==
+game 17989 s, events 89923
+    fit: bind_surface (kicks, hand-outs)         673.4    32.77      20552
+  item: kick (clock)                             771.2    17.08      45160
+    readout: one tube decode (Binding::readout)    1402.9   372.46       3767
+    secondaries: source states rebuilt (Ctx::secondaries)     302.0    48.42       6237
+secondaries census: 84254 calls at 31652 distinct (doll, tick) keys; calls at multiplicity >=2 53837/>=4 53053/>=8 52751/>=16 52719/>=64 35469: 63.9% of all calls share a key
+bind (Rebinding::from_state, edge None) on real belt states: 17694 ns/call median
+-- held-out arm (N=1e4, rtf 1800; deeper into the first crest) --
+game 34438 s, events 130901
+    fit: bind_surface (kicks, hand-outs)        1363.8    53.37      25556
+  item: kick (clock)                             450.8     8.52      52919
+    readout: one tube decode (Binding::readout)    3159.5   808.84       3906
+    secondaries: source states rebuilt (Ctx::secondaries)     449.1    98.12       4577
+secondaries census: 111858 calls at 13295 distinct (doll, tick) keys; calls at multiplicity >=2 100608/>=4 99513/>=8 99466/>=16 99395/>=64 61332: 89.9% of all calls share a key
+bind (Rebinding::from_state, edge None) on real belt states: 17743 ns/call median
+== 4. the compile bench: Orbit::compile on belt/strong keys + division micro ==
+micro: wide_div=22.3ns div_word=2.8ns isqrt64=0.5ns sink=17024132922692448384
+class belt: n=20 ns median=4420 min=3187 max=6574 knots 6-10
+class strong: n=12 ns median=13649 min=5438 max=23228 knots 6-16
+== 5. restore the tree ==
+done
