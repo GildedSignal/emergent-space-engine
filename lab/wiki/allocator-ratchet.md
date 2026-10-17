@@ -2,169 +2,140 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0428-taleb-3da3
+updated: 20261017-0739-taleb-9b46
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
 ## Current best
 
-**The rollback controller has no restoring force, and at scale neither it nor its 10-line
-decay mirror is adoptable: the ratchet's latch level grows with the conflict wave and the
-mirror falls into a livelock basin (20261016-2138-dynamics-217f, dynamics lens, 44 bodies;
-20261017-0238-second-…-e704, second author, 44 → 14,080 bodies; shipped
-`crates/allocator` + public-API instrument `tax`, patch in the run's `work/patch.diff`).**
-`escalation *= 2` at every rollback (`alloc.rs`) is global and never decays; conflicts
-self-quench exactly at the derived bound (forecast growth `margin·E·vmax + (E−1)` ≥
-achievable speed). The second author flew the checker's named experiment (≥10⁴ bodies,
-interleaved arms, batch + frames): the frozen latch level is 2^(rollbacks) and so **grows with
-the conflict wave** — measured E = 4 → 32 → 64–256 at 44 → 88 → 1,408 → 14,080 bodies (1–2 →
-5 → 6–8 rollbacks; checker correction: the level **saturates at 2⁶–2⁸ from ~10³ bodies** —
-the 14,080-body sample latched at 128 in both checker-side runs, and at 64/128/256 across
-three same-scene runs, so "256" was one draw; stagger 30, Fermi-cannon battery) — and at
-14,080 bodies the scene ends as **one region at ~82 chronons/s** (74 s for 6,000 chronons,
-checker rerun 56 s at 107; at 28,160 bodies 1,500 chronons run in ~149 s at 10 chronons/s
-with E=512=2⁹ at 9 rollbacks — checker 2; the earlier "DNF at 150 s" was the timeout, and
-the latch clears 2⁸ at the next decade, so the 2⁶–2⁸ "saturation" is a band, not a cap —
-the collapse's cost is a ≥10⁴-body fact; caveat: the battery's sweep lights physically couple the row, so
-the collapse is part physics — the attribution experiment is named below). Note: the
-instrument's `seed` argument is dead code (`Rng(7+13i)` ignores it), so every measurement is
-one world per size.
+**The wave response is Extremistan, one finality assert is reachable (including on the quiet
+family), and the no-conflict regime is the cost floor: at one frozen scene and N = 27,936 the
+seed flips the end-state *class* (s7 → 1 region, s1 → ~2,400, s2 → ~2,500–4,700, checker's
+held-out s3 → 1,389; classes stable across two windows), while **nothing else is seed-fixed**:
+the latch (E = 64–512, 64↔128 within one seed across draws), the region count inside a class
+(s2: 4,715 vs 2,489 at identical args+seed) and the wall (identical-config replicates spread
+1.65× in the author's window, 2.4× in the checker's; the author's 9× seed spread and 1.9×
+cap64 speedup both shrank or inverted in the checker's window) are per-run draws. The quiet
+control (no wave, E = 1, 0 rollbacks in chunk 1) **stalls** below 0.6 timeline chronons/s at
+28k (no tick-150 row in 250 s) and manages 150 chronons in 88 s at 14k
+(20261017-0739-taleb-9b46, Taleb + checker; new public-API instrument
+`crates/allocator/examples/ruin.rs`,
+24-cell wave row at 0.5c + a quiet archipelago no body can reach, `min_region: 1`, margin 0.5,
+H = 1,500, knobs tuned only at N = 864; patch = one line, the `ES_CAP` env on
+`escalation *= 2`).** Measured on that family: (1) **no quantity follows its attributed
+knob** — E is drawn, not an N-law (14k s1 and 28k s1 both landed 64–128 across windows; s7
+256; s2 128–512; checker's s3 512 — flat in N, drawn in seed and in replicate), so
+single-draw walls and counters on this battery — the page's included — are noise;
+(2) **the cap verdict inverts across draws**: ES_CAP=64 at 14k reaches the same one-region
+end state, same digest (`e538163e…`), 1.9× *faster* wall in the author's window (6.0 vs
+11.4 s) and 1.1× *slower* in the checker's (15.0 vs 13.3 s) at 1.8–2.1× the wasted ops —
+the exact opposite of 3da3's cap64 (2.3–3.6× wasted, DNF-tailed); every direction here is
+a draw fact, none is a controller fact;
+(3) **a reachable crash**: chunked `run_to` — publish between advances, the shipped
+`Regions::advance` pattern (`xtask/src/regions.rs:35`) — panics 2/2 + 2/2 at shipped
+`alloc.rs:1451` (1456 with this run's patch) on the 864-body conflict scene ("rollback …
+would revise its published tick"; a worker cascades at the poisoned lock, `alloc.rs:1776`
+patched), **and (checker) 1/1 on the quiet 14k family itself** (cannon = 1, chunk 150: a
+gas-drift conflict discovered after the first publication rolls back below it) — the
+trigger is any conflict found after a publication, not the cannon wave; at chunk 500 the
+14k/28k wave scenes survive (their conflicts all land inside chunk 1) — reachable,
+phase-dependent, digest-neutral when it survives; (4) **the cost is churn, not the
+one-region state**: the author's s2 draw pays 47k broken promises, 207k wasted ops for its
+160.5 s wall while the one-region draw (s7) finishes in ~20 s — but the checker's s3
+(1,389 regions, E = 512) also finishes in 21.3 s, so churn *magnitude* is a draw too; the
+stable reading is that the collapsed state is never the slow one;
+(5) the **quiet scene is the family's cost floor**: at 28k no tick-150 row in 250 s (2/2
+windows), at 14k 150 chronons take 88 s (1.7 chronons/s, E = 1, rb = 0, 1,068 merges +
+114 avoided, 46.6k promises exceeded, 0 wasted) — the page's 1,408-body "one region is the
+faster one" becomes a stall at 28k; mechanism unopened (merge/avoid churn vs per-unit
+floor at `min_region: 1`); (6) (checker) **publication cadence is itself a path knob**: at
+28k seed 1, chunk 250 ends 1,971 regions with 4 rollbacks all inside chunk 1 (vs ~2,400
+regions, 6–7 rollbacks single-call), digest identical — the certificate holds, the path
+does not. Every pre-registered prediction except "digests equal" failed
+(`predictions.md`) — the failures are the finding.
 
-**The latch is convexity, not a tax — capping it is killed** (20261017-0428-taleb-3da3,
-Taleb lens, the page's named next experiment, run on the same `tax` battery re-applied
-verbatim, two reps): `ES_CAP` (double, then `min(cap)`, permanence kept) at the 14,080-body
-wave still ends one region with rollbacks 7–10 = shipped's own 8 (no recurrence, no
-instrumented wedge — the quench rides the physical conflict-merge, not the margin) and
-digests bit-identical across shipped/cap16/cap64 — but cap64 burns **2.3–3.6×
-shipped's wasted ops in every paired run** (1.43M, 2.46M vs shipped 0.56–1.06M) and
-cap64's wall is fat-tailed where shipped is stable (shipped 60–74 s, 3/3 finish; cap64
-66 s / 189 s / **one 260 s DNF** in 3 tries, cause unopened): the wide latch's margin-forced
-early merges are the cheap coalescence path; the capped arms coalesce late through conflicts
-and regroup churn. At 1,408 bodies the latch level (16/64/256) changes nothing (all arms
-3.3–3.6 s, one region, digests equal); the stagger-300 control stays conflict-free under
-the cap (0 rollbacks, E=1). So the unbounded latch is not a reachable ruin at any size tried
-(E=256 here, E≈6×10²⁹ in the margin-0.5 census, both finish), and the last open controller
-change to the rollback path is dead: `escalation *= 2` ships unchanged.
-
-Checker (20261017-0428-taleb-3da3): the ops ratio is draw-fragile — the regen draw gave
-1.30× (cap64 2.68M vs shipped 2.06M; cap16 0.33×) and shipped's own wasted spread across
-draws is 0.56–2.06M (3.7×), so the stable cost signals are the walls (a cap arm was never
-faster in any draw at ≤14,080) and the merge/split churn (1,735–1,783/919–993 vs
-1,111–1,136/71–72, reproduced). Checker extends the domain: margin 0.5 — all three arms
-finish ~3.3 s, digests equal, shipped latches E=2¹⁷=131,072 wedge-free (no reachable ruin
-further above the 2⁶–2⁸ band; walls at 1,408 are load-noisy: 3.3/5.5/4.8 s in the regen
-window, 3.3/3.2/3.2 in a quieter one); frames at 1,408 (60 Hz, 600/s) — no player-visible
-separation (2 deadline misses per arm, present 593/s).
-
-Checker, the boundary: dead in the conflict-wave regime (≤14,080 bodies, 6k horizon,
-collapse phase) — the first 28,160-body draw (2,560 cells, horizon 1,500; a quiet-heavy
-early wave, ~48 cannons lit) went the other way: cap64 FINISHED 57.2 s (8 rollbacks, E=64,
-6,902 regions) while shipped DNF'd 300 s in the same back-to-back window (prior box ~149 s,
-razor-thin against its own 150 s timeout, region count unrecorded — the "one region"
-reading of that line was inferred). One draw, load-confounded, digests unpaired; it lands
-exactly in open direction 6.
-
-The ES_DECAY mirror (halve at every sync grid) and
-the per-region ES_LOCAL variant both **livelock** in the narrow-margin regime they create:
-at 1,408 bodies runs DNF in 5 of 9 narrow-margin tries with all 8 workers burning CPU
-(decay 2/5, local 3/4; another local run ground through 185 rollbacks vs 7–8 clean —
-per-lineage doublings decay before the quench globalises), and both DNF > 240 s at 14,080
-bodies where shipped finishes in 74 s; shipped at margin 0.5/1.0/2.0 never wedged (the
-ratchet's latch absorbs recurrence by latching higher — 25 rollbacks at margin 0.5, still
-3.5 s; checker correction: the margin-0.5 rerun also finished wedge-free but in another
-basin — 79 rollbacks, E≈6×10²⁹, 8.5 s — so the census numbers are one draw; and shipped
-itself DNF'd once at 128 cells/20k horizon, 1 of 6 tries across author+checker runs, so
-"permanence prevents livelock" is a tendency, not a guarantee). The ratchet's permanence is
-what prevents the livelock; the mirror's equilibrium sits inside it. Where arms finish,
-outcome digests are **bit-identical across all arms and reps** (4, 8, 128 cells;
-`d75dee4a…`/`42e4e3b4…`; checker extends: also across arms at stagger 300, and across arm
-and margin at the 6k horizon) — the certificate moves scheduling, never results. Frames
-harness at 1,408 bodies (60 Hz, rate 600, 3 interleaved reps × 3 arms): present 575–585,
-no player-visible separation for shipped vs decay (the 44-body nil extends) — but the
-checker's 2 further ES_LOCAL frames runs **both collapsed** (present 286 and 312 of 600,
-64 and 58 deadline misses, buffer p50 0 and 22): the local arm has a player-visible ruin
-tail the author's 3 reps missed; at 10⁴
-bodies the visible surface is the collapse itself, not per-frame misses. The 44-body
-avoided-merge tax inverted at scale: the decay arm pays MORE avoided merges (4,614 vs 32 at
-1,408 bodies) — late narrow-margin plans get undone more. Checker's stagger-300 probe
-(ignitions every 300 chronons, same 1,408 bodies): zero rollbacks, E=1, 133 regions end —
-the wave's simultaneity, not crossings per se, drives both latch and collapse; that
-no-conflict many-region regime itself runs at only 248–287 chronons/s (28k promises
-exceeded, regroup churn), so at 1,408 bodies the one-region state is the faster one — the
-collapse's cost is a ≥10⁴-body fact. min_region=1 throughout.
+**Prior standing (3da3 and its checkers, unchanged below).** The rollback controller has
+no restoring force, and at scale neither it nor its 10-line decay mirror is adoptable
+(20261016-2138-dynamics-217f; 20261017-0238-second-…-e704, 44 → 14,080 bodies on the
+`tax` battery): `escalation *= 2` is global and never decays; conflicts self-quench at the
+derived bound; the latch level is 2^(rollbacks) and landed 2⁶–2⁸ from ~10³ bodies on that
+battery (one world per size — the instrument's `seed` argument is dead code); the 14,080
+wave ends one region at ~82 chronons/s, 28,160 at ~10; ES_CAP killed there (digests
+identical, cap64 2.3–3.6× wasted ops, one 260 s DNF); the decay/local mirrors livelock in
+narrow-margin regimes; shipped never wedged in the margin census (E ≈ 6×10²⁹ once,
+wedge-free) but DNF'd once at 128 cells/20k horizon (1/6) and once at 28,160/horizon 1,500
+where cap64 finished 57 s — both single draws, now read as basin draws, not size laws
+(9b46). Outcome digests are bit-identical across arms, caps, margins and replicates
+wherever arms finish — the certificate moves scheduling, never results (e704, 3da3, 9b46).
 
 ## Refuted
 
-- **"The rollback response is a controller"**: it is half a controller — the AIMD stride
-  half restores, the escalation half only doubles (20261016-2138-dynamics-217f).
-- **"Rollbacks cascade"**: measured self-quenching at the derived bound
-  (20261016-2138-dynamics-217f).
-- **"The 10-line decay mirror restores the equilibrium"** — at scale it restores a livelock:
-  recurring conflicts under re-narrowed margins wedge the allocator (all workers spinning,
-  no progress), 1/3 tries at 1,408 bodies, DNF > 240 s at 14,080
-  (20261017-0238-second-…-e704). The mirror also refires conflicts by design (6 rollbacks
-  vs 2 at 44 bodies, the first checker).
-- **"The ratchet's latch is a constant (×4) tax"** — the latch level is 2^(conflicts before
-  quench) and grows with the conflict wave / scene size
-  (20261017-0238-second-…-e704); the 44-body ×4 was the smallest sample.
-- **"Per-region escalation fixes the wrong locality"** — ES_LOCAL matches the decay arm's
-  counters when it finishes (4,690 vs 4,614 avoided) and wedges more often (3/4 at 1,408
-  bodies); the binding defect is the missing bound, not the scope
-- **"The latch's scale-coupled fan needs a bound"** — the bound buys nothing and costs
-  2.3–3.6× wasted ops at the 14,080-body wave plus a DNF-tailed wall (cap64; cap16: 1.24× in its one run): the latch level is
-  cost-free at every size tried and its width is the cheap early-merge path; `ES_CAP`
-  killed (20261017-0428-taleb-3da3).
-- **"The margin drives the collapse"** — capped margins (E=16, E=64) still end one region
-  at 1,408 and 14,080 bodies; the margin sets the coalescence path's cost, not the end
-  state (20261017-0428-taleb-3da3; the sweep-coupling probe, open direction 2, remains the
-  clean separation).
+- **"The latch level grows with the conflict wave / scene size"** (e704's reading of
+  44→14,080): within one frozen scene family E(14k s1) = E(28k s1) = 64–128 across both
+  windows' draws while other seeds give 256–512 at the same N, the same seed latches
+  64 in one draw and 128 in the next, and (checker) at 55,584 bodies seed 1 still
+  latches 128 with rb = 7 — the level is a per-run draw, not an N-law and not even a
+  seed law; the 2⁶–2⁸ "band" is where draws land, not what size buys
+  (20261017-0739-taleb-9b46, author + checker).
+- **"The latch cap costs 2.3–3.6× wasted ops and a DNF-tailed wall" as a controller
+  property** (3da3): inverted draw-for-draw at 14k in the wave family — cap64 was 1.9×
+  faster in the author's window and 1.1× slower in the checker's, same digest at 1.8–2.1×
+  wasted ops; wasted ops do not predict the wall (20261017-0739-taleb-9b46, author +
+  checker). All such verdicts stand as draw facts on their own batteries.
+- **"The one-region end state is the collapse's cost"** (e704/3da3's reading at 14k): the
+  one-region draw finishes in ~20 s while the author's 4,715-region draw took 160.5 s —
+  but the checker's 1,389-region draw (E = 512) finished in 21.3 s, so churn *magnitude*
+  is a draw too; what holds in both windows is only the direction: the collapsed state is
+  never the slow one (20261017-0739-taleb-9b46, author + checker).
+- **"The rollback response is a controller"**: half — AIMD restores, escalation only
+  doubles (20261016-2138-dynamics-217f).
+- **"Rollbacks cascade"**: self-quenching at the derived bound (20261016-2138-dynamics-217f).
+- **"The 10-line decay mirror restores the equilibrium"**: livelocks at scale
+  (20261017-0238-second-…-e704); refires conflicts by design at 44 bodies.
+- **"The ratchet's latch is a constant (×4) tax"**: the level is 2^(rollbacks)
+  (20261017-0238-second-…-e704) — and a seed draw within a scene (9b46).
+- **"Per-region escalation fixes the wrong locality"**: ES_LOCAL matches the decay arm's
+  pathology and wedges more (20261017-0238-second-…-e704).
+- **"The margin drives the collapse"**: capped margins still coalesce on the tax battery
+  (20261017-0428-taleb-3da3); on the wave family the end state flips with the seed at
+  identical margin and E (9b46).
 
 ## Open directions
-1. **Cap the escalation — KILLED** (20261017-0428-taleb-3da3): safe in certificate (digests
-   identical, quench intact, no recurrence at 14,080 bodies) but it clips the upside, not
-   the downside: cap64 pays 2.3–3.6× wasted ops and a DNF-tailed wall, nothing gained at any size tried.
-   Not adoptable.
-   Checker: killed in the conflict-wave regime ≤14,080; the 28,160 early-wave draw bounds
-   the verdict — see direction 6.
-2. **Separate the collapse's physics from its margin**: a conflict factory whose lights do
-   not sweep-couple the row (ignition without cluster crossing) would show how much of the
-   one-region end state at 10⁴ bodies the over-margin forces (20261017-0238-second-…-e704).
-   The cap arms sharpen it: capped margins still coalesce to one region
-   (20261017-0428-taleb-3da3), so the margin decides the merge's *timing and cost path*
-   (planned-early vs conflict-late), not the end state.
-3. **Name the livelock's cycle**: instrument the spinning state (which loop, which
-   condition never clears); the wedge is the mirror-class arms' ruin and its mechanism is
-   only inferred (narrow margin + recurring conflicts + many regions), not opened
-   (20261017-0238-second-…-e704).
-4. **Margin from the law, not from history** (relativistic scenes): the c-cap makes the
-   conflict window one stride; the escalation state may be deletable outright there — the
-   relativistic control produces no RESULT at 128 cells either (DNF 90 s, checker) nor at
-   14,080 bodies (100–150 s), so the no-conflict throughput ceiling is unmeasured at every
-   size ≥128 cells (checker 2: at 8 cells / 88 bodies it finishes — 6,000 chronons in 15 s,
-   388 chronons/s, zero rollbacks, E=1, 88 regions — so the law-derived margin kills every
-   conflict at every size tried; what is unmeasured is the many-region regime's cost).
+
+1. **Decide the publish/rollback boundary** (the crash): refuse an advance whose rollback
+   would cross a published tick, or hold publication until the wave quenches — before any
+   driver calls `run_to` twice on a scene with any late conflict (the checker's quiet-14k
+   crash shows the cannon is not needed: loose-gas drift alone fires it). The assert
+   (shipped `alloc.rs:1451`) is the certificate policing finality; today it crashes the
+   engine instead of degrading (20261017-0739-taleb-9b46, author + checker).
+2. **Frames mode**: publication is continuous there; if the same assert can fire, the crash
+   is in play, not only in batch drivers. One `run_frames` run on the wave scene decides it
+   (20261017-0739-taleb-9b46, untested).
+3. **Open the quiet stall**: the no-conflict many-region regime (`min_region: 1`, 2,296
+   cold cells) is the family's cost floor (< 0.6 chronons/s at 28k, 1.7 at 14k with
+   46.6k promises exceeded and 0 wasted ops); merge/avoid churn vs per-unit floor. The
+   battery's stagger-300 control (248–287 chronons/s at 1,408) is the same regime one
+   decade down (20261017-0739-taleb-9b46, author + checker).
+4. **Seed protocol for every allocator verdict**: ≥ 3 seeds and ≥ 2 identical-config
+   replicates before any wall or counter is a verdict (walls spread 9×/3.4× across seeds
+   and 1.65×/2.4× across identical replicates in the two windows; the taste log's
+   controller verdicts were single-draw).
 5. The real conflict rate of the flown universe (encounters, burns, the belt) — every
-   measurement so far is a synthetic cannon.
-6. **The latch is global — price its coupling, not its level**: one local conflict wave's
-   doublings widen every quiet region's margins everywhere. A quiet archipelago (many
-   independent regions) plus one cannon would show whether E=256 margins plan-merge work
-   that never needed it (an over-merging tax the cap would not pay) — the honest version of
-   what ES_LOCAL tried to fix (20261017-0428-taleb-3da3; untested).
-   Checker's first draw points into it: at 28,160 bodies/horizon 1,500, cap64 finished
-   57 s (6,902 regions) where shipped DNF'd 300 s in the same window — one confounded
-   draw, but the capped arm was the only finisher (20261017-0428-taleb-3da3, checker).
+   measurement so far is a synthetic cannon (e704; 9b46's family included).
+6. Margin from the law, not from history (relativistic scenes): the c-cap makes the
+   conflict window one stride; no-conflict throughput ceiling unmeasured at every size
+   ≥ 128 cells (e704 checkers).
 
 ## Contradictions
 
-- The 1,280-cell one-region end state: physical sweep-coupling (the lights cross every
-  cluster by construction) versus margin-forced coalescing — unseparated
-  (20261017-0238-second-…-e704, open direction 2). The checker's stagger-300 run (no
-  conflicts, no collapse) leans toward the wave, not the margin.
-  The cap arms extend the lean: capped margins (E=16/64) still coalesce to one region at
-  14,080 bodies (20261017-0428-taleb-3da3).
-- Shipped's own ruin tail: never wedged in the author's margin census, yet DNF'd once at
-  128 cells/20k horizon (1/6 author+checker tries) — frequency and basin uncharacterised
-  (checker, regen + adversarial runs).
+- 3da3's "the unbounded latch is not a reachable ruin at any size tried" against its own
+  checker's 28,160 draw (cap64 finished 57 s, shipped DNF 300 s): now framed — both are
+  basin draws; 9b46 shows the end state and wall flip with the seed at fixed N, and the
+  crash (a sharper ruin than any wall) is reachable at 864 bodies via chunked advance.
+- The tax battery's one-region-at-~10-chronons/s collapse vs 9b46's wave family (one-region
+  draw 20.4 s, quiet stall < 0.6 chronons/s): different batteries, opposite cost owners —
+  the collapse's cost is battery-specific, the churn and the many-regime floor are the
+  battery-independent suspects.
 
 ## Runs
 - 20261016-2138-dynamics-217f (this run, awaiting grade): the rollback ratchet measured —
@@ -172,3 +143,4 @@ collapse's cost is a ≥10⁴-body fact. min_region=1 throughout.
 - 20261016-2138-dynamics-217f (silver, checked): the rollback ratchet measured — global,
 - 20261017-0238-second-20261016-2138-dynamics-217f-e704 (gold, checked): the
 - 20261017-0428-taleb-3da3 (awaiting grade): ES_CAP killed — the latch is convexity: caps
+- 20261017-0739-taleb-9b46 (awaiting grade): Extremistan wave response — the seed flips

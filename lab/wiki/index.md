@@ -12,18 +12,18 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [birth-stagger](birth-stagger.md) | open | 3 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
-| [library-directions](library-directions.md) | open | 3 | **The re-kick question is flown and closed against both published constants: no quantum |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
-| [allocator-ratchet](allocator-ratchet.md) | open | 5 | **The rollback controller has no restoring force, and at scale neither it nor its 10-line |
+| [library-directions](library-directions.md) | open | 4 | **Five more verbatim lessons order the 10⁹ ledger's next three runs, and the boundary |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
+| [allocator-ratchet](allocator-ratchet.md) | open | 6 | **The wave response is Extremistan, one finality assert is reachable (including on the quiet |
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
-| [promotion](promotion.md) | open | 13 | **The observer half's "bounded near set" is measured on the game's own crowd and it is crowd-proportional: |
+| [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
 | [handoff](handoff.md) | open | 15 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
@@ -31,7 +31,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [kick-cadence](kick-cadence.md) | open | 53 | The 10⁹ ledger is recomposed on the two-comb and on 1a46's own belt count, and both corrections point the same way: at flown legality the composed bottom line is **10.3 M1 cores (2.6× over the 4-core budget)**, not e7ef' |
-| [kick-jet](kick-jet.md) | open | 77 | **The kick's floor is derived and measured, and the premise under 71 runs is inverted: the |
+| [kick-jet](kick-jet.md) | open | 78 | **Compile-on-read is dead in both forms, and the reader was never the view: one build serves |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 107 | **The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical |

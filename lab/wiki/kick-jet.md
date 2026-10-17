@@ -2,11 +2,49 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261016-2229-components-a765
+updated: 20261017-0739-spacex-4ea0
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
 ## Current best
+
+**Compile-on-read is dead in both forms, and the reader was never the view: one build serves
+98–224 reads, 99% engine-side, and the mint itself is the first reader of every rebind
+generation (20261017-0739-spacex-4ea0, spacex; census instrument digest-identical to pristine on all
+four runs, three bench arms incl. two held-out).** On the player's own loop (`universe
+--bench`, 1,200 frames = 2,000 game-s): 1,071 generations (32 spec + 1,039 rebind),
+never-read 0 in every arm; 240,114 attributed reads = observe 65.9% + secondaries 19.2% +
+step 12.0% + **view 1.0%**; 77.4 reads per rebind generation (400 members: 69.8; seed 7:
+68.1); the 32 spec-born sources absorb 66.5% of all reads (4,992 each — every event in
+their doll re-reads its 3 sources). **The first reader of every rebind generation is the
+mint's own birth-read** (1,039/1,039): `bind_in` decodes the fresh trajectory at the binding
+event to build the turn and residual, so "compile at first read" defers nothing — the
+compile stays inside the kick's own event. Eviction (b9ae's knots→0 standing) pays a build
+per read: ×98 builds, ×71 on the build term (240k reads × 21.7 µs ≈ 5.2 s on a 20 s flight
+vs 73 ms shipped) — the standing table amortizes one 22 µs build over 98–224 reads
+(0.1–0.2 µs/read): it is the engine's working set, not a lazy cache. Consequences: the
+kick's 84–87% compile term (a765) can only get cheaper (open 1, the Carlson wiring), never
+moved or deleted by laziness; the memory lever that avoids this bill is sharing (efd4's
+intern), not eviction; and the read side's two engine deletions are now sized — the
+per-event sources rebuild (19%, read-stream open 1) and observe's per-event reads (66%,
+cadence territory). [Instrument: builds counted/timed at `OrbitShape`/`Passage::compile`,
+reads per Entry generation attributed by caller site; space-side total 476,696 vs decode
+240,114 — engine-internal reads outside decode only raise the bill, so the kill is
+conservative; 2.29 builds/generation (word re-binds, memo builds) un-decomposed.]
+[Checker-2, blind: all four arms reproduced (patch re-applied, re-built, digests bit-identical
+to pristine) and everything held on four arms outside the tested set — seed 7 × 400 members
+(65.6 reads/rebind-gen, never-read 0, birth-read first 10,573/10,573), kick-bench seed 7
+(32.0), seed 3 at rtf 300 = 3× flight (51.9, birth-read 1,908/1,908, view 2,400 = 2/frame);
+the CLI clamps `--members` to 400, so the 400 arm is this bench's whole member axis (the belt
+stays unmeasured, as flagged). One correction: "view 1%" counts view.rs's direct decodes
+only — the view's per-frame gather reads through `observe::root_state` (view.rs:282) and the
+engine's per-event apply walks land in the same observe bucket (universe.rs:673), so observe
+66% is a mixed bucket and "the reader is the engine" holds as immediate-caller attribution;
+0e37's guess dies as the bill's owner, not to the last read. The kill is attribution-independent:
+never-read 0 and the birth-read are structural in `bind_in`, and 52–77 reads/rebind-gen stand
+whichever bucket they sit in. Nit: amortized build per read is 0.21–0.49 µs measured, not
+0.1–0.2; ×98 is the no-cache upper bound on eviction.]
+
 
 **The kick's floor is derived and measured, and the premise under 71 runs is inverted: the
 rebind is compile-bound, not fit-bound (20261016-2229-components-a765, stage timings
@@ -161,6 +199,12 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - **"A ~26 µs machinery floor remains" (1e74, jet arm): that is the shipped jet arm's own
   walk residue, not a floor — the Carlson-priced composition (~8–19 µs, cd6e) already
   beats it, and the derived floor is ~6 µs (20261016-2229-components-a765).**
+- **"Deferring the compile off the kick path moves the rebind to ~10 µs" (open 2's premise)
+   and "the view's ramp is the reader" (0e37's, inherited by the page):** the mint's own
+   birth-read is the first reader of every rebind generation (bind_in decodes at the binding
+   event to build the turn/residual), so deferral is a no-op; and the reader is the engine —
+   observe 66%, secondaries 19%, step 12%, view 1.0% — with 68–77 reads per rebind
+   generation, never-read 0 in every arm, so eviction pays ×98 builds (20261017-0739-spacex-4ea0).
 - **"The fit is the kick's wall" (the reading under the jet program's 71 runs, and
   8c81/620e/f797's decompositions of it): on the plane's fired-kick population the fit is
   6% of the rebind (fit_key 4.4 µs of a 63–75 µs mean rebind [checker-2: corrected as in
@@ -198,12 +242,13 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
    kick (~8–19 µs) lands at the derived floor's edge. Remaining gate: digest identity at
    the composition (the channel-level quantum agreement is done; the resolver-level wiring
    is the integrator's).
-2. **Compile-on-read for the fired kick:** the lazy-retention arm (b9ae: knots→0 standing,
-   digest-identical) shows the compiled tables are read ~once per binding on this
-   population; deferring the compile off the kick path moves the rebind to ~10 µs
-   (fit_key 4.4 + tail ~5.5 [checker-2: corrected tail]), within ~2× of the floor without
-   any closed-form adoption —
-   measure the read-side bill it defers (the view's ramp is the reader, 0e37).
+2. **Compile-on-read for the fired kick: KILLED as a lever on the shipped representation**
+   (20261017-0739-spacex-4ea0): the mint's own birth-read is the first reader of every
+   generation (deferral moves nothing), and eviction pays ×98 builds (the read bill, 99%
+   engine-side: observe 66%, secondaries 19%, step 12%, view 1%). b9ae's "read ~once per
+   binding" is dead as a population reading: 68–77 reads per rebind generation on the
+   player's loop. The compile term's only levers are open 1 (cheaper build) and the read
+   side's own deletions (read-stream open 1: the per-drain sources rebuild).
 3. **The bisection → Newton key extraction is measured, not adoptable as-is:** 2.3 µs vs
    4.4 µs, key-equal at the law's quantum on 4,553/4,553 — but keys move at ulp level
    (`periapsis` is full-precision in the key), so it is a law change by the 5 Oct rule
@@ -296,3 +341,4 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - 20261015-1926-quant-c4d3 (silver): the shipped compile timed at true belt keys — 4.4–4.5 µs p50 (e-monotone 3.4→8.3, p-flat, three seeds, two held out, predictions pre-registered), the promotion path 9.2 µs flat in N to 2×10⁵; the batched promotion's belt adoption refuted (~2.7× regression), b172's in-flight counters corroborate, the strong-field tail keeps the closed forms.
 - 20261016-1120-quant-5ade (silver): the wave kick decomposed — fit 41%, sources 23%, tau pair 15% (2 exact duplicate walks, deleted −17% digest-identically), apply's position walk the next (−13%); source memo dead on the spread belt (0.029).
 - 20261016-2229-components-a765 (this run, awaiting grade): the kick's floor derived and measured — rebind compile-bound 84–87% (52.8–65.3 µs of 62.6–75.4 µs mean, 4,553 rebinds, three seeds), fit_key 6%, bisection premium 3%, Newton prototype key-equal at the law's quantum 4,553/4,553 (checkers: 0 quantum disagreements on 25,660 rebinds over fourteen arms, digest-identical patched vs unpatched); floor ~6 µs, gap ~10–12×, the record's three floors reconciled as write/jet-arm/arithmetic.
+- 20261017-0739-spacex-4ea0 (spacex, gold, checker-2): compile-on-read killed both ways —

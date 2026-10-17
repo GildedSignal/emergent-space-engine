@@ -2,11 +2,50 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0428-second-20261017-0238-library-dc8f-f5bd
+updated: 20261017-0739-library-10c4
 
 # Library lessons for the ladder's open decisions
 
 ## Current best
+
+**Five more verbatim lessons order the 10⁹ ledger's next three runs, and the boundary
+comb is reclassified from a scheduling question to a requirements question on shipped
+code: 99.974% of the belt's boundary events do no law work (64,197 boundaries, 1
+handoff, 16 lost, one flight `10000 coast 60 600`, 35,393 game-s, the shipped stats
+print), and between a belt body's kick and its boundary no engine reader consults it
+(anchor census: written at boundaries step.rs:568/647/737, read only by the kick's
+`lead` 713 and the digest universe.rs:1327; the one mid-interval cross-body read is
+capture/release reading a DOLL CENTRE's binding at the event tick, step.rs:795/804) —
+so merging the boundary into the kick (anchor moves half an interval, a B-gate law
+change) is bounded at 10.3 → 8.3–9.8 cores and S* 20.7× → 16.6–19.7× by item-machinery
+arithmetic, with the bench to decide which end (20261017-0739-library-10c4, library;
+Readwise fetched fresh, 4590 highlights, quotes script-verified byte-identical).** The
+five lessons: (1) Musk "question the requirements… delete, delete, delete" → price the
+boundary merge BEFORE measuring whether `BELT_SPLIT` stretches the comb (this page's
+sibling direction 1 on kick-cadence); (2) Musk "before you introduce automation" →
+compute-ahead stays a 10⁵–10⁶ lever (308× short at 10⁹) until merge+split land; (3)
+Asimov "psychohistory dealt not with man, but man-masses" → certificates per population:
+belt bodies have no mid-interval readers, doll centres do — the compute-ahead clause and
+the compact store's gates go per-population (sampled-readout ensembles for the mass);
+(4) Asimov "individual variations count for more" → freeze TWO angle bars (q_live,
+q_mass from the view's belt-band resolution), not one; (5) TOC "never grow beyond its
+biggest constraint" → serialize: split-21 legality flight before the compact store's
+wiring. Held-out: prediction 2 (≥99% plain boundaries) measured 99.974%; prediction 1
+held with the doll-centre carve-out named; prediction 3 (split-21: pass outside the
+resonance bands, fail inside) untested — it needs the belt-cadence harness.
+
+>[checker 20261017, two attribution corrections, neither flipping a decision: (a) the 64,197
+>counted boundaries are the SCENE's, not the belt's — at 10⁴ the belt fires one comb (~9.7k
+>of 64.2k; `belt_first`: belt first item p50 14,071 gs = interval/2, locals p50 661 gs) and
+>the fleet/locals own the rest; the belt-specific plain rate is ≥ 99.98% by N-scaling (my
+>10⁵ arm: boundaries 150,370, handoffs 0, lost 16 → 99.989% plain, the non-plain 16 constant
+>while belt boundaries grew 10×, so they are non-belt; burn at 10⁴: 99.972% plain); at 10⁹,
+>where the belt is everything, the scene number is representative. (b) the quote script
+>checks two fragments per quote, not bytes: full-text, the Asimov ×2 and Vicino quotes are
+>byte-identical; L2 differs only by em-dash spacing; L1 drops `," he says. "` unmarked — the
+>carried words are genuine and the sources are right.]
+
+*[Prior best retained below.]*
 
 **The re-kick question is flown and closed against both published constants: no quantum
 fence ever held, and the reset cadence is set by the certificate's angle bar, not by any
@@ -91,19 +130,38 @@ Linux, fermi-lens precedent):**
   fired kick (29–37 µs vs 51–72 µs, in-flight bench over three runs), not just counted.
 - **Library direction 0 (chaining alone retires the comb):** inert for one-tick births;
    stands refuted on nladder's own Refuted list (4fa8), not repeated here.
+- **"The boundary comb is a comb to stretch, first of all" (kick-cadence direction 1's
+  implicit framing): reclassified (10c4)** — 99.974% of belt boundaries are plain
+  (certificates + anchor + replan, one flight at 10⁴/rtf 600) and no engine reader
+  consults a belt body between kick and boundary, so the requirements question (merge
+  into the kick) precedes the scheduling question (does BELT_SPLIT stretch it). The
+  comb's EXISTENCE as a fact stands (8ffc); what is refuted is its priority as the
+  cheapest next question.
+- [checker 20261017] The census above says "the belt's": the shipped stats print counts the
+  whole scene, and at 10⁴ the belt is ~15% of it (one comb; `belt_first`); the belt-specific
+  bound is the N-scaling one, ≥ 99.98% plain (10⁵ arm, non-plain constant at 16). The
+  reclassification itself survives: plain means one readout + two certificate checks + the
+  anchor write (`boundary_clock`, step.rs:725-738 — verified), on every population counted.
 
 ## Open directions
 
-1. **Freeze the certificate's angle bar q in degrees** (the one number this topic now needs):
-   the gate family's behavioural precession tolerance — r9-class per-orbit bounds suggest
-   10⁻³–10⁻²°-class bars; k* at the belt cadence then reads directly off the measured
-   curve (2^−2.4 at 10⁻³° with the jitter band to 2^−1.5, 2^−0.1 at 10⁻²°, 2^1.7 at
-   0.1°) — sub-one-carried-kick cadences,
-   i.e. at belt scale the re-kick rides every fire, not sparsely. The compose rung (RES +
-   re-kick) should carry q as its one free constant.
-2. The burst-gap histogram on the shipped burn read stream; per-body last-gap residency vs
+1. **The boundary-item bench** (10c4's L1): split the boundary's 13 µs into readout vs
+   item machinery (12db's kick-bench pattern) — decides whether the merge is worth
+   ×0.95 or ×0.80 of belt CPU (S* 19.7× vs 16.6×); then the merge's B-gate flight.
+2. **Freeze the certificate's angle bars — now two, not one** (10c4's L4 extends this
+   direction): q_live (r9-class per-orbit, 10⁻³–10⁻²°) and q_mass read from the view's
+   belt-band angular resolution (the view topic owns the number; no flight). The compose
+   rung (RES + re-kick) carries q as its one free constant per population.
+3. **The sampled-readout ensemble gate** (10c4's L3): re-grade components-98bc's
+   0.126-bit belt program on N=100 sampled readouts vs full population (adversarial
+   sample, not uniform — the tail is the point); if it holds, the compact mass's
+   certificate is O(sample).
+4. **The split-21 legality probe** (10c4's L5): B14-class at ~6 kicks/orbit on the quiet
+   far belt — 1db4's ~2/orbit and 06a8's 8/orbit Jupiter floor bracket it; prediction:
+   pass outside the resonance bands, fail inside (10c4's untested prediction 3).
+5. The burst-gap histogram on the shipped burn read stream; per-body last-gap residency vs
    the dial (kill: cliff at 80–100 gs not at the burst-gap upper quantile).
-3. The 18,000-gs slope-vs-band arm for the doll-born gate (slope predicts OFF median ≥1e-4).
+6. The 18,000-gs slope-vs-band arm for the doll-born gate (slope predicts OFF median ≥1e-4).
 
 ## Contradictions
 
@@ -118,3 +176,4 @@ not derived.
 - 20261017-0238-library-dc8f (silver): five quoted lessons; re-kick cost an identity, quantum
 - 20261017-0238-library-dc8f (silver): five library lessons order the ladder's decisions;
 - 20261017-0428-second-20261017-0238-library-dc8f-f5bd (this run): the checker's named
+- 20261017-0739-library-10c4 (this run): five lessons order the 10⁹ ledger; boundary comb

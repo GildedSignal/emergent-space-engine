@@ -2,11 +2,36 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0552-inversion-604c
+updated: 20261017-0739-second-20261017-0552-inversion-604c-2e42
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
+**The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget
+frames at fleet scale in-phase are comb-owned (91.7-99.7% item pipeline: kicks, boundaries, fits),
+not scan-owned — at K=1,000, 0.6-1.0% scan / 97.7-98.5% comb in the 68 over frames on both seeds
+and two passes, the six p99 frames 98.0-98.7% comb, the worst frames the wave frames (`ev=1002`;
+comb 43.9-65.4 ms against scan 0.24-0.33; at 3,000+10⁴ the worst is 137.26 ms = 1.47 scan /
+134.23 comb, `ev=3002`; at 10⁴, p99 452.8-463.5 ms, 98.4% comb) — so the frame's first fix is the
+comb's cadence (de-phase the births; kick-cadence's), and the observer's phase axis is second: the
+scan channel rides idle room below 69f3's latch (72-95% of its ns inside under-budget frames
+[checker: 95/95 author-regen, 88 seed 3, 72 seed 5 — the placement is seed/load-dependent; the
+tail ownership is not], 3-10% of mean frame wall at K ≤ 1,000 (seed 5: 2.9), answers ~3.9-4.4
+ms one at a time (seed 5: 4.41), held_max ≤ 54 of 2,048 across five seeds, ≤ 71 at any K),
+freezes above
+it (zero answers in flight at K ≥ 3,000 — 69f3's `S < b/2` with S ∝ K, the crowd law setting S)
+and then pins 51 MB (3,000+10⁴: 71 held × 3,338 × 216 B) to 93 MB (10⁴) [checker2, one decade
+beyond: 2×10⁴ pins 43 × 20,039 × 216 B ≈ 186 MB — the pin ∝ K; there the over frames stay 0.7%
+scan / 95.1% comb, worst frame ev=20,002, comb 923 ms, hwm 932 MB]. 0552's P5 mechanism is
+corrected: SCAN_BACKLOG (2,048) never fires in any flight (held_max ≤ 71); below the latch the
+answers drain into quiet frames, above it they stop, not pile into a frame
+(20261017-0739-second-20261017-0552-inversion-604c-2e42, per-frame top-level prof channels closed
+against wall to 98.4-99.6%, both seeds, coast, rtf 100, regen.sh; seed-1 K=1,000 digest identical
+to 0552's). What stands from 0552: both channels' own bills are crowd-proportional, so at 10⁹ the
+observer fix alone buys a smooth mean on a ruined frame — the two fixes are ranked, not
+alternatives.**
+
+
 **The observer half's "bounded near set" is measured on the game's own crowd and it is crowd-proportional:
 the radial filter bails on 100% of the plane's own coast scans (28 bodies, no formation: 87/87, the window
 at coast covers every radius from zero — reach ≈ 9·r from h = 1.1e12 doll units × speed_cap 9.76e-3, and
@@ -23,9 +48,11 @@ inversion; coast, rtf 100, seed 1, print-only `radial::scanstat` census bit-stab
 at rtf 100, and a held scan pins candidates × 216 B).** The census's own numbers reproduce on the same
 binary at form=0 (201.1 / 199.5 candidates at 10⁴ / 10⁵, zero bails): the O(1) verdict is a property of
 the ladder's population (locals capped at 300, none in the player's band, the belt in another doll), not
-of the filter. Fixes to price: the bail's numerator in bodies (dedup) and its threshold local to the
-window's population; a phase axis for co-orbital crowds (taleb-09b5's rank-along-orbit invariant, the
-encounters gold, applied to the observer); the comb channel is kick-cadence's.
+of the filter. [20261017-0739: the tier beside a 10⁵ belt is off (0 bails, 387 candidates) — the "200
+ships" crossing is population-pair-dependent, as 0552's checker measured.] Fixes to price: the bail's
+numerator in bodies (dedup) and its threshold local to the window's population; a phase axis for
+co-orbital crowds (taleb-09b5's rank-along-orbit invariant, the encounters gold, applied to the
+observer); the comb channel is kick-cadence's.
 
 Provenance (checker): the plane-scale fallback and the `bodies/4 + 64` mechanism are scan-queue's
 priors (cdf0 20261016-1120: Home's doll trips the N-relative rule exactly at the plane's flown N,
@@ -33,7 +60,8 @@ priors (cdf0 20261016-1120: Home's doll trips the N-relative rule exactly at the
 co-orbital formation itself (the page's named unflown direction), the 1.00/ship crowd law, the
 coast window covering every radius with a bin-entry numerator, so the bail never turns off under
 concentration (100% still at 10⁴ in-band bodies, checker — cdf0's "small-N disease" scoping
-corrected), the c439 inversion, and the frame cost.
+corrected), the c439 inversion, and the frame cost. [20261017-0739 adds the per-frame channel
+decomposition and the ranking.]
 
 Prior best retained: **the read stream is censused on shipped code and the 10⁹ premise is corrected: the engine's
 read demand is O(1) in N on the ladder's flights — every reader's absolute count identical
@@ -84,7 +112,8 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
   the census's c439 reading)**: on the game's own crowd the near set is crowd-proportional (1.00
   candidates a ship), the filter bails on 100% of the plane's own scans, and at K=1,000 one answer
   is 4.53 ms — the observer alone is ~500× over at rtf 100 for a 10⁶-ship fleet
-  (20261017-0552-inversion-604c).
+  (20261017-0552-inversion-604c). [20261017-0739: the observer's own bill stands, but the frame's
+  ruin is not its — the over-budget frames are 98.5% comb on both seeds; see Current best.]
 - **"The radial apsidal filter cuts the belt" (c439's letter, as a property of the filter)**: at
   coast the window covers every radius from zero (reach ≈ 9·r); what cuts the belt is the doll
   partition, and the filter's own viability hangs on the belt inflating the bail's denominator —
@@ -107,7 +136,7 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
 - **"Dwell is the memory dial at 10⁹"** as stated: coast-true, burn-false — the miss cliff
   (73%→14% between dwell 17 and 100) is real but its owner is now named: the scan's ~70-body
   near set read in bursts (the observer half) plus the kick mints (the cadence half); with
-  the near set pinned, what is left of the cliff is the cadence's
+  the near set pinned, what's left of the cliff is the cadence's
   (20261017-0005-…-8792; c439). [20261017-0552: the "near set pinned" clause is
   crowd-scoped — under a formation the set is K-sized, not 70.]
 
@@ -118,9 +147,17 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
    crowds (taleb-09b5's invariant on the observer's side), which is the only representation that
    makes fleet scenes cheap for the scan; measure both against this run's matrix (regen.sh). The
    old "pin the near set" is refuted above; the player-seam flight (into the belt at density,
-   radial None) stays unflown.
+   radial None) stays unflown. [20261017-0739 ranks it: the phase axis is the observer's own bill
+   (mean share ~10% at K ≤ 1,000, the pin 51-93 MB above the latch), second to the comb's cadence
+   for the frame's tail.]
 2. The comb channel of the formation scene (1,000 ships at one period: 128 events a frame, p99
    52.5 ms) is kick-cadence's page, not this one; the formation matrix is the ready instrument.
+   [20261017-0739: the comb owns the over-budget frames (91.7-99.7% at K = 200-10⁴, and 95.1% at
+   2×10⁴ — checker2) — the cadence fix (de-phased births) is the frame's first; the interaction
+   (de-phased waves moving work into the quiet frames where the answers drain) is unmeasured.
+   Checker2: rtf 25 does not de-phase the wave — the worst frame still resolves all ev=1002 in
+   one frame (comb 54.1 ms) and only the over count drops (68→21), so the de-phasing must come
+   from the births'/cadence phase, not from the time knob.]
 3. Cliff position, seed stability and N-linearity are flown (checkers: cliff between 80
 and 100 gs with miss 72–75% flat from dwell 5 through 80; seed 2 within 6% and seed 3 at
 14.0% on the cliff's right side, digest-identical to its own ctl; reads linear at 2×10⁵
@@ -142,7 +179,10 @@ flight's two halves. Standing watch: the ledger's P6 cell (diet at shipped rate 
 memory for dwell ∈ (2,808, 28,141] gs) is coast-only. New, named: c439's "70 candidates a
 scan" and this run's "crowd-proportional, bail always at plane scale" measure the same
 filter on different populations — reconciled above (the cap and the belt's denominator), no
-live conflict.
+live conflict. Resolved by 20261017-0739: 0552's P5 mechanism (a 4.5-ms answer forced into
+a frame by SCAN_BACKLOG) against the measurement — SCAN_BACKLOG never fires (held_max ≤ 71
+of 2,048); below 69f3's latch the answers drain into quiet frames' idle room, above it they
+freeze and pin. The frame's over-budget tail is comb-owned on both seeds.
 
 ## Runs
 - 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger):
@@ -158,3 +198,4 @@ live conflict.
 - 20261017-0005-second-20261016-2327-library-cbc5-8792 (second author, this run): the
 - 20261017-0428-quant-c439 (this run): the read census — read demand O(1) in N (counts
 - 20261017-0552-inversion-604c (this run): the formation scene flown — the filter bails on
+- 20261017-0739-second-20261017-0552-inversion-604c-2e42 (this run, second author): the
