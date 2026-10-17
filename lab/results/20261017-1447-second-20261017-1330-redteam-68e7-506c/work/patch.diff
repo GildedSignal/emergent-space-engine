@@ -1,0 +1,453 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e29c906e..cdb4af8d 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -102,6 +102,7 @@ name = "emergent-allocator"
+ version = "0.1.0"
+ dependencies = [
+  "emergent-lattice",
++ "emergent-lattice-event",
+  "libc",
+  "serde",
+  "serde_json",
+diff --git a/crates/allocator/Cargo.toml b/crates/allocator/Cargo.toml
+index 8421965e..5ea22c4b 100644
+--- a/crates/allocator/Cargo.toml
++++ b/crates/allocator/Cargo.toml
+@@ -10,3 +10,6 @@ emergent-lattice = { path = "../lattice" }
+ serde.workspace = true
+ serde_json.workspace = true
+ libc = "0.2"
++
++[dev-dependencies]
++emergent-lattice-event = { path = "../lattice-event" }
+diff --git a/crates/allocator/tests/r5_starve_alloc.rs b/crates/allocator/tests/r5_starve_alloc.rs
+new file mode 100644
+index 00000000..c10fa628
+--- /dev/null
++++ b/crates/allocator/tests/r5_starve_alloc.rs
+@@ -0,0 +1,139 @@
++//! r5's budget axis, allocator arm (lab/results/20261017-1447-second-20261017-1330-redteam-68e7-506c):
++//! the sparse queue's own slack-ordered schedule under a compute budget, sabotage and
++//! competing load. `Allocator` hosts `EventCore` regions (r5's sparse order) and slices
++//! them into units of one starved budget; the union of every region's world and the merged
++//! log must equal one `Chronon` over the whole scene — the licence the allocator's own
++//! invariance suite claims for the dense order, here executed for the sparse one.
++//!
++//! Matrix per scene: workers {1, 8} × sabotage off/on × fixed budgets {1 event, calibrated},
++//! plus a loaded cell (3 spinning hogs, calibrated budget, sabotage on: the calibration
++//! measures a slower box, so the unit budgets shrink and the schedule churns — the bits must
++//! not notice). Rows go to `$R5S_OUT/r5sa.json`; metrics.py assembles metrics.json.
++use emergent_allocator::{scenes, Allocator, Config, Factory, Report};
++use emergent_lattice::{chronon::Chronon, law::World, Stepper, Tick};
++use emergent_lattice_event::EventCore;
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::sync::Arc;
++
++fn factory() -> Factory<EventCore> {
++    Arc::new(|w| EventCore::new(w, false).expect("a region's world is a valid world"))
++}
++
++fn reference(scene: &[World], t: Tick) -> (String, String, u64) {
++    let mut c = Chronon::new(scenes::union(scene), false).unwrap();
++    c.run_to(t);
++    (c.world().digest(), c.log().digest().clone(), c.log().contacts)
++}
++
++fn run(scene: &[World], t: Tick, cfg: Config) -> ((String, String, u64), Report) {
++    let mut a = Allocator::new(scene.to_vec(), factory(), cfg).unwrap();
++    let rep = a.run_to(t);
++    let (world, log) = (a.world(), a.log());
++    let contacts = log.contacts;
++    ((world.digest(), log.digest().clone(), contacts), rep)
++}
++fn workers(n: usize) -> (usize, usize) {
++    (n.min(4), n.saturating_sub(4))
++}
++
++struct Hogs {
++    stop: Arc<AtomicBool>,
++    handles: Vec<std::thread::JoinHandle<()>>,
++}
++
++impl Hogs {
++    fn spawn(n: usize) -> Self {
++        let stop = Arc::new(AtomicBool::new(false));
++        let handles = (0..n)
++            .map(|_| {
++                let s = stop.clone();
++                std::thread::spawn(move || while !s.load(Ordering::Relaxed) { std::hint::spin_loop(); })
++            })
++            .collect();
++        Hogs { stop, handles }
++    }
++}
++
++impl Drop for Hogs {
++    fn drop(&mut self) {
++        self.stop.store(true, Ordering::SeqCst);
++        for h in self.handles.drain(..) {
++            let _ = h.join();
++        }
++    }
++}
++
++/// One scene through the matrix; `out` collects the jsonl lines.
++fn matrix(out: &mut String, name: &str, scene: &[World], t: Tick) {
++    let expected = reference(scene, t);
++    let mut cell = |tag: &str, cfg: Config, hogs: usize| {
++        let nw = cfg.p_workers + cfg.e_workers;
++        let (got, rep) = if hogs > 0 {
++            let h = Hogs::spawn(hogs);
++            let r = run(scene, t, cfg);
++            drop(h);
++            r
++        } else {
++            run(scene, t, cfg)
++        };
++        let identical = got == expected;
++        let r = &rep.regions;
++        out.push_str(&format!(
++            "{{\"scene\":\"{name}\",\"config\":\"alloc-sparse-starved\",\"cell\":\"{tag}\",\"identical\":{identical},\"contacts\":{},\"units\":{},\"rollbacks\":{},\"merges\":{},\"splits\":{},\"over_budget\":{},\"workers\":{nw},\"secs\":{:.3}}}\n",
++            got.2, rep.units.count, r.rollbacks, r.merges, r.splits, rep.units.over_budget_units, rep.wall_seconds
++        ));
++        println!(
++            "{name} {tag}: identical {identical} contacts {} units {} rollbacks {} merges {} splits {} over_budget {} {:.0} ms",
++            got.2, rep.units.count, r.rollbacks, r.merges, r.splits, rep.units.over_budget_units, rep.wall_seconds * 1e3
++        );
++        identical
++    };
++    for n in [1usize, 8] {
++        for sabotage in [None, Some(0xBAD5EEDu64)] {
++            for budget in [Some(1u64), None] {
++                let (p, e) = workers(n);
++                let cfg = Config { p_workers: p, e_workers: e, fixed_budget: budget, sabotage, ..Config::default() };
++                let tag = format!("w{n}-sab{}-b{}", sabotage.is_some(), budget.map(|b| b.to_string()).unwrap_or_else(|| "cal".into()));
++                cell(&tag, cfg, 0);
++            }
++        }
++    }
++    // Loaded: calibrated budgets re-measured on a contended box, sabotage on, 8 workers.
++    let (p, e) = workers(8);
++    let cfg = Config { p_workers: p, e_workers: e, fixed_budget: None, sabotage: Some(0xBAD5EED), ..Config::default() };
++    cell("w8-sab1-bcal-LOADED3", cfg, 3);
++}
++
++fn write(name: &str, out: &str) {
++    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
++        .parent()
++        .and_then(|p| p.parent())
++        .unwrap()
++        .join(std::env::var("R5S_OUT").unwrap_or_else(|_| "lab/results/20261017-1447-second-20261017-1330-redteam-68e7-506c/rows".into()));
++    std::fs::create_dir_all(&dir).unwrap();
++    std::fs::write(format!("{}/r5sa-{}.json", dir.display(), name), out).unwrap();
++}
++
++#[test]
++fn islands() {
++    // Four islands, two Pass clusters closing head-on: regions merge while starved.
++    let mut out = String::new();
++    matrix(&mut out, "islands1", &scenes::islands(256, 1), 1200);
++    write("islands1", &out);
++}
++
++#[test]
++fn galaxy() {
++    // Nine clusters on a grid, two drifting together.
++    let mut out = String::new();
++    matrix(&mut out, "galaxy", &scenes::galaxy(256, 3, 3, 40, 450, 1, 11), 800);
++    write("galaxy", &out);
++}
++
++#[test]
++fn islands_deep_starvation() {
++    // A second islands draw, held out (predictions.md P5): registered before the run.
++    let mut out = String::new();
++    matrix(&mut out, "islands2", &scenes::islands(256, 2), 900);
++    write("islands2", &out);
++}
+diff --git a/crates/engine/tests/r5_starve.rs b/crates/engine/tests/r5_starve.rs
+new file mode 100644
+index 00000000..f855782d
+--- /dev/null
++++ b/crates/engine/tests/r5_starve.rs
+@@ -0,0 +1,279 @@
++//! r5's budget axis (lab/results/20261017-1447-second-20261017-1330-redteam-68e7-506c): the
++//! dense and sparse orders of one event graph give identical bits *under budget starvation
++//! and competing load*, CPU arm, through the same `Battle` harness as r5. The tie rule
++//! (law.md: "every schedule, budget and thread count pops the same sequence") is the clause
++//! under attack. Scenes are r5's frozen ladder verbatim (s0–s7, h1, h2) plus this run's
++//! held-out draw h3 (3500 bodies, registered in predictions.md before the run).
++//!
++//! `Starved<S>` wraps a stepper and answers every `advance(target, _)` with a tiny budget:
++//! `Battle`'s internal `run_to` then drains the queue one event (sparse) or one chronon
++//! (dense) per call. The budget stream is a seeded xorshift, so the schedule is chaotic but
++//! reproducible; `cpu-pair-loaded` runs the same seeded stream under spinning hog threads —
++//! identical bits there mean wall-clock pressure never reaches the result.
++//!
++//! Rows go to `$R5S_OUT/r5s-<scene>.json`; metrics.py in the run folder assembles
++//! metrics.json.
++use emergent_engine::{scenes, Battle, Frame, Outcome};
++use emergent_lattice::law::{Tick, World};
++use emergent_lattice::{chronon::Chronon, Kickable, Log, Metrics, Motion, Stepper};
++use emergent_lattice_event::EventCore;
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::sync::Arc;
++use std::time::Instant;
++
++const HORIZON: Tick = 4096;
++
++/// A stepper whose every `advance` does one starved unit: budget 1 (`span == 0`) or a
++/// seeded pseudo-random budget in 1..=`span`. The stream lives here, consumed only by
++/// `advance`, so it is a deterministic function of the run.
++struct Starved<S: Kickable> {
++    inner: S,
++    rng: u64,
++    span: u64,
++    calls: u64,
++}
++
++impl<S: Kickable> Starved<S> {
++    fn new(inner: S, seed: u64, span: u64) -> Self {
++        Starved { inner, rng: seed.max(1), span, calls: 0 }
++    }
++    fn budget(&mut self) -> u64 {
++        if self.span == 0 {
++            return 1;
++        }
++        let mut x = self.rng;
++        x ^= x >> 12;
++        x ^= x << 25;
++        x ^= x >> 27;
++        self.rng = x;
++        (x.wrapping_mul(0x2545F4914F6CDD1D) % self.span + 1) as u64
++    }
++}
++
++impl<S: Kickable> Stepper for Starved<S> {
++    fn tick(&self) -> Tick {
++        self.inner.tick()
++    }
++    fn advance(&mut self, target: Tick, _budget: u64) -> Tick {
++        let b = self.budget();
++        self.calls += 1;
++        self.inner.advance(target, b)
++    }
++    fn world(&self) -> World {
++        self.inner.world()
++    }
++    fn log(&self) -> &Log {
++        self.inner.log()
++    }
++    fn metrics(&self) -> &Metrics {
++        self.inner.metrics()
++    }
++}
++
++impl<S: Kickable> Kickable for Starved<S> {
++    fn motions(&self, out: &mut Vec<Motion>) {
++        self.inner.motions(out)
++    }
++    fn kick(&mut self, dk: &[[i64; 2]]) -> Result<(), emergent_lattice::law::LawError> {
++        self.inner.kick(dk)
++    }
++    fn masses(&self, out: &mut Vec<i64>) {
++        self.inner.masses(out)
++    }
++    fn rebase(&mut self, dx: &[[i64; 2]], dk: &[[i64; 2]]) -> Result<(), emergent_lattice::law::LawError> {
++        self.inner.rebase(dx, dk)
++    }
++}
++
++/// Spinning threads competing for the cores; proof of contention is the wall-time ratio.
++struct Hogs {
++    stop: Arc<AtomicBool>,
++    handles: Vec<std::thread::JoinHandle<()>>,
++}
++
++impl Hogs {
++    fn spawn(n: usize) -> Self {
++        let stop = Arc::new(AtomicBool::new(false));
++        let handles = (0..n)
++            .map(|_| {
++                let s = stop.clone();
++                std::thread::spawn(move || while !s.load(Ordering::Relaxed) { std::hint::spin_loop(); })
++            })
++            .collect();
++        Hogs { stop, handles }
++    }
++}
++
++impl Drop for Hogs {
++    fn drop(&mut self) {
++        self.stop.store(true, Ordering::SeqCst);
++        for h in self.handles.drain(..) {
++            let _ = h.join();
++        }
++    }
++}
++
++struct Scene {
++    name: &'static str,
++    bodies: u64,
++    q: i64,
++    seed: u64,
++    div: i64,
++    formation: bool,
++    k: u32,
++}
++
++fn build(s: &Scene) -> (World, Frame) {
++    let (w, extent) = scenes::battle(s.bodies, s.q, s.seed, s.div, s.formation);
++    let r_orbit = (s.q << s.k) / 4;
++    let r_extent = 32 * (extent + 4 * HORIZON * (s.q / s.div));
++    let f = Frame::new(s.q, r_orbit.max(r_extent), 1u64 << (60 - s.k)).unwrap();
++    (w, f)
++}
++
++struct Run {
++    out: Outcome,
++    contacts: u64,
++    epochs: u64,
++    carried: bool,
++    calls: u64,
++    secs: f64,
++}
++
++/// Run a built battle to the horizon and read its counters.
++fn finish<S: Kickable>(t: Instant, mut b: Battle<S>) -> Run {
++    b.run_to(HORIZON).unwrap();
++    Run {
++        out: b.outcome(),
++        contacts: b.stepper().log().contacts,
++        epochs: b.stats().epochs,
++        carried: b.carries().iter().any(|c| *c != [0, 0]),
++        calls: 0,
++        secs: t.elapsed().as_secs_f64(),
++    }
++}
++
++/// Unbounded references of each order.
++fn plain_lockstep(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
++    finish(Instant::now(), Battle::new(Chronon::new(w.clone(), false).unwrap(), f.clone(), threads).with_epoch_shift(shift))
++}
++
++fn plain_sparse(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
++    finish(Instant::now(), Battle::new(EventCore::new(w.clone(), false).unwrap(), f.clone(), threads).with_epoch_shift(shift))
++}
++
++/// A starved order: `span == 0` fixes budget 1, else seeded budgets in 1..=span.
++fn starved_sparse(w: &World, f: &Frame, threads: usize, shift: Tick, seed: u64, span: u64) -> Run {
++    let t = Instant::now();
++    let mut b = Battle::new(Starved::new(EventCore::new(w.clone(), false).unwrap(), seed, span), f.clone(), threads).with_epoch_shift(shift);
++    b.run_to(HORIZON).unwrap();
++    Run {
++        out: b.outcome(),
++        contacts: b.stepper().log().contacts,
++        epochs: b.stats().epochs,
++        carried: b.carries().iter().any(|c| *c != [0, 0]),
++        calls: b.stepper().calls,
++        secs: t.elapsed().as_secs_f64(),
++    }
++}
++
++fn starved_lockstep(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
++    let t = Instant::now();
++    let mut b = Battle::new(Starved::new(Chronon::new(w.clone(), false).unwrap(), 0, 0), f.clone(), threads).with_epoch_shift(shift);
++    b.run_to(HORIZON).unwrap();
++    Run {
++        out: b.outcome(),
++        contacts: b.stepper().log().contacts,
++        epochs: b.stats().epochs,
++        carried: b.carries().iter().any(|c| *c != [0, 0]),
++        calls: b.stepper().calls,
++        secs: t.elapsed().as_secs_f64(),
++    }
++}
++
++fn row(scene: &str, config: &str, pair: &str, threads: usize, a: &Run, b: &Run, extra: &str) -> String {
++    let world = a.out.world.chars().take(12).collect::<String>();
++    format!(
++        "{{\"scene\":\"{scene}\",\"config\":\"{config}\",\"pair\":\"{pair}\",\"threads\":{threads},\"identical\":{},\"contacts\":{},\"epochs\":{},\"carried\":{},\"calls\":{},\"secs_a\":{:.4},\"secs_b\":{:.4},\"world\":\"{world}\"{extra}}}\n",
++        a.out == b.out, a.contacts, a.epochs, a.carried, a.calls, a.secs, b.secs
++    )
++}
++
++fn scene(s: Scene) {
++    let (w, f) = build(&s);
++    let seed = s.seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
++    // References (unbounded), both orders.
++    let l1 = plain_lockstep(&w, &f, 1, 0);
++    let s1 = plain_sparse(&w, &f, 1, 0);
++    // Starved arms: sparse random-budget and fixed-1 against the lockstep reference,
++    // starved lockstep against the sparse reference, cross-thread starved sparse.
++    let sr1 = starved_sparse(&w, &f, 1, 0, seed, 97);
++    let sf1 = starved_sparse(&w, &f, 1, 0, seed ^ 0xA5A5_5A5A_A5A5_5A5A, 0);
++    let lf1 = starved_lockstep(&w, &f, 1, 0);
++    let sr4 = starved_sparse(&w, &f, 4, 0, seed.rotate_left(17), 97);
++    // The same seeded starved sparse stream under competing load.
++    let slow;
++    let sr1l = {
++        let hogs = Hogs::spawn(3);
++        let r = starved_sparse(&w, &f, 1, 0, seed, 97);
++        drop(hogs);
++        slow = r.secs / sr1.secs;
++        r
++    };
++    // Controls through the starved path: both shifted (must agree), one late (must not).
++    let lf1s = starved_lockstep(&w, &f, 1, 1);
++    let sr1s = starved_sparse(&w, &f, 1, 1, seed, 97);
++
++    let mut rows = String::new();
++    rows += &row(s.name, "cpu-pair-starved", "sparse-rand-vs-lockstep", 1, &sr1, &l1, "");
++    rows += &row(s.name, "cpu-pair-starved", "sparse-f1-vs-lockstep", 1, &sf1, &l1, "");
++    rows += &row(s.name, "cpu-pair-starved", "lockstep-f1-vs-sparse", 1, &lf1, &s1, "");
++    rows += &row(s.name, "cpu-pair-starved", "sparse-rand-t4-vs-lockstep-t1", 4, &sr4, &l1, "");
++    rows += &row(
++        s.name,
++        "cpu-pair-loaded",
++        "sparse-rand-loaded-vs-lockstep",
++        1,
++        &sr1l,
++        &l1,
++        &format!(",\"slow\":{:.3}", slow),
++    );
++    rows += &row(s.name, "cpu-pair-starved-shifted", "both-shifted", 1, &lf1s, &sr1s, "");
++    rows += &row(s.name, "cpu-pair-starved-late", "one-order-late", 1, &lf1, &sr1s, "");
++    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
++        .parent()
++        .and_then(|p| p.parent())
++        .unwrap()
++        .join(std::env::var("R5S_OUT").unwrap_or_else(|_| "lab/results/20261017-1447-second-20261017-1330-redteam-68e7-506c/rows".into()));
++    std::fs::create_dir_all(&dir).unwrap();
++    std::fs::write(format!("{}/r5s-{}.json", dir.display(), s.name), rows).unwrap();
++    println!(
++        "{:<4} {:>5} bodies contacts {:<6} epochs {:<5} carried {} | starved: rand {} f1 {} ({} calls) lsf1 {} ({} calls) t4 {} | loaded {} ({:.2}×) | shifted {} late {}",
++        s.name, s.bodies, l1.contacts, l1.epochs, l1.carried,
++        sr1.out == l1.out, sf1.out == l1.out, sr1.calls, lf1.out == s1.out, lf1.calls, sr4.out == l1.out,
++        sr1l.out == l1.out, slow, lf1s.out == sr1s.out, lf1.out == sr1s.out
++    );
++}
++
++macro_rules! scenes {
++    ($($fn_name:ident: $name:literal, $n:expr, $q:expr, $seed:expr, $div:expr, $form:expr, $k:expr;)*) => {
++        $(#[test] fn $fn_name() {
++            scene(Scene { name: $name, bodies: $n, q: $q, seed: $seed, div: $div, formation: $form, k: $k });
++        })*
++    };
++}
++
++// r5's frozen ladder verbatim (identity.rs / r5_dense_order.rs), then this run's held-out draw h3.
++scenes! {
++    r5ss0: "s0", 50, 1024, 1, 32, false, 16;
++    r5ss1: "s1", 100, 1024, 2, 8, false, 15;
++    r5ss2: "s2", 200, 512, 3, 8, false, 14;
++    r5ss3: "s3", 400, 1024, 4, 16, true, 13;
++    r5ss4: "s4", 800, 2048, 5, 16, false, 12;
++    r5ss5: "s5", 1200, 1024, 6, 32, true, 11;
++    r5ss6: "s6", 1600, 1024, 7, 32, false, 10;
++    r5ss7: "s7", 2000, 1024, 8, 8, true, 8;
++    r5sh1: "h1", 2500, 512, 11, 32, false, 12;
++    r5sh2: "h2", 3000, 2048, 12, 8, true, 14;
++    r5sh3: "h3", 3500, 1024, 13, 16, false, 10;
++}

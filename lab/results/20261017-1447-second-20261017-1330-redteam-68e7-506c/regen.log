@@ -1,0 +1,50 @@
+== 1. Decisive execution: both arms (release; the integer law is profile-independent) ==
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 89.69s
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+== 2. metrics.json and the mechanical verdict ==
+{
+ "cpu-pair-starved": {
+  "identical_fraction": 1.0,
+  "covered_scenes": 11,
+  "contacts_total": 140861,
+  "starved_calls_total": 41209773,
+  "secs": 139.066
+ },
+ "cpu-pair-loaded": {
+  "identical_fraction": 1.0,
+  "covered_scenes": 11,
+  "slow_min": 1.325,
+  "slow_median": 1.48
+ },
+ "alloc-sparse-starved": {
+  "identical_fraction": 1.0,
+  "covered_scenes": 27,
+  "units_total": 25009,
+  "rollbacks_total": 0
+ },
+ "cpu-pair-starved-shifted": {
+  "identical_fraction": 1.0,
+  "covered_scenes": 11
+ },
+ "cpu-pair-starved-late": {
+  "identical_fraction": 0.0,
+  "covered_scenes": 11
+ }
+}
+Verdict: PASS; cpu-pair-starved, cpu-pair-loaded, alloc-sparse-starved passed every criterion
+cpu-pair-starved candidate pass
+cpu-pair-loaded candidate pass
+alloc-sparse-starved candidate pass
+cpu-pair-starved-shifted positive pass
+cpu-pair-starved-late negative fail ident
+== 3. Lineage: the starved sparse digests equal the checker-verified 68e7 unstarved rows ==
+lineage: 10/10 world digests match 
+== 4. Second full execution: the record regenerates bit for bit (wall fields aside) ==
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 90.13s
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+battle rows (digests, counters, starved call-counts): ALL MATCH
+allocator cells: digest flips across executions: 0 (0 required); scheduler-metadata moves in 16 cells — wall-fed by design under calibrated budgets and worker races (allocator lib.rs: scheduling changes speed, never results)

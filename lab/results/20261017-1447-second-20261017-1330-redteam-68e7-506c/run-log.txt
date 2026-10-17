@@ -1,0 +1,128 @@
+warning: value assigned to `slow` is never read
+   --> crates/engine/tests/r5_starve.rs:215:13
+    |
+215 |     let mut slow = 0.0;
+    |             ^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-engine` (test "r5_starve") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running tests/r5_starve.rs (/home/glmlab/lab-target-0/release/deps/r5_starve-05bfc117e5464d72)
+
+running 11 tests
+h1    2500 bodies contacts 7754   epochs 257   carried true | starved: rand true f1 true (45590 calls) lsf1 true (4096 calls) t4 true | loaded true (1.25×) | shifted true late false
+test r5sh1 ... ok
+h2    3000 bodies contacts 51464  epochs 65    carried true | starved: rand true f1 true (145874 calls) lsf1 true (4096 calls) t4 true | loaded true (1.50×) | shifted true late false
+test r5sh2 ... ok
+s0      50 bodies contacts 82     epochs 17    carried true | starved: rand true f1 true (370 calls) lsf1 true (4096 calls) t4 true | loaded true (1.57×) | shifted true late false
+test r5ss0 ... ok
+s1     100 bodies contacts 216    epochs 33    carried true | starved: rand true f1 true (1326 calls) lsf1 true (4096 calls) t4 true | loaded true (1.52×) | shifted true late false
+test r5ss1 ... ok
+s2     200 bodies contacts 646    epochs 65    carried true | starved: rand true f1 true (3179 calls) lsf1 true (4096 calls) t4 true | loaded true (1.51×) | shifted true late false
+test r5ss2 ... ok
+s3     400 bodies contacts 2312   epochs 129   carried true | starved: rand true f1 true (7987 calls) lsf1 true (4096 calls) t4 true | loaded true (1.41×) | shifted true late false
+test r5ss3 ... ok
+s4     800 bodies contacts 7042   epochs 257   carried true | starved: rand true f1 true (23622 calls) lsf1 true (4096 calls) t4 true | loaded true (1.39×) | shifted true late false
+test r5ss4 ... ok
+s5    1200 bodies contacts 226    epochs 513   carried true | starved: rand true f1 true (73628 calls) lsf1 true (4096 calls) t4 true | loaded true (1.64×) | shifted true late false
+test r5ss5 ... ok
+s6    1600 bodies contacts 5775   epochs 1025  carried true | starved: rand true f1 true (272652 calls) lsf1 true (4096 calls) t4 true | loaded true (1.40×) | shifted true late false
+test r5ss6 ... ok
+h3    3500 bodies contacts 23987  epochs 1025  carried true | starved: rand true f1 true (633511 calls) lsf1 true (4096 calls) t4 true | loaded true (1.38×) | shifted true late false
+test r5sh3 ... ok
+s7    2000 bodies contacts 41357  epochs 4097  carried true | starved: rand true f1 true (1141591 calls) lsf1 true (4096 calls) t4 true | loaded true (1.35×) | shifted true late false
+test r5ss7 ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 91.34s
+
+_budget 1891 8 ms
+islands2 w1-sabfalse-bcal: identical true contacts 113 units 32 rollbacks 0 merges 2 splits 0 over_budget 0 3 ms
+galaxy w1-sabfalse-b1: identical true contacts 196 units 2170 rollbacks 0 merges 2 splits 0 over_budget 2165 12 ms
+islands2 w1-sabtrue-b1: identical true contacts 113 units 1562 rollbacks 0 merges 3 splits 1 over_budget 1560 6 ms
+islands2 w1-sabtrue-bcal: identical true contacts 113 units 29 rollbacks 0 merges 2 splits 1 over_budget 0 4 ms
+galaxy w1-sabfalse-bcal: identical true contacts 196 units 48 rollbacks 0 merges 3 splits 0 over_budget 1 6 ms
+galaxy w1-sabtrue-b1: identical true contacts 196 units 1791 rollbacks 0 merges 2 splits 1 over_budget 1784 14 ms
+islands2 w8-sabfalse-b1: identical true contacts 113 units 1882 rollbacks 0 merges 2 splits 0 over_budget 1879 20 ms
+islands1 w1-sabfalse-b1: identical true contacts 111 units 2360 rollbacks 0 merges 3 splits 0 over_budget 2353 12 ms
+galaxy w1-sabtrue-bcal: identical true contacts 196 units 44 rollbacks 0 merges 2 splits 1 over_budget 2 8 ms
+islands2 w8-sabfalse-bcal: identical true contacts 113 units 35 rollbacks 0 merges 2 splits 0 over_budget 1 5 ms
+islands1 w1-sabfalse-bcal: identical true contacts 111 units 41 rollbacks 0 merges 3 splits 0 over_budget 1 7 ms
+islands2 w8-sabtrue-b1: identical true contacts 113 units 1659 rollbacks 2 merges 3 splits 1 over_budget 1653 14 ms
+galaxy w8-sabfalse-b1: identical true contacts 196 units 2093 rollbacks 0 merges 2 splits 0 over_budget 2086 16 ms
+islands1 w1-sabtrue-b1: identical true contacts 111 units 2267 rollbacks 0 merges 3 splits 0 over_budget 2263 14 ms
+islands2 w8-sabtrue-bcal: identical true contacts 113 units 39 rollbacks 0 merges 2 splits 0 over_budget 1 4 ms
+galaxy w8-sabfalse-bcal: identical true contacts 196 units 49 rollbacks 0 merges 3 splits 0 over_budget 0 10 ms
+islands2 w8-sab1-bcal-LOADED3: identical true contacts 113 units 39 rollbacks 0 merges 2 splits 0 over_budget 1 7 ms
+test islands_deep_starvation ... ok
+islands1 w1-sabtrue-bcal: identical true contacts 111 units 34 rollbacks 0 merges 1 splits 0 over_budget 1 9 ms
+galaxy w8-sabtrue-b1: identical true contacts 196 units 1912 rollbacks 0 merges 2 splits 0 over_budget 1905 16 ms
+islands1 w8-sabfalse-b1: identical true contacts 111 units 2315 rollbacks 0 merges 3 splits 0 over_budget 2307 17 ms
+galaxy w8-sabtrue-bcal: identical true contacts 196 units 51 rollbacks 0 merges 2 splits 0 over_budget 2 7 ms
+islands1 w8-sabfalse-bcal: identical true contacts 111 units 41 rollbacks 0 merges 3 splits 0 over_budget 1 5 ms
+galaxy w8-sab1-bcal-LOADED3: identical true contacts 196 units 47 rollbacks 0 merges 2 splits 0 over_budget 2 7 ms
+test galaxy ... ok
+islands1 w8-sabtrue-b1: identical true contacts 111 units 1915 rollbacks 0 merges 2 splits 1 over_budget 1910 17 ms
+islands1 w8-sabtrue-bcal: identical true contacts 111 units 40 rollbacks 0 merges 2 splits 0 over_budget 0 3 ms
+islands1 w8-sab1-bcal-LOADED3: identical true contacts 111 units 33 rollbacks 0 merges 3 splits 1 over_budget 1 5 ms
+test islands ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+   Compiling emergent-allocator v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator)
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.90s
+     Running tests/r5_starve_alloc.rs (/home/glmlab/lab-target-0/release/deps/r5_starve_alloc-72b3a7ba970194aa)
+
+running 3 tests
+islands1 w1-sabfalse-b1: identical true contacts 111 units 2360 rollbacks 0 merges 3 splits 0 over_budget 2353 7 ms
+islands1 w1-sabfalse-bcal: identical true contacts 111 units 40 rollbacks 0 merges 3 splits 0 over_budget 0 4 ms
+islands2 w1-sabfalse-b1: identical true contacts 113 units 1895 rollbacks 0 merges 2 splits 0 over_budget 1891 7 ms
+islands2 w1-sabfalse-bcal: identical true contacts 113 units 33 rollbacks 0 merges 2 splits 0 over_budget 1 4 ms
+islands1 w1-sabtrue-b1: identical true contacts 111 units 2267 rollbacks 0 merges 3 splits 0 over_budget 2263 8 ms
+islands1 w1-sabtrue-bcal: identical true contacts 111 units 33 rollbacks 0 merges 1 splits 0 over_budget 0 4 ms
+islands2 w1-sabtrue-b1: identical true contacts 113 units 1562 rollbacks 0 merges 3 splits 1 over_budget 1560 6 ms
+islands2 w1-sabtrue-bcal: identical true contacts 113 units 29 rollbacks 0 merges 2 splits 1 over_budget 0 5 ms
+islands1 w8-sabfalse-b1: identical true contacts 111 units 2315 rollbacks 0 merges 3 splits 0 over_budget 2307 17 ms
+islands2 w8-sabfalse-b1: identical true contacts 113 units 1927 rollbacks 0 merges 2 splits 0 over_budget 1923 14 ms
+islands1 w8-sabfalse-bcal: identical true contacts 111 units 38 rollbacks 0 merges 3 splits 0 over_budget 0 5 ms
+islands2 w8-sabfalse-bcal: identical true contacts 113 units 35 rollbacks 0 merges 2 splits 0 over_budget 0 4 ms
+galaxy w1-sabfalse-b1: identical true contacts 196 units 2170 rollbacks 0 merges 2 splits 0 over_budget 2165 12 ms
+islands1 w8-sabtrue-b1: identical true contacts 111 units 2080 rollbacks 0 merges 3 splits 1 over_budget 2078 13 ms
+islands2 w8-sabtrue-b1: identical true contacts 113 units 1964 rollbacks 0 merges 4 splits 1 over_budget 1957 14 ms
+galaxy w1-sabfalse-bcal: identical true contacts 196 units 48 rollbacks 0 merges 3 splits 0 over_budget 1 7 ms
+islands2 w8-sabtrue-bcal: identical true contacts 113 units 31 rollbacks 0 merges 2 splits 0 over_budget 1 3 ms
+islands1 w8-sabtrue-bcal: identical true contacts 111 units 41 rollbacks 0 merges 3 splits 1 over_budget 1 9 ms
+islands2 w8-sab1-bcal-LOADED3: identical true contacts 113 units 26 rollbacks 0 merges 2 splits 0 over_budget 0 6 ms
+test islands_deep_starvation ... ok
+islands1 w8-sab1-bcal-LOADED3: identical true contacts 111 units 41 rollbacks 1 merges 4 splits 1 over_budget 0 6 ms
+test islands ... ok
+galaxy w1-sabtrue-b1: identical true contacts 196 units 1791 rollbacks 0 merges 2 splits 1 over_budget 1784 13 ms
+galaxy w1-sabtrue-bcal: identical true contacts 196 units 57 rollbacks 0 merges 6 splits 3 over_budget 1 6 ms
+galaxy w8-sabfalse-b1: identical true contacts 196 units 2125 rollbacks 0 merges 1 splits 0 over_budget 2120 13 ms
+galaxy w8-sabfalse-bcal: identical true contacts 196 units 46 rollbacks 0 merges 2 splits 0 over_budget 1 4 ms
+galaxy w8-sabtrue-b1: identical true contacts 196 units 1674 rollbacks 0 merges 2 splits 1 over_budget 1665 12 ms
+galaxy w8-sabtrue-bcal: identical true contacts 196 units 36 rollbacks 0 merges 1 splits 0 over_budget 1 5 ms
+galaxy w8-sab1-bcal-LOADED3: identical true contacts 196 units 53 rollbacks 0 merges 1 splits 0 over_budget 1 6 ms
+test galaxy ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+
+== second full execution (P7) ==
+battle arm: 11 passed (95.15 s); rows byte-identical to the first after dropping secs/slow — every
+  digest, contacts, epochs, carried and starved call-count reproduced, including the 1.2e7-call
+  budget-1 streams.
+allocator arm: 3 passed; 27/27 cells identical (digests equal one Chronon) in both executions;
+  0 digest flips. Scheduler metadata (units/merges/splits/rollbacks/over_budget) varies across
+  executions only where the schedule is wall-clock-fed by design: calibrated-budget cells (the
+  ops->time calibration measures the box) and fixed-budget cells with 8 workers (pick-order
+  races). Fixed budget + 1 worker: metadata deterministic. allocator lib.rs: "Forecasts,
+  sabotage and scheduling change speed, never results" — the results half is now bit-checked.
+
+== final source, final verdict ==
+After removing one dead store in the harness (no behavior change; zero warnings), both arms
+were re-executed from the final source: 11 + 3 passed, metrics regenerated, verdict PASS;
+rows identical. work/patch.diff is exactly the tree's delta vs HEAD (reverse-apply check).
+Note: the pre-existing stash@{0} in this worktree (universe.rs, commit 0d86cb4e) belongs to
+another run of the window and was left untouched.
