@@ -2,15 +2,36 @@ topic: memory-h-live
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261017-1918-dynamics-b8e2
-=======
-updated: 20261017-1918-fermi-b77d
->>>>>>> 20261017-1918-fermi-b77d
+updated: 20261017-2038-second-20261017-1918-fermi-b77d-1fcf
 
 # Memory at 10⁹ in 8 GB: live information per body (H_live), scars, the standing representation
 
 ## Current best
+**The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates
+`Vec` — `size_of::<(usize, Binding, Scalar)>` = 224 B (Binding 192) per window candidate, pooled fit
+226 B × C (r² 0.974) across a decade of crowd sizes (C = 1,028→8,156; one scene family, one
+seed — the capture term is sizeof-driven, the retention tail is not), quiet and loaded — so every larger
+per-scan number in the record (b77d's 475 B/cand and 0.4–0.55 kB band, 7bd9's 171 kB→2 MB/scan, the
+fermi checker's 2.2–2.5 kB/entry at K=2,400) is a window-slope artifact: births and dead-candidate
+`Entry` retention are collinear with held growth at the fixed 0.096/game-s arrival (b8e2's named trap,
+now demonstrated directly: per-transition deltas — the live-byte jump on the exact frame held +1 — give
+233/439/695/994/1,846 kB at cat 1,028/1,586/2,428/3,461/8,156 = 224–287 B/entry, while the same arms'
+window slopes give 0.4–77 MB/scan). The fence: 2,048 × 224 B × C ≈ 0.46 GB per 1,000 candidates —
+69 MB at the ladder's near set (C≈150), 8 GB at C ≈ 1.7×10⁴ on the capture term, ~5–8×10³ on the
+measured retained growth (window minus transition: the `Arc<Entry>` of candidates dying while held,
+~1–5× the capture term, phase-dependent; the capture itself pins no Entry while bodies live —
+ownership inferred from anatomy, the bytes measured). So the
+fence must count bytes at capture (one counter: candidates × 224 B) AND answer-or-drop at a game-s
+cadence for the retention tail (direction 1). The paced player loop (direction 3, flown): K = 1,000
+quiet drained / loaded froze (held_max 290 on the committed re-flight; 359–405 across reruns —
+470f's bimodality); K ≥ 1,600 froze in every arm presenting
+≥ 130 game-s (quiet, ambient 2.5–5.6); K = 4,000 loaded presented 25.8 game-s and never accumulated
+(crawl starves arrivals); K = 10⁴ presented 5–10 game-s — the warm per-frame gather costs
+66.8–74.1 ms p50 (≈ 7 µs/member, linear in K): the view, not the FLOW, is the crowd's first wall at
+10⁴ (20261017-2038-second-20261017-1918-fermi-b77d-1fcf, second author on fermi-b77d; counting
+GlobalAlloc + per-frame probe, print-only, `flowcrowd` example via the run's work/patch.diff; twelve
+arms, K = 1e3–1e4 × quiet/7-spinner loaded, paced, plus K = 4e3/1e4 unpaced).**
+
 **The FLOW's held-scan pin is ~0.4-0.55 kB per window candidate per held scan at window
 populations up to ~10³ entries (four scenes, two load regimes, and a third instrument:
 415/541/409 B per catalogue candidate on the 400-member, K=1,000-loaded and K=1,000-quiet
@@ -36,7 +57,6 @@ seed 1 threads 1; run 1 at load 0.4-1.2, regen run at ambient 9.25-13.79, both l
 with the load recorded; the run's own first reading "the ladder cannot starve" was an
 insufficient-load artifact, killed by the regen rerun and reported in predictions.md).**
 
-<<<<<<< main
 **The FLOW is a single-server queue past its stability point, and its law is measured end to end:
 arrivals are game-lawful, service is the frame-budget margin, and the count-latch is a bounded attractor
 never before observed engaged** (20261017-1918-dynamics-b8e2, dynamics; shipped code + print-only probe
@@ -68,8 +88,6 @@ arrival/departure/service law above — and both prior pins were the same under-
 
 *[The two 13:30 entries stand as prior bests, merged: their mechanisms are the one queue above.]*
 
-=======
->>>>>>> 20261017-1918-fermi-b77d
 **The bimodality's mechanism is named and knob-controlled: the growth is the engine's cleanup
 being wall-owned, not game-owned — the held encounter scans drain only while the frame's wall
 budget has `2·max(scan_ns, 750 µs)` left (universe.rs:1190; the condition itself is prior art —
@@ -99,13 +117,10 @@ fleet(s) of 400 members"), so the 800 arm is the 400 arm. The pin's N-scaling is
 real arms: 89–100 kB/scan at 100 members, 112 at 200 (checker, ms 0.5 arm) — not ∝ N; the
 concentration reading stands, the saturation evidence did not exist.
 
-<<<<<<< main
 *[The standing record (the FLOW bimodality, the catalogue intern, the rate and scar results, the
 wall ladder) is retained on main's page below this entry, unchanged.]*
 
 
-=======
->>>>>>> 20261017-1918-fermi-b77d
 **The FLOW's growing path is attributed, and the wall's load-path pin is priced: the accumulator is the
 held-scans queue, and the fence is one constant.** A 13-s flight pair on shipped code (counting GlobalAlloc
 + the two standing queue counters, `flow_attr` example; 400 members, coast, rtf 100, 3,600 frames): quiet
@@ -342,6 +357,8 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
 (20261012-1621-second-…-09a1).
 
 ## Refuted
+- **"The per-candidate pin is superlinear above ~10³ entries" (fermi-b77d's checker arm) and b77d's 475 B/candidate**: the true capture pin is flat 226 B × C (r² 0.974, per-transition deltas over cat 1,028–8,156); the superlinear window slopes alias birth churn collinear with held growth (20261017-2038-second-…-1fcf).
+- **"8 GB busts at ~8,500 window candidates" (b77d) and "at ~2×10³" (its checker)**: measured 0.46 GB per 1,000 candidates at the 2,048 cap — bust at ≈ 1.7×10⁴ on the capture term, ~5–8×10³ on retained growth (same run).
 
 - **"The bimodality is machine-load-dependent" (470f) and "the trigger is the wall-budget path, not the
   game state" as far as it goes**: the trigger class is frame-budget utilization — load, the player's own
@@ -442,34 +459,15 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
    (universe.rs:206), so a canonical drop (by tick, not by wall) keeps digests defined and
    deletes both the 2048-cap memory term and the catch-up spike. Scan answers are hashed, so the
    drop schedule must be canonical (a law-visible-none decision, like the comb cures).
-2. **A byte-sized fence, not a count-sized one** (fermi-b77d, from the ~475 B/candidate pin
-   law): SCAN_BACKLOG bounds the queue at 2,048 *scans*, so its byte bound is 2,048 × 475 B ×
-   window candidates — ~145 MB at the ladder's near set, 0.97 GB at 1,000 candidates,
-   2.33 GB at 2,400, 9.7 GB at 10⁴ — past the machine before it fires. Bound pinned bytes
-   (candidates × ~475 B, counted at capture) and drop past the byte budget; composes with
-   direction 1, costs one constant.
-3. Burn arm unflown here: thrust changes the player's item rate (the scan generation rate); the
-   backlog under burn, and the belt's window occupancy at 10⁵-10⁶, price the cap's true scale.
-   The paced per-frame-gather crowd rung (K = 2×10³-10⁴, quiet vs loaded, the real player loop)
-   prices the freeze's scene class — 0739's standing formations drained quiet; fermi-b77d's
-   dissolving battle froze quiet (unpaced loop, view gathered once).
+2. **A byte-sized fence, now measured** (fermi-b77d + second author): the capture term is 224 B × candidates (one counter at capture), the retention tail needs direction 1's game-s-cadence drop; the 2,048-count cap prices at 0.46 GB per 1,000 candidates.
+3. **Flown (second author): the paced crowd rung** — the freeze is deterministic at K ≥ 1,600 (quiet), the crawl starves arrivals at K = 4,000 loaded, and at K = 10⁴ the view's 74 ms/frame gather is the first wall (0 FLOW arrivals). Still open: the burn arm (thrust changes the item rate) and the belt's window occupancy at 10⁵–10⁶.
+   Scene class still open: 0739's standing formations drained quiet while every crowd froze —
+   the drain's viability is scene-owned, and this run flew the crowd family only.
 
 ## Contradictions
-<<<<<<< main
 
 - None: the 13:30 conflict is resolved (one queue; both mechanisms stand, both pins corrected); the
   residual uncertainty is the pin's phase dependence (early-flight pins are worst-case; late-flight ~90-115 kB).
-=======
-- The 84 kB/scan is RSS-slope ÷ held-slope on one arm (a direct pinned-`Arc` count
-  could move it ×2); the settle-spike split between scan pins and prune-bypassed history is
-  arithmetic (c304's per-kick figure carries that half), not separately instrumented.
-- Named, not live: 0739's "below the latch the answers drain into quiet frames" (standing
-  formations beside a belt, quiet) against fermi-b77d's total freeze at K = 1,000 (a
-  dissolving battle, unpaced loop, quiet and loaded alike) — the drain's viability is
-  scene-owned (idle-frame structure vs the answer's ~4.4 ms margin); the rung in direction 3
-  decides the class, and the byte-fence (direction 2) is safe under either reading.
-
->>>>>>> 20261017-1918-fermi-b77d
 
 ## Runs
 - 20261012-1524-fermi-4b55 (silver): H_live term decomposition — rebinds,
@@ -586,3 +584,4 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
 - 20261017-1918-dynamics-b8e2 (dynamics): the held-scans queue's law measured — λ game-lawful (0.053–0.064/gs), service = the frame-budget margin (load/rtf/budget one knob; quiet rtf600 grows), pin(m) 87/214/313 kB (m^0.9, quiet-subtracted), the latch observed engaged (bounded attractor, pays in presented time); fence must be bytes.
 - 20261017-1918-fermi-b77d (fermi): the pin law ~450 B/candidate/held-scan on four scenes and two load regimes (third instrument; reconciles 4b8c's and 7bd9's per-scan numbers); oversubscription freezes every scene including the ladder (+6.9 kB/gs, pin 63-71 kB near-set); the count-fence's byte bound 0.97 MB × candidates/1000 busts 8 GB at ~8,500 window candidates — bound pinned bytes; my own "cannot starve" first reading killed by the regen rerun. The 4b8c/7bd9 conflict folded (both entries kept). [Checker: deliberate 9-way load reproduces run 2 (held 422, 76 kB/scan, 0.0966/gs, monotone); N=1e4 pins 67 kB/scan (near-set holds downward); K=2,400 pins 5-6 MB/scan — the sub-kB law dies superlinearly and the fence busts 8 GB at ~2×10³ candidates.]
 - 20261007-0933-second-20261007-0842-fermi-fc22-a7d0 (gold): fc22's ≤ 1 MB holds in 3-D only; planar belts (all shipped ones) write ~209 MB/game at 10⁹.
+- 20261017-2038-second-20261017-1918-fermi-b77d-1fcf (this run, second author on fermi-b77d): the pin measured in real bytes at capture — 226 B × C (r² 0.974), the candidates Vec; the superlinear window pins are birth-churn aliasing; fence 0.46 GB/1,000 cands; the view (74 ms/frame), not the FLOW, is the crowd's wall at 10⁴.

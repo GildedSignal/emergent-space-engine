@@ -2,11 +2,34 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1240-second-20261017-1149-fermi-de7b-f790
+updated: 20261017-2038-components-3570
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+**The boundary comb is priced in information and it is a no-op machine: 99.88% of belt
+boundaries carry zero news.** On the shipped `nladder 10000 coast 150 1800` (10,028 bodies,
+90,342 game-s flown ≈ 3.2 intervals (nominal 270,000; checker regen 189,455 game-s ≈ 6.7
+at the same fractions), 336,767 probed events; `BOUND_PROBE` print-only census,
+state deltas + wall ns per kick/boundary): 167,609 boundaries vs 169,158 kicks (parity
+0.991), and **167,413/167,609 reproduce the previous interval and step exactly, fire no
+certificate, kill nothing — 0.117% carry all the news** (196 plan changes, 15 of them
+moving the step too, 0 deaths; trajectories 99.66% Cycle). Boundary wall p50 25.2 µs / mean 32.3 µs
+(shared box; kick p50 50.4 µs, ratio 2.0×), so **27.8% of the kick+boundary resolver CPU
+buys 0 bits** — agreeing with 8ffc's independent +25–26% comb-mass reading. The floor: the
+certificates are a function of r ∈ [periapsis, apoapsis] of the cycle the kick just bound
+(readout = radius × doll scale), and the plan repeats on the aligned grid, so a steady
+body's boundary has no output at all; an exact key-range test at kick time (~ns inside the
+50 µs kick) decides whether to schedule it — split-path belt events 2 → 1 per body per
+interval (the clock path's 17% is a read tick, untouched),
+9.96 → ~7.2 M1 cores in the ledger arithmetic. Adoption is a law change (digest moves,
+B-gates and the comb freeze re-freeze; the range test can only catch more surface
+violations, never fewer). The surface margin is NOT safe (41.3% of boundaries at r < 2×
+surface in doll units — the exact test is load-bearing; the edge side is deep: 96.9% under
+1/16 of the doll edge) (20261017-2038-components-3570, components; predictions P1/P3/P4/P5
+held, P2's surface half failed as pre-registered).**
+
+
 **Open direction 1 is decided: the boundary comb is welded to the kick comb's own step and
 rides every step-length lever.** `kick_clock` schedules both items from one `full`
 (boundary at `t + full/2`, kick at `t + full`; `step.rs:705/717/718`; `boundary_clock` plans
@@ -369,3 +392,4 @@ attribution.]
 - 20261017-0552-fermi-4e2d (fermi, this run): the 10⁹ ledger recomposed — 10.3 M1 cores at flown legality (2.6× over), encounters closed on the adjudicated anchor (source-verified), dwell window [~100, ~115] gs at split 8 (razor); one dial (split ≥ 21×) closes CPU and memory together.
 - 20261017-1149-fermi-de7b (fermi, this run): the boundary comb rides the step lever (3 octaves, per-body identities exact, 100% of bodies); the 10⁹ pinned-boundary floor is dead; riding stands — 9.96 M1 cores at split 8, S* ≈ 19.9×.
 - 20261017-1240-second-20261017-1149-fermi-de7b-f790 (second author): the named misses closed — BELT_SPLIT flown directly (8× both combs, identities exact, 9,700/9,700), seeds 2–3 identical, record byte-reproduced; gold stands.
+- 20261017-2038-components-3570 (components, silver): the boundary comb census — 99.88% no-op, 27.8% of belt resolver CPU for 0 bits; key-range design priced; checker: no-op holds at N=3×10⁴ (99.96%) and on the burn arm (99.91%), news class = Passage bodies (~25 fixed, 269/275), coverage headline corrected; gold awaits the kick-time key-range test flown.

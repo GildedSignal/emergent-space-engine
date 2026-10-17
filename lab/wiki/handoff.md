@@ -2,11 +2,31 @@ topic: handoff
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1240-scout-f666
+updated: 20261017-2038-scout-8dfb
 
 # Handoffs between dolls and the doll boundary
 
 ## Current best
+
+**[Inventory, the named hole filled in float (20261017-2038-scout-8dfb, scout):] the
+inclined Kerr orbit is a compiled 2-torus in Mino time whose six per-(E, L_z, Q)
+constants (Λ_r, Λ_θ, ΔΦ_r, ΔΦ_θ, Δt_r, Δt_θ) are closed forms in the law's own
+kernel family (Π = RF + (n/3)·RJ, verified 1e-16; K/E as shipped) — CF vs 30-dps
+separated quadrature ≤ 3.7e-12 on all 120 comparisons (21 orbits × 6: a 0.2–0.998,
+e to 0.9, pro/retro, near-separatrix p = 6.8), the coupled geodesic RK confirming at
+its own 1e-4 resolution, and the controls holding: at a = 0, ΔΦ_r ≡ 0 identically,
+radial constants inclination-independent to 4.9e-10, and 2π·Λ_r/Λ_θ = 2π/√(1−6/p) to
+7.7e-5 — the Schwarzschild apsidal precession is the period ratio alone; at z → 0
+the radial constants match the equatorial row to 1e-11 and Λ_θ → 2π/√(B) exactly
+(the small-Q harmonic limit: amplitude collapses, period does not — the
+pre-registered "Λ_θ → 0" was wrong and is recorded as missed). Sources verified at
+arXiv (Fujita-Hikida 0906.1420; Schmidt gr-qc/0202090; Drasco-Hughes
+astro-ph/0308479); every reduction asserted numerically in-instrument (the asserts
+caught three of the author's own errors: transposed 3×3, wrong pole decomposition,
+wrong remembered ∂ₙΠ). Not measured: the integer port (Q's word), the float ∂ₙΠ
+recurrence dt_r needs (the instrument uses a 40-dps mpmath derivative of the same
+kernel), resonant-torus readout conditioning, the complex-pair root case, and any
+kick/rebind on a three-word key — the build step's edges, named.]**
 
 **[Surface, the rule class decided (20261017-1240-scout-f666, scout):] the chatter is
 Zeno and the cure is the decision variable, not the band.** Deciding **once per apsis**
@@ -297,8 +317,14 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
    the negative-a `isco` slide ship unfixed (fa4b; 6586).
 7. **Fix B11's precession oracle to 2PN** before the motion law v2's binaries are judged
    — a 1.5 s reference closes it (ecfd).
-8. **Inclined Kerr** — the one named hole in the doll inventory; nothing tests it
-   (fa4b's domain).
+8. **Inclined Kerr — the candidate is now derived and falsified in float** (scout-8dfb,
+   Current best above): a (E, L_z, Q) compiled 2-torus in the shipped Carlson kernel
+   family, six constants per key, closed to 3.7e-12 against separated quadrature with
+   RK confirmation at 1e-4 and the a=0/equatorial controls. What remains for the build:
+   the integer port (Q word width, exact advances), B19's shape extended to Q ≠ 0, the
+   float ∂ₙΠ recurrence (dt_r's one basis element), resonant-torus t-inversion, the
+   refusal path at Λ_r → ∞, and the complex-pair radial root case (fa4b's domain plus
+   this run's page).
 
 ## Contradictions
 
@@ -340,3 +366,4 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
 - 20261015-1747-redteam-de98 (silver): the two-body doll's ν-blindness uncertifiable below p̄≈30M — the DJS-2PN oracle is 5–16% from the doll's own geodesic at ν→0; ecfd's +0.36% not reproducible at matched invariants; r3 v4 needs a numerical-GR oracle or a stated p̄≥50M domain.
 - 20261015-1926-second-20261015-1747-redteam-de98-97b0 (awaiting grade): the contradiction adjudicated with a primary-source 3PN EOB — ecfd's number is a wrong-coefficient artifact, de98's corrected contour undershoots 1.5–13×; measured: 1% crossing at p̄≈65M (ν=0.25), fabricated-plunge band ≥2M wide at ν=0.25; r3 v4's oracle exists.
 - 20261017-1240-scout-f666 (scout, this run): the surface rule class — per-apse, per-cycle radial extent vs the empirical stability radius (Λ-continuous); shipped predicate's chatter 9.4/orbit unbounded killed to 0, 1/transition, kick-robust vs hysteresis's 76.
+- 20261017-2038-scout-8dfb (scout, this run): inclined Kerr compiled as a Mino-time

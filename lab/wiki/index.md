@@ -5,7 +5,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [calendar](calendar.md) | open | 1 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
+| [calendar](calendar.md) | open | 2 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
@@ -24,15 +24,15 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
 | [allocator-ratchet](allocator-ratchet.md) | open | 16 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
-| [handoff](handoff.md) | open | 16 | **[Surface, the rule class decided (20261017-1240-scout-f666, scout):] the chatter is |
+| [handoff](handoff.md) | open | 17 | **[Inventory, the named hole filled in float (20261017-2038-scout-8dfb, scout):] the |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [kick-cadence](kick-cadence.md) | open | 55 | **Open direction 1 is decided: the boundary comb is welded to the kick comb's own step and |
+| [kick-cadence](kick-cadence.md) | open | 56 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |
-| [memory-h-live](memory-h-live.md) | open **conflict to resolve** | 112 | **The FLOW's held-scan pin is ~0.4-0.55 kB per window candidate per held scan at window |
+| [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |
