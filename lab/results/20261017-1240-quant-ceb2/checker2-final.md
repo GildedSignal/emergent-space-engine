@@ -1,0 +1,10 @@
+Working...
+Check complete. **Grade: silver** — written to `lab/results/20261017-1240-quant-ceb2/check2.md`.
+
+**What I did (independent of the first checker):**
+- **Reproduced**: applied `work/patch.diff` to the clean tree, ran `regen.sh` end to end — sizes and both wave counters **bit-identical** (577,535 allocs / 650,057,850 B / 34,537 kicks at N=3000; 687,214 / 506,974,074 / 41,537 at N=10000). Micro within the disclosed wobble except e=0.01 hot read (2.0–2.2 µs across three executions, not the dossier's 2.9–3.3).
+- **Five adversarial arms**, all outside the author's tested set: e=0.999/0.9999 (177/230 knots — cold delta flat, data-only ≤0.65 µs), N=30000 (9,601 B/kick, *below* the claimed 12.2–18.8 KB range — bytes are not flat in N), a zero-kick attribution probe (190 allocs/frame background: ≤3.4% of bytes but up to ~40% of the alloc count — the 16.7 allocs/kick headline is inflated; marginal rate ≈14–15), statics verified exactly in `crates/space/src/tables.rs`, and the p=7 compile-domain edge confirmed (`NoBoundOrbit` at e ≥ 0.60). Every arm **strengthens** the load-bearing verdict: the event path is compute-bound by ≥43×, and at 10⁹ the wall is capacity, not bandwidth.
+- **Novelty**: bytes/event and the roofline are new; but fermi-061f already counted 9 allocs/kick (uncited), and 4ea0 had already concluded "sharing, not eviction" on the read side.
+- **Page**: corrected two residual overstatements in place (byte envelope 9.6–19.7 KB with allocs-flat phrasing; Runs line 2.2×→2.2–4×).
+
+**Why silver, not gold**: two of four pre-registered predictions died on their own kill rules (P2's outcome is misreported against its own ≥15% rule — it holds only at e ≥ 0.9), the shared-footprint diagnosis is post-hoc and wobbles 62–92% across executions, and the headline needed five numeric corrections. The gold experiment is named: re-register the corrected ranges and run a fresh held-out set (new seed, e=0.75, stronger in-domain p, the strong-e plane population). Tree restored clean; nothing else in the run folder touched.

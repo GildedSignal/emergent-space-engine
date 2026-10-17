@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place and verified: `predictions.md` (pre-registered, one prediction killed and diagnosed), `dossier.md`, `regen.sh` (ran end-to-end in 41 s, counters bit-identical), `wiki/kick-jet.md` (result folded in), and the print-only `bwfloor.rs` instrument.
+
+**Claim:** the kick's byte bill is measured for the first time — 12.2–18.8 KB of allocation traffic (16.5–16.7 allocs) per fired kick, a bandwidth floor of 0.18–1.1 µs/event that sits 45–900× under the kick's compute — so the event path is compute-bound at every N and the memory wall at 10⁹ is capacity, never bandwidth — while the readout's cold-cache tax (+3.0–3.9 µs, 103–167% of hot) is ~75–85% shared code footprint, not the knot table, leaving a765's ~6 µs arithmetic floor as the kick's binding floor and the Carlson wiring as the standing lever.

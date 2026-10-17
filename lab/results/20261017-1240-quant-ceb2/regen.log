@@ -1,0 +1,55 @@
+== sizes: struct sizes and allocator-counted compile write bill (evidence 1) ==
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.13s
+     Running `/home/glmlab/lab-target-2/release/examples/bwfloor sizes`
+sizes: Knot=88 OrbitShape=224 Orbit=200 Scalar=16 usize=8
+compile e=0.01 p=1.2e9: knots=6 knot_bytes=528 allocs=4 alloc_bytes=1384 build_us=23.9
+compile e=0.30 p=1.2e9: knots=16 knot_bytes=1408 allocs=8 alloc_bytes=3016 build_us=12.9
+compile e=0.60 p=1.2e9: knots=33 knot_bytes=2904 allocs=11 alloc_bytes=11720 build_us=26.4
+compile e=0.90 p=1.2e9: knots=69 knot_bytes=6072 allocs=14 alloc_bytes=24520 build_us=50.4
+compile e=0.99 p=1.2e9: knots=124 knot_bytes=10912 allocs=14 alloc_bytes=24520 build_us=105.8
+compile e=0.30 p=7: knots=20 knot_bytes=1760 allocs=9 alloc_bytes=5832 build_us=49.3
+== micro: hot/cold read and compile, code-vs-data split (evidence 3) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/bwfloor micro`
+calib: stream 16.1 GB/s (sink 20971524194303)
+  e=0.01 p=1.2e9: evictor pass 8.2 ms/call
+read  e=0.01 p=1.2e9: knots=6 hot=2020 ns cold=5211 ns delta=3191 ns (158% of hot)
+comp  e=0.01 p=1.2e9: hot=3384 ns cold=7373 ns delta=3989 ns (118% of hot)
+split e=0.01 p=1.2e9: code-warmed read=3217 ns (hot=2020, cold=5211; data-only delta=1197 ns)
+  e=0.30 p=1.2e9: evictor pass 8.2 ms/call
+read  e=0.30 p=1.2e9: knots=16 hot=2925 ns cold=6350 ns delta=3425 ns (117% of hot)
+comp  e=0.30 p=1.2e9: hot=11273 ns cold=17194 ns delta=5921 ns (53% of hot)
+split e=0.30 p=1.2e9: code-warmed read=4224 ns (hot=2925, cold=6350; data-only delta=1299 ns)
+  e=0.60 p=1.2e9: evictor pass 8.2 ms/call
+read  e=0.60 p=1.2e9: knots=33 hot=2971 ns cold=6359 ns delta=3388 ns (114% of hot)
+comp  e=0.60 p=1.2e9: hot=22731 ns cold=28162 ns delta=5431 ns (24% of hot)
+split e=0.60 p=1.2e9: code-warmed read=4207 ns (hot=2971, cold=6359; data-only delta=1236 ns)
+  e=0.90 p=1.2e9: evictor pass 7.9 ms/call
+read  e=0.90 p=1.2e9: knots=69 hot=2918 ns cold=6211 ns delta=3293 ns (113% of hot)
+comp  e=0.90 p=1.2e9: hot=46611 ns cold=52736 ns delta=6125 ns (13% of hot)
+split e=0.90 p=1.2e9: code-warmed read=3632 ns (hot=2918, cold=6211; data-only delta=714 ns)
+  e=0.99 p=1.2e9: evictor pass 8.2 ms/call
+read  e=0.99 p=1.2e9: knots=124 hot=2915 ns cold=6244 ns delta=3329 ns (114% of hot)
+comp  e=0.99 p=1.2e9: hot=83481 ns cold=89392 ns delta=5911 ns (7% of hot)
+split e=0.99 p=1.2e9: code-warmed read=3591 ns (hot=2915, cold=6244; data-only delta=676 ns)
+  e=0.30 p=7: evictor pass 8.1 ms/call
+read  e=0.30 p=7: knots=20 hot=4983 ns cold=8234 ns delta=3251 ns (65% of hot)
+comp  e=0.30 p=7: hot=29665 ns cold=34727 ns delta=5062 ns (17% of hot)
+split e=0.30 p=7: code-warmed read=5398 ns (hot=4983, cold=8234; data-only delta=415 ns)
+== wave N=3000 and held-out N=10000: per-kick allocation traffic (evidence 2) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/bwfloor wave 3000 20000`
+wave N=3000 game_s=20000: build 124.9ms fly 4.8s frames=1201 kicks=34537
+  scenario allocs=26021 bytes=13430014
+  flight allocs=577535 bytes=650057850 per_kick allocs=16.7 bytes=18822
+  flight alloc GB/s=0.137
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/bwfloor wave 10000 20000`
+wave N=10000 game_s=20000: build 425.3ms fly 4.3s frames=1201 kicks=41537
+  scenario allocs=85349 bytes=48410174
+  flight allocs=687214 bytes=506974074 per_kick allocs=16.5 bytes=12205
+  flight alloc GB/s=0.118
+Roofline arithmetic (evidence 4):
+N=3000: 18822 B/kick -> 277 ns at 68 GB/s, 1107 ns at 17 GB/s; vs 50-165 us compute: 181-596x under the roof
+N=10000: 12205 B/kick -> 179 ns at 68 GB/s, 718 ns at 17 GB/s; vs 50-165 us compute: 279-919x under the roof

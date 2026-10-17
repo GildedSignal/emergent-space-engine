@@ -1,0 +1,258 @@
+diff --git a/crates/universe/examples/bwfloor.rs b/crates/universe/examples/bwfloor.rs
+new file mode 100644
+index 00000000..140779f3
+--- /dev/null
++++ b/crates/universe/examples/bwfloor.rs
+@@ -0,0 +1,252 @@
++//! The event path's byte bill and the bandwidth floor (Quant lens, 20261017-1240-quant-ceb2).
++//!
++//! Three instruments, one process, no OS counters (the lab box allows none):
++//! 1. `sizes` — exact struct sizes and allocator-counted table bytes per `Orbit::compile` across the
++//!    e ladder (the per-event write bill; the tables the kick rewrites every rebind).
++//! 2. `micro` — hot vs cache-cold timing of the shipped readout (`signed_state`) and compile, with an
++//!    interleaved evictor and a bandwidth calibration pass: the memory-time share of each primitive.
++//! 3. `wave N [game_s]` — the ladder's first-kick wave flown on shipped code with the counting
++//!    allocator live: allocs and bytes per fired event during the wave (the churn bill).
++//!
++//! cargo run --release -p emergent-universe --example bwfloor [-- sizes|micro|wave 3000 20000]
++use emergent_space::orbit::{Knot, Orbit, OrbitKey, OrbitShape, Scalar};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Budget;
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::time::Instant;
++
++static ALLOCS: AtomicU64 = AtomicU64::new(0);
++static ALLOC_BYTES: AtomicU64 = AtomicU64::new(0);
++static FREES: AtomicU64 = AtomicU64::new(0);
++static FREE_BYTES: AtomicU64 = AtomicU64::new(0);
++
++struct Counting;
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        ALLOCS.fetch_add(1, Relaxed);
++        ALLOC_BYTES.fetch_add(l.size() as u64, Relaxed);
++        System.alloc(l)
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        FREES.fetch_add(1, Relaxed);
++        FREE_BYTES.fetch_add(l.size() as u64, Relaxed);
++        System.dealloc(p, l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
++        ALLOCS.fetch_add(1, Relaxed);
++        ALLOC_BYTES.fetch_add(n as u64, Relaxed);
++        FREES.fetch_add(1, Relaxed);
++        FREE_BYTES.fetch_add(l.size() as u64, Relaxed);
++        System.realloc(p, l, n)
++    }
++}
++
++#[global_allocator]
++static A: Counting = Counting;
++
++
++fn counters() -> [u64; 4] {
++    [ALLOCS.load(Relaxed), ALLOC_BYTES.load(Relaxed), FREES.load(Relaxed), FREE_BYTES.load(Relaxed)]
++}
++
++/// e ladder at a planet-like doll (p = 1.2e9 M, cost.rs's key) plus one strong-field probe.
++fn keys() -> Vec<(String, OrbitKey)> {
++    let p = Scalar::integer(1_200_000_000);
++    let e = |n: u64, d: u64| (1u64 << 48) / d * n;
++    vec![
++        ("e=0.01 p=1.2e9".into(), OrbitKey::bound(p, e(1, 100)).unwrap()),
++        ("e=0.30 p=1.2e9".into(), OrbitKey::bound(p, e(3, 10)).unwrap()),
++        ("e=0.60 p=1.2e9".into(), OrbitKey::bound(p, e(3, 5)).unwrap()),
++        ("e=0.90 p=1.2e9".into(), OrbitKey::bound(p, e(9, 10)).unwrap()),
++        ("e=0.99 p=1.2e9".into(), OrbitKey::bound(p, e(99, 100)).unwrap()),
++        ("e=0.30 p=7".into(), OrbitKey::bound(Scalar::integer(7), e(3, 10)).unwrap()),
++    ]
++}
++
++fn sizes() {
++    println!("sizes: Knot={} OrbitShape={} Orbit={} Scalar={} usize={}",
++        std::mem::size_of::<Knot>(), std::mem::size_of::<OrbitShape>(),
++        std::mem::size_of::<Orbit>(), std::mem::size_of::<Scalar>(), std::mem::size_of::<usize>());
++    for (name, key) in keys() {
++        let c0 = counters();
++        let t0 = Instant::now();
++        let orbit = Orbit::compile(key).unwrap();
++        let build_us = t0.elapsed().as_secs_f64() * 1e6;
++        let c1 = counters();
++        let knots = orbit.shape().knots().len();
++        let d_alloc = c1[0] - c0[0];
++        let d_bytes = c1[1] - c0[1];
++        let knot_bytes = (knots as u64) * (std::mem::size_of::<Knot>() as u64);
++        println!("compile {name}: knots={knots} knot_bytes={knot_bytes} allocs={d_alloc} alloc_bytes={d_bytes} build_us={build_us:.1}");
++    }
++}
++
++/// Touch every 64 B line of a large buffer: evicts every cache level, doubles as the
++/// bandwidth calibration (a full pass timed). The sum is stored back so no two calls
++/// are CSE-able (the first version was, and its cold arms silently ran hot).
++fn evictor(buf: &mut [u64]) -> u64 {
++    let mut s = 0u64;
++    for c in buf.chunks_exact_mut(8) {
++        s = s.wrapping_add(c[0]);
++    }
++    buf[0] = s;
++    s
++}
++
++/// Split the cold tax: evict everything, warm the CODE path once on another key
++/// (unmeasured), then time the read on this key — only its own data is still cold.
++fn split_arm(orbit: &Orbit, warm: &Orbit, t: &mut Scalar, step: &Scalar, buf: &mut [u64]) -> f64 {
++    std::hint::black_box(evictor(buf));
++    let _ = warm.signed_state(*t).unwrap();
++    let a = Instant::now();
++    let _ = orbit.signed_state(*t).unwrap();
++    let b = Instant::now();
++    *t = t.add(*step).unwrap();
++    (b - a).as_secs_f64() * 1e9
++}
++
++
++fn median(v: &mut [f64]) -> f64 {
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn micro() {
++    let reps = 300usize;
++    let cold_reps = 60usize;
++    let rounds = 3usize;
++    let mib = 128usize * 1024 * 1024 / 8;
++    let mut buf: Vec<u64> = vec![1u64; mib];
++    // bandwidth calibration: two timed passes
++    let t0 = Instant::now();
++    let sink = evictor(&mut buf);
++    let pass1 = t0.elapsed().as_secs_f64();
++    let t0 = Instant::now();
++    let sink2 = evictor(&mut buf);
++    let pass2 = t0.elapsed().as_secs_f64();
++    let gbs = 2.0 * (mib as f64 * 8.0) / (pass1 + pass2) / 1e9;
++    println!("calib: stream {gbs:.1} GB/s (sink {sink}{sink2})");
++
++    for (name, key) in keys() {
++        let orbit = Orbit::compile(key).unwrap();
++        let knots = orbit.shape().knots().len();
++        let mut hot_all: Vec<f64> = Vec::new();
++        let mut cold_all: Vec<f64> = Vec::new();
++        let mut hot_compile: Vec<f64> = Vec::new();
++        let mut cold_compile: Vec<f64> = Vec::new();
++        for _round in 0..rounds {
++            // hot read batch
++            let mut t = Scalar::integer(1_000_000).scale(10).unwrap();
++            let step = Scalar::integer(1_000_003).scale(10).unwrap();
++            let t0 = Instant::now();
++            for _ in 0..reps {
++                let _ = orbit.signed_state(t).unwrap();
++                t = t.add(step).unwrap();
++            }
++            hot_all.push(t0.elapsed().as_secs_f64() * 1e9 / reps as f64);
++            // hot compile batch
++            let t0 = Instant::now();
++            for _ in 0..reps / 3 {
++                let _ = Orbit::compile(key).unwrap();
++            }
++            hot_compile.push(t0.elapsed().as_secs_f64() * 1e9 / (reps / 3) as f64);
++            // cold read batch: evictor between calls
++            let mut w = Vec::with_capacity(cold_reps);
++            let mut t = Scalar::integer(1_000_000).scale(10).unwrap();
++            for _ in 0..cold_reps {
++                std::hint::black_box(evictor(&mut buf));
++                let a = Instant::now();
++                let _ = orbit.signed_state(t).unwrap();
++                let b = Instant::now();
++                t = t.add(step).unwrap();
++                w.push((b - a).as_secs_f64() * 1e9);
++            }
++            cold_all.push(median(&mut w));
++            // cold compile batch
++            let mut cw = Vec::with_capacity(cold_reps / 3);
++            for _ in 0..cold_reps / 3 {
++                std::hint::black_box(evictor(&mut buf));
++                let a = Instant::now();
++                let _ = Orbit::compile(key).unwrap();
++                let b = Instant::now();
++                cw.push((b - a).as_secs_f64() * 1e9);
++            }
++            cold_compile.push(median(&mut cw));
++            // evictor-only loop of the same shape (the subtraction control)
++            let t0 = Instant::now();
++            for _ in 0..cold_reps {
++                std::hint::black_box(evictor(&mut buf));
++            }
++            let per_evict_ns = t0.elapsed().as_secs_f64() * 1e9 / cold_reps as f64;
++            if _round == 0 {
++                println!("  {name}: evictor pass {:.1} ms/call", per_evict_ns / 1e6);
++            }
++        }
++        let hot = median(&mut hot_all);
++        let cold = median(&mut cold_all);
++        let hc = median(&mut hot_compile);
++        let cc = median(&mut cold_compile);
++        println!("read  {name}: knots={knots} hot={hot:.0} ns cold={cold:.0} ns delta={:.0} ns ({:.0}% of hot)", cold - hot, (cold - hot) * 100.0 / hot);
++        println!("comp  {name}: hot={hc:.0} ns cold={cc:.0} ns delta={:.0} ns ({:.0}% of hot)", cc - hc, (cc - hc) * 100.0 / hc);
++        // code-vs-data split: cold tax with the code path warmed on another key
++        let warm_orbit = {
++            let wk = if knots < 40 { keys().last().unwrap().1 } else { keys().first().unwrap().1 };
++            Orbit::compile(wk).unwrap()
++        };
++        let mut sp: Vec<f64> = Vec::new();
++        for _ in 0..rounds {
++            let mut t = Scalar::integer(1_000_000).scale(10).unwrap();
++            let step = Scalar::integer(1_000_003).scale(10).unwrap();
++            let mut w = Vec::with_capacity(cold_reps);
++            for _ in 0..cold_reps {
++                w.push(split_arm(&orbit, &warm_orbit, &mut t, &step, &mut buf));
++            }
++            sp.push(median(&mut w));
++        }
++        let sp = median(&mut sp);
++        let d = sp - hot;
++        println!("split {name}: code-warmed read={sp:.0} ns (hot={hot:.0}, cold={cold:.0}; data-only delta={d:.0} ns)");
++    }
++}
++fn wave(n: usize, game_s: f64) {
++    let cut = (game_s / TICK_SECONDS) as i64;
++    let c0 = counters();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Default::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed();
++    let c1 = counters();
++    let a0 = counters();
++    let t0 = Instant::now();
++    let mut frames = 0u64;
++    for _ in 0..400_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, 1000.0, Budget::unlimited(), cut);
++        frames += 1;
++    }
++    let fly = t0.elapsed();
++    let a1 = counters();
++    let (dk, de) = (a1[0] - a0[0], a1[1] - a0[1]);
++    let kicks = p.u.stats.kicks;
++    println!("wave N={n} game_s={game_s:.0}: build {build:.1?} fly {fly:.1?} frames={frames} kicks={kicks}",);
++    println!("  scenario allocs={} bytes={}", c1[0] - c0[0], c1[1] - c0[1]);
++    println!("  flight allocs={dk} bytes={de} per_kick allocs={:.1} bytes={:.0}", dk as f64 / kicks as f64, de as f64 / kicks as f64);
++    println!("  flight alloc GB/s={:.3}", de as f64 / fly.as_secs_f64() / 1e9);
++}
++
++fn main() {
++    match std::env::args().nth(1).unwrap_or_default().as_str() {
++        "sizes" => sizes(),
++        "micro" => micro(),
++        "wave" => {
++            let n: usize = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(3000);
++            let g: f64 = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(20000.0);
++            wave(n, g);
++        }
++        _ => println!("usage: bwfloor sizes|micro|wave [N game_s]"),
++    }
++}
