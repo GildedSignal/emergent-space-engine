@@ -1,0 +1,37 @@
+== steady-state wave (70-150 ks, N=1e5, seed 1), interleaved pairs ==
+run            wave_cpu  apply_ns root_calls  root_ns  proc_ns  event_ns digest
+p1-pristine       96.50    7166.3     801885   5922.3  32426.7   40089.6 07891363
+p1-patched        74.47    2331.2     801885   1240.8  27789.5   30547.9 07891363
+p2-pristine       81.05    6119.6     801885   5031.3  27089.4   33637.6 07891363
+p2-patched        68.16    2175.1     801885   1144.4  25118.2   27693.7 07891363
+p3-pristine       76.67    5825.1     801885   4806.2  25517.1   31765.6 07891363
+p3-patched        69.84    2268.1     801885   1201.9  25764.5   28437.3 07891363
+wave CPU drop per pair (raw): ['8.9%', '15.9%', '22.8%']  median 15.9%
+event cycle (process+apply+requeue) drop per pair: ['10.5%', '17.7%', '23.8%']  median 17.7%
+wave CPU drop, control-normalized (wave_cpu/process_ns): ['9.3%', '9.8%', '10.0%']  median 9.8%
+  p1 control drift (process ns/call): 32427 -> 27790 (-14.3%)
+  p2 control drift (process ns/call): 27089 -> 25118 (-7.3%)
+  p3 control drift (process ns/call): 25517 -> 25764 (+1.0%)
+  apply stage drop per pair: ['67.5%', '64.5%', '61.1%']
+  ROOT stage drop per pair:  ['79.0%', '77.3%', '75.0%']
+  apply ns/call saved per pair: ['4835', '3945', '3557']  (x 2.08 events/kick = ['10.1', '8.2', '7.4'] us/kick)
+
+== first wave (13-15 ks) ==
+w1-pristine    wave_cpu=55.05 apply_ns=5313.0 root_calls/kick=1.028 digest=0d8ced8083d27963…
+w1-patched     wave_cpu=51.04 apply_ns=1714.6 root_calls/kick=1.028 digest=0d8ced8083d27963…
+
+== digest identity across arms ==
+0789136370007234… : 7 runs: census, p1-patched, p1-pristine, p2-patched, p2-pristine, p3-patched, p3-pristine
+0d8ced8083d27963… : 2 runs: w1-patched, w1-pristine
+distinct digests: 2 (5ade pristine anchors: 0789136370007234… steady, 0d8ced8083d27963… first wave)
+
+== belt verify census (ES_POS_VERIFY=1, patched arm) ==
+pos probe (handed, walked, mismatch): (1446412, 100091, 720562)
+Kick      handed= 725976 mismatch=    283 |dx| in [165.949740, 36054.9]
+Open      handed=    561 mismatch=    404 |dx| in [165.958618, 30911.3]
+Boundary  handed= 719845 mismatch= 719845 |dx| in [0.001357, 682077.6]
+Handoff   handed=      0 mismatch=      0 |dx| in [inf, 0.0]
+Lost      handed=     30 mismatch=     30 |dx| in [0.000024, 1150.5]
+Refused   handed=      0 mismatch=      0 |dx| in [inf, 0.0]
+coverage: 1446412/1546503 = 93.53% of all non-player applies (the 100091 fallbacks are the belt's birth replans)
+census wave_cpu=103.74 (verify mode pays both paths; not a timing arm)

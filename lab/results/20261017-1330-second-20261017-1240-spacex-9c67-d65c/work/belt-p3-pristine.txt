@@ -1,0 +1,16 @@
+waveprobe: N=100000 build_s=4.51 wave_s=29.84 hwm_mib=1544
+wave: kicks=389200 boundaries=420419 other_events=11 digest=0789136370007234d1ec61d565def7850938b1b96db5bed37fe486ae5759cdee
+stage                          ms        calls    ns/call   per_kick
+rekey (all deadlines)            73.17          2 36587237.0     0.000
+position walk (root_state_raw)   3854.00     801885    4806.2     2.060
+apply (whole)                  4716.15     809630    5825.1     2.080
+requeue                         385.13     909684     423.4     2.337
+process (whole)               20659.44     809630   25517.1     2.080
+fit: bind_surface (kicks, hand-outs)   7458.29     389211   19162.6     1.000
+take_due                         13.48     581062      23.2     1.493
+encounters: capture (cheap half)    958.83       7745  123799.5     0.020
+encounters: held scans answered   2547.12       7745  328873.1     0.020
+item: kick (Wisdom-Holman)     4658.81     121168   38449.2     0.311
+item: kick (clock)            12323.72     268032   45978.5     0.689
+item: boundary                 3697.06     420430    8793.5     1.080
+us_per_kick: total_wave_cpu=76.67 kick_clock_ms=12323.7 fit_ms=7458.3

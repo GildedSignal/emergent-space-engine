@@ -1,0 +1,23 @@
+waveprobe: N=100000 build_s=4.53 wave_s=26.53 hwm_mib=1544
+wave: kicks=389200 boundaries=420419 other_events=11 digest=0789136370007234d1ec61d565def7850938b1b96db5bed37fe486ae5759cdee
+stage                          ms        calls    ns/call   per_kick
+rekey (all deadlines)            53.68          2 26839599.5     0.000
+position walk (root_state_raw)    917.68     801885    1144.4     2.060
+apply (whole)                  1761.05     809630    2175.1     2.080
+requeue                         364.20     909684     400.4     2.337
+process (whole)               20336.45     809630   25118.2     2.080
+fit: bind_surface (kicks, hand-outs)   7300.05     389211   18756.0     1.000
+take_due                         10.53     581062      18.1     1.493
+encounters: capture (cheap half)    966.24       7745  124756.5     0.020
+encounters: held scans answered   2547.50       7745  328922.3     0.020
+item: kick (Wisdom-Holman)     4560.75     121168   37639.9     0.311
+item: kick (clock)            12161.32     268032   45372.6     0.689
+item: boundary                 3634.53     420430    8644.8     1.080
+us_per_kick: total_wave_cpu=68.16 kick_clock_ms=12161.3 fit_ms=7300.1
+pos probe (handed, walked, mismatch): (1446412, 100091, 0)
+Kick      handed= 725976 mismatch=      0 |dx| in [inf, 0.0]
+Open      handed=    561 mismatch=      0 |dx| in [inf, 0.0]
+Boundary  handed= 719845 mismatch=      0 |dx| in [inf, 0.0]
+Handoff   handed=      0 mismatch=      0 |dx| in [inf, 0.0]
+Lost      handed=     30 mismatch=      0 |dx| in [inf, 0.0]
+Refused   handed=      0 mismatch=      0 |dx| in [inf, 0.0]

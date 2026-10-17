@@ -1,0 +1,293 @@
+diff --git a/crates/universe/examples/cost_split.rs b/crates/universe/examples/cost_split.rs
+index 9c188683..d45fdec2 100644
+--- a/crates/universe/examples/cost_split.rs
++++ b/crates/universe/examples/cost_split.rs
+@@ -48,4 +48,6 @@ fn main() {
+     let s = p.u.stats;
+     let ev = s.kicks + s.opens + s.boundaries;
+     println!("whole universe over {h} ticks: {:.1} us per kick/open/boundary ({ev} items), ships {:.1} us per item", t0.elapsed().as_secs_f64() * 1e6 / ev as f64, s.cost_ns[2] as f64 / 1e3 / s.items[2].max(1) as f64);
++    println!("pos probe (handed, walked, mismatch): {:?}", emergent_universe::universe::pos_probe());
++    for l in emergent_universe::universe::pos_probe_kinds() { println!("{l}"); }
+ }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..eaca8a9b 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -56,6 +56,11 @@ pub struct Update {
+     pub retired: Vec<Segment>,
+     /// A compiled entry to put in the catalogue (the rec's tube key is then set by the owner).
+     pub new_entry: Option<Arc<Entry>>,
++    /// The state the resolver last read or built at the item's tick, in the final rec's doll: the
++    /// position cache's post-event walk re-derives exactly this from the fresh binding, so the
++    /// universe can hand it over instead of walking the tube again. `None` where the resolver
++    /// never read the state (a first plan) or a handoff moved the body (the state is doll-local).
++    pub own: Option<IntegerState>,
+     pub kind: Resolved,
+ }
+ 
+@@ -336,6 +341,7 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    own: Option<IntegerState>,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -405,6 +411,7 @@ impl Work<'_, '_> {
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+         let st = self.rec.b.readout(t)?;
++        self.own = Some(st);
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+@@ -430,6 +437,7 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        self.own = Some(next);
+         self.rebind(next, t, d)?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+@@ -476,8 +484,11 @@ impl Work<'_, '_> {
+             return Ok(());
+         }
+         let st = self.rec.b.readout(t)?;
++        self.own = Some(st);
+         let (x, v) = scalars(&st)?;
+         if l > 0 && self.maybe_capture(t, &st, x)? {
++            // The body left for a child doll: the noted state is in the old doll.
++            self.own = None;
+             return Ok(());
+         }
+         let d = self.rec.b.doll;
+@@ -658,6 +669,7 @@ impl Work<'_, '_> {
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
++        self.own = Some(st);
+         let (x, v) = scalars(&st)?;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+@@ -688,6 +700,7 @@ impl Work<'_, '_> {
+             ext.add_pt(w.mul(f.rate)?)?;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
++        self.own = Some(next);
+         let fired = next.velocity != st.velocity;
+         if fired {
+             self.rebind(next, t, d)?;
+@@ -724,6 +737,7 @@ impl Work<'_, '_> {
+     /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
+     fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
+         let st = self.rec.b.readout(t)?;
++        self.own = Some(st);
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+@@ -757,6 +771,7 @@ impl Work<'_, '_> {
+         let d = self.rec.b.doll;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         let st = self.rec.b.readout(t)?;
++        self.own = Some(st);
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+@@ -770,10 +785,12 @@ impl Work<'_, '_> {
+                     return Ok(Resolved::Lost);
+                 }
+                 if self.maybe_capture(t, &st, x)? {
++                    self.own = None;
+                     return Ok(Resolved::Handoff);
+                 }
+             } else if r > self.doll().edge {
+                 self.release(t, st)?;
++                self.own = None;
+                 return Ok(Resolved::Handoff);
+             }
+         }
+@@ -814,6 +831,7 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         let st = self.rec.b.readout(t)?;
++        self.own = Some(st);
+         let (x, _) = scalars(&st)?;
+         if norm2(x)? <= self.doll().surface {
+             self.rec.alive = false;
+@@ -826,7 +844,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, own: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -861,33 +879,35 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, own: w.own, kind }
+ }
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, own: None };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, own: None, kind: Resolved::Open }
+ }
+ 
+ /// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, own: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+         if let Some(th) = w.rec.thrust.filter(|th| th.keys != 0 && t > th.since) {
+             let st = w.rec.b.readout(t)?;
++            w.own = Some(st);
+             let (x, v) = scalars(&st)?;
+             let v2 = w.burn(x, v, t)?;
+             if th.keys & 3 != 0 {
+                 let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
++                w.own = Some(next);
+                 w.rebind(next, t, w.rec.b.doll)?;
+                 if w.rec.ext.is_some() {
+                     // A burn is not a flow of the Hamiltonian: the register is projected back onto K = 0.
+@@ -910,7 +930,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     if res.is_err() {
+         w.rec.refusals += 1;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, own: w.own, kind: Resolved::Open }
+ }
+ 
+ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..499acdf3 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -46,6 +46,8 @@ use emergent_space::{
+ };
+ use std::collections::VecDeque;
+ use std::sync::Arc;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::LazyLock;
+ use std::time::Instant;
+ 
+ /// A frame's allowance: a number of events, and optionally a wall-clock instant.
+@@ -657,6 +659,9 @@ impl Universe {
+         }
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
++        let own = upd.own;
++        let doll = upd.rec.b.doll;
++        let kind = upd.kind;
+         self.radial.note(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), &upd.rec.b);
+         self.bodies.put(i, upd.rec);
+         if self.info[i].kind == Kind::Ship {
+@@ -670,7 +675,34 @@ impl Universe {
+         // thing `apply` did after a player item, bought nothing.
+         if Some(i) != self.player {
+             let t_walk = crate::prof::t();
+-            if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
++            // The resolver already read (or built) the body's state at `t` in its doll: hand it over instead of
++            // re-deriving it from the fresh binding (`root_state_raw`'s tube walk). The doll chain above the body
++            // still walks — the handed state is doll-local.
++            let p = match own {
++                Some(st) => {
++                    POS_HANDED.fetch_add(1, Ordering::Relaxed);
++                    POSK_HANDED[kind as usize].fetch_add(1, Ordering::Relaxed);
++                    let fast = self.pos_from_state(doll, &st, t);
++                    if pos_verify() {
++                        if let Ok((walk, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
++                            if walk[0].to_bits() != fast[0].to_bits() || walk[1].to_bits() != fast[1].to_bits() {
++                                POS_MISMATCH.fetch_add(1, Ordering::Relaxed);
++                                let k = kind as usize;
++                                POSK_MISMATCH[k].fetch_add(1, Ordering::Relaxed);
++                                let dx = (((walk[0] - fast[0]) * (walk[0] - fast[0])) + ((walk[1] - fast[1]) * (walk[1] - fast[1]))).sqrt();
++                                POSK_MIN[k].fetch_min(dx.to_bits(), Ordering::Relaxed);
++                                POSK_MAX[k].fetch_max(dx.to_bits(), Ordering::Relaxed);
++                            }
++                        }
++                    }
++                    Some(fast)
++                }
++                None => {
++                    POS_WALKED.fetch_add(1, Ordering::Relaxed);
++                    crate::observe::root_state_raw(&self.ctx(), i, t).ok().map(|(p, _)| p)
++                }
++            };
++            if let Some(p) = p {
+                 self.pos[i] = p;
+             }
+             crate::prof::add(crate::prof::ROOT, t_walk);
+@@ -681,6 +713,21 @@ impl Universe {
+         crate::prof::add(crate::prof::APPLY, t_apply);
+     }
+ 
++    /// The body's root-frame position from a state the resolver read at `t` in `doll`, mirroring
++    /// [`crate::observe::root_state_raw`]'s arithmetic exactly: scale by the doll's shift, then
++    /// add the centre chain's own walk.
++    fn pos_from_state(&self, doll: u16, st: &emergent_space::binding::IntegerState, t: Tick) -> [f64; 2] {
++        let Ok((x, _)) = crate::bind::scalars(st) else { return [f64::NAN, f64::NAN] };
++        let ctx = self.ctx();
++        let k = 2f64.powi(-(ctx.dolls[doll as usize].shift as i32));
++        let mut pos = [crate::num::to_f64(x[0]) * k, crate::num::to_f64(x[1]) * k];
++        if let Some(c) = ctx.dolls[doll as usize].centre {
++            if let Ok((cp, _)) = crate::observe::root_state_raw(&ctx, c, t) {
++                pos = [pos[0] + cp[0], pos[1] + cp[1]];
++            }
++        }
++        pos
++    }
+     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
+         ids.iter().filter_map(|&i| self.key_of(i)).min()
+     }
+@@ -1373,3 +1420,37 @@ impl Universe {
+         self.key_of(i).map(|k| k.0)
+     }
+ }
++
++// The position-cache hand-off's instruments: how many events handed the resolver's own state
++// over, how many fell back to the walk, and (under `ES_POS_VERIFY`) how many of the handed
++// positions differed by a single bit from the walk they replace.
++static POS_HANDED: AtomicU64 = AtomicU64::new(0);
++static POS_WALKED: AtomicU64 = AtomicU64::new(0);
++static POS_MISMATCH: AtomicU64 = AtomicU64::new(0);
++fn pos_verify() -> bool {
++    static V: LazyLock<bool> = LazyLock::new(|| std::env::var("ES_POS_VERIFY").is_ok());
++    *V
++}
++/// `(handed-over positions, walk fallbacks, bit mismatches under ES_POS_VERIFY)` since process start.
++pub fn pos_probe() -> (u64, u64, u64) {
++    (POS_HANDED.load(Ordering::Relaxed), POS_WALKED.load(Ordering::Relaxed), POS_MISMATCH.load(Ordering::Relaxed))
++}
++
++// The per-kind half of the probe: per `Resolved` kind, how many events handed the resolver's
++// state over, how many of those bit-differed from the walk they replace, and the Euclidean
++// span (root units) of those differences. Norms are >= 0, so their IEEE bits order like the
++// floats and `fetch_min`/`fetch_max` on the bit patterns suffice (min starts at +inf's bits).
++static POSK_HANDED: [AtomicU64; 6] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
++static POSK_MISMATCH: [AtomicU64; 6] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
++static POSK_MIN: [AtomicU64; 6] = [AtomicU64::new(0x7ff0000000000000), AtomicU64::new(0x7ff0000000000000), AtomicU64::new(0x7ff0000000000000), AtomicU64::new(0x7ff0000000000000), AtomicU64::new(0x7ff0000000000000), AtomicU64::new(0x7ff0000000000000)];
++static POSK_MAX: [AtomicU64; 6] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
++/// The probe's table: one line per kind, `name handed mismatch |dx| in [min, max]`.
++pub fn pos_probe_kinds() -> Vec<String> {
++    const NAMES: [&str; 6] = ["Kick", "Open", "Boundary", "Handoff", "Lost", "Refused"];
++    NAMES.iter().enumerate().map(|(k, name)| {
++        let lo = f64::from_bits(POSK_MIN[k].load(Ordering::Relaxed));
++        let hi = f64::from_bits(POSK_MAX[k].load(Ordering::Relaxed));
++        format!("{name:<10}handed={:>7} mismatch={:>7} |dx| in [{lo:.6}, {hi:.1}]",
++                POSK_HANDED[k].load(Ordering::Relaxed), POSK_MISMATCH[k].load(Ordering::Relaxed))
++    }).collect()
++}

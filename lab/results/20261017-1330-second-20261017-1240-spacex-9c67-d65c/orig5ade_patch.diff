@@ -1,0 +1,403 @@
+diff --git a/crates/universe/examples/waveprobe.rs b/crates/universe/examples/waveprobe.rs
+new file mode 100644
+index 00000000..084842c9
+--- /dev/null
++++ b/crates/universe/examples/waveprobe.rs
+@@ -0,0 +1,69 @@
++//! The belt's first-kick wave, decomposed (the lab's wave probe, 20261016-1120-quant-5ade): the plane with
++//! `N` more ships settled past the wave's start and through it with an unlimited budget (the events
++//! themselves, frame costs aside), with `--features prof` the kick's interior stage by stage — the decode
++//! walks (own readout, bind, the tau pair, the sources, the boundary), the fit, the rebind — plus the
++//! source-read census (how many (body, tick) source reads are exact repeats: a shared-key memo's hit rate)
++//! and the canonical digest at the cut, for bit-identity between arms.
++//!
++//! cargo run --release --features prof -p emergent-universe --example waveprobe [-- <N> [<pre-wave game s> [<post-wave game s>]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{prof, Budget, Config};
++
++fn hwm_mib() -> f64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines().find(|l| l.starts_with("VmHWM")).and_then(|l| {
++                l.split_whitespace().nth(1).and_then(|k| k.parse::<f64>().ok())
++            })
++        })
++        .map(|kb| kb / 1024.0)
++        .unwrap_or(0.0)
++}
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let pre: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(13_000.0);
++    let post: f64 = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(15_000.0);
++    let carry = matches!(std::env::var("ES_TAU_CARRY").as_deref(), Ok(v) if v != "" && v != "0");
++    let t0 = std::time::Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let _ = prof::take();
++    let _ = prof::take_src();
++    let cut0 = (pre / TICK_SECONDS) as i64;
++    p.u.settle(cut0);
++    let stats0 = p.u.stats;
++    // Zero every stage, then resolve the wave itself: the first belt kicks sit at 13,051-14,534 game s.
++    let _ = prof::take();
++    let _ = prof::take_src();
++    let t1 = std::time::Instant::now();
++    let cut1 = (post / TICK_SECONDS) as i64;
++    p.u.settle(cut1);
++    let wave_s = t1.elapsed().as_secs_f64();
++    let (ns, calls) = prof::take();
++    let (src_calls, src_distinct, src_worst) = prof::take_src();
++    let digest = p.u.digest();
++    let st = p.u.stats;
++    let kicks = st.kicks - stats0.kicks;
++    let boundaries = st.boundaries - stats0.boundaries;
++    let events = kicks + boundaries + st.opens - stats0.opens + st.handoffs - stats0.handoffs + st.lost - stats0.lost;
++    println!("waveprobe: N={} carry={} build_s={:.2} wave_s={:.2} hwm_mib={:.0}", n, carry, build, wave_s, hwm_mib());
++    println!("wave: kicks={} boundaries={} other_events={} digest={}", kicks, boundaries, events - kicks - boundaries, digest);
++    println!("sources: calls={} distinct={} worst_multiplicity={} repeat_share={:.3}", src_calls, src_distinct, src_worst, if src_calls > 0 { 1.0 - src_distinct as f64 / src_calls as f64 } else { 0.0 });
++    println!("stage                          ms        calls    ns/call   per_kick");
++    for (i, name) in prof::NAMES.iter().enumerate() {
++        if calls[i] == 0 && ns[i] == 0 {
++            continue;
++        }
++        let ms = ns[i] as f64 / 1e6;
++        let per = if kicks > 0 { calls[i] as f64 / kicks as f64 } else { 0.0 };
++        println!("{:<28} {:>9.2} {:>10} {:>9.1} {:>9.3}", name.trim(), ms, calls[i], ns[i] as f64 / calls[i].max(1) as f64, per);
++    }
++    if kicks > 0 {
++        println!("us_per_kick: total_wave_cpu={:.2} kick_clock_ms={:.1} fit_ms={:.1}", wave_s * 1e6 / kicks as f64, ns[prof::P_KICK_CLOCK] as f64 / 1e6, ns[prof::FIT] as f64 / 1e6);
++    }
++    let _ = Budget::unlimited();
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..7b4ad474 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -109,6 +109,11 @@ pub struct Binding {
+     /// The impact this tube is on, as [`crate::step::next_impact`] found it after tick `.0` (`.1`: none, or the tick): a function
+     /// of the binding alone, so the boundary after a kick reads what the kick found instead of bisecting again. Not state.
+     pub impact: Option<(Tick, Option<Tick>)>,
++    /// The binding's anchor state's proper time (`orbit_state(event_time).proper_time`), as `bind_in`'s own
++    /// decode at the bind tick computed it: kept so the clock's tau accounting never walks the tube at its
++    /// own anchor again (the lab's wave probe: bit for bit the value the walk returns). `None` for a binding
++    /// made without a decode (`bind_exact`, a birth).
++    pub anchor_proper: Option<Scalar>,
+ }
+ 
+ /// The tube's own readout (no remainder) at `t`, with the orbit state it came from, in the doll's units
+@@ -169,6 +174,23 @@ impl Binding {
+         })
+     }
+ 
++    /// [`Binding::readout`] plus the orbit state it came from, in one decode: a kick that rebinds needs both
++    /// (the state for the impulse, the proper time for the clock's tau), and the second read used to walk twice.
++    pub fn readout_with_state(&self, t: Tick) -> Res<(IntegerState, OrbitState)> {
++        let (d, o) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
++        let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
++        let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
++        Ok((
++            IntegerState {
++                position: [fit(p[0], self.residual.position[0])?, fit(p[1], self.residual.position[1])?],
++                velocity: [fit(v[0], self.residual.velocity[0])?, fit(v[1], self.residual.velocity[1])?],
++                length_exponent: self.units.0,
++                velocity_exponent: self.units.1,
++            },
++            o,
++        ))
++    }
++
+     /// Position and velocity as scalars in the doll's units.
+     pub fn cartesian(&self, t: Tick) -> Res<(V2, V2)> {
+         scalars(&self.readout(t)?)
+@@ -273,8 +295,9 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+         i64::try_from(at).map_err(|_| Error::Refused("terminal clock"))?;
+     }
+     let units = (exact.length_exponent, exact.velocity_exponent);
++    let t_dec = crate::prof::t();
+     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
+-    // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
++    crate::prof::add(crate::prof::W_BIND, t_dec);
+     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
+     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
+     let dot = dot2(dp, ep)?;
+@@ -300,5 +323,6 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
+         event_time: t,
+         kick: Kick::NONE,
+         impact: None,
++        anchor_proper: None,
+     }
+ }
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..29616d1c 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -59,8 +59,12 @@ pub struct Ctx<'a> {
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        let tw = crate::prof::t();
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+-        b.cartesian(t)
++        let r = b.cartesian(t);
++        crate::prof::add(crate::prof::W_SRC, tw);
++        crate::prof::src_census(j, t);
++        r
+     }
+ 
+     /// The units body `i`'s tube is compiled in, in doll `d`: about the doll's centre alone for a test particle,
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..5ff6c387 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -22,6 +22,17 @@ pub const P_BOUNDARY: usize = 13;
+ pub const P_OPEN: usize = 14;
+ pub const P_CRASH: usize = 15;
+ pub const P_DECIDE: usize = 16;
++/// The wave kick's decode walks (the lab's wave probe, 20261016-1120-quant-5ade): each counts one
++/// `decode` (a tube read: panels + Newton) at its call site, so the kick's interior decomposes exactly.
++pub const W_SRC: usize = 24;
++pub const W_OWN: usize = 25;
++pub const W_BIND: usize = 26;
++pub const W_TAUT: usize = 27;
++pub const W_TAU0: usize = 28;
++pub const W_BND: usize = 29;
++pub const W_REB: usize = 30;
++pub const N: usize = 31;
++
+ pub const F_RUN: usize = 17;
+ pub const F_ADV: usize = 18;
+ pub const HANDOUT: usize = 19;
+@@ -30,8 +41,6 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
+-
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+     "  position walk (root_state_raw)",
+@@ -57,6 +66,13 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "walk: sources read (ctx state_of)",
++    "walk: own readout at a kick",
++    "walk: decode inside bind_in",
++    "walk: tau, orbit_state(t) in rebind",
++    "walk: tau, orbit_state(anchor) in rebind",
++    "walk: boundary_clock readout",
++    "rebind (whole)",
+ ];
+ 
+ #[cfg(feature = "prof")]
+@@ -88,6 +104,30 @@ mod on {
+     pub fn take() -> ([u64; N], [u64; N]) {
+         P.with(|p| std::mem::replace(&mut *p.borrow_mut(), ([0; N], [0; N])))
+     }
++    thread_local! {
++        static SRC: RefCell<(std::collections::HashMap<(usize, i64), u32>, u64)> = RefCell::new((std::collections::HashMap::new(), 0));
++    }
++    /// Count a source read at (body, tick): how many source-tube walks a frame's events re-derive,
++    /// and how many share their exact (body, tick) key (a shared-key memo's hit rate).
++    pub fn src_census(j: usize, t: i64) {
++        SRC.with(|c| {
++            let mut c = c.borrow_mut();
++            c.0.entry((j, t)).and_modify(|n| *n += 1).or_insert(1);
++            c.1 += 1;
++        });
++    }
++    /// (calls, distinct keys, worst multiplicity) since the last take.
++    pub fn take_src() -> (u64, u64, u32) {
++        SRC.with(|c| {
++            let mut c = c.borrow_mut();
++            let calls = c.1;
++            let distinct = c.0.len() as u64;
++            let worst = c.0.values().copied().max().unwrap_or(0);
++            c.0.clear();
++            c.1 = 0;
++            (calls, distinct, worst)
++        })
++    }
+ }
+ 
+ #[cfg(not(feature = "prof"))]
+@@ -103,7 +143,11 @@ mod on {
+     pub fn take() -> ([u64; N], [u64; N]) {
+         ([0; N], [0; N])
+     }
++    pub fn src_census(_j: usize, _t: i64) {}
++    pub fn take_src() -> (u64, u64, u32) {
++        (0, 0, 0)
++    }
+ }
+ 
+-pub use on::{add, count, t, take, T};
++pub use on::{add, count, src_census, t, take, take_src, T};
+ pub const ENABLED: bool = cfg!(feature = "prof");
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..20eeaf8c 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -336,6 +336,17 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// The proper time at `t` of the binding a kick is about to rebind, when the kick's own readout
++    /// already decoded it (the wave probe's exact carry: `ES_TAU_CARRY`): the rebind's first tau walk, deleted.
++    tau_hint: Option<Scalar>,
++}
++
++/// Whether the two exact tau carries are on (the kick's own decode handed to the rebind, and the
++/// binding's cached anchor proper time): `ES_TAU_CARRY` set to anything but "" or "0". Off, the
++/// kick walks exactly as shipped.
++fn tau_carry() -> bool {
++    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *ON.get_or_init(|| !matches!(std::env::var("ES_TAU_CARRY").as_deref(), Ok("") | Ok("0") | Err(_)))
+ }
+ 
+ impl Work<'_, '_> {
+@@ -354,11 +365,36 @@ impl Work<'_, '_> {
+ 
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
++        let tr = crate::prof::t();
++        let r = self.rebind_in(exact, t, doll);
++        crate::prof::add(crate::prof::W_REB, tr);
++        r
++    }
++
++    fn rebind_in(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let now_pt = match self.tau_hint.take() {
++            Some(p) => p,
++            None => {
++                let tw = crate::prof::t();
++                let p = old.orbit_state(t)?.proper_time;
++                crate::prof::add(crate::prof::W_TAUT, tw);
++                p
++            }
++        };
++        let past_pt = match if tau_carry() { old.anchor_proper } else { None } {
++            Some(p) => p,
++            None => {
++                let tw = crate::prof::t();
++                let p = old.orbit_state(old.event_time)?.proper_time;
++                crate::prof::add(crate::prof::W_TAU0, tw);
++                p
++            }
++        };
++        let tau = now_pt.sub(past_pt)?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+@@ -373,6 +409,7 @@ impl Work<'_, '_> {
+             event_time: t,
+             kick: Kick::NONE,
+             impact: None,
++            anchor_proper: Some(bound.orbit.proper_time),
+         };
+         self.new_entry = Some(bound.entry.clone());
+         self.rec.plan.retain(|item| item.what != What::Crash);
+@@ -404,7 +441,16 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
++        self.tau_hint = None;
++        let tw = crate::prof::t();
++        let st = if tau_carry() {
++            let (st, o) = self.rec.b.readout_with_state(t)?;
++            self.tau_hint = Some(o.proper_time);
++            st
++        } else {
++            self.rec.b.readout(t)?
++        };
++        crate::prof::add(crate::prof::W_OWN, tw);
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+@@ -657,7 +703,16 @@ impl Work<'_, '_> {
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
+-        let st = self.rec.b.readout(t)?;
++        self.tau_hint = None;
++        let tw = crate::prof::t();
++        let st = if tau_carry() {
++            let (st, o) = self.rec.b.readout_with_state(t)?;
++            self.tau_hint = Some(o.proper_time);
++            st
++        } else {
++            self.rec.b.readout(t)?
++        };
++        crate::prof::add(crate::prof::W_OWN, tw);
+         let (x, v) = scalars(&st)?;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+@@ -723,7 +778,9 @@ impl Work<'_, '_> {
+     /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's edge),
+     /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
+     fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
++        let tw = crate::prof::t();
+         let st = self.rec.b.readout(t)?;
++        crate::prof::add(crate::prof::W_BND, tw);
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+@@ -826,7 +883,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, tau_hint: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -866,7 +923,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, tau_hint: None };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +935,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, tau_hint: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..282d99d6 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -408,7 +408,7 @@ impl Universe {
+         let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
+         let mut tube = bound.tube;
+         tube.key = self.cat.insert(bound.entry.clone())?;
+-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None };
++        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None, anchor_proper: None };
+         let heading = prograde(&b)?;
+         let rec = BodyRec {
+             kind,
+@@ -873,7 +873,7 @@ impl Universe {
+             let key = self.cat.insert(bound.entry.clone())?;
+             let mut tube = bound.tube;
+             tube.key = key;
+-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE, impact: None };
++            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE, impact: None, anchor_proper: None };
+             let rec = BodyRec {
+                 kind: Kind::Ship,
+                 b,
