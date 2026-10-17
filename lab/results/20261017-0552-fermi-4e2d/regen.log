@@ -1,0 +1,36 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.26s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-3/release/examples/belt_first 10000`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-3/release/examples/nladder 10000 coast 46 900`
+== anchors (this run, shipped code, this box) ==
+belt first item p50 14071 gs  -> interval 28142 gs  (record 28,141.5; err 0.00%)
+window 40367 gs = 1.4344 intervals: kicks 73810, boundaries 71638 (ratio 1.030; count parity = the two-comb), opens 511
+per-event x86 this box 50.0 us (record anchor 50-52)
+
+== CPU ledger at 1e9, rtf 100, M1-equivalent (x86 * 0.586) ==
+  shipped, kicks only (e7ef's stream)                          51.70 us/B/int      107.7 cores M1   the record's ledger row
+  shipped, two-comb                                            64.60 us/B/int      134.5 cores M1   +25% (8ffc's correction)
+  BELT_SPLIT x8 (both combs stretch)                            8.08 us/B/int       16.8 cores M1   
+    + hybrid delete, BELT legality (survival 438/712)           4.97 us/B/int       10.3 cores M1   1a46's belt count
+    + delete as e7ef composed it (survival 0.39)                3.15 us/B/int        6.6 cores M1   e7ef's 5.1-8.65 cores
+  split x8, boundary comb NOT stretched                        19.36 us/B/int       40.3 cores M1   kick-cadence open 1
+    + delete (frozen legality)                                 11.91 us/B/int       24.8 cores M1   
+    (the boundary-stretch question swings the composed ledger x2.4)
+
+budget identity: 4 cores = 1.126 us/body/interval (e7ef's 1.13)
+required split at today's cost, frozen legality: S* = 20.7x
+required mixed cost at split 8, frozen legality: 14.6 us M1 (25.0 us x86)
+
+== memory at 1e9 (the compact wiring) ==
+split 8: mint 5.465e+03 ev/gs; live at dwell D: 27052 kB/gs; dwell ceiling D* = 115 gs; window [100, 115] gs (width x1.15)
+split 21 (CPU-closing): mint 2.113e+03 ev/gs; live at dwell D: 10461 kB/gs; dwell ceiling D* = 296 gs; window [100, 296] gs (width x2.96)
+with the record diet (live ~1 kB/B): D* = 567 gs at split 8 (width x5.7)
+compact stock 1.7-2.4 GB + engine 0.5 GB; live allowance 3.1 GB
+
+== the other terms (cited) ==
+encounters 0.03-0.6 cores (f0a2, adjudicated; Key::new E absolute Q48 verified in source)
+promotion CPU: free (cbc5: the mint IS the kick's compile; demote 0.08 us)
+genesis one-time: 7.8 h at today's 28 us/body build (program births delete it, 98bc)
+H_live 21 bits/s at 1e9 (4b55 gold): ~0.1 MB/h

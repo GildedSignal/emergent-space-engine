@@ -1,0 +1,47 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..46ecb105 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,6 +14,7 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+@@ -21,13 +22,28 @@ extern "C" {
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    // Linux lab fallback (macOS keeps proc_pid_rusage below): statm RSS and VmHWM, the same (now, lifetime peak) shape.
++    if let Ok(s) = std::fs::read_to_string("/proc/self/statm") {
++        let rss = s.split_whitespace().nth(1).and_then(|x| x.parse::<u64>().ok()).unwrap_or(0) * 4096;
++        let hwm = std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|t| t.lines().find(|l| l.starts_with("VmHWM:")).and_then(|l| l.split_whitespace().nth(1).and_then(|x| x.parse::<u64>().ok())))
++            .unwrap_or(0)
++            * 1024;
++        return (rss, hwm);
+     }
+-    (buf[9], buf[30])
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    { (0, 0) }
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
