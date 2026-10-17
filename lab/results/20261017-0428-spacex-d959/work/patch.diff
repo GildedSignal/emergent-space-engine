@@ -1,0 +1,180 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..bd70dad3 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,16 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: resident now and its high-water mark (no compressed pages here; VmHWM is the honest peak).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let val = |key: &str| -> Option<u64> {
++        std::fs::read_to_string("/proc/self/status").ok()?.lines().find(|l| l.starts_with(key))?
++            .split_whitespace().nth(1)?.parse::<u64>().ok().map(|k| k * 1024)
++    };
++    (val("VmRSS:").unwrap_or(0), val("VmHWM:").unwrap_or(0))
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -50,6 +62,7 @@ fn main() {
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+     let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    emergent_universe::bind::readstat::ARMED.store(true, std::sync::atomic::Ordering::Relaxed);
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -119,6 +132,7 @@ fn main() {
+         refusals += r.refusals;
+         dead += (!r.alive) as usize;
+     }
++    println!("readstat: flight {}", emergent_universe::bind::readstat::total());
+     // the view: one gather from a cold cache and one from the warm one, wall (skipped when the run is near its 60 s).
+     let mut cache = ViewCache::default();
+     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
+@@ -160,4 +174,5 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    emergent_universe::bind::readstat::dump();
+ }
+diff --git a/crates/universe/examples/readwave.rs b/crates/universe/examples/readwave.rs
+new file mode 100644
+index 00000000..97ec3bac
+--- /dev/null
++++ b/crates/universe/examples/readwave.rs
+@@ -0,0 +1,27 @@
++//! The wave's read stream, censused by call site: the plane plus `N` ladder ships, settled straight
++//! through the belt's first kick wave (every belt body's first kicks land together at ~13,051-14,534
++//! game-s on merged main), with `readstat` armed — so every `Binding::readout` of the settle is
++//! bucketed by caller. No page, no view, no scan: the engine's own reads alone.
++//!
++//! cargo run --release -p emergent-universe --example readwave [-- <N> <end game-s>]
++use emergent_universe::bind::readstat;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++use std::sync::atomic::Ordering;
++use std::time::Instant;
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let end_gs: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(14_600.0);
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    readstat::ARMED.store(true, Ordering::Relaxed);
++    let horizon = (end_gs / TICK_SECONDS) as i64;
++    let t0 = Instant::now();
++    p.u.settle(horizon);
++    let wall = t0.elapsed().as_secs_f64();
++    println!("readwave: n={n} bodies={bodies} end_gs={end_gs:.0} settle_s={wall:.2} reads/body={:.3}", readstat::total() as f64 / bodies as f64);
++    readstat::dump();
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..fe211a02 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -157,7 +157,11 @@ impl Binding {
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
++    #[track_caller]
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
++        if readstat::ARMED.load(std::sync::atomic::Ordering::Relaxed) {
++            readstat::note(std::panic::Location::caller());
++        }
+         let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
+         let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+         let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+@@ -170,11 +174,56 @@ impl Binding {
+     }
+ 
+     /// Position and velocity as scalars in the doll's units.
++    #[track_caller]
+     pub fn cartesian(&self, t: Tick) -> Res<(V2, V2)> {
+         scalars(&self.readout(t)?)
+     }
+ }
+ 
++/// Read-stream census, a print-only instrument: counts `readout` calls by call site. The burn read
++/// stream owns burn memory and CPU at 10⁹ (lab/wiki/promotion.md, open direction 1: "what are the
++/// resolver's re-reads FOR?"); this names it. Inert unless armed; no arithmetic is touched.
++pub mod readstat {
++    use std::collections::HashMap;
++    use std::panic::Location;
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++    use std::sync::Mutex;
++
++    pub static ARMED: AtomicBool = AtomicBool::new(false);
++    static TOTAL: AtomicU64 = AtomicU64::new(0);
++    fn sites() -> &'static Mutex<HashMap<(String, u32), u64>> {
++        static S: std::sync::LazyLock<Mutex<HashMap<(String, u32), u64>>> =
++            std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
++        &S
++    }
++    pub fn note(loc: &'static Location<'static>) {
++        TOTAL.fetch_add(1, Ordering::Relaxed);
++        if let Ok(mut m) = sites().lock() {
++            *m.entry((loc.file().to_string(), loc.line())).or_insert(0) += 1;
++        }
++    }
++    /// A tagged count (e.g. `state_of`'s caller), kept in the same table with a labelled key.
++    pub fn note_tag(loc: &'static Location<'static>, tag: &str) {
++        TOTAL.fetch_add(1, Ordering::Relaxed);
++        if let Ok(mut m) = sites().lock() {
++            *m.entry((format!("{tag} {}", loc.file()), loc.line())).or_insert(0) += 1;
++        }
++    }
++    pub fn total() -> u64 {
++        TOTAL.load(Ordering::Relaxed)
++    }
++    /// One `readstat:` line per site, busiest first (file shortened to its crate name).
++    pub fn dump() {
++        let mut rows: Vec<((String, u32), u64)> = sites().lock().map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect()).unwrap_or_default();
++        rows.sort_by_key(|(_, v)| std::cmp::Reverse(*v));
++        for ((file, line), n) in rows {
++            let short = file.rsplit_once("src/").map(|(_, s)| s).unwrap_or(file.as_str());
++            println!("readstat: {n} {short}:{line}");
++        }
++        println!("readstat: total {}", TOTAL.load(Ordering::Relaxed));
++    }
++}
++
+ /// An integer state as scalars (units of the doll, c = 1).
+ pub fn scalars(st: &IntegerState) -> Res<(V2, V2)> {
+     let p = |i: usize| Scalar::raw(st.position[i] as i128, st.length_exponent as i32);
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..3a744e1d 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -58,7 +58,11 @@ pub struct Ctx<'a> {
+ 
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
++    #[track_caller]
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        if crate::bind::readstat::ARMED.load(std::sync::atomic::Ordering::Relaxed) {
++            crate::bind::readstat::note_tag(std::panic::Location::caller(), "state_of<-");
++        }
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         b.cartesian(t)
+     }

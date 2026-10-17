@@ -1,0 +1,45 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 37.54s
+== readwave (the wave's read stream, settled to 14,600 game-s) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.03s
+     Running `/home/glmlab/lab-target-2/release/examples/readwave 10000 14600`
+readwave: n=10000 bodies=10028 end_gs=14600 settle_s=3.59 reads/body=57.111
+readstat: 160663 encounter.rs:137
+readstat: 102256 observe.rs:190
+readstat: 75245 ctx.rs:89
+readstat: 75245 ctx.rs:89
+readstat: 31408 step.rs:291
+readstat: 23265 ctx.rs:109
+readstat: 23265 ctx.rs:109
+readstat: 23169 step.rs:407
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/readwave 100000 14600`
+readwave: n=100000 bodies=100028 end_gs=14600 settle_s=8.25 reads/body=12.924
+readstat: 345245 ctx.rs:89
+readstat: 345245 ctx.rs:89
+readstat: 192256 observe.rs:190
+readstat: 160663 encounter.rs:137
+readstat: 99710 step.rs:660
+readstat: 31408 step.rs:291
+readstat: 23265 ctx.rs:109
+readstat: 23265 ctx.rs:109
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/readwave 300000 14600`
+readwave: n=300000 bodies=300028 end_gs=14600 settle_s=19.44 reads/body=9.641
+readstat: 945245 ctx.rs:89
+readstat: 945245 ctx.rs:89
+readstat: 392256 observe.rs:190
+readstat: 299710 step.rs:660
+readstat: 160663 encounter.rs:137
+readstat: 31408 step.rs:291
+readstat: 23265 ctx.rs:109
+readstat: 23265 ctx.rs:109
+== nladder 10^5 (flight-only totals; census printed before the one-shot view gather) ==
+readstat: flight 109230
+readstat: flight 190718
+== digest identity: patched vs pristine (strip wall-time annotations, compare) ==
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 14.26s
+1f977984625a74c15ae2cc415a3af27b  -
+d957b73177ce0793fc9f473be58dec16  -
+(the two md5 sums must be equal: the instrument is print-only)
