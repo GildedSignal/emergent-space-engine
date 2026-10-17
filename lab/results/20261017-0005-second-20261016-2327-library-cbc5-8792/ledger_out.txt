@@ -1,0 +1,59 @@
+== Identity controls (every arm must print its scene's ctl digest) ==
+100000 coast: ctl a287f479  arms_off=NONE  noseam==ctl
+100000 burn: ctl d3542eea  arms_off=NONE  noseam==ctl
+10000 coast: ctl 5e8c9e24  arms_off=NONE  noseam==ctl
+10000 burn: ctl 5caeb1b6  arms_off=NONE  noseam==ctl
+
+== Part 1: standalone mint+demote on the flown store (the named experiment) ==
+    seam 10k coast: mint p50 3.68 p99 62.43 | demote p50 0.038 p99 0.133 | mint+demote 3.72 us | promotions 804941 hits 0 resident 0
+  retain 10k coast: mint p50 3.80 p99 63.74 | demote p50 0.051 p99 0.211 | mint+demote 3.85 us | promotions 41053 hits 763888 resident 10788
+dwell100 10k coast: mint p50 3.79 p99 63.47 | demote p50 0.050 p99 0.213 | mint+demote 3.84 us | promotions 42745 hits 762196 resident 288
+dwell1000 10k coast: mint p50 3.87 p99 63.65 | demote p50 0.055 p99 0.207 | mint+demote 3.93 us | promotions 41693 hits 763248 resident 1729
+    seam 10k  burn: mint p50 3.74 p99 64.37 | demote p50 0.039 p99 0.155 | mint+demote 3.78 us | promotions 624994 hits 0 resident 0
+  retain 10k  burn: mint p50 3.82 p99 63.74 | demote p50 0.051 p99 0.236 | mint+demote 3.87 us | promotions 40187 hits 584807 resident 12276
+dwell100 10k  burn: mint p50 3.89 p99 56.88 | demote p50 0.050 p99 0.195 | mint+demote 3.94 us | promotions 56619 hits 568375 resident 9966
+dwell1000 10k  burn: mint p50 3.95 p99 59.40 | demote p50 0.052 p99 0.215 | mint+demote 4.00 us | promotions 50468 hits 574526 resident 11393
+    seam 100k coast: mint p50 3.72 p99 61.73 | demote p50 0.058 p99 0.144 | mint+demote 3.78 us | promotions 894941 hits 0 resident 0
+  retain 100k coast: mint p50 4.44 p99 16.70 | demote p50 0.052 p99 0.221 | mint+demote 4.49 us | promotions 131053 hits 763888 resident 100788
+dwell100 100k coast: mint p50 4.48 p99 16.21 | demote p50 0.057 p99 0.438 | mint+demote 4.54 us | promotions 132745 hits 762196 resident 288
+dwell1000 100k coast: mint p50 4.48 p99 15.96 | demote p50 0.052 p99 0.237 | mint+demote 4.53 us | promotions 131693 hits 763248 resident 1729
+    seam 100k  burn: mint p50 4.45 p99 41.96 | demote p50 0.061 p99 0.178 | mint+demote 4.51 us | promotions 1658638 hits 0 resident 0
+  retain 100k  burn: mint p50 4.44 p99 14.63 | demote p50 0.055 p99 0.228 | mint+demote 4.50 us | promotions 130187 hits 1528451 resident 102276
+dwell100 100k  burn: mint p50 4.67 p99 14.51 | demote p50 0.055 p99 0.292 | mint+demote 4.72 us | promotions 236419 hits 1422219 resident 99966
+dwell1000 100k  burn: mint p50 4.66 p99 12.84 | demote p50 0.060 p99 0.224 | mint+demote 4.72 us | promotions 229679 hits 1428959 resident 101393
+
+== The 23.1 us test (4-core mint budget at 1e9 rtf 100, composed /8 + delete) ==
+   coast retain: mint+demote 4.49 us -> shipped 15.95 cores  /8 1.99 cores  +delete 0.78 cores  | budget 4 cores <=> 23.1 us: HOLDS
+    burn retain: mint+demote 4.50 us -> shipped 15.96 cores  /8 1.99 cores  +delete 0.78 cores  | budget 4 cores <=> 23.1 us: HOLDS
+ dwell100 coast: mint+demote 4.54 us -> shipped 16.11 cores  /8 2.01 cores  +delete 0.79 cores  | budget 4 cores <=> 23.1 us: HOLDS
+
+== Anchor reconciliation (why 9.2 / 34-38 / 486 differ from the measured mint) ==
+measured mint (the compile at true keys): 4.44 us coast, 4.44 us burn
+9.2 us  = add_body: compile + catalogue insert + bind_exact + store write (c4d3; the sticky wired path)
+34-38   = b29a's composed EVENT: compile 9.5 + readout 5.4 + from_state refit 21 + scar 0.9;
+         the refit is the kick's own settle bill (inside e7ef's kick C-hat), not the promotion's
+486 us  = resolve_handout, the wired sticky leaver (367f/b29a): dead by 13x
+
+== Part 2: the dwell dial per regime (standing resident = mid90, terminal = final settle) ==
+coast 10^5 (standing resident is N-independent; re-mints ~free):
+    dwell17: promotions 133093 (1.02x retain) | standing resident 198 (10^4: 198) | terminal 198
+   dwell100: promotions 132745 (1.01x retain) | standing resident 329 (10^4: 329) | terminal 288
+  dwell1000: promotions 131693 (1.00x retain) | standing resident 1762 (10^4: 1762) | terminal 1729
+     retain: promotions 131053 (1.00x retain) | standing resident 100819 (10^4: 10819) | terminal 100788
+burn 10^5 (reads = promotions + hits; the miss cliff sits between dwell 17 and 100):
+       seam: promotions 1658638 (12.74x retain) reads 1658638 miss 100.0% | standing resident 0 (10^4: 0) | terminal 0
+    dwell17: promotions 1211314 (9.30x retain) reads 1658638 miss 73.0% | standing resident 167 (10^4: 167) | terminal 167
+   dwell100: promotions 236419 (1.82x retain) reads 1658638 miss 14.3% | standing resident 6778 (10^4: 847) | terminal 99966
+  dwell1000: promotions 229679 (1.76x retain) reads 1658638 miss 13.8% | standing resident 8197 (10^4: 2266) | terminal 101393
+     retain: promotions 130187 (1.00x retain) reads 1658638 miss 7.8% | standing resident 101972 (10^4: 11972) | terminal 102276
+
+== Burn-knee extrapolation to 1e9 (standing resident = lambda_reads x dwell, reads' N-term b) ==
+read stream: b = 11.48 reads/body/20k gs, fixed 510145 -> at 1e9 rtf 100: 5.74e+07 reads/s (wall)
+    dwell17: miss 73.0% | standing@1e9 ~1.67e+06 entries (2 GB) -> re-mint 221 cores
+   dwell100: miss 14.3% | standing@1e9 ~6.78e+07 entries (95 GB) -> re-mint 38 cores
+  dwell1000: miss 13.8% | standing@1e9 ~8.2e+07 entries (115 GB) -> re-mint 37 cores
+  memory-feasible dwell at 1e9: <= 7.5 gs; measured miss at the nearest flown class (17 gs): 73% -> re-mint 221 cores
+  VERDICT: no dwell meets 6 GB and ~4 cores on burn at 1e9; the reads are the bill
+
+== Bytes per retained entry (rss delta, coast 10^5 retain: the only arm with a large clean resident) ==
+  retain: rss 548 - seam 391 over terminal resident 100788 = 1558 B/entry
