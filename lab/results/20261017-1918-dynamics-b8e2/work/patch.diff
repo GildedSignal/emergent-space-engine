@@ -1,0 +1,372 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..5a550c25 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -78,6 +78,11 @@ const SCAN_MARGIN_NS: u64 = 750_000;
+ /// frame resolves anything else once this many are waiting, the oldest first, so the memory they hold is bounded.
+ const SCAN_BACKLOG: usize = 2048;
+ 
++/// [`SCAN_BACKLOG`], or the `RUIN_BACKLOG` the lab probe set (an instrument arm; no shipped run sets it).
++fn scan_backlog() -> usize {
++    std::env::var("RUIN_BACKLOG").ok().and_then(|v| v.parse().ok()).unwrap_or(SCAN_BACKLOG).max(1)
++}
++
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
+@@ -129,6 +134,9 @@ pub struct Stats {
+     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
++    /// Held scans queued (arrivals) and answered (departures): the held-scans queue's counters (a lab probe; no law reads them).
++    pub scans_in: u64,
++    pub scans_out: u64,
+ }
+ impl Stats {
+     pub fn events(&self) -> u64 {
+@@ -209,8 +217,8 @@ pub struct Universe {
+     scans: VecDeque<Arc<dyn Held>>,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+-    /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+-    /// forgets (1/64 an item of the class). A frame with a wall to keep starts an item only if that much is left, once it has resolved one.
++    /// The held-scans cap ([`SCAN_BACKLOG`]; a lab probe may override it with `RUIN_BACKLOG`, an instrument arm only).
++    scan_backlog: usize,
+     item_ns: [u64; 5],
+     pub enc_log: Vec<Encounter>,
+     enc_digest: [u8; 32],
+@@ -270,6 +278,7 @@ impl Universe {
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
+             scan_ns: 0,
++            scan_backlog: scan_backlog(),
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+             enc_digest: [0; 32],
+@@ -1014,7 +1023,7 @@ impl Universe {
+             // Held scans are work like any other once they pile up (the memory they hold is bounded): at the backlog's cap
+             // the player's next item waits for the oldest scan, inside the budget, so a frame stays within it and the
+             // presented time lags (as it did before scans were held), instead of the frame overrunning.
+-            if self.scans.len() >= SCAN_BACKLOG {
++            if self.scans.len() >= self.scan_backlog {
+                 self.answer_front();
+                 continue;
+             }
+@@ -1162,7 +1171,10 @@ impl Universe {
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            Some(held) => {
++                self.stats.scans_in += 1;
++                self.scans.push_back(held)
++            }
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1203,6 +1215,7 @@ impl Universe {
+         crate::prof::add(crate::prof::SCANS, t_scan);
+         // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
+         self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
++        self.stats.scans_out += 1;
+         self.scans.pop_front();
+         for e in found {
+             self.log_encounter(e);
+diff --git a/xtask/src/main.rs b/xtask/src/main.rs
+index 9ef42f99..58b0e6bb 100644
+--- a/xtask/src/main.rs
++++ b/xtask/src/main.rs
+@@ -19,6 +19,45 @@ use std::{
+     process::{Command, ExitCode},
+ };
+ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
++// The FLOW probe's instrument: live heap bytes and allocations, process-wide (the allocator is otherwise `System`).
++pub static LIVE_BYTES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static LIVE_ALLOCS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
++struct Counting;
++unsafe impl std::alloc::GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: std::alloc::Layout) -> *mut u8 {
++        let p = std::alloc::System.alloc(l);
++        if !p.is_null() {
++            LIVE_BYTES.fetch_add(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++            LIVE_ALLOCS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: std::alloc::Layout) {
++        std::alloc::System.dealloc(p, l);
++        LIVE_BYTES.fetch_sub(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++        LIVE_ALLOCS.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: std::alloc::Layout, n: usize) -> *mut u8 {
++        let q = std::alloc::System.realloc(p, l, n);
++        if !q.is_null() {
++            LIVE_BYTES.fetch_add(n as u64, std::sync::atomic::Ordering::Relaxed);
++            LIVE_BYTES.fetch_sub(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++        }
++        q
++    }
++    unsafe fn alloc_zeroed(&self, l: std::alloc::Layout) -> *mut u8 {
++        let p = std::alloc::System.alloc_zeroed(l);
++        if !p.is_null() {
++            LIVE_BYTES.fetch_add(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++            LIVE_ALLOCS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++        p
++    }
++}
++
++#[global_allocator]
++static COUNTING: Counting = Counting;
+ 
+ fn main() -> ExitCode {
+     match run() {
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..4220cdaf 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -121,6 +121,7 @@ impl Session {
+             self.keys = keys;
+         }
+         let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
++        flow_probe(self, "f");
+         let t1 = Instant::now();
+         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+             Some(v) => v,
+@@ -165,6 +166,7 @@ impl Session {
+     pub fn digest_at_cut(&mut self) -> (emergent_universe::num::Tick, String) {
+         let t = self.cut.unwrap_or(self.p.u.now);
+         self.p.u.settle(t);
++        flow_probe(self, "settle");
+         (t, self.p.u.digest())
+     }
+ 
+@@ -207,3 +209,41 @@ fn view_json(v: &View) -> Value {
+         })).collect::<Vec<_>>(),
+     })
+ }
++
++// ---- the FLOW probe (print-only; enabled by RUIN_PROBE) ---------------------------------------------------------------
++// One CSV line per sampled frame (and one at the cut's settle): the held-scans queue's length, its arrival and
++// departure counts, and the process's live allocations. No decision reads these; the law is untouched.
++static PROBE_ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("RUIN_PROBE").is_ok_and(|v| v != "0"));
++static PROBE_FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static PROBE_LAST_PRINT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
++fn flow_probe(s: &Session, tag: &str) {
++    if !*PROBE_ON {
++        return;
++    }
++    let u = &s.p.u;
++    let held = u.held_scans() as u64;
++    let n = PROBE_FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++    let last = PROBE_LAST_PRINT.load(std::sync::atomic::Ordering::Relaxed);
++    let every = std::env::var("RUIN_EVERY").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(30).max(1);
++    let backlog: u64 = std::env::var("RUIN_BACKLOG").ok().and_then(|v| v.parse().ok()).unwrap_or(2048);
++    // A print every `every` frames, plus whenever the queue crosses a 64-step upward or nears the cap (the plateau).
++    let crossing = (held / 64) > (last / 64) || held + 4 >= backlog;
++    if tag == "f" && n % every != 0 && !crossing {
++        return;
++    }
++    PROBE_LAST_PRINT.store(held, std::sync::atomic::Ordering::Relaxed);
++    let gs = u.now as f64 * emergent_universe::view::TICK_SECONDS;
++    let rss = std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|t| t.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++        .map(|p| p * 4096 / 1024)
++        .unwrap_or(0);
++    eprintln!(
++        "PROBE,{tag},{n},{gs:.1},{held},{},{},{},{},{}",
++        u.stats.scans_in, u.stats.scans_out,
++        crate::LIVE_BYTES.load(std::sync::atomic::Ordering::Relaxed),
++        crate::LIVE_ALLOCS.load(std::sync::atomic::Ordering::Relaxed),
++        rss
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..5a550c25 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -78,6 +78,11 @@ const SCAN_MARGIN_NS: u64 = 750_000;
+ /// frame resolves anything else once this many are waiting, the oldest first, so the memory they hold is bounded.
+ const SCAN_BACKLOG: usize = 2048;
+ 
++/// [`SCAN_BACKLOG`], or the `RUIN_BACKLOG` the lab probe set (an instrument arm; no shipped run sets it).
++fn scan_backlog() -> usize {
++    std::env::var("RUIN_BACKLOG").ok().and_then(|v| v.parse().ok()).unwrap_or(SCAN_BACKLOG).max(1)
++}
++
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
+@@ -129,6 +134,9 @@ pub struct Stats {
+     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
++    /// Held scans queued (arrivals) and answered (departures): the held-scans queue's counters (a lab probe; no law reads them).
++    pub scans_in: u64,
++    pub scans_out: u64,
+ }
+ impl Stats {
+     pub fn events(&self) -> u64 {
+@@ -209,8 +217,8 @@ pub struct Universe {
+     scans: VecDeque<Arc<dyn Held>>,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+-    /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+-    /// forgets (1/64 an item of the class). A frame with a wall to keep starts an item only if that much is left, once it has resolved one.
++    /// The held-scans cap ([`SCAN_BACKLOG`]; a lab probe may override it with `RUIN_BACKLOG`, an instrument arm only).
++    scan_backlog: usize,
+     item_ns: [u64; 5],
+     pub enc_log: Vec<Encounter>,
+     enc_digest: [u8; 32],
+@@ -270,6 +278,7 @@ impl Universe {
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
+             scan_ns: 0,
++            scan_backlog: scan_backlog(),
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+             enc_digest: [0; 32],
+@@ -1014,7 +1023,7 @@ impl Universe {
+             // Held scans are work like any other once they pile up (the memory they hold is bounded): at the backlog's cap
+             // the player's next item waits for the oldest scan, inside the budget, so a frame stays within it and the
+             // presented time lags (as it did before scans were held), instead of the frame overrunning.
+-            if self.scans.len() >= SCAN_BACKLOG {
++            if self.scans.len() >= self.scan_backlog {
+                 self.answer_front();
+                 continue;
+             }
+@@ -1162,7 +1171,10 @@ impl Universe {
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            Some(held) => {
++                self.stats.scans_in += 1;
++                self.scans.push_back(held)
++            }
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1203,6 +1215,7 @@ impl Universe {
+         crate::prof::add(crate::prof::SCANS, t_scan);
+         // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
+         self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
++        self.stats.scans_out += 1;
+         self.scans.pop_front();
+         for e in found {
+             self.log_encounter(e);
+diff --git a/xtask/src/main.rs b/xtask/src/main.rs
+index 9ef42f99..58b0e6bb 100644
+--- a/xtask/src/main.rs
++++ b/xtask/src/main.rs
+@@ -19,6 +19,45 @@ use std::{
+     process::{Command, ExitCode},
+ };
+ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
++// The FLOW probe's instrument: live heap bytes and allocations, process-wide (the allocator is otherwise `System`).
++pub static LIVE_BYTES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static LIVE_ALLOCS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
++struct Counting;
++unsafe impl std::alloc::GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: std::alloc::Layout) -> *mut u8 {
++        let p = std::alloc::System.alloc(l);
++        if !p.is_null() {
++            LIVE_BYTES.fetch_add(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++            LIVE_ALLOCS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: std::alloc::Layout) {
++        std::alloc::System.dealloc(p, l);
++        LIVE_BYTES.fetch_sub(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++        LIVE_ALLOCS.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: std::alloc::Layout, n: usize) -> *mut u8 {
++        let q = std::alloc::System.realloc(p, l, n);
++        if !q.is_null() {
++            LIVE_BYTES.fetch_add(n as u64, std::sync::atomic::Ordering::Relaxed);
++            LIVE_BYTES.fetch_sub(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++        }
++        q
++    }
++    unsafe fn alloc_zeroed(&self, l: std::alloc::Layout) -> *mut u8 {
++        let p = std::alloc::System.alloc_zeroed(l);
++        if !p.is_null() {
++            LIVE_BYTES.fetch_add(l.size() as u64, std::sync::atomic::Ordering::Relaxed);
++            LIVE_ALLOCS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++        p
++    }
++}
++
++#[global_allocator]
++static COUNTING: Counting = Counting;
+ 
+ fn main() -> ExitCode {
+     match run() {
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..4220cdaf 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -121,6 +121,7 @@ impl Session {
+             self.keys = keys;
+         }
+         let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
++        flow_probe(self, "f");
+         let t1 = Instant::now();
+         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+             Some(v) => v,
+@@ -165,6 +166,7 @@ impl Session {
+     pub fn digest_at_cut(&mut self) -> (emergent_universe::num::Tick, String) {
+         let t = self.cut.unwrap_or(self.p.u.now);
+         self.p.u.settle(t);
++        flow_probe(self, "settle");
+         (t, self.p.u.digest())
+     }
+ 
+@@ -207,3 +209,41 @@ fn view_json(v: &View) -> Value {
+         })).collect::<Vec<_>>(),
+     })
+ }
++
++// ---- the FLOW probe (print-only; enabled by RUIN_PROBE) ---------------------------------------------------------------
++// One CSV line per sampled frame (and one at the cut's settle): the held-scans queue's length, its arrival and
++// departure counts, and the process's live allocations. No decision reads these; the law is untouched.
++static PROBE_ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("RUIN_PROBE").is_ok_and(|v| v != "0"));
++static PROBE_FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static PROBE_LAST_PRINT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
++fn flow_probe(s: &Session, tag: &str) {
++    if !*PROBE_ON {
++        return;
++    }
++    let u = &s.p.u;
++    let held = u.held_scans() as u64;
++    let n = PROBE_FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++    let last = PROBE_LAST_PRINT.load(std::sync::atomic::Ordering::Relaxed);
++    let every = std::env::var("RUIN_EVERY").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(30).max(1);
++    let backlog: u64 = std::env::var("RUIN_BACKLOG").ok().and_then(|v| v.parse().ok()).unwrap_or(2048);
++    // A print every `every` frames, plus whenever the queue crosses a 64-step upward or nears the cap (the plateau).
++    let crossing = (held / 64) > (last / 64) || held + 4 >= backlog;
++    if tag == "f" && n % every != 0 && !crossing {
++        return;
++    }
++    PROBE_LAST_PRINT.store(held, std::sync::atomic::Ordering::Relaxed);
++    let gs = u.now as f64 * emergent_universe::view::TICK_SECONDS;
++    let rss = std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|t| t.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++        .map(|p| p * 4096 / 1024)
++        .unwrap_or(0);
++    eprintln!(
++        "PROBE,{tag},{n},{gs:.1},{held},{},{},{},{},{}",
++        u.stats.scans_in, u.stats.scans_out,
++        crate::LIVE_BYTES.load(std::sync::atomic::Ordering::Relaxed),
++        crate::LIVE_ALLOCS.load(std::sync::atomic::Ordering::Relaxed),
++        rss
++    );
++}
