@@ -1,0 +1,31 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..6a2df347 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -140,6 +140,13 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        if std::env::var_os("RUIN_PROBE").is_some() && n % 300 == 0 {
++            let rss = std::fs::read_to_string("/proc/self/statm").ok()
++                .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++                .map(|pages| pages * 4096 / 1024).unwrap_or(0);
++            eprintln!("RUINPROBE {{\"n\": {n}, \"gs\": {:.1}, \"held\": {}, \"rss_kb\": {}}}",
++                s.p.u.now as f64 * emergent_universe::view::TICK_SECONDS, s.p.u.held_scans(), rss);
++        }
+     }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+@@ -153,6 +160,12 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++        if std::env::var_os("RUIN_PROBE").is_some() {
++            let rss = std::fs::read_to_string("/proc/self/statm").ok()
++                .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++                .map(|pages| pages * 4096 / 1024).unwrap_or(0);
++            eprintln!("RUINPROBE_END {{\"held\": {}, \"rss_kb\": {}}}", s.p.u.held_scans(), rss);
++        }
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
