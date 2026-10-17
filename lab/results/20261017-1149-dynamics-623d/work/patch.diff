@@ -1,0 +1,303 @@
+diff --git a/xtask/src/lyap.rs b/xtask/src/lyap.rs
+new file mode 100644
+index 00000000..4fb3c6a0
+--- /dev/null
++++ b/xtask/src/lyap.rs
+@@ -0,0 +1,277 @@
++//! The surprise rate of the shipped dynamics: finite-time Lyapunov exponents (Benettin twins)
++//! of the two shipped ensembles, run on the judge's own reference integrator (Dormand-Prince,
++//! rtol 1e-12, `restricted.rs`), the same instrument every B-gate reads.
++//!
++//! Principle 3: "Compute only surprises. Cost follows change and entropy." No run has ever
++//! measured the entropy side on the game's own ensembles; this probe prices it.
++//!
++//! `lyap belt`      — the plane's belt: uniform a in [2,3) AU, e Rayleigh-typical 0.1, 4 phases,
++//!                    under the Giant's tides (the JUPITER scene, mu 1e-3 at 5.2 AU: the 4:1,
++//!                    3:1, 5:2 and 7:3 resonances all lie inside the belt).
++//! `lyap coorbital` — the fleet regime: tadpole ICs about L4/L5 of the same scene.
++//! `lyap control`   — mu 1e-12: the two-body floor the instrument must read as lambda ~ 0.
++//!
++//! Method: the pair starts as the SAME orbit rotated about the star by D0 radians — a pure
++//! phase offset with no semimajor-axis error, so Kepler shear never enters the measurement and
++//! the mu -> 0 null is d(t) = d0 exactly (a symmetry). No renormalization; both run to the
++//! horizon on the monotone clock, and lambda is the slope of ln d against t over samples past
++//! the offset transient, stopping at saturation (d > 1e-3 r). Two earlier instruments were
++//! killed in calibration: restarting only the twin put the planet at the wrong phase
++//! (lambda.P ~ 300 on the control), and phase-locked renormalization measured the Kepler
++//! monodromy's top singular value, ln sigma_1 / P ~ 0.3 (shear, not chaos).
++use crate::behave::restricted::{Integrator, Model, Restricted, RTOL, JUPITER};
++use std::f64::consts::TAU;
++use std::io::Write as _;
++
++/// Perturbation size (fraction of the orbit radius).
++const D0: f64 = 1e-8;
++/// Horizon in planet periods (= renormalization chunks; see the module doc).
++const HORIZON: usize = 64;
++
++fn au() -> f64 {
++    JUPITER.sep / 5.2
++}
++
++/// A belt birth: heliocentric periapsis at angle `phi`, semi-major axis `a`, eccentricity `e`,
++/// expressed barycentrically (the shipped belt's own birth shape: p = a(1-e) at a drawn angle).
++fn belt_ship(a: f64, e: f64, phi: f64) -> [f64; 4] {
++    let (s, c) = phi.sin_cos();
++    let rp = a * (1.0 - e);
++    let v = ((2.0 / rp - 1.0 / a) * (1.0 - JUPITER.mu)).sqrt();
++    let (p0, v0) = JUPITER.star(0.0);
++    [p0[0] + rp * c, p0[1] + rp * s, v0[0] - v * s, v0[1] + v * c]
++}
++
++/// A co-orbital IC: corotating (zero epicyclic velocity) at `r`, angle `theta` from the +x axis.
++fn coorbital_ship(r: f64, theta: f64) -> [f64; 4] {
++    let (s, c) = theta.sin_cos();
++    let w = JUPITER.omega();
++    [r * c, r * s, -w * r * s, w * r * c]
++}
++
++struct Row {
++    tag: String,
++    a_au: f64,
++    phi_deg: f64,
++    /// lambda per planet period (11.86 yr); the analysis converts to per local orbit.
++    lam_pp: f64,
++    /// ln(d_max/d0): the total stretch before saturation.
++    stretch: f64,
++    closest_hill: f64, // closest approach to the planet, in Hill radii
++    saturated: bool,
++    gave_up: bool,
++}
++
++/// One twin run: the pair starts as the SAME orbit rotated about the star by D0 radians (a
++/// pure phase offset, no semimajor-axis error, so Kepler shear never enters and the mu -> 0
++/// null is d(t) = d0 exactly). No renormalization; the pair runs to the horizon and lambda is
++/// the slope of ln d against t over samples past the offset transient (ln(d/d0) >= 0.5),
++/// stopping at saturation (d > 1e-3 r). Returns (lambda per planet period, stretch, closest
++/// approach in Hill radii, saturated, gave up).
++fn twin(scene: &Restricted, ship: [f64; 4]) -> (f64, f64, f64, bool, bool) {
++    let p = scene.period();
++    let scale = p / TAU; // velocity -> position units in the separation metric
++    let r = ship[0].hypot(ship[1]);
++    let d0 = D0 * r; // the arc of the D0-radian rotation at radius r
++    // positions rotate about the star's position, velocities about the star's velocity (the
++    // first version rotated both about the star's position, which is ~the origin at mu 1e-12
++    // but 5e5 root units off at mu 1e-3 — the control passed and every real scene was garbage)
++    let (s0, v0) = scene.star(0.0);
++    let (s, c) = D0.sin_cos();
++    let rot = |qx: f64, qy: f64, ax: f64, ay: f64| {
++        let (dx, dy) = (qx - ax, qy - ay);
++        (ax + c * dx - s * dy, ay + s * dx + c * dy)
++    };
++    let tp = rot(ship[0], ship[1], s0[0], s0[1]);
++    let tv = rot(ship[2], ship[3], v0[0], v0[1]);
++    let twin_ship = [tp.0, tp.1, tv.0, tv.1];
++    let metric = |a: &[f64; 4], b: &[f64; 4]| {
++        let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
++        let (du, dv) = ((b[2] - a[2]) * scale, (b[3] - a[3]) * scale);
++        (dx * dx + dy * dy + du * du + dv * dv).sqrt()
++    };
++    let mut b_it = Integrator::new(scene, Model::Full, RTOL, ship).tracking();
++    let mut w_it = Integrator::new(scene, Model::Full, RTOL, twin_ship);
++    let mut samples: Vec<(f64, f64)> = Vec::with_capacity(HORIZON); // (t, ln d)
++    let mut closest = f64::INFINITY;
++    let (mut gave_up, mut saturated) = (false, false);
++    for k in 1..=HORIZON {
++        let t = k as f64 * p;
++        let (Some(b), Some(w)) = (b_it.advance(t), w_it.advance(t)) else {
++            gave_up = true;
++            break;
++        };
++        closest = closest.min(b_it.closest());
++        let d = metric(&b, &w);
++        if !d.is_finite() || d <= 0.0 {
++            gave_up = true;
++            break;
++        }
++        samples.push((t, d.ln()));
++        if std::env::var("LYAP_TRACE").is_ok() {
++            eprintln!("t/P={} ln(d/d0)={:.3}", k, d.ln() - d0.ln());
++        }
++        if d > 1e-3 * r {
++            saturated = true;
++            break;
++        }
++    }
++    let fit: Vec<(f64, f64)> = samples.iter().filter(|&&(_, l)| l - d0.ln() >= 0.5).copied().collect();
++    let fit = if fit.len() >= 4 { fit } else { samples.clone() };
++    let n = fit.len() as f64;
++    let (lam, stretch) = if n >= 2.0 {
++        let (st, sl) = (fit.iter().map(|x| x.0).sum::<f64>(), fit.iter().map(|x| x.1).sum::<f64>());
++        let (stt, stl) = (fit.iter().map(|x| x.0 * x.0).sum::<f64>(), fit.iter().map(|x| x.0 * x.1).sum::<f64>());
++        ((n * stl - st * sl) / (n * stt - st * st), samples.last().map_or(d0.ln(), |x| x.1) - d0.ln())
++    } else if n >= 1.0 {
++        (((fit[0]).1 - d0.ln()) / (fit[0]).0, samples.last().map_or(d0.ln(), |x| x.1) - d0.ln())
++    } else {
++        (0.0, 0.0)
++    };
++    (lam, stretch, closest / scene.hill(), saturated, gave_up)
++}
++
++fn local_period(a: f64) -> f64 {
++    TAU * (a * a * a / (1.0 - JUPITER.mu)).sqrt()
++}
++
++/// (tag, a_au, angle_deg, scene, ship) for one ensemble.
++fn ensemble(name: &str) -> Vec<(String, f64, f64, Restricted, [f64; 4])> {
++    match name {
++        "control" => (1..=12)
++            .map(|i| {
++                let (a, phi) = (2.0 + i as f64 / 12.0, 90.0 * (i % 4) as f64);
++                let r = a * au();
++                (
++                    "control".to_string(),
++                    a,
++                    phi,
++                    Restricted { mu: 1e-12, ..JUPITER },
++                    belt_ship(r, 0.1, phi.to_radians()),
++                )
++            })
++            .collect(),
++        "coorbital" => {
++            let hill = JUPITER.hill();
++            let mut v = Vec::new();
++            for &side in &[60.0f64, 300.0] {
++                for k in 0..7i32 {
++                    let delta = 15.0 * k as f64; // 0..90 deg away from L4/L5
++                    for j in -2..=2i32 {
++                        let du = j as f64 + 0.5;
++                        let r = JUPITER.sep + du * hill;
++                        let theta = if side == 60.0 { side + delta } else { side - delta };
++                        v.push((
++                            if side == 60.0 { "L4" } else { "L5" }.to_string(),
++                            5.2,
++                            theta,
++                            JUPITER,
++                            coorbital_ship(r, theta.to_radians()),
++                        ));
++                    }
++                }
++            }
++            v
++        }
++        _ => {
++            // belt: 41 a-points x 4 phases at the belt's Rayleigh-typical e = 0.1
++            (0..41)
++                .flat_map(|i| {
++                    let a = 2.0 + i as f64 / 40.0;
++                    (0..4).map(move |j| {
++                        let phi = 90.0 * j as f64;
++                        let r = a * au();
++                        ("belt".to_string(), a, phi, JUPITER, belt_ship(r, 0.1, phi.to_radians()))
++                    })
++                })
++                .collect()
++        }
++    }
++}
++
++pub fn run(args: Vec<String>) -> std::result::Result<u8, Box<dyn std::error::Error>> {
++    let name: String = args.first().cloned().unwrap_or_else(|| "belt".into());
++    let cases = ensemble(&name);
++    let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(4);
++    let mut rows: Vec<Row> = {
++        // round-robin chunks: no shared collection at all
++        let cases = &cases[..];
++        let chunks: Vec<Vec<usize>> = (0..threads).map(|t| (t..cases.len()).step_by(threads).collect()).collect();
++        std::thread::scope(|s| {
++            let parts: Vec<_> = chunks
++                .into_iter()
++                .map(|idx| {
++                    s.spawn(move || {
++                        idx.into_iter()
++                            .map(|i| {
++                                let (tag, a_au, phi, scene, ship) = cases[i].clone();
++                                let (lam_pp, stretch, closest_hill, saturated, gave_up) = twin(&scene, ship);
++                                Row { tag, a_au, phi_deg: phi, lam_pp, stretch, closest_hill, saturated, gave_up }
++                            })
++                            .collect::<Vec<_>>()
++                    })
++                })
++                .collect();
++            parts.into_iter().flat_map(|h| h.join().unwrap()).collect()
++        })
++    };
++    rows.sort_by(|a, b| {
++        a.a_au
++            .partial_cmp(&b.a_au)
++            .unwrap_or(std::cmp::Ordering::Equal)
++            .then_with(|| a.phi_deg.partial_cmp(&b.phi_deg).unwrap_or(std::cmp::Ordering::Equal))
++    });
++    if let Ok(path) = std::env::var("LYAP_OUT") {
++        let mut f = std::fs::File::create(&path)?;
++        for r in &rows {
++            writeln!(
++                f,
++                "{{\"tag\":\"{}\",\"a_au\":{:.4},\"phi\":{:.0},\"lam_pp\":{:.6e},\"stretch\":{:.3},\"closest_rh\":{:.3},\"sat\":{},\"gave_up\":{}}}",
++                r.tag, r.a_au, r.phi_deg, r.lam_pp, r.stretch, r.closest_hill, r.saturated, r.gave_up
++            )?;
++        }
++    }
++    let p = JUPITER.period();
++    // local_p: the body's own period in planet periods (1 for the co-orbital ensemble)
++    let local_p = |a_au: f64| match name.as_str() {
++        "coorbital" => 1.0,
++        _ => local_period(a_au * au()) / p,
++    };
++    for r in &rows {
++        println!(
++            "{} a={:5.2} phi={:3.0} lambda.Pplanet={:8.3} lambda.Plocal={:8.3} stretch={:5.1} closest={:6.2} Rh{}{}",
++            r.tag,
++            r.a_au,
++            r.phi_deg,
++            r.lam_pp * p,
++            r.lam_pp * local_p(r.a_au) * p,
++            r.stretch,
++            r.closest_hill,
++            if r.saturated { " SAT" } else { "" },
++            if r.gave_up { " GAVE_UP" } else { "" },
++        );
++    }
++    let lam: Vec<f64> = rows
++        .iter()
++        .filter(|r| !r.gave_up)
++        .map(|r| r.lam_pp * local_p(r.a_au) * p)
++        .collect();
++    let mut q = lam.clone();
++    q.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    if !q.is_empty() {
++        let at = |f: f64| q[((q.len() as f64 - 1.0) * f) as usize];
++        println!(
++            "# summary {} n={} gave_up={} per-local-orbit p50={:.3e} p90={:.3e} p99={:.3e} max={:.3e} frac>1e-2={:.3} frac>1e-3={:.3}",
++            name,
++            rows.len(),
++            rows.len() - q.len(),
++            at(0.5),
++            at(0.9),
++            at(0.99),
++            q[q.len() - 1],
++            lam.iter().filter(|&&l| l > 1e-2).count() as f64 / lam.len() as f64,
++            lam.iter().filter(|&&l| l > 1e-3).count() as f64 / lam.len() as f64
++        );
++    }
++    Ok(0)
++}
+diff --git a/xtask/src/main.rs b/xtask/src/main.rs
+index 9ef42f99..cd097310 100644
+--- a/xtask/src/main.rs
++++ b/xtask/src/main.rs
+@@ -9,6 +9,7 @@ mod history;
+ mod hybrid;
+ mod ladder;
+ mod lattice;
++mod lyap;
+ mod measure;
+ mod regions;
+ mod universe;
+@@ -39,6 +40,7 @@ fn run() -> Result<u8> {
+     if task == "fly" { return fly::run(args.collect()); }
+     if task == "galaxy" { return galaxy::run(args.collect()); }
+     if task == "universe" { return universe::run(args.collect()); }
++    if task == "lyap" { return lyap::run(args.collect()); }
+     if task == "engine-judge" {
+         return engine_judge::run(args.collect());
+     }

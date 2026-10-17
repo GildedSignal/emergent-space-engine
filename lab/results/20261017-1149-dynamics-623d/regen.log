@@ -1,0 +1,32 @@
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.63s
+     Running `/home/glmlab/lab-target-2/release/xtask lyap control`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/xtask lyap belt`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/xtask lyap coorbital`
+== per local orbit ==
+control    n= 12 sat=  0 p50=-2.144e-03 p90=2.656e-03 p99=3.687e-03 max=4.270e-03 frac>1e-2=0.000 frac>1e-3=0.250 stretch_max=2.0
+belt       n=164 sat=  0 p50=2.898e-04 p90=5.509e-03 p99=1.093e-02 max=1.662e-02 frac>1e-2=0.018 frac>1e-3=0.439 stretch_max=3.8
+coorbital  n= 70 sat= 56 p50=2.898e-01 p90=8.113e-01 p99=1.027e+00 max=1.853e+00 frac>1e-2=0.957 frac>1e-3=0.986 stretch_max=16.2
+
+null band (control |lambda| per local orbit): 4.27e-03, control stretch_max (bounded): 2.0
+P5: 1e9 bodies at belt p99 (1.09e-02/orbit, orbit 1.25e+08 s): 0.09 events/game-s
+    certificate stream at 1e9 (25 events/s at 1e5, birth-stagger ed3a): 2.5e+05 events/s
+    ratio: 2.9e+06x
+P6: belt p99: lambda=0.011/orbit -> prediction horizon     1052 local orbits (4157 yr at 2.5 AU / 12482 planet-periods at 5.2 AU)
+P6: co-orbital p50: lambda=0.290/orbit -> prediction horizon       40 local orbits (157 yr at 2.5 AU / 471 planet-periods at 5.2 AU)
+P6: co-orbital max: lambda=1.853/orbit -> prediction horizon        6 local orbits (25 yr at 2.5 AU / 74 planet-periods at 5.2 AU)
+
+belt top-5 ICs and their nearest strong MMR:
+  a=2.500 phi=  0 lambda.Plocal=1.662e-02 nearest 3:1 at 2.500 AU (off by +0.000)
+  a=2.500 phi=180 lambda.Plocal=1.287e-02 nearest 3:1 at 2.500 AU (off by +0.000)
+  a=2.825 phi=  0 lambda.Plocal=1.093e-02 nearest 5:2 at 2.823 AU (off by +0.002)
+  a=2.500 phi= 90 lambda.Plocal=9.786e-03 nearest 3:1 at 2.500 AU (off by +0.000)
+  a=2.825 phi= 90 lambda.Plocal=9.251e-03 nearest 5:2 at 2.823 AU (off by +0.002)
+
+co-orbital lambda per planet period by tadpole amplitude bin (deg from L4/L5):
+    0- 30: n=20 median=0.296 max=1.025
+   30- 60: n=20 median=0.248 max=1.027
+   60- 90: n=20 median=0.287 max=1.853
+   90-120: n=10 median=0.334 max=0.911
