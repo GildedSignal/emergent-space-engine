@@ -2,39 +2,61 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0005-second-20261016-2327-library-cbc5-8792
+updated: 20261017-0428-quant-c439
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
-**The standalone mint+demote is now measured on the flown store — 3.7–5.3 µs p50 (mint =
-the compile: 3.7–4.7 on seam/retain/100/1000, 5.2–5.6 on the re-mint-storm arm dwell-17
-burn 10⁵ — the author's 3.7–4.9 range excluded that worst arm; demote = the Arc drop,
-0.04–0.08), across coast and burn, four dwell classes (seam/17/100/1000/∞ game-s) and two
-N — so the ledger's CPU half holds with ≥4.4× margin against the 23.1 µs 4-core budget at
-10⁹ rtf 100 (composed ÷8+delete = 0.78–0.85 cores; ÷8 alone = 2.0–2.2, so cadence alone
-meets the mint budget), and its 44 µs
-bind/refit pricing is corrected: the settle hands the promotion an exact key, so the
-promotion never refits — b29a's 21 µs `from_state` is the kick's own settle bill, already
-inside the kick Ĉ (b063). The memory half is coast-scoped: the dwell dial
-(`ES_RETAIN_DWELL`, this run) collapses coast's standing resident 100,819→288–329 at
-+1% re-mints, N-independent — but on burn it fails at 10⁹: the read stream (b = 11.48
-reads/body/20k gs, N-linear → 5.74×10⁷ reads/s wall at 10⁹ rtf 100) owns burn memory
-and CPU — every dwell ≤ 80 game-s sits left of a measured miss cliff (75% at 5, 73% at
-17, 72% at 40 and 60, 71% at 80, 14% at 100 — checker flights; the cliff is a band
-between 80 and 100, and the re-reads cluster in bursts of tens of gs), so no dwell meets
-both 6 GB and ~4 cores
-(≥ ~220 re-mint cores at any cliff-left dwell on CPU alone; ~95 GB standing at dwell 100,
-N-linear at three N); the burn knee is the
-reads, not the demotion count (0619's archive) and not the dial
-(20261017-0005-second-…-8792, second author; 24 flights, one frozen binary = 0619's patch
-plus print-only timing/dwell/mid90 additions; every arm prints its scene's ctl digest bit
-for bit; 1d52's and 0619's anchor counters regenerate exactly: 131,053/763,888/100,788,
-130,187). The re-ranking stands, sharpened: diet = 10⁶ lever; ÷8 = the mint-budget lever;
-delete = the event-stream lever; burn-10⁹ memory = the read stream's question (new home).**
-Prior best retained: the ledger's arithmetic and its P6 correction (below).
+**The read stream is censused on shipped code and the 10⁹ premise is corrected: the engine's
+read demand is O(1) in N on the ladder's flights — every reader's absolute count identical
+at N=1e4 and 1e5 (scan candidates 148,996 at both; totals 188,181 vs 188,227) — the player's
+scan reads a bounded near set (70.0 candidates a scan at burn, 184 at coast's wider window;
+the radial apsidal filter cuts the belt), and the only N-linear reads ride the kick cadence
+at 2.9–4.3 reads an event (state_of 0.9–1.6 + root_state_raw 1.4–1.8 + rec 0.6–0.9;
+misses 0, history hits ≤4.3%) (20261017-0428-quant-c439, `prof::reads` census behind the
+prof feature, digest-identical plain vs prof `d1822b88…`, regen.sh).** So the "~6 cores of
+pure hit-path ε (lock+clone)" never materializes as an observer demand: at 10⁹ rtf 100 the
+observer reads are ~7.7×10³/s and the event-riding reads between ~4×10³/s and ~10⁷/s
+(≤ ~1 core at the measured 67–129 ns a `binding_at`, 192 B; rec 114–167 ns, 464 B) — a
+term of the kick bill (kick-cadence's, ladder break 1), not a separate knee. The ~7×10⁶/s
+figure is the wave-window per-body extrapolation (checker2: events themselves are O(1) in
+N over 20 s windows — 16,212/16,215/16,215 at 1e4/1e5/1e6 — and grow only ~2.4× a decade
+through the wave, 65,154→155,092 events 1e4→1e5, so no per-body × 10⁹ term exists on
+these flights; checker2's wave arm at 1e5: 4.70 reads an event). 8792's b = 11.48
+reads/body/20k gs
+reconciles as the kicks' own mint-path reads (~3.9 kicks/body in that window × ~4.3), which
+an N-linear counter records when a mint counts as a read. The dwell cliff's hot set is,
+as an inference (never flown together: the census runs on main, the cliff on 8792's
+retention patch), the scan's near set (~70 bodies read at ~1.1 scans/gs at burn, 88 on
+seed 2 — checker; 144 on seed 3 at coast and 70.2 at N=1e6, O(1) a decade up — checker2;
+clustered in bursts): a pin of the near set is the proposed deletion
+of the cliff's observer half, unflown, and the set's size is realisation-dependent.
+Domain: the ladder's
+flights (player near Home / the root doll at 1 AU, seed 1, 1 thread); a flight into the
+belt at density (radial returns None, the player seam) and the page's per-frame O(N) view
+gather are outside it.
+
+Prior best retained: the standalone mint+demote measured on the flown store — 3.7–5.3 µs
+p50 (mint = the compile: 3.7–4.7 on seam/retain/100/1000, 5.2–5.6 on the re-mint-storm arm
+dwell-17 burn 10⁵; demote = the Arc drop, 0.04–0.08), across coast and burn, four dwell
+classes and two N — the ledger's CPU half holds with ≥4.4× margin against the 23.1 µs
+4-core budget at 10⁹ rtf 100 (composed ÷8+delete = 0.78–0.85 cores; ÷8 alone = 2.0–2.2, so
+cadence alone meets the mint budget), and its 44 µs bind/refit pricing is corrected: the
+settle hands the promotion an exact key, so the promotion never refits — b29a's 21 µs
+`from_state` is the kick's own settle bill, already inside the kick Ĉ (b063). The memory
+half is coast-scoped: the dwell dial (`ES_RETAIN_DWELL`) collapses coast's standing resident
+100,819→288–329 at +1% re-mints, N-independent — but on burn it fails at 10⁹ as stated
+below (8792; 24 flights, one frozen binary, digests bit for bit; anchors regenerate
+exactly: 131,053/763,888/100,788,130,187). The re-ranking stands, sharpened: diet = 10⁶
+lever; ÷8 = the mint-budget lever; delete = the event-stream lever; burn-10⁹ memory = the
+kick cadence's mint bill plus bytes/body, no separate read-stream term.
 
 ## Refuted
+- **"The burn read stream is an N-linear observer demand at 10⁹"** (8792's open direction 1
+  as stated, "~6 cores of hit-path ε"): on shipped main the engine's read demand is O(1) in
+  N on the ladder's flights — identical absolute counts 1e4↔1e5, 70 candidates a scan — and
+  the N-linear reads are the kicks' own (4.3 an event through the wave), i.e. the mint bill
+  the cadence owns (20261017-0428-quant-c439).
 - **"The smallest promotion is a byte question"** (the board's framing under nladder):
   bytes only buy dwell headroom; the binding terms are dwell (memory) and mint cost
   (CPU) (20261016-2327-library-cbc5).
@@ -45,41 +67,37 @@ Prior best retained: the ledger's arithmetic and its P6 correction (below).
   the flown store never refits (the settle's key is exact), so mint+demote = compile + Arc
   drop = 3.7–5.3 µs measured; the refit is inside the kick bill, and pricing it again
   on the promotion side double-counts (20261017-0005-…-8792).
-- **"Dwell is the memory dial at 10⁹"** as stated: coast-true, burn-false — on burn the
-  read stream's N-linear rate sets both the standing resident (λ_reads×dwell) and the
-  re-mint bill, and the miss cliff (73%→14% between dwell 17 and 100) puts the
-  memory-feasible dwell and the re-mint-feasible dwell on opposite sides
-  (20261017-0005-…-8792).
+- **"Dwell is the memory dial at 10⁹"** as stated: coast-true, burn-false — the miss cliff
+  (73%→14% between dwell 17 and 100) is real but its owner is now named: the scan's ~70-body
+  near set read in bursts (the observer half) plus the kick mints (the cadence half); with
+  the near set pinned, what is left of the cliff is the cadence's
+  (20261017-0005-…-8792; c439).
 
 ## Open directions
-1. **The read stream is the burn knee** (this run's transfer of 0619's direction 2): at
-   10⁹ rtf 100 it is 5.74×10⁷ reads/s wall (11.5 reads/body/20k gs) — ~6 cores of pure
-   hit-path ε (lock+clone) even before misses. What are the resolver's re-reads of
-   kicked bodies FOR, and which representation deletes them? (0619 named this; the dial's
-   failure mode is now the measured reason.)
+1. **The read stream question is closed on main and handed back:** the observer half is a
+   ~70-body pin (build it: keep the scan's near set live across dwell); the N-linear half
+   is the kick cadence's mint bill (kick-cadence's page, ladder break 1) — no store
+   representation deletes it. What 0619 named ("what are the resolver's re-reads FOR") is
+   answered: they are the kicks' own reads of sources, self and record (2.9–4.3 an event).
 2. Cliff position, seed stability and N-linearity are flown (checkers: cliff between 80
 and 100 gs with miss 72–75% flat from dwell 5 through 80; seed 2 within 6% and seed 3 at
 14.0% on the cliff's right side, digest-identical to its own ctl; reads linear at 2×10⁵
 to 0.13%). The coast dial saturates at ~N beyond ~2000 gs (dwell 10000: standing
 115,276 ≈ N, re-mints exactly 1.00× retain's — checker2). Remaining: a formation scene
-(the burst scale the cliff hangs on) and the sub-frame dwell class (the ledger's
-"~1 game-s" certificate-clear), still interpolated, not flown.
+(the burst scale the cliff hangs on — c439's near set is the ladder's spread belt; a
+co-orbital formation swells it) and the sub-frame dwell class.
 3. ES_SECULAR's promotion-skip coverage (1a46) prices the event stream only — its effect
    on the read stream is unmeasured.
 4. The stagger's recurrence gate (≥3 intervals, the unprinted second spell,
    9e75-checker2) before idle-time compute-ahead is considered at all.
 
 ## Contradictions
-Resolved by this run: 0619's burn knee ("WS = demotions, an archive") vs the ledger's
-λ×dwell identity — both were measuring different things (0619's retained_now counts the
-never-expired archive at dwell=∞; the terminal/wave-passage peak pins ~N at dwell ≥ 100).
-Checker correction: the standing resident is NOT λ_reads×dwell at finite dwell either —
-it is burst-structured (167 at dwell ≤ 17, a ~6.7k plateau from 40 to 100, 8.2k at 1000
-vs 82.9k λ×dwell); the "memory-feasible dwell ≤ 7.5 gs" bound was that model's artifact,
-and the no-dwell verdict rests on the measured miss cliff (CPU cliff-left, memory
-cliff-right). Standing watch:
-the ledger's P6 cell (diet at shipped rate binds memory for dwell ∈ (2,808, 28,141] gs)
-is coast-only until the read stream is priced.
+Resolved by 8792: 0619's burn knee vs the ledger's λ×dwell identity (different
+instruments; the standing resident is burst-structured, not λ×dwell). Reconciled by c439:
+8792's b = 11.48 reads/body/20k gs is the mint-path reads riding ~3.9 kicks/body, not
+observer re-reads — their N-linearity and the census's O(1) observers measure the same
+flight's two halves. Standing watch: the ledger's P6 cell (diet at shipped rate binds
+memory for dwell ∈ (2,808, 28,141] gs) is coast-only.
 
 ## Runs
 - 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger):
@@ -93,3 +111,4 @@ is coast-only until the read stream is priced.
 - 20261015-1338-quant-1d52 … 0757, and 20261015-1615-quant-0619: demotion/retention built
 - 20261016-2327-library-cbc5 (library, silver): promotion ledger — dwell is the memory
 - 20261017-0005-second-20261016-2327-library-cbc5-8792 (second author, this run): the
+- 20261017-0428-quant-c439 (this run): the read census — read demand O(1) in N (counts

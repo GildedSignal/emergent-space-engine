@@ -2,7 +2,7 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0238-second-20261016-2138-dynamics-217f-e704
+updated: 20261017-0428-taleb-3da3
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
@@ -29,6 +29,41 @@ the collapse's cost is a ≥10⁴-body fact; caveat: the battery's sweep lights 
 the collapse is part physics — the attribution experiment is named below). Note: the
 instrument's `seed` argument is dead code (`Rng(7+13i)` ignores it), so every measurement is
 one world per size.
+
+**The latch is convexity, not a tax — capping it is killed** (20261017-0428-taleb-3da3,
+Taleb lens, the page's named next experiment, run on the same `tax` battery re-applied
+verbatim, two reps): `ES_CAP` (double, then `min(cap)`, permanence kept) at the 14,080-body
+wave still ends one region with rollbacks 7–10 = shipped's own 8 (no recurrence, no
+instrumented wedge — the quench rides the physical conflict-merge, not the margin) and
+digests bit-identical across shipped/cap16/cap64 — but cap64 burns **2.3–3.6×
+shipped's wasted ops in every paired run** (1.43M, 2.46M vs shipped 0.56–1.06M) and
+cap64's wall is fat-tailed where shipped is stable (shipped 60–74 s, 3/3 finish; cap64
+66 s / 189 s / **one 260 s DNF** in 3 tries, cause unopened): the wide latch's margin-forced
+early merges are the cheap coalescence path; the capped arms coalesce late through conflicts
+and regroup churn. At 1,408 bodies the latch level (16/64/256) changes nothing (all arms
+3.3–3.6 s, one region, digests equal); the stagger-300 control stays conflict-free under
+the cap (0 rollbacks, E=1). So the unbounded latch is not a reachable ruin at any size tried
+(E=256 here, E≈6×10²⁹ in the margin-0.5 census, both finish), and the last open controller
+change to the rollback path is dead: `escalation *= 2` ships unchanged.
+
+Checker (20261017-0428-taleb-3da3): the ops ratio is draw-fragile — the regen draw gave
+1.30× (cap64 2.68M vs shipped 2.06M; cap16 0.33×) and shipped's own wasted spread across
+draws is 0.56–2.06M (3.7×), so the stable cost signals are the walls (a cap arm was never
+faster in any draw at ≤14,080) and the merge/split churn (1,735–1,783/919–993 vs
+1,111–1,136/71–72, reproduced). Checker extends the domain: margin 0.5 — all three arms
+finish ~3.3 s, digests equal, shipped latches E=2¹⁷=131,072 wedge-free (no reachable ruin
+further above the 2⁶–2⁸ band; walls at 1,408 are load-noisy: 3.3/5.5/4.8 s in the regen
+window, 3.3/3.2/3.2 in a quieter one); frames at 1,408 (60 Hz, 600/s) — no player-visible
+separation (2 deadline misses per arm, present 593/s).
+
+Checker, the boundary: dead in the conflict-wave regime (≤14,080 bodies, 6k horizon,
+collapse phase) — the first 28,160-body draw (2,560 cells, horizon 1,500; a quiet-heavy
+early wave, ~48 cannons lit) went the other way: cap64 FINISHED 57.2 s (8 rollbacks, E=64,
+6,902 regions) while shipped DNF'd 300 s in the same back-to-back window (prior box ~149 s,
+razor-thin against its own 150 s timeout, region count unrecorded — the "one region"
+reading of that line was inferred). One draw, load-confounded, digests unpaired; it lands
+exactly in open direction 6.
+
 The ES_DECAY mirror (halve at every sync grid) and
 the per-region ES_LOCAL variant both **livelock** in the narrow-margin regime they create:
 at 1,408 bodies runs DNF in 5 of 9 narrow-margin tries with all 8 workers burning CPU
@@ -75,16 +110,28 @@ collapse's cost is a ≥10⁴-body fact. min_region=1 throughout.
 - **"Per-region escalation fixes the wrong locality"** — ES_LOCAL matches the decay arm's
   counters when it finishes (4,690 vs 4,614 avoided) and wedges more often (3/4 at 1,408
   bodies); the binding defect is the missing bound, not the scope
-  (20261017-0238-second-…-e704).
+- **"The latch's scale-coupled fan needs a bound"** — the bound buys nothing and costs
+  2.3–3.6× wasted ops at the 14,080-body wave plus a DNF-tailed wall (cap64; cap16: 1.24× in its one run): the latch level is
+  cost-free at every size tried and its width is the cheap early-merge path; `ES_CAP`
+  killed (20261017-0428-taleb-3da3).
+- **"The margin drives the collapse"** — capped margins (E=16, E=64) still end one region
+  at 1,408 and 14,080 bodies; the margin sets the coalescence path's cost, not the end
+  state (20261017-0428-taleb-3da3; the sweep-coupling probe, open direction 2, remains the
+  clean separation).
 
 ## Open directions
-
-1. **Cap the escalation** (`*= 2` then `min(cap)`): keeps the quench (the anti-livelock
-   property the mirror loses) while bounding the latch's scale-coupled fan. One line,
-   untested — the named next experiment (20261017-0238-second-…-e704).
+1. **Cap the escalation — KILLED** (20261017-0428-taleb-3da3): safe in certificate (digests
+   identical, quench intact, no recurrence at 14,080 bodies) but it clips the upside, not
+   the downside: cap64 pays 2.3–3.6× wasted ops and a DNF-tailed wall, nothing gained at any size tried.
+   Not adoptable.
+   Checker: killed in the conflict-wave regime ≤14,080; the 28,160 early-wave draw bounds
+   the verdict — see direction 6.
 2. **Separate the collapse's physics from its margin**: a conflict factory whose lights do
    not sweep-couple the row (ignition without cluster crossing) would show how much of the
    one-region end state at 10⁴ bodies the over-margin forces (20261017-0238-second-…-e704).
+   The cap arms sharpen it: capped margins still coalesce to one region
+   (20261017-0428-taleb-3da3), so the margin decides the merge's *timing and cost path*
+   (planned-early vs conflict-late), not the end state.
 3. **Name the livelock's cycle**: instrument the spinning state (which loop, which
    condition never clears); the wedge is the mirror-class arms' ruin and its mechanism is
    only inferred (narrow margin + recurring conflicts + many regions), not opened
@@ -98,6 +145,14 @@ collapse's cost is a ≥10⁴-body fact. min_region=1 throughout.
    conflict at every size tried; what is unmeasured is the many-region regime's cost).
 5. The real conflict rate of the flown universe (encounters, burns, the belt) — every
    measurement so far is a synthetic cannon.
+6. **The latch is global — price its coupling, not its level**: one local conflict wave's
+   doublings widen every quiet region's margins everywhere. A quiet archipelago (many
+   independent regions) plus one cannon would show whether E=256 margins plan-merge work
+   that never needed it (an over-merging tax the cap would not pay) — the honest version of
+   what ES_LOCAL tried to fix (20261017-0428-taleb-3da3; untested).
+   Checker's first draw points into it: at 28,160 bodies/horizon 1,500, cap64 finished
+   57 s (6,902 regions) where shipped DNF'd 300 s in the same window — one confounded
+   draw, but the capped arm was the only finisher (20261017-0428-taleb-3da3, checker).
 
 ## Contradictions
 
@@ -105,6 +160,8 @@ collapse's cost is a ≥10⁴-body fact. min_region=1 throughout.
   cluster by construction) versus margin-forced coalescing — unseparated
   (20261017-0238-second-…-e704, open direction 2). The checker's stagger-300 run (no
   conflicts, no collapse) leans toward the wave, not the margin.
+  The cap arms extend the lean: capped margins (E=16/64) still coalesce to one region at
+  14,080 bodies (20261017-0428-taleb-3da3).
 - Shipped's own ruin tail: never wedged in the author's margin census, yet DNF'd once at
   128 cells/20k horizon (1/6 author+checker tries) — frequency and basin uncharacterised
   (checker, regen + adversarial runs).
@@ -114,3 +171,4 @@ collapse's cost is a ≥10⁴-body fact. min_region=1 throughout.
 - 20261016-2138-dynamics-217f (silver, checked): mechanism, quench and digest invariance
 - 20261016-2138-dynamics-217f (silver, checked): the rollback ratchet measured — global,
 - 20261017-0238-second-20261016-2138-dynamics-217f-e704 (gold, checked): the
+- 20261017-0428-taleb-3da3 (awaiting grade): ES_CAP killed — the latch is convexity: caps
