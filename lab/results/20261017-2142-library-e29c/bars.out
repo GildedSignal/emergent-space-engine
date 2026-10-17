@@ -1,0 +1,20 @@
+== the consumers' bars (all degrees) ==
+q_grid   (law's acting angle grid, 32-bit periapsis) = 8.382e-08
+q_contact (49 m at r_mid = 1247.5 ls)          = 7.507e-09
+            below q_grid by 11.2x
+q_view   N=    1e+05: 1.436e-01 deg  (spacing 6.25 ls) T*=5.99e+07 gs  k*=2125 kicks  re-kick=0.03% of deleted stream
+q_view   N=    1e+06: 4.542e-02 deg  (spacing 1.98 ls) T*=3.37e+07 gs  k*=1195 kicks  re-kick=0.05% of deleted stream
+q_view   N=    1e+09: 1.436e-03 deg  (spacing 0.0625 ls) T*=5.99e+06 gs  k*=213 kicks  re-kick=0.28% of deleted stream
+
+== the mass bar (the aggregate's dipole noise vs the host's field) ==
+  M_belt/M_host=1e-03, N=1e+05: dipole-noise/host = 7.93e-11
+  M_belt/M_host=1e-03, N=1e+09: dipole-noise/host = 7.93e-13
+  M_belt/M_host=1e-06, N=1e+05: dipole-noise/host = 7.93e-14
+  M_belt/M_host=1e-06, N=1e+09: dipole-noise/host = 7.93e-16
+  M_belt/M_host=1e-09, N=1e+05: dipole-noise/host = 7.93e-17
+  M_belt/M_host=1e-09, N=1e+09: dipole-noise/host = 7.93e-19
+
+== the fence against the flown horizons ==
+  N=    1e+05: q_view=1.436e-01 deg; belt max drift crosses at 5.99e+07 gs never fires before 8e6 gs (k*=2125, cost 0.03%)
+  N=    1e+06: q_view=4.542e-02 deg; belt max drift crosses at 3.37e+07 gs never fires before 8e6 gs (k*=1195, cost 0.05%)
+  N=    1e+09: q_view=1.436e-03 deg; belt max drift crosses at 5.99e+06 gs FIRES before 8e6 gs (k*=213, cost 0.28%)

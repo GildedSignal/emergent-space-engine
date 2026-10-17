@@ -1,0 +1,4 @@
+Working...
+Run complete, all artifacts verified: `regen.sh` reproduces every number (`bars: identical`, quotes 5/5), the wiki page folds in over the intact prior content, and all five pre-registered predictions held.
+
+**The claim:** the certificate's angle bars, frozen from the shipped consumers (the map's pixel 1.44×10⁻³° at 10⁹, the contact's 7.51×10⁻⁹° — 11× below the law's own acting angle grid, the mass aggregate's never-binding bar ≥10 orders loose), delete the sparse re-kick from the flight law (zero firings at any flyable N; 0.28% of the deleted stream at 10⁹, passing Musk's 10% add-back test with ≥20× margin), kill the one-global-bar reading, and force carried bodies' contacts onto the margin representation — leaving the compose rung's one free constant, q_view(N), derived rather than tunable.
