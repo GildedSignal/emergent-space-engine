@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place (`predictions.md` pre-registered, `dossier.md`, `regen.sh` proven end-to-end at 80 s with identical digests, `wiki/read-stream.md`, census outputs at 10⁴ and 3×10⁴).
+
+**Claim:** the plane's source-read stream is one shared field evaluated per body — 64.5% of it (169,570 of 262,719 `secondaries` reads) is bit-identical repetition with zero conflicts (the birth wave alone is one field read done 29,142 times, and the locals' doll batches 96.8% on its dyadic grid), while the belt's kick comb is structurally 74% distinct ticks at both 10⁴ and 3×10⁴ — so read-stream's lever splits into a free bit-exact `(source, tick)` memo and a representation cure (one canonical-tick field pass per comb), naming the per-body tube as the single payer of the belt's read tax, its rebind (68–85%) and its memory plateau.

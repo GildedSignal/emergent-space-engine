@@ -1,0 +1,190 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..4c299309 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,9 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
++#[cfg(not(target_os = "macos"))]
++unsafe fn proc_pid_rusage(_pid: i32, _flavor: i32, _buffer: *mut u64) -> i32 {
++    0
++}
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+@@ -160,4 +165,6 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
+-}
++    emergent_universe::census::report();
++
++}
+\ No newline at end of file
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..cc2f028d
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,125 @@
++//! A print-only census of `Ctx::state_of`: who reads whom at what tick, how often the same
++//! (source, tick) is read again, whether a repeated key ever returns two different states
++//! (it must not: bindings change only at the source's own events, resolved in tick order),
++//! and how far each source's reported position drifts across the reads of one site. Opt-in
++//! via `ES_CENSUS=1`; nothing here writes into the universe, so digests cannot move.
++use std::collections::HashMap;
++use std::sync::LazyLock;
++use std::sync::Mutex;
++
++#[derive(Default)]
++struct Site {
++    calls: u64,
++    errors: u64,
++    keys: HashMap<(u32, i64), KeyState>,
++    /// first read's position (f64 magnitudes) and the max |Δ| against it, per source j
++    drift: HashMap<u32, Drift>,
++}
++struct KeyState {
++    hash: u64,
++    count: u64,
++    conflicts: u64,
++}
++struct Drift {
++    first: (f64, f64),
++    max_abs: f64,
++    ref_mag: f64,
++}
++
++fn enabled() -> bool {
++    static E: LazyLock<bool> = LazyLock::new(|| std::env::var("ES_CENSUS").is_ok_and(|v| !v.is_empty()));
++    *E
++}
++
++fn sites() -> &'static Mutex<HashMap<u32, Site>> {
++    static S: LazyLock<Mutex<HashMap<u32, Site>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
++    &S
++}
++
++fn hash_of(v: &crate::num::Res<(crate::num::V2, crate::num::V2)>) -> Option<(u64, (f64, f64))> {
++    let (p, _) = v.as_ref().ok()?;
++    let f = |s: emergent_space::orbit::Scalar| (s.significand() as f64) * 2f64.powi(s.exponent() as i32);
++    let mut h = 0xcbf29ce484222325u64;
++    for s in p.iter().chain(v.as_ref().unwrap().1.iter()) {
++        h ^= (s.significand() as u64).wrapping_mul(0x100000001b3);
++        h ^= (s.exponent() as u64 as u64).wrapping_mul(0x9e3779b97f4a7c15);
++    }
++    Some((h, (f(p[0]), f(p[1]))))
++}
++
++/// Record one call at `line` for source `j` at tick `t` with result `v`.
++pub fn record(loc: &'static std::panic::Location<'static>, j: usize, t: i64, v: &crate::num::Res<(crate::num::V2, crate::num::V2)>) {
++    if !enabled() {
++        return;
++    }
++    let line = loc.line() ^ (loc.file().len() as u32).rotate_left(13) ^ (loc.file().bytes().fold(0u32, |a, b| a.rotate_left(5) ^ b as u32));
++    let mut sites = sites().lock().unwrap();
++    let s = sites.entry(line).or_default();
++    s.calls += 1;
++    let Some((h, pos)) = hash_of(v) else {
++        s.errors += 1;
++        return;
++    };
++    let k = s.keys.entry((j as u32, t)).or_insert(KeyState { hash: h, count: 0, conflicts: 0 });
++    k.count += 1;
++    if k.hash != h {
++        k.conflicts += 1;
++    }
++    let d = s.drift.entry(j as u32).or_insert(Drift { first: pos, max_abs: 0.0, ref_mag: (pos.0 * pos.0 + pos.1 * pos.1).sqrt() });
++    let dx = pos.0 - d.first.0;
++    let dy = pos.1 - d.first.1;
++    d.max_abs = d.max_abs.max((dx * dx + dy * dy).sqrt());
++}
++
++/// Print the census: per call site, calls, distinct keys, repeated calls, bit-conflicts,
++/// top key multiplicity, and the per-source position drift (f64 magnitudes, reporting only).
++pub fn report() {
++    if !enabled() {
++        return;
++    }
++    let sites = sites().lock().unwrap();
++    println!("census: site calls distinct repeated conflict_frac top_mult | per-source rel-drift");
++    let mut lines: Vec<_> = sites.iter().collect();
++    lines.sort_by_key(|(l, _)| **l);
++    for (line, s) in lines {
++        let repeated: u64 = s.keys.values().map(|k| k.count - 1).sum();
++        let conflicts: u64 = s.keys.values().map(|k| k.conflicts).sum();
++        let top = s.keys.values().map(|k| k.count).max().unwrap_or(0);
++        let mut topk: Vec<(&(u32, i64), &KeyState)> = s.keys.iter().collect();
++        topk.sort_by(|a, b| b.1.count.cmp(&a.1.count));
++        for ((j, t), k) in topk.into_iter().take(5) {
++            println!("census:   L{line} top j{j} t={t} (game s {:.0}) x{}", *t as f64 * 4.925_490_947e-6, k.count);
++        }
++        let drift: Vec<String> = {
++            let mut d: Vec<_> = s.drift.iter().collect();
++            d.sort_by_key(|(j, _)| **j);
++            d.iter()
++                .map(|(j, x)| format!("j{j}: {:.3e}", if x.ref_mag > 0.0 { x.max_abs / x.ref_mag } else { 0.0 }))
++                .collect()
++        };
++        println!(
++            "census: L{line} calls {} distinct {} repeated {} conflict_frac {:.6} top_mult {} errs {} | {}",
++            s.calls,
++            s.keys.len(),
++            repeated,
++            if s.calls > 0 { conflicts as f64 / s.calls as f64 } else { 0.0 },
++            top,
++            s.errors,
++            drift.join(" ")
++        );
++        // the tick spread per (site, source): how many distinct ticks each source was read at
++        let mut per_src: Vec<(u32, usize, i64, i64)> = Vec::new();
++        for j in s.drift.keys() {
++            let ts: Vec<i64> = s.keys.keys().filter(|(jj, _)| jj == j).map(|(_, t)| *t).collect();
++            if let (Some(min), Some(max)) = (ts.iter().min(), ts.iter().max()) {
++                per_src.push((*j, ts.len(), *min, *max));
++            }
++        }
++        per_src.sort();
++        for (j, n, min, max) in per_src {
++            let calls_j: u64 = s.keys.iter().filter(|(k, _)| k.0 == j).map(|(_, v)| v.count).sum();
++            let top_j = s.keys.iter().filter(|(k, _)| k.0 == j).map(|(_, v)| v.count).max().unwrap_or(0);
++            println!("census:   L{line} j{j} calls {calls_j} distinct_ticks {n} repeated {} top_mult {top_j} span_ticks {}", calls_j.saturating_sub(n as u64), max - min);
++        }
++    }
++}
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..dab4d291 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -57,10 +57,12 @@ pub struct Ctx<'a> {
+ }
+ 
+ impl Ctx<'_> {
+-    /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
++    #[track_caller]
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+-        b.cartesian(t)
++        let r = b.cartesian(t);
++        crate::census::record(std::panic::Location::caller(), j, t, &r);
++        r
+     }
+ 
+     /// The units body `i`'s tube is compiled in, in doll `d`: about the doll's centre alone for a test particle,
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..59d4d4b6 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,6 +1,7 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+ pub mod bind;
+ pub mod body;
++pub mod census;
+ pub mod ctx;
+ pub mod dash;
+ pub mod encounter;
