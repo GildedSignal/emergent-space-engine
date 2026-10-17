@@ -12,20 +12,20 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
-| [representation-premises](representation-premises.md) | open | 4 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
+| [representation-premises](representation-premises.md) | open | 5 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
-| [library-directions](library-directions.md) | open | 6 | **Five lessons take the memory wall's newest hole (the FLOW's load-path pin) and the run attributes it: |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
+| [library-directions](library-directions.md) | open | 7 | **The certificate's angle bars are frozen from the shipped consumers, and the freeze deletes |
 | [read-stream](read-stream.md) | open | 7 | **The fit's mass is now decomposed stage by stage on flown belt inputs, one of its three |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
 | [allocator-ratchet](allocator-ratchet.md) | open | 16 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
-| [handoff](handoff.md) | open | 17 | **[Inventory, the named hole filled in float (20261017-2038-scout-8dfb, scout):] the |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
+| [handoff](handoff.md) | open | 18 | **[The port is pure float, counted and priced (20261017-2142-second-…-e1a4, |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |

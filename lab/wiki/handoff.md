@@ -2,11 +2,46 @@ topic: handoff
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2038-scout-8dfb
+updated: 20261017-2142-second-20261017-2038-scout-8dfb-e1a4
 
 # Handoffs between dolls and the doll boundary
 
 ## Current best
+**[The port is pure float, counted and priced (20261017-2142-second-…-e1a4,
+second author on scout-8dfb; the checker's named experiment):] all six
+constants close in exactly 8 distinct Carlson kernels per (E, L_z, Q) key
+(2×RF + 4×RJ + 2×RD = 0.86 µs at de99's measured rf 50/rd 78/rj 152 ns; raw
+28 calls = 2.40 µs) — the ∂ₙΠ hole is closed by the machine-derived
+J = Π + n∂ₙΠ = [Π(2mn−3m−n²+2n) + K(m−n) + nE]/(2(n−1)(m−n)) (the complete-
+integral case; cd6e had already closed the incomplete equatorial squared
+pole by Hermite reduction — kick-jet page), verified
+1.9e-15 against 40-dps quadrature; the port is bit-faithful to the original
+arm (≤ 4.4e-14) and exactness is unchanged (≤ 3.7e-12 vs quadrature, 21 rows
++ held-out, same worst row). The "unhandled root case" is measured and is
+NOT a missing reduction: 3.7% of a 630-row sweep — all 23 of its rows sit at
+a ≤ 0.3 ∧ e ≥ 0.5 ∧ p ≤ 7.5 on the census's coarse grid, but that is NOT the
+class boundary: the first checker's probe finds a = 0.45, p = 6.5, e = 0.9 in
+the same class, and the second checker's sweep puts 8 more rows in it up to
+a = 0.5 — they hide inside the census's solve-fail bucket (the inherited
+absolute-residual assert at 1e-9 fails on residual scale, not convergence), so
+the boundary is unbracketed in a. Every
+such row returns an (E, L_z, Q) whose quartic has an extra root INSIDE the
+intended band with R(rp+ε) < 0 — a spurious solve on non-adjacent turning
+points; the fix is a band-integrity assert in the solve (refuse loudly;
+12.7% already refuse at solve, 83.7% clean 4real/2below, max Λ_r 7.26 — no
+m→1 blow-up anywhere in the sweep). Lense–Thirring control on the port
+itself: |Ω_φ−Ω_θ| = 0.975–0.986 × 4πa/p^{3/2} at p = 30, inclination-flat
+0.6%, e-flat 0.5% — the dossier's "1.1%" is a slip, both inside the freeze's
+2% (checker's independent Hamiltonian: 1.10; the port's first
+readout formula — the per-libration polar-channel deviation — was wrong by
+15.6× and is recorded as refuted). The B19-shaped freeze for Q ≠ 0 is
+written (freeze-b19q.md in the run): cycles/advances/fates-with-refusal/
+frame-dragging/degenerations/cost, negatives on both sides. Adoption price:
+0.86 µs/key native against the shipped belt compile 4.4 µs, plane mix
+5–256 µs, rebind floor ~6 µs; reads carry zero kernels. Still open: the
+integer port (Q's word), the resonant-torus readout, the LT convention gap
+(0.98 vs 1.10 × LT between the two instruments).]**
+
 
 **[Inventory, the named hole filled in float (20261017-2038-scout-8dfb, scout):] the
 inclined Kerr orbit is a compiled 2-torus in Mino time whose six per-(E, L_z, Q)
@@ -23,10 +58,12 @@ pre-registered "Λ_θ → 0" was wrong and is recorded as missed). Sources verif
 arXiv (Fujita-Hikida 0906.1420; Schmidt gr-qc/0202090; Drasco-Hughes
 astro-ph/0308479); every reduction asserted numerically in-instrument (the asserts
 caught three of the author's own errors: transposed 3×3, wrong pole decomposition,
-wrong remembered ∂ₙΠ). Not measured: the integer port (Q's word), the float ∂ₙΠ
-recurrence dt_r needs (the instrument uses a 40-dps mpmath derivative of the same
-kernel), resonant-torus readout conditioning, the complex-pair root case, and any
-kick/rebind on a three-word key — the build step's edges, named.]**
+wrong remembered ∂ₙΠ). Not measured then: the integer port (Q's word), the
+float ∂ₙΠ recurrence dt_r needs, resonant-torus readout conditioning, the
+complex-pair root case, and any kick/rebind on a three-word key — the build
+step's edges, named. [e1a4 closed the ∂ₙΠ recurrence (the J closed form) and
+measured the root case (a spurious solve, not a missing reduction); the rest
+stay open.]**
 
 **[Surface, the rule class decided (20261017-1240-scout-f666, scout):] the chatter is
 Zeno and the cure is the decision variable, not the band.** Deciding **once per apsis**
@@ -325,6 +362,14 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
    float ∂ₙΠ recurrence (dt_r's one basis element), resonant-torus t-inversion, the
    refusal path at Λ_r → ∞, and the complex-pair radial root case (fa4b's domain plus
    this run's page).
+   **[e1a4 closes three of those: the float ∂ₙΠ recurrence (J closed form,
+   1.9e-15), the B19-shaped freeze (freeze-b19q.md), and the root case
+   (measured: a spurious solve on non-adjacent turning points, 3.7% of the
+   sweep — the refusal is a band-integrity assert in the solve, not new
+   algebra; the true separatrix refusal at Λ_r → ∞ remains priced but
+   unwired). The port is 8 kernels/0.86 µs per key — adoptable beside the
+   equatorial compiler within one step. What remains: the integer port, the
+   resonant readout, the LT convention reconciliation (0.98 vs 1.10 × LT).]**
 
 ## Contradictions
 
@@ -367,3 +412,4 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
 - 20261015-1926-second-20261015-1747-redteam-de98-97b0 (awaiting grade): the contradiction adjudicated with a primary-source 3PN EOB — ecfd's number is a wrong-coefficient artifact, de98's corrected contour undershoots 1.5–13×; measured: 1% crossing at p̄≈65M (ν=0.25), fabricated-plunge band ≥2M wide at ν=0.25; r3 v4's oracle exists.
 - 20261017-1240-scout-f666 (scout, this run): the surface rule class — per-apse, per-cycle radial extent vs the empirical stability radius (Λ-continuous); shipped predicate's chatter 9.4/orbit unbounded killed to 0, 1/transition, kick-robust vs hysteresis's 76.
 - 20261017-2038-scout-8dfb (scout, this run): inclined Kerr compiled as a Mino-time
+- 20261017-2142-second-20261017-2038-scout-8dfb-e1a4 (this run): the port pure float — 8 Carlson kernels/key, 0.86 µs; J closed form 1.9e-15; root case = spurious solve 3.7%; LT control 0.98×LT; freeze B19Q written.

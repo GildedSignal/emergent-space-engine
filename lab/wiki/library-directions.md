@@ -2,11 +2,44 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1330-library-7bd9
+updated: 20261017-2142-library-e29c
 
 # Library lessons for the ladder's open decisions
 
 ## Current best
+
+**The certificate's angle bars are frozen from the shipped consumers, and the freeze deletes
+two components: the re-kick leaves the flight law (T*(q_view) = 5.99×10⁷ / 3.37×10⁷ game-s at
+N = 10⁵/10⁶ against the 8×10⁶-gs horizon — zero firings anywhere we can fly; k* = 213 carried
+kicks, 0.28% of the deleted stream, at 10⁹ — Musk's 10% add-back test passed with ≥20× margin)
+and the mass bar never exists (the aggregate's dipole noise ≤ 7.9×10⁻¹¹ of the host's field at
+M_belt/M_host = 10⁻³, N ≥ 10⁵); the contact consumer is forced OUT of the angle channel by
+arithmetic: its bar, 49 m at the belt's mid radius = 7.51×10⁻⁹°, sits 11.2× BELOW the law's
+acting angle grid (the tube's 32-bit periapsis angle, 8.38×10⁻⁸°; checker 20261017: the 49 m is
+the shipped belt-body radius, scenario.rs:344 = 34·2⁻¹⁰ root units = 49.0 m — the dossier's
+"encounters-page miss quantum" is a mis-attribution, and the forcing holds for every b* ≤ 547 m,
+break-even at the grid's own arc), so no angle word can carry
+it — the margin representation (cf2a's direction 1) is the only route; q_view itself is the
+map's pixel at neighbour resolution (a kind-4 belt dot is a 2×2 px rect with no name; spacing/2
+at r_mid): 1.44×10⁻¹° / 4.54×10⁻²° / 1.44×10⁻³° at 10⁵/10⁶/10⁹, scaling N^−1/2 — the bar
+self-tightens as the belt fills; the compose rung's one free constant per population is
+q_view(N), derived, not tunable; the belt row's remaining bind is the exclusion width (the
+belt's own measured delete 274/712 = 38.5%, survival 61.5% — kick-cadence, checker2 flipped
+the author's "38.5% kept"), never the fence (20261017-2142-library-e29c, library; composition on shipped constants
+— client page.html:58/141/154, scenario.rs:333, law.md:12 — plus f5bd's measured drift law;
+quotes 5/5 byte-identical against a fresh 4,590-highlight export; all five pre-registered
+predictions held).** The five lessons: (1) Paul Graham, Black Swan Farming — "listen only to
+your instruments": a difference no instrument reads does not exist for the player → the belt's
+bar is the pixel, not physics; (2) Taleb, The Bed of Procrustes — "the more precision, the more
+dead you are": the consumers' bars span six orders, a global bar taxes every body for precision
+nothing reads → per consumer per population; (3) Buffett via Taleb — "establishing a high
+filter, then picking opportunities that pass such threshold": the certificate is a frozen
+pass/fail filter → each bar names its consumer and its kill; (4) Herbert, Dune — "Too few
+individuals, and a people reverts to a mob": the mob/individual split is a count property the
+client already encodes (named kind-≤3 circles vs kind-4 rects) → q_mass deleted, 10c4's "two
+bars" refine to q_live + q_view; (5) Musk — "if you do not end up adding back at least 10% of
+them, you didn't delete enough": dc8f's pre-committed add-back is now measured (0% flyable,
+0.28% at 10⁹) → the delete stands, the re-kick moves to the 10⁹ wiring.
 
 **Five lessons take the memory wall's newest hole (the FLOW's load-path pin) and the run attributes it:
 the held-scans queue is the accumulator (memory-h-live's page), the latch is the bulk drop, and the fence
@@ -185,6 +218,16 @@ Linux, fermi-lens precedent):**
 
 ## Refuted
 
+- **"The certificate needs one global angle bar" (the reading under dc8f/f5bd's k* table,
+  and any single-bar freeze): dead** — the consumers' bars span 7.51×10⁻⁹° (contact) to
+  10⁻³°-class (view), six orders; the contact bar sits 11× below the law's acting angle
+  grid, so it is not an angle question at all (margins, cf2a dir 1), and the mass consumer
+  has no bar (dipole noise ≥10 orders under the host field) (20261017-2142-library-e29c).
+- **"The sparse secular re-kick is a component of the compose rung's flight law" (dc8f's
+  pre-commitment, carried by f5bd's fence): retired at the frozen bar** — zero firings at
+  every flyable N to 8×10⁶ game-s (T* = 6.0×10⁷/3.4×10⁷ gs at 10⁵/10⁶, conservative t²),
+  0.28% of the deleted stream at 10⁹ (k* = 213): it enters only the 10⁹ wiring, with k
+  derived from q_view (20261017-2142-library-e29c).
 - **The 10.3-core composed ledger as the 10⁹ CPU requirement (kick-cadence's headline read
   that way): incomplete, not wrong** — composed with inversion-2373's measured fleet row it
   is 46.3 / 393.3 / 4,510.3 cores at F = 10³/10⁴/10⁵ (fleet share 77.8/97.4/99.77%), and no
@@ -242,10 +285,16 @@ Linux, fermi-lens precedent):**
 4. **The boundary-item bench** (10c4's L1): split the boundary's 13 µs into readout vs
    item machinery (12db's kick-bench pattern) — decides whether the merge is worth
    ×0.95 or ×0.80 of belt CPU (S* 19.7× vs 16.6×); then the merge's B-gate flight.
-5. **Freeze the certificate's angle bars — now two, not one** (10c4's L4 extends this
-   direction): q_live (r9-class per-orbit, 10⁻³–10⁻²°) and q_mass read from the view's
-   belt-band angular resolution (the view topic owns the number; no flight). The compose
-   rung (RES + re-kick) carries q as its one free constant per population.
+5. **Frozen (20261017-2142-library-e29c): the bars are per consumer** — q_view(N) (the
+   map's pixel at neighbour resolution, N^−1/2) for the belt, the r9-class 10⁻²° for the
+   locals (the individuals), q_mass deleted, contacts by margins. Remaining: the locals'
+   pixel derivation (one frame dump of the fitted view's `near`), the fence's burn arm, and
+   a 10⁶-belt drift re-measure to confirm the scene constants carry to 10⁹.
+[checker 20261017: the zero-firing delete is horizon-scoped — at N = 10⁶ the fence crosses at
+3.4×10⁷ gs (≈93 wall-hours at rtf 100), so a persistent go-live beyond ~3×10⁷ gs re-arms the
+re-kick even at flyable N; f5bd's note already flagged that boundary. The delete also survives
+my adversarial arm: 24× the measured drift at 1e6, and the dense inner-edge density (e-smear
+only) moves k* at 10⁹ only 213 → 123.]
 6. **The sampled-readout ensemble gate** (10c4's L3): re-grade components-98bc's
    0.126-bit belt program on N=100 sampled readouts vs full population (adversarial
    sample, not uniform — the tail is the point); if it holds, the compact mass's
@@ -278,3 +327,4 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261017-0739-library-10c4 (this run): five lessons order the 10⁹ ledger; boundary comb
 - 20261017-1018-library-cf2a (this run): five lessons take the fleet row; composed ledger
 - 20261017-1330-library-7bd9 (library): the FLOW attributed (held-scans queue) — five lessons order the fence: bytes-not-count, load-arm protocol, the unread counter, diet-vs-pin, peak-not-drain.
+- 20261017-2142-library-e29c (library): the bars frozen from the shipped consumers — the re-kick leaves the flight law (0 firings flyable, 0.28% at 10⁹), q_mass deleted, contacts forced to margins (11× below the acting grid); all five predictions held.

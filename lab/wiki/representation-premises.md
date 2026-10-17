@@ -2,7 +2,7 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1447-second-20261017-1330-redteam-68e7-506c
+updated: 20261017-2142-redteam-e59e
 
 # The premises of docs/representation.md: a census against the record
 
@@ -24,6 +24,28 @@ both sides: exact keys never repeat, the repeating key is not the law — so "a 
 updates the cycle by a multiply-add" (L67) has no shipped fast path and cannot get one
 from memoization ("derivative prediction never substitutes for authoritative rebinding",
 crates/space/ENVELOPE.md; the jet retired by three golds, law.md L36).
+
+**NEW (e59e, premise red-team): the doc's observable set for the view is incomplete —
+opacity is missing entirely, and the size of what the player sees wrong is measured
+(20261017-2142-redteam-e59e, float falsifier, exact Schwarzschild null geodesics).**
+§2 L53–59 lists the view's physics (clock, colour, aberration, lensing crossings,
+blackbody, "Nothing bounces") with no capture rule and no occluder test; the shipped
+gather is straight light (`view.rs` L15 "(no lensing yet)", verified). Exact shadow arc
+(Synge α_sh = asin(√27·√(1−2/r_o)/r_o), verified against RK4 bisection to ≤4.2e-5 and
+r1/B4's four capture cases 4/4): **1.64% of the 2-D sky at r_o = 100 M, 7.93% at 20 M,
+exactly 25.0% at 6 M, 46.6% at 3.2 M** — fabricated rows inside it at N = 10⁴ sky
+emitters: **164 / 793 / 2,500 / 4,662**. Opaque bodies: an occluder at 10 radii blocks
+3.19% of the sky (319 of 10⁴ emitters drawn through it), at 2 radii (every planet
+approach) 16.7% (1,667). The rim is not a perturbation: exact deflection 2.08 rad at
+b = 1.1·b_c, 4.23 at 1.01, 6.51 at 1.001 (the analytic −ln(b/b_c−1)+ln[216(7−4√3)]−π),
+so "memoized deflection(b)" (L57) has a domain ending at the rim and the letter is
+silent on b ≤ b_c rows — either wiring (keep-straight / drop-on-None, the shipped
+`deflection` returns None) fails eclipse parity. No rung, gate or criterion sees any of
+it (r6's presence bar requires the rows occlusion must remove); Julien's conversation
+names occlusion six times, including "eclipse status unchanged" as an invariant and
+"check whether that null segment intersects the worldtube of an occluding planet"
+(original-conversation.md L984/4283/4864/4872/5032/6450/7375) — dropped in the pivot's
+rewrite without a recorded decision (it survived in September's approved-build-plan G6).
 
 The census, ranked by player visibility (the rest of this page's standing record):
 
@@ -58,7 +80,10 @@ The census, ranked by player visibility (the rest of this page's standing record
    had "cold seeds leave the bracket at β ≥ 0.9".**
    100% of azimuths at r_o 100–3.2 M, 20261011-1234-redteam-6eae); no time-transfer law
    (flat light-time off 2–176° within ~50 M, 20261011-0924-redteam-5977, gold);
-   deflection key broken for rotating dolls (20261010-2052-redteam-8be2, gold).
+   deflection key broken for rotating dolls (20261010-2052-redteam-8be2, gold);
+   **and opacity/capture absent from the premises entirely (e59e, above) — the one
+   hole in this list with no shipped half and no rung, at measured 16.7% of the sky
+   on an ordinary planet approach.**
 3. **Binet cells "the primary in-cell solution" (L32): replaced 30 September by the Darwin
    compilation** (law.md L20: the band map's tangents carry a first-order slope error in
    every turning cell); research rehabilitation partial with four broken instrument
@@ -123,20 +148,25 @@ The census, ranked by player visibility (the rest of this page's standing record
 
 ## Refuted
 
+- **"§2's observable set is the view's physics" (representation.md L53–59, the list
+  every view run inherited): opacity is missing — no capture rule, no occluder test —
+  and the player sees through black holes and planets at measured rates (16.7% of the
+  sky at a 2-radii planet approach; 25.0% inside the shadow arc at r_o = 6 M)
+  (20261017-2142-redteam-e59e; the shipped gather is straight light, `view.rs` L15).**
 - **"A kick updates the cycle by a multiply-add" as a cost claim** (representation.md L67 +
   L114): three golds killed the jet (20261006-1249-redteam-4978,
   20261008-1757-second-…-0ccd-b33f, 20261012-1227-second-…-4808-d617, via law.md L36), and
   **the same refutation was already measured at gold grade: 75.6 µs vs a 42–56 ns floor,
   ~1,800×, exact memo 0% (20261011-1729-components-b063)**; the census run regenerates it on
   shipped code (34.8 µs median, exact memo 0.0%) — the doc still teaches it.
-- **The Hashlife memo premise as an operating fast path** ("identical invariants share one
+- **"The Hashlife memo premise as an operating fast path"** ("identical invariants share one
   memoized cycle"): exact_hit_rate 0.0 at 2262 rebinds, digest-stable (the census run;
   checker's held-out arms seeds 7/42, rtf 100–3000: 14,219 rebinds, zero reuse), after 0/203,017
   (20261010-1544-system-97ce) and 0/3,225 (20261013-2005-quant-7055); the quantized
   alternative is a refused law change (law.md L36; taste log 5 Oct).
 - **"Each visible tube crosses the observer's past light cone once"** (6eae, silver):
   2–4 images near masses.
-- **The cold no-memo gather as a row-complete fallback** ("every crossing found from
+- **"The cold no-memo gather as a row-complete fallback"** ("every crossing found from
   scratch", view.rs): 12/38400 emitters dropped at β 0.999–0.9999 Toward, deterministic —
   checker: root_state read failures at ticks the from-the-present walk probes (an independent
   bisection fails the same rows; warm resolves them), not budget exhaustion; killed by r6
@@ -145,7 +175,7 @@ The census, ranked by player visibility (the rest of this page's standing record
   §2 "shortcuts… add speed, never error"): true for the view's rows, false for its cost —
   stale/foreign caches pay p99 5.13 vs the kept cache's 2.92 (20261017-1018-redteam-13c6).
 - **"r5 remains uncreated and cannot be created in this lab … `lattice-metal`'s dense order
-  is `#[cfg(target_os = "macos")]` and compiles to a stub on Linux — an M1-side run owns
+  is `#[cfg(target_os = \"macos\")]` and compiles to a stub on Linux — an M1-side run owns
   it"** (13c6's blocker, this page before this run): a category error — the dense order is
   "CPU, or Metal on the GPU" (law.md L50), and the CPU arm (`Chronon`) is portable; the
   shipped identity suite runs 9/9 on Linux and the created r5 rung PASSES 20/20 with its
@@ -155,13 +185,25 @@ The census, ranked by player visibility (the rest of this page's standing record
 1. **The integrator's one-pass amendment of representation.md** (no code): strike L67/L114
    for the recorded 43–160 µs and rebind-per-kick; relabel Binet cells as research;
    annotate "crosses once" (the "mark r5 uncreatable off-Mac" clause is dead — see
-   Refuted). Until then every new reader is
-   seeded with refuted premises (principles 10 and 19, applied to the document).
+   Refuted); **new (e59e): add opacity to §2's observable list — capture arcs (Synge's
+  closed form, valid r_o ≥ 3 M: inside the photon sphere the blocked fraction is the
+  complement, 62% of the sky at 2.5 M — checker bisection) and occluder worldtubes —
+  and fix L28's spoke count (N = 2πm/ln2 = 145 at m = 16, not 128). Until then every
+  new reader is seeded with refuted premises (principles 10 and 19, applied to the
+  document).**
 2. **Commit r6** (`lab/results/20261017-1018-redteam-13c6/r6-view.md`, frozen hash
    recorded, checker silver): the view's cost and presence are now guardable mechanically
    at rtf 100; the next rung is exactness, and the checker's bisection oracle already
    certifies warm's ticks 23,170/23,170 at the frozen scale — no smaller scene needed —
    plus bars that the negative fails at every cadence and a window past frame 178.
+   **New (e59e): the rung that does not exist is eclipse parity — rows whose retarded
+   null segment meets an occluder's worldtube must be absent, emitters near the rim
+   present via their true deflected images; negative control = the shipped straight
+   gather (must fabricate at e59e's measured rates). The wiring decision (keep-straight
+   vs drop-on-None at b ≤ b_c) must be frozen before lensing lands: both fail parity.**
+   Check2: rim-emitter presence needs the deflection readout the shipped view lacks
+   ("no lensing yet") — freeze the absence half now, the rim-presence half with the
+   lensing memo.
 3. **Adopt r5 and r5-starve into `lab/rungs/`** (`lab/results/20261017-1330-redteam-68e7/r5-dense-order.md`
    and `…-506c/r5-starve.md`, both frozen before execution, both PASS): the CPU arm is
    guarded on every axis this lab can reach — orders, threads, budgets, sabotage and
@@ -169,15 +211,29 @@ The census, ranked by player visibility (the rest of this page's standing record
    configs and `metal_identity.rs`'s scenes, same criteria, starved wrapper included).
 4. The EOB strong-field flank: closed by 97b0's oracle (→ handoff); the merger scene's
    licence below p̄ ≈ 12M still wants an NR-calibrated EOB.
+5. **Price the moving-occluder eclipse (e59e's named follow-up):** "eclipse status
+   unchanged" (Julien's invariant) needs delay(b) (5977's missing memo) for onset/egress
+   timing; static occlusion is one interval test per row — price it per frame at the
+   view's own scales (10³–10⁵ rows) before the lensing memo, so the two land together.
+   Check2 correction (the first check's direction label was inverted and its 54.9% does
+   not reproduce): the arc is observer-velocity-dependent by aberration of the arrival
+   interval, tanψ′ = sinψ/(γ(cosψ+β)) — the 2 R planet's 30° half-arc shrinks to 17.6°
+   approaching at β 0.5 (9.8% of the sky) and grows to 49.8° receding (27.7%; 45.1% at
+   β 0.9 receding, the arc through the far side) — the parity gate must judge in the
+   observer's frame at player β, not on static arcs.
 
 ## Contradictions
 
 None. The doc's provisional status ("DRAFT … supersedes nothing until the falsifiers in §7
 have run") is kept beside the census: the letter is refuted, the status line was honest
-about it; both stand.
+about it; both stand. e59e's opacity entry in Refuted targets the observable-set reading
+(the list every view run treated as complete), while the doc never asserts completeness
+in so many words — the gap is against Julien's conversation, not against a written
+falsehood; the nuance is recorded here, the entry stands.
 
 ## Runs
 - 20261016-1207-redteam-12db (silver): premise census; kick cost 34.8 µs vs the doc's
 - 20261017-1018-redteam-13c6 (silver): r6 created, frozen and executed — PASS for the
 - 20261017-1330-redteam-68e7 (awaiting grade): r5 created and PASSES on Linux — dense≡sparse 20/20, the "uncreatable here" blocker refuted; GPU arm stays M1-side
 - 20261017-1447-second-20261017-1330-redteam-68e7-506c (awaiting grade): r5-starve frozen and executed — dense≡sparse holds under starvation and load, 11/11 + 27 allocator cells, allocator arm first for EventCore
+- 20261017-2142-redteam-e59e (awaiting grade): opacity missing from the view's premises — stars through planets (16.7% of sky at 2R) and black holes (25% at r_o 6M); no rung sees it
