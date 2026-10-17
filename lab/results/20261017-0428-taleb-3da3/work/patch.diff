@@ -1,0 +1,421 @@
+diff --git a/crates/allocator/examples/tax.rs b/crates/allocator/examples/tax.rs
+new file mode 100644
+index 00000000..e7f121e4
+--- /dev/null
++++ b/crates/allocator/examples/tax.rs
+@@ -0,0 +1,202 @@
++//! The rollback ratchet's tax, priced where the player feels it (lab run
++//! 20261017-0238-second-20261016-2138-dynamics-217f-e704, the checker's named gold experiment).
++//! Scales the original run's Newtonian conflict battery (a Fermi cannon per cell aimed at a
++//! quiet cluster, staggered ignitions) to >= 10^4 bodies and many regions, then compares three
++//! controller arms — shipped (one-way global ratchet), ES_DECAY (global decay mirror),
++//! ES_LOCAL (per-region escalation) — in batch (staged `run_to`) and in the frame harness
++//! (`run_frames`), public API only. One RESULT line per run; the arm comes from the environment.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example tax -- \
++//!         batch <cells> <per> <stagger> <stages> <step> <seed>
++//!         frames <cells> <per> <stagger> <seconds> <seed> <rate> <hz>
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig, Report};
++use emergent_lattice::{chronon::Chronon, law::Law};
++use std::sync::Arc;
++
++/// The original run's `battery`, parameterised: `cells` cells 8000 units apart along x, each a
++/// Fermi cannon (light body between two m=16384 bouncers closing at q/32; cell i ignites at
++/// ~stagger·i chronons) plus a quiet `per`-body cluster at the cell centre. Clusters keep the
++/// original density (8 bodies per ±q box): the box half-width scales as sqrt(per/8)·q.
++fn battery(q: i64, cells: i64, per: u64, stagger: i64, law: Law) -> Vec<emergent_lattice::law::World> {
++    use emergent_lattice::law::{Body, Response, World};
++    let template = World::new(q, None, vec![]).expect("empty template");
++    let mk = |bodies: Vec<Body>| World { bodies, container: None, ..template.clone() };
++    let (vh, cell) = (q / 32, 8000);
++    let spread = (((per as f64) / 8.0).sqrt().ceil() as i64).max(1) * q;
++    let mut out = Vec::new();
++    let stride_id = per + 100;
++    for i in 0..cells {
++        let c = i * cell * q;
++        let d = 576 + vh * stagger * i;
++        out.push(mk(vec![
++            Body::new(1 + stride_id * i as u64, [c, 0], [0, 0], 1, q / 4, Response::Bounce),
++            Body::new(2 + stride_id * i as u64, [c - d, 0], [vh, 0], 1 << 14, 2 * q, Response::Bounce),
++            Body::new(3 + stride_id * i as u64, [c + d, 0], [-vh, 0], 1 << 14, 2 * q, Response::Bounce),
++        ]));
++        let mut rng = emergent_lattice::worlds::Rng(7 + 13 * i as u64);
++        let t: Vec<Body> = (0..per)
++            .map(|j| {
++                Body::new(
++                    100 + stride_id * i as u64 + j,
++                    [c + rng.range(-spread, spread), rng.range(-spread, spread)],
++                    [rng.range(-2, 2), rng.range(-2, 2)],
++                    1,
++                    q / 4,
++                    Response::Bounce,
++                )
++            })
++            .collect();
++        out.push(mk(t));
++    }
++    scenes::with_law(out, law)
++}
++
++fn arm() -> String {
++    let cap = std::env::var("ES_CAP").ok().and_then(|v| v.parse::<f64>().ok());
++    let base = match (
++        std::env::var("ES_DECAY").is_ok_and(|v| !v.is_empty() && v != "0"),
++        std::env::var("ES_LOCAL").is_ok_and(|v| !v.is_empty() && v != "0"),
++    ) {
++        (false, false) => "shipped",
++        (true, false) => "decay",
++        (false, true) => "local",
++        _ => "both",
++    };
++    // ES_CAP (lab run 20261017-0428-taleb-3da3): the capped ratchet arm, named by its cap.
++    match (base, cap) {
++        ("shipped", Some(c)) => format!("cap{}", c),
++        _ => base.to_string(),
++    }
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let mode = a.first().cloned().unwrap_or_else(|| "batch".into());
++    let (cells, per, stagger): (i64, u64, i64) = (
++        a.get(1).and_then(|s| s.parse().ok()).unwrap_or(128),
++        a.get(2).and_then(|s| s.parse().ok()).unwrap_or(8),
++        a.get(3).and_then(|s| s.parse().ok()).unwrap_or(30),
++    );
++    let seed: u64 = a.get(6).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let q = 256;
++    let law = if std::env::var("TAX_LAW").is_ok_and(|v| v == "relativistic") { Law::Relativistic } else { Law::Newtonian };
++    let worlds = battery(q, cells, per, stagger, law);
++    let bodies: usize = worlds.iter().map(|w| w.bodies.len()).sum();
++    let cfg = Config {
++        speed_margin: std::env::var("TAX_MARGIN").ok().and_then(|v| v.parse().ok()).unwrap_or(2.0),
++        min_region: std::env::var("TAX_MIN_REGION").ok().and_then(|v| v.parse().ok()).unwrap_or(1),
++        observer: [0, 0],
++        view_radius: 0,
++        ..Config::default()
++    };
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let workers = format!("{}+{}", cfg.p_workers, cfg.e_workers);
++    let mut alloc = Allocator::new(worlds, factory, cfg).expect("scene");
++    eprintln!(
++        "tax {mode} cells={cells} per={per} stagger={stagger} seed={seed}: {bodies} bodies, {} initial regions, arm={} workers {workers}",
++        alloc.regions(),
++        arm()
++    );
++    let stages = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(10);
++    let step = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(4000);
++    let stages_tsv = std::env::var("TAX_STAGES").is_ok_and(|v| !v.is_empty() && v != "0");
++    match mode.as_str() {
++        "batch" => {
++            if stages_tsv {
++                println!("stage\ttick\twall_ms\tregions\trollbacks\tescal\tescal_max\tmerges\tsplits\tavoided\twasted\tchr_per_s");
++            }
++            // run_to resets its counters each call: accumulate across stages for the summary.
++            let (mut rollbacks, mut rolled, mut wasted, mut merges, mut splits, mut avoided, mut promises) =
++                (0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
++            let (mut wall_ms, mut last) = (0u128, None);
++            for s in 1..=stages {
++                let target = (s as i64) * step;
++                let t0 = std::time::Instant::now();
++                let r: Report = alloc.run_to(target);
++                let w = t0.elapsed().as_millis();
++                wall_ms += w;
++                let reg = &r.regions;
++                rollbacks += reg.rollbacks;
++                rolled += reg.rolled_back_regions;
++                wasted += reg.wasted_ops;
++                merges += reg.merges;
++                splits += reg.splits;
++                avoided += reg.merges_avoided;
++                promises += reg.promises_exceeded;
++                if stages_tsv {
++                    println!(
++                        "{s}\t{target}\t{w}\t{}\t{rollbacks}\t{:.1}\t{:.1}\t{merges}\t{splits}\t{avoided}\t{wasted}\t{:.0}",
++                        alloc.regions(),
++                        reg.speed_escalation,
++                        reg.speed_escalation_max,
++                        r.sim.region_chronons_per_wall_second
++                    );
++                }
++                last = Some(r);
++            }
++            let r = last.expect("at least one stage");
++            let chronons = stages as u128 * step as u128;
++            let (d1, d2) = alloc.outcome();
++            println!(
++                "RESULT mode=batch arm={} cells={} per={} stagger={} seed={} bodies={} stages={} horizon={} wall_ms={} rollbacks={} rolled_reg={} wasted={} merges={} splits={} avoided={} promises={} escal={:.1} escal_max={:.1} regions={} chr_per_s={:.0} digest={} {}",
++                arm(),
++                cells,
++                per,
++                stagger,
++                seed,
++                bodies,
++                stages,
++                stages * step,
++                wall_ms,
++                rollbacks,
++                rolled,
++                wasted,
++                merges,
++                splits,
++                avoided,
++                promises,
++                r.regions.speed_escalation,
++                r.regions.speed_escalation_max,
++                alloc.regions(),
++                chronons as f64 / (wall_ms.max(1) as f64 / 1e3),
++                d1,
++                d2
++            );
++        }
++        "frames" => {
++            let seconds: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(3.0);
++            let rate: f64 = a.get(7).and_then(|s| s.parse().ok()).unwrap_or(2000.0);
++            let hz: f64 = a.get(8).and_then(|s| s.parse().ok()).unwrap_or(60.0);
++            let r = alloc.run_frames(&FrameConfig { hz, seconds, rate, ahead_seconds: 0.25, record: false });
++            let f = r.frames.as_ref().expect("frames report");
++            println!(
++                "RESULT mode=frames arm={} cells={} per={} stagger={} seed={} bodies={} hz={} rate={} seconds={} frames={} deadline_misses={} small_misses={} accel_drops={} present_per_s={:.1} buffer_p50={:.1} buffer_p99={:.1} frontier={} rollbacks={} wasted={} merges={} avoided={} escal={:.1} escal_max={:.1} regions={}",
++                arm(),
++                cells,
++                per,
++                stagger,
++                seed,
++                bodies,
++                hz,
++                rate,
++                seconds,
++                f.frames,
++                f.deadline_misses,
++                f.small_deadline_misses,
++                f.acceleration_drops,
++                r.sim.present_chronons_per_wall_second,
++                f.buffer_chronons.p50,
++                f.buffer_chronons.p99,
++                r.finality.frontier,
++                r.regions.rollbacks,
++                r.regions.wasted_ops,
++                r.regions.merges,
++                r.regions.merges_avoided,
++                r.regions.speed_escalation,
++                r.regions.speed_escalation_max,
++                alloc.regions()
++            );
++        }
++        other => panic!("unknown mode {other}"),
++    }
++}
+diff --git a/crates/allocator/src/alloc.rs b/crates/allocator/src/alloc.rs
+index 8e8d8dc2..cab3646c 100644
+--- a/crates/allocator/src/alloc.rs
++++ b/crates/allocator/src/alloc.rs
+@@ -223,6 +223,10 @@ struct Region<S> {
+     no_split_until: Tick,
+     eligible_at: Option<Instant>,
+     blocked_by: Option<u64>,
++    /// ES_LOCAL (lab run 20261017-0238-second-…-e704): this lineage's own speed-escalation
++    /// (rollback doublings it inherited/was dealt, halved at sync grids). Unused (always 1)
++    /// unless ES_LOCAL is set; the shipped controller keeps the global `State::escalation`.
++    escalation: f64,
+ }
+ 
+ impl<S: Stepper> Region<S> {
+@@ -449,6 +453,32 @@ fn speed(vmax: i64, factor: f64) -> i64 {
+     }
+ }
+ 
++/// ES_DECAY (lab run 20261016-2138-dynamics-217f): halve the global speed escalation at every
++/// sync grid, mirroring the rollback's doubling. ES_LOCAL (lab run
++/// 20261017-0238-second-20261016-2138-dynamics-217f-e704): the escalation becomes per region —
++/// a rollback doubles only the clashing lineages, the decay halves each region at the same
++/// grids. Both off (default) = shipped behaviour verbatim.
++fn decay_on() -> bool {
++    static D: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_DECAY").is_ok_and(|v| !v.is_empty() && v != "0"));
++    *D
++}
++
++fn local_on() -> bool {
++    static L: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_LOCAL").is_ok_and(|v| !v.is_empty() && v != "0"));
++    *L
++}
++
++/// ES_CAP (lab run 20261017-0428-taleb-3da3): the rollback ratchet's latch cap — the doubling
++/// keeps its permanence but stops at `cap`. Off (default) = shipped behaviour verbatim.
++fn cap_value() -> Option<f64> {
++    static C: std::sync::LazyLock<Option<f64>> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_CAP").ok().and_then(|v| v.parse::<f64>().ok()).filter(|c| *c >= 1.0)
++    });
++    *C
++}
++
+ /// A copy of `w` without bodies or contacts: every other field (the law, and any the
+ /// contract adds later) is carried through unchanged.
+ fn shell(w: &World) -> World {
+@@ -537,11 +567,9 @@ impl<S: Stepper + Send + 'static> State<S> {
+         }
+     }
+ 
+-    /// margin × sabotage, widened after every rollback ("bad forecasters get wider bands");
+-    /// the additive term keeps widening even from a zero margin.
+-    fn speed_factor(&mut self) -> f64 {
++    fn esc_factor(&mut self, e: f64) -> f64 {
+         let sab = self.sabotage.as_mut().map_or(1.0, |s| s.factor());
+-        (self.cfg.speed_margin * sab).max(0.0) * self.escalation + (self.escalation - 1.0)
++        (self.cfg.speed_margin * sab).max(0.0) * e + (e - 1.0)
+     }
+     fn cost_factor(&mut self) -> f64 {
+         self.sabotage.as_mut().map_or(1.0, |s| s.factor())
+@@ -610,7 +638,8 @@ impl<S: Stepper + Send + 'static> State<S> {
+     }
+ 
+     fn anchor(&mut self, id: u64, snap: Arc<Snap>) {
+-        let (f, cf, closed) = (self.speed_factor(), self.cost_factor(), self.closed);
++        let esc = if local_on() { self.regions.get(&id).map_or(1.0, |r| r.escalation) } else { self.escalation };
++        let (f, cf, closed) = (self.esc_factor(esc), self.cost_factor(), self.closed);
+         let r = self.regions.get_mut(&id).expect("anchored region exists");
+         let b = &snap.world.bodies;
+         r.bbox = snap.bbox;
+@@ -625,7 +654,7 @@ impl<S: Stepper + Send + 'static> State<S> {
+         r.last = snap;
+     }
+ 
+-    fn make_region(&mut self, world: World, log: Log, ops: u64, mut history: History, fin: Option<Vec<Arc<Snap>>>, stride: u32) -> u64 {
++    fn make_region(&mut self, world: World, log: Log, ops: u64, mut history: History, fin: Option<Vec<Arc<Snap>>>, stride: u32, esc: f64) -> u64 {
+         let id = self.next_id;
+         self.next_id += 1;
+         let tick = world.tick;
+@@ -666,6 +695,7 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 no_split_until: tick,
+                 eligible_at: None,
+                 blocked_by: None,
++                escalation: esc,
+             },
+         );
+         self.regions.get_mut(&id).expect("made").set_final(parts);
+@@ -1132,6 +1162,21 @@ impl<S: Stepper + Send + 'static> State<S> {
+         let new = r.tick;
+         self.set_verified(Some(old), Some(new));
+         self.st.accepted += 1;
++        // ES_DECAY/ES_LOCAL (lab runs 20261016-2138-dynamics-217f, 20261017-0238-second-…):
++        // the rollback ratchet's missing restoring force — halve the escalation(s) at every
++        // sync grid, mirroring the rollback's doubling. Off (default) = shipped verbatim.
++        if new % self.sync() == 0 {
++            if decay_on() && self.escalation > 1.0 {
++                self.escalation = (self.escalation / 2.0).max(1.0);
++            }
++            if local_on() {
++                for r in self.regions.values_mut() {
++                    if r.escalation > 1.0 {
++                        r.escalation = (r.escalation / 2.0).max(1.0);
++                    }
++                }
++            }
++        }
+         self.anchor(id, snap);
+         if let Some(bl) = self.parked_blocked.remove(&id) {
+             for b in &bl {
+@@ -1212,7 +1257,12 @@ impl<S: Stepper + Send + 'static> State<S> {
+         let w = self.window(tick);
+         let (g, l) = (self.cfg.window, self.cfg.split_lookahead.max(0));
+         let union = union_of(&members.iter().map(|m| &self.regions[m].last.world).collect::<Vec<_>>());
+-        let f = self.speed_factor();
++        let esc_union = if local_on() {
++            members.iter().map(|m| self.regions[m].escalation).fold(1.0f64, f64::max)
++        } else {
++            self.escalation
++        };
++        let f = self.esc_factor(esc_union);
+         let comps = comps.unwrap_or_else(|| islands(&union, speed(vmax(union.bodies.iter()), f).saturating_mul((l + 1) * g).saturating_mul(2), self.cfg.min_region.max(1)));
+         let models: Vec<(Model, i64)> = comps
+             .iter()
+@@ -1346,7 +1396,7 @@ impl<S: Stepper + Send + 'static> State<S> {
+             .map(|s| match s {
+                 Ok(id) => id,
+                 Err((wd, lg, ops, h, fin, hold, stride)) => {
+-                    let id = self.make_region(wd, lg, ops, h, Some(fin), stride);
++                    let id = self.make_region(wd, lg, ops, h, Some(fin), stride, esc_union);
+                     self.regions.get_mut(&id).expect("made").no_split_until = hold;
+                     id
+                 }
+@@ -1407,7 +1457,16 @@ impl<S: Stepper + Send + 'static> State<S> {
+     /// happen. Nothing published can be touched (asserted).
+     fn rollback(&mut self, mut clashes: Vec<(u64, Tick)>) {
+         self.st.rollbacks += 1;
+-        self.escalation *= 2.0;
++        if local_on() {
++            // ES_LOCAL: the doubling is dealt to the clashing lineages only (their restored
++            // region inherits it below); the global stays 1 forever.
++        } else if let Some(cap) = cap_value() {
++            // ES_CAP (lab run 20261017-0428-taleb-3da3): the ratchet keeps its permanence
++            // (nothing ever decays) but the latch is bounded: double, then min(cap).
++            self.escalation = (self.escalation * 2.0).min(cap).max(1.0);
++        } else {
++            self.escalation *= 2.0;
++        }
+         clashes.sort_by_key(|&(id, s)| (s, id));
+         let mut restored: Vec<(u64, Tick)> = Vec::new();
+         for (lid, s0) in clashes {
+@@ -1473,11 +1532,16 @@ impl<S: Stepper + Send + 'static> State<S> {
+             self.st.wasted += spent.saturating_sub(ops);
+             self.st.rolled_regions += affected.len() as u64;
+             let depth = affected.iter().map(|id| self.regions[id].tick - s).max().unwrap_or(0);
++            let esc_new = if local_on() {
++                affected.iter().map(|id| self.regions[id].escalation).fold(1.0f64, f64::max) * 2.0
++            } else {
++                1.0
++            };
++            let rid = self.make_region(world, log, ops, history, Some(fin), stride, esc_new);
+             self.st.rollback_depth.push(depth as f64);
+             for id in &affected {
+                 self.drop_region(*id);
+             }
+-            let rid = self.make_region(world, log, ops, history, Some(fin), stride);
+             for &id in affected.iter().chain(std::iter::once(&lid)) {
+                 self.children.entry(id).or_default().push(rid);
+             }
+@@ -1880,7 +1944,7 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
+         {
+             let mut g = sh.state.lock().unwrap();
+             let stride = g.cfg.stride;
+-            let id = g.make_region(union, Log::new(false), 0, History::new(), None, stride);
++            let id = g.make_region(union, Log::new(false), 0, History::new(), None, stride, 1.0);
+             if !closed {
+                 g.regroup(vec![id], None);
+             }
+@@ -2074,6 +2138,12 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
+                 stride_chronons: pcts(&strides),
+             },
+             regions: RegionsReport {
++                speed_escalation: g.escalation,
++                speed_escalation_max: if local_on() {
++                    g.regions.values().map(|r| r.escalation).fold(1.0, f64::max)
++                } else {
++                    g.escalation
++                },
+                 initial: s.regions_initial,
+                 last: g.regions.len(),
+                 max: s.regions_max,
+@@ -2086,7 +2156,6 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
+                 rollback_depth_chronons: pcts(&s.rollback_depth),
+                 accepted_windows: s.accepted,
+                 wasted_ops: s.wasted,
+-                speed_escalation: g.escalation,
+             },
+             workers,
+             units: UnitsReport {
+diff --git a/crates/allocator/src/report.rs b/crates/allocator/src/report.rs
+index 13572625..0522e7a2 100644
+--- a/crates/allocator/src/report.rs
++++ b/crates/allocator/src/report.rs
+@@ -56,6 +56,8 @@ pub struct RegionsReport {
+     pub wasted_ops: u64,
+     /// Current widening of speed forecasts after failures (1 = none).
+     pub speed_escalation: f64,
++    /// Widest per-region escalation (equals the global one outside ES_LOCAL).
++    pub speed_escalation_max: f64,
+ }
+ 
+ #[derive(Clone, Debug, Default, Serialize)]
