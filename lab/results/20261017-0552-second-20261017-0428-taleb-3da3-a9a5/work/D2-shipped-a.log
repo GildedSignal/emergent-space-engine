@@ -1,0 +1,19 @@
+== D2-shipped-a  load 0.49 0.91 0.94 06:09:59 ==
+tax batch cells=128 cannons=128 sea=1280p784q@400000q per=8 stagger=30 seed=1: 11648 bodies, 1642 initial regions, arm=shipped workers 4+4
+stage	tick	wall_ms	regions	rollbacks	escal	escal_max	merges	splits	avoided	wasted	chr_per_s
+
+thread 'alloc-6' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1510:17:
+rollback of region 1698 from 128 would revise its published tick 144
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'alloc-7' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1835:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'main' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1999:77:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-4' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1835:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }
+
+thread 'alloc-1' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator/src/alloc.rs:1835:37:
+called `Result::unwrap()` on an `Err` value: PoisonError { .. }

@@ -1,0 +1,48 @@
+(patch already applied)
+   Compiling emergent-allocator v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/allocator)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.55s
+== build ok 06:54:53 load 0.53 0.65 1.02 ==
+== S: shipped panic-basin sweep, plain battery, no scene knobs ==
+RESULT DNFTMO(120s,rc=101) S-st3000
+panics: 9
+RESULT mode=batch arm=shipped cells=128 cannons=128 sea=0p0q@0q per=8 stagger=10000 seed=1 bodies=1408 stages=2 horizon=3000 wall_ms=31020 rollbacks=15 rolled_reg=42 wasted=239584 merges=595 splits=658 avoided=2469 promises=8504 escal=32768.0 escal_max=32768.0 regions=1 chr_per_s=97 digest=484f562befea08e4cd472299f111f2ea7937df67c670e4211dee060a0feb39d6 18d29792cd8b4a128319126b30dd9edd83cf12e57132db50a23475017a3c1184
+panics: 0
+RESULT mode=batch arm=shipped cells=128 cannons=128 sea=0p0q@0q per=8 stagger=30000 seed=1 bodies=1408 stages=2 horizon=3000 wall_ms=39171 rollbacks=29 rolled_reg=79 wasted=415059 merges=649 splits=686 avoided=2796 promises=9228 escal=536870912.0 escal_max=536870912.0 regions=249 chr_per_s=77 digest=2210113cddb916cc077724c1aa82e254a698e66c93b2b7ae10e4837461694d1f fdbb5ae5a1714e38b0163b52349da900bda456b23f5bf69e0a36e6defe72f73f
+panics: 0
+RESULT DNFTMO(120s,rc=101) S-st99999
+panics: 9
+== C: 64-cell quiet sea, coupled (40M) and decoupled (102M), one draw each ==
+RESULT mode=batch arm=shipped cells=128 cannons=128 sea=64p784q@156250q per=8 stagger=30 seed=1 bodies=1920 stages=2 horizon=3000 wall_ms=7356 rollbacks=72 rolled_reg=270 wasted=4376937 merges=261 splits=193 avoided=398 promises=1460 escal=4722366482869645213696.0 escal_max=4722366482869645213696.0 regions=1 chr_per_s=408 digest=a7080be97ad24d12db485a280338e7128b2b0adc2968a5302a0b0b0778d8d36c e61f13e07efdc320df09c5ec4eb2d2d33373d0e90f44da0b165b775d86028b99
+panics: 0
+RESULT DNFTMO(60s,rc=124) C1-64-cap16
+panics: 0
+RESULT DNFTMO(60s,rc=101) C1-64-cap64
+panics: 9
+RESULT mode=batch arm=shipped cells=128 cannons=128 sea=64p784q@400000q per=8 stagger=30 seed=1 bodies=1920 stages=2 horizon=3000 wall_ms=2483 rollbacks=10 rolled_reg=21 wasted=357295 merges=115 splits=0 avoided=12 promises=178 escal=1024.0 escal_max=1024.0 regions=1 chr_per_s=1208 digest=9567902a03100f1680b038254600f5be56fd153b382d80340d07c3ad2484c317 4aa5ba0b2c784ee2446582b6f3d2a222621be341ce2a316aa2789d2614872fc3
+panics: 0
+RESULT mode=batch arm=cap16 cells=128 cannons=128 sea=64p784q@400000q per=8 stagger=30 seed=1 bodies=1920 stages=2 horizon=3000 wall_ms=2546 rollbacks=15 rolled_reg=32 wasted=411201 merges=103 splits=0 avoided=21 promises=186 escal=16.0 escal_max=16.0 regions=1 chr_per_s=1178 digest=9567902a03100f1680b038254600f5be56fd153b382d80340d07c3ad2484c317 4aa5ba0b2c784ee2446582b6f3d2a222621be341ce2a316aa2789d2614872fc3
+panics: 0
+RESULT mode=batch arm=cap64 cells=128 cannons=128 sea=64p784q@400000q per=8 stagger=30 seed=1 bodies=1920 stages=2 horizon=3000 wall_ms=2586 rollbacks=10 rolled_reg=22 wasted=355210 merges=100 splits=0 avoided=25 promises=181 escal=64.0 escal_max=64.0 regions=1 chr_per_s=1160 digest=9567902a03100f1680b038254600f5be56fd153b382d80340d07c3ad2484c317 4aa5ba0b2c784ee2446582b6f3d2a222621be341ce2a316aa2789d2614872fc3
+panics: 0
+== B: the checker's probe at full size: 1,280-cell sea (decoupled cap rows: same class, live in work/) ==
+RESULT DNFTMO(300s,rc=101) D1-1280-shipped
+panics: 9
+RESULT DNFTMO(90s,rc=124) D1-1280-cap16
+panics: 0
+RESULT DNFTMO(90s,rc=124) D1-1280-cap64
+panics: 0
+RESULT DNFTMO(300s,rc=101) D2-1280-shipped
+panics: 9
+== D3: the basin edge at stagger 30000 — draw-flip (2 shipped draws) and the cap64 arm-check ==
+RESULT mode=batch arm=shipped cells=128 cannons=128 sea=0p0q@0q per=8 stagger=30000 seed=1 bodies=1408 stages=2 horizon=3000 wall_ms=35841 rollbacks=13 rolled_reg=45 wasted=283890 merges=644 splits=658 avoided=2720 promises=9061 escal=8192.0 escal_max=8192.0 regions=52 chr_per_s=84 digest=2210113cddb916cc077724c1aa82e254a698e66c93b2b7ae10e4837461694d1f fdbb5ae5a1714e38b0163b52349da900bda456b23f5bf69e0a36e6defe72f73f
+panics: 0
+RESULT DNFTMO(120s,rc=101) D3-shipped-b
+panics: 3
+RESULT mode=batch arm=cap64 cells=128 cannons=128 sea=0p0q@0q per=8 stagger=30000 seed=1 bodies=1408 stages=2 horizon=3000 wall_ms=37019 rollbacks=28 rolled_reg=85 wasted=396034 merges=613 splits=666 avoided=2828 promises=9204 escal=64.0 escal_max=64.0 regions=127 chr_per_s=81 digest=2210113cddb916cc077724c1aa82e254a698e66c93b2b7ae10e4837461694d1f fdbb5ae5a1714e38b0163b52349da900bda456b23f5bf69e0a36e6defe72f73f
+panics: 0
+== D4: the checker's 28,160-body datum, paired ==
+RESULT mode=batch arm=cap64 cells=2560 cannons=2560 sea=0p0q@0q per=8 stagger=30 seed=1 bodies=28160 stages=1 horizon=1500 wall_ms=145670 rollbacks=12 rolled_reg=25 wasted=203354 merges=253 splits=0 avoided=106 promises=2836 escal=64.0 escal_max=64.0 regions=7045 chr_per_s=10 digest=ae37a51c840e40876e76f3a17a9d4f39bee67e9c0aec600a214af51880bdea7f 4c0f7996f0fd031b435c1633e4509c361201259f988e66ea9bd8329f4fddfa74
+panics: 0
+RESULT DNFTMO(150s,rc=124) D4-shipped
+panics: 0
+== done 07:08:05 load 0.98 1.10 1.09 ==
