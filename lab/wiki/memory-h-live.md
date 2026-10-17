@@ -2,11 +2,28 @@ topic: memory-h-live
 status: open
 closed-by:
 valid-while:
-updated: 20261012-1827-second-20261012-1715-q-wiki-memory-h-live-ef8a-6015
+updated: 20261017-0005-system-efd4
 
 # Memory at 10⁹ in 8 GB: live information per body (H_live), scars, the standing representation
 
 ## Current best
+
+**The standing catalogue is a cache pretending to be state, and its duplication is now measured
+with controls: 99.6% under co-orbital concentration, 0.4% on the belt** (20261017-0005-system-efd4,
+gold: the intern was flown by the checker — 513→2 standing on the formation, digests bit-identical).
+A 512-ship formation on one orbit stands 513 entries for 2 distinct intern keys (the
+duplicates are byte-identical: `Orbit::compile`/`Passage::compile` are pure in `(Unit, OrbitKey,
+sense, passage edge)` — the edge is a real input, and the intern key must carry it); a
+512-distinct-orbit scatter stands 513/513, and the flown plane with a 2,000-ship ladder belt stands
+2,044/2,036 after 2,550 kicks. Nobody queries the plane's `Catalogue` (`get` has zero callers;
+every reader holds the `Arc<Entry>`), the digest leaves slot ids out (ties.rs), and `crates/space`'s
+own catalogue already interns by `(OrbitKey, bool, Option<Scalar>)` — the plane's fork kept the
+free list and dropped the intern. So one structure (intern + refcount, then eviction) deletes the
+per-binding mint, the creation compile (16.4 µs/ship measured) for program births on shared
+orbits — the intern alone does not remove it: the mint must consult the key before fitting, which
+is not yet flown — and the dead-body entries; the scattered belt's stock needs the eviction half
+(5465's regenerable 58%), not the intern. The kick-CPU memo stays dead (memo.rs: exact keys never
+recur on distinct kicks).
 
 **The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s
 total: rebinds through the secondary's SOI (10.2 bits/s) co-dominant with the player
@@ -376,3 +393,4 @@ code path (`soi_truth.py`, 21.1 bits/s; 20261012-1621-second-…-09a1).
 - 20261012-1019-spacex-3463 (silver): marginal memory ~330 kB per handed-out body, growing with N; the dashboard under-reports ~40×.
 - 20261012-1117-second-20261012-1019-spacex-3463-c304 (gold): the 845 MB at 4,000 members is unpruned rebind history (~10 kB/ship-kick; settle bypasses the prune) plus 19 kB/handout.
 - 20261012-1438-second-20261012-1340-scout-d80d-b2fd (silver): twin-rates predict sealed-scar memory, not traffic; 1.8% depart permanently at ~40 bits each.
+- 20261017-0005-system-efd4 (gold): standing catalogue duplication measured with controls — 99.6% co-orbital, 0.4% belt; intern+eviction is one structure; intern flown by the checker (digests bit-identical).

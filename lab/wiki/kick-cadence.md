@@ -2,11 +2,67 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261016-2229-second-20261016-2138-fermi-e7ef-98cb
+updated: 20261017-0005-dynamics-8ffc
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+
+**The recurrence gate is passed and the crest is decided: the belt's freeze is a
+period-halved TWO-COMB comb train (slowly decaying and shearing past ~5 intervals — not a
+fixed limit cycle; checkers below) — a kick comb at phase ≈ interval/2 (51.6–53.8 µs/event)
+and a boundary comb at phase ≈ interval (12.6–13.2 µs), each exactly ≈ 1.00 event per belt
+body per 28,141.5-game-s doll interval (the locals' fixed comb subtracted), both drifting
+≤3 %/interval over 3.7 intervals at 3×10⁵ (the decay ratios themselves delivery-dependent:
+checker rtf 3600, kick comb flat-to-rising) — so the freeze recurs on every interval
+flown (8.2 at 10⁵, checker); idle-time compute-ahead fits the whole cycle at
+the player's pace with 10.8× headroom at 3×10⁵ and 3.2× at 10⁶ (the 69–73-s 10⁶ spell is
+schedulable) but is 308× short at 10⁹ (≈24 h of clamped delivery per interval, the boundary
+comb adding ~25 % to 9e75's kicks-only 19.3 h); and every kick-counted 10⁹ stream ledger
+undercounts the belt by the boundary comb (2 events/body/interval, 63 µs vs 50:
+~+26 % belt CPU at shipped cadence — more if `BELT_SPLIT` does not stretch the boundary
+with the kick) (20261017-0005-dynamics-8ffc, dynamics; shipped `nladder` coast, patch =
+print-only per-spell/per-frame instrument; arms A `300000 coast 150 1800` (7 crests, 3.7
+intervals), B `100000 coast 60 3600`, C `300000 coast 100 300`; comb masses from game-time
+windows — window 1 BIT-IDENTICAL across rtf 300/1800 (310,224 kicks / 10,138 boundaries
+on both; later windows drift ≤2 % with delivery — checker rtf 3600); crest spacing
+14,072 = interval/2 alternating composition; kick comb decay 0.993/0.980/0.975 (one rtf's
+reading), boundary 0.987/0.969; one unimodal pulse per comb (90 %
+of mass in ~1,635 game-s, no doll-octave sub-peaks); between combs the engine idles at p50
+0.903 ms of the 12-ms budget at rtf 300 while crest 1 still clamps 16.7 s; law ratio
+1.01–1.05 on every kick spell; 9e75's crest-1 numbers reproduced +0.5 %).** The mechanism is
+law-native: `boundary_clock` (`step.rs:725`) is "the synchronised output of the split, in
+the middle between two kicks" — the doll step's two halves — so a genesis-phase-locked belt
+carries both combs by construction, and the metronome identity's "2^step_log2 events per
+P_D per body" was read off the kick half only. Compute-ahead's certificate question (does
+anything observe a body between an event's due time and its early application) is the
+integrator's; the combs' due times are the metronome itself, so the schedule is known a
+half-interval ahead for free.
+
+[checker 20261017, three arms beyond the author's grid: rtf 3600 at 3×10⁵ to 4.3
+intervals — recurrence holds, kick comb 311.6–322.5 k flat-to-rising, boundary
+307.8→300.8 k, window-1 mass 310,250 (a third rtf, +25 events); seed 2 at 10⁵ — same comb
+phases as seed 1, ~0.99 kicks + ~1.00 boundaries per belt body after the locals' (larger,
+~12.5 k) comb, so the reading is seed-robust; seed 1 at 10⁵ to 8.2 intervals — the
+half-interval alternation holds ~5–6 intervals, then comb widths (6.6→13.2→26.4 k game-s)
+shear the two combs into merged per-interval spells (crests 12/13: E/N 2.37/2.47, one
+16–18-s clamp), while the per-interval bill stays ≈2 events/body and the between-comb
+background grows 3.1→4.9 ev/game-s: the phase-sharp two-comb structure is a ≤~6-interval
+horizon; the recurrence and the per-interval bill are not.]
+
+[checker2 20261017, three arms beyond both grids, all reproductions bit-identical on
+window-1 mass (310,225/310,224 at 3×10⁵; 110,185/110,366 at 10⁵): N=10⁴ (a decade below
+the author's range) — the locals' comb is fixed at the same digits (10,112/10,272/10,302)
+and the belt fires 1.008 kicks + 1.007 boundaries per body, so the 2-events/body/interval
+identity and the ~+26 % correction hold across three decades of N; rtf 150 (the player's
+pace class) — window 1 reads 310,224 (identical to rtf 300), the freeze shrinks to 9.0 s
+(one frame over 12 ms, p50 0.041 ms); rtf 900 at 3×10⁵ to 6.5 intervals — recurrence
+confirmed at the decisive N, but the comb train decays 3.5–5 %/interval (per-body
+1.034→0.848 by interval 6) and shears into a background that grows 3.1→12.9 ev/game-s
+(boundary clamps gone by crest 6): "stable limit cycle / recurs forever" overstates — it
+is a slowly shearing, slowly decaying comb train on every horizon flown; the two combs
+decay together, so the 1:1 composition and the +26 % and 308×-short verdicts survive
+(the interval-1 constants the ledger uses are the peak bill).]
 
 **The 10⁹ CPU ledger closes on the measured cadence levers plus a 1.3–2.2× kick-cost
 cut (NOT on the 42–56 ns floor), and the kick-cost row is not on its critical path:
@@ -141,6 +197,16 @@ attribution.]
 **The budget: cadence is the largest priced wall.** Of the billion-body event budget's three walls — kick compute (29 µs today), layout (gather-4 sustains 2.7× pointer-chasing), cadence — cadence is 64 → 0.3 kicks/orbit = 213×: no layout reaches a 10⁹-body battle at 10× real time on today's 64/orbit cadence, while year-scale belts already pass 10⁹ at 10× real time even at today's 29 µs per kick (a4ed, gold; compute/layout walls → `kick-jet`). On the shipped integer plane the frontier is regime-split by a measured 8×: the resonant bulk holds at 16 kicks per perturbation period (B17), deep passages need ≥ 128 (B13), and the plane serves both with one doll-wide Δs tied to the fastest secondary — paying the passage price everywhere; cutting the bulk's cadence 8× is the named build (7f97). 3294 closes its premise on shipped code: the fire gate is inert (rate 1.000, impulses ≥ 2⁷ units), so the regime-split loses nothing at the quantum — the dial is free to move to the behaviour's own floor.
 
 ## Refuted
+- **"One crest event per body per interval" (9e75's E-linear reading, and every rate×interval
+  ledger built on it, incl. e7ef's 0.999 kicks/body/interval and 98cb's composed 4.44e-6):
+  the belt's stream is TWO combs — 1.00 kicks + 1.00 boundaries per body per interval
+  (window masses, rtf-invariant to the digit); kick-counted ledgers undercount belt CPU by
+  ~26 % at shipped cadence (20261017-0005-dynamics-8ffc).**
+- **"The crest is a single spike" (4093/9e75's spike model, and the unprinted-second-spell
+  caveat): it is a period-halved two-comb cycle, one clamp per half-interval (kick clamp
+  21.8 s, boundary clamp 4.8 s at 3×10⁵ rtf 1800), recurring at the interval per comb with
+  no decay beyond −2.5 %/interval over 3.7 intervals — recurrence confirmed, promotion's
+  direction-3 gate passed (20261017-0005-dynamics-8ffc).**
 - **The named gold composition as a 10⁹ closure ("wire the 8× split plus b583's leaver halving …
   and the delivered stream lands under the 4-core ceiling"): its cadence and de-phase terms deliver
   (the freeze cured to 0.1 s at matched pace, 96% of due at 36× pace), but its kick-cost term
@@ -189,6 +255,19 @@ attribution.]
 
 ## Open directions
 
+1. **Does `BELT_SPLIT` stretch the boundary comb with the kick?** `boundary_clock` sits at
+   "the middle between two kicks" (step.rs:725), suggesting yes — then the composed ledger's
+   miss is the ~26 % CPU term; if no, the boundary comb (1.00/body/interval at 13 µs)
+   becomes the composed stream's majority. One flight of the composed arm with the
+   per-spell/per-frame instrument decides it (20261017-0005-dynamics-8ffc).
+2. **The compute-ahead certificate** (PRINCIPLES #17; the headroom is measured: 10.8× at
+   3×10⁵, 3.2× at 10⁶, 308× short at 10⁹): pre-compute each comb during the idle
+   half-interval before it is due — the due times are the metronome, known for free. The
+   open question is the observer clause: what reads a body between an event's due time and
+   its early application (scans, the view's gather, encounters), and is a 2⁻²³-of-speed
+   early kick invisible to every ledger that must stay bit-identical. Also: the combs'
+   phase stability across seeds (the mechanism says genesis-locked; f82a's train agrees)
+   and the de-phased arms' crest profile, which this run did not fly.
 1. **Aim the cadence question at the per-kick cost and the flyby representation first.** On the plane the fixed-cadence search is dead and the budget is law-dominated (~43–52.8 µs/kick, one full cycle rebind per distinct kick, zero reuse, `NoBoundOrbit` tail) (c01c; 0c44) — a cadence rule cannot matter there until those move (→ `kick-jet`).
 2. **Split the plane's one doll-wide Δs by regime** (bulk vs passages, the measured 8×): ~5× fewer kick events at flat per-kick price, via a per-body or per-regime clock constant precomputed from constants only (7f97; 54d9). 3294 removes its last obstacle: the quantum-fire gate is inert (nothing can start accumulating at coarser Δs — the impulse only grows), so the split is bounded by the behaviour gates alone.
 3. **Secular deletion at scale**: h = T_sec/20..T_sec/5 certificates (5030) plus orbit-anchored discrete secular kicks, K ≥ 16 (2eb1) — 15–60× fewer kicks for weak-tide bodies; extrapolated past T_lib = 227 and never measured on shipped code. The interior path is measured: the evection harmonic at 0.3–2.9 events/moon-orbit to 0.20–0.25 R_H (13ae), and the conjunction calendar at 0.57 events/orbit with the e-vector form and a compiled-frequency guard is the away-layer replacement (0510; 53f6).
@@ -256,3 +335,4 @@ attribution.]
 - 20261016-1835-fermi-4093 (silver): the crest, not the average — belt silent below 11.4 k game-s, first kicks at ≈ interval/2, the budget clamps at ~230 events/frame; a4ed's 10⁹-passing sentence is a 17–49× clock artifact; N1's 20-s window is pre-crest.
 - 20261016-2138-second-20261016-1835-fermi-4093-9e75 (this run): the freeze measured directly — spell 7.0–7.1/21.9–22.1 s at 10⁵/3×10⁵, law ratio 1.01–1.04, deficit replaces the saturated lag, crest linear in N (3.08–3.09), 10⁶ = 72–73 s, 10⁹ = 20.1–20.3 h / 185–187 cores at rtf 100; the burn arm has no freeze — the crest overruns the budget instead (max ~2.5 s, truncated, 5.9 GB).
 - 20261016-2229-second-20261016-2138-fermi-e7ef-98cb (this run): the composition flown — freeze cured (21.1→0.1 s spell, 99% delivered), ÷8.00 interval direct, b583's lever absent from the belt (fires N-independent, Ĉ flat); 10⁹ still 22.5/8.8 x86, 13.2/5.1 M1 cores.
+- 20261017-0005-dynamics-8ffc (this run, awaiting grade): the crest decided — a two-comb

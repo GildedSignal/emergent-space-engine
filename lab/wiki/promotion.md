@@ -2,36 +2,37 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261016-2327-library-cbc5
+updated: 20261017-0005-second-20261016-2327-library-cbc5-8792
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
-**The promotion's byte size never binds at 10⁹ — the demotion dwell does — and its cost
-is the kick ledger again (promotions ARE the kicks): so the record diet is a 10⁶-ladder
-lever, and the only 10⁹ levers are cadence and delete coverage** (20261016-2327-library-cbc5,
-library; `work/promo_ledger.py` arithmetic from page-cited constants, controls reproducing
-e7ef 23 µs / 5.1 M1 cores / wall 1.19–1.65×10⁶ exactly). The identity: every fired event
-mints a live body on the shipped store (fire rate 1.000, accumulator inert, 3294) and the
-re-fit is 84–89% of kick cost (b063), so mint+demote CPU = kick CPU — 157 cores at the
-shipped rate, 7.7 at composed+delete, 4-core mint budget 23.1 µs (= e7ef's kick number).
-Memory: resident = λ×dwell; the measured hot set N_hot 1.3–2.7×10⁴ (ba64) is reproduced
-by a certificate-clear-class dwell ≈ 1 game-s (35.5k; the measurement implies 0.37–0.76,
-so "no fitted parameter" is a class claim, not a point claim); the
-shipped ~5 kB record busts 6 GB at dwell* = 33 game-s (0.1% of the belt interval),
-while the diet target (~60 B = 56.5 B packed, 42e6, + 29.6 bits member, 9d49 — the
-ledger's constant; the dossier's "~80 B" mislabels it) moves dwell* to 2,808 game-s
-(10% of the interval — NOT free at the shipped rate; bytes bind again for dwell above
-it) and past the interval entirely (205%) on composed+delete — never busts there.
-ES_SECULAR (1a46) is thereby the compact
-store's no-mint path, not a comb cure: its coverage (in-situ 85.8%, belt 38.5%/99.4% RES)
-IS the promotion rate. Domain: arithmetic on ladder-scale measurements, coast/belt
-stream only (the burn regime's working set is N-linear with a measured ~1.4 TB knee at
-10⁹ — 0619 — outside this ledger); the standalone mint+demote cost is unmeasured on
-shipmem and the measured anchors bracket it widely (9.2 µs `add_body` path c4d3;
-34–38 µs smallest composed promotion b29a; 485–686 µs sticky leaver 367f), so the
-"23.1 µs = e7ef, unchanged" sentence holds only at the b063 bind/refit share, not as
-a measurement.
+**The standalone mint+demote is now measured on the flown store — 3.7–5.3 µs p50 (mint =
+the compile: 3.7–4.7 on seam/retain/100/1000, 5.2–5.6 on the re-mint-storm arm dwell-17
+burn 10⁵ — the author's 3.7–4.9 range excluded that worst arm; demote = the Arc drop,
+0.04–0.08), across coast and burn, four dwell classes (seam/17/100/1000/∞ game-s) and two
+N — so the ledger's CPU half holds with ≥4.4× margin against the 23.1 µs 4-core budget at
+10⁹ rtf 100 (composed ÷8+delete = 0.78–0.85 cores; ÷8 alone = 2.0–2.2, so cadence alone
+meets the mint budget), and its 44 µs
+bind/refit pricing is corrected: the settle hands the promotion an exact key, so the
+promotion never refits — b29a's 21 µs `from_state` is the kick's own settle bill, already
+inside the kick Ĉ (b063). The memory half is coast-scoped: the dwell dial
+(`ES_RETAIN_DWELL`, this run) collapses coast's standing resident 100,819→288–329 at
++1% re-mints, N-independent — but on burn it fails at 10⁹: the read stream (b = 11.48
+reads/body/20k gs, N-linear → 5.74×10⁷ reads/s wall at 10⁹ rtf 100) owns burn memory
+and CPU — every dwell ≤ 80 game-s sits left of a measured miss cliff (75% at 5, 73% at
+17, 72% at 40 and 60, 71% at 80, 14% at 100 — checker flights; the cliff is a band
+between 80 and 100, and the re-reads cluster in bursts of tens of gs), so no dwell meets
+both 6 GB and ~4 cores
+(≥ ~220 re-mint cores at any cliff-left dwell on CPU alone; ~95 GB standing at dwell 100,
+N-linear at three N); the burn knee is the
+reads, not the demotion count (0619's archive) and not the dial
+(20261017-0005-second-…-8792, second author; 24 flights, one frozen binary = 0619's patch
+plus print-only timing/dwell/mid90 additions; every arm prints its scene's ctl digest bit
+for bit; 1d52's and 0619's anchor counters regenerate exactly: 131,053/763,888/100,788,
+130,187). The re-ranking stands, sharpened: diet = 10⁶ lever; ÷8 = the mint-budget lever;
+delete = the event-stream lever; burn-10⁹ memory = the read stream's question (new home).**
+Prior best retained: the ledger's arithmetic and its P6 correction (below).
 
 ## Refuted
 - **"The smallest promotion is a byte question"** (the board's framing under nladder):
@@ -40,39 +41,55 @@ a measurement.
 - **"The record diet moves 10⁹"**: it moves the 10⁶ ladder wall (its 75–615× is real
   there); at 10⁹ the diet only lifts dwell* — CPU is unchanged, and CPU is the bind
   (20261016-2327-library-cbc5).
+- **"Mint+demote = 84% of kick cost (44 µs)"** — the ledger's pricing: the promotion on
+  the flown store never refits (the settle's key is exact), so mint+demote = compile + Arc
+  drop = 3.7–5.3 µs measured; the refit is inside the kick bill, and pricing it again
+  on the promotion side double-counts (20261017-0005-…-8792).
+- **"Dwell is the memory dial at 10⁹"** as stated: coast-true, burn-false — on burn the
+  read stream's N-linear rate sets both the standing resident (λ_reads×dwell) and the
+  re-mint bill, and the miss cliff (73%→14% between dwell 17 and 100) puts the
+  memory-feasible dwell and the re-mint-feasible dwell on opposite sides
+  (20261017-0005-…-8792).
 
 ## Open directions
-1. Measure the standalone mint+demote on the already-flown store (b29a's instrument or
-   the 1d52/0757 retention machinery), at ≥2 dwell classes and in both regimes (coast
-   and burn), and reconcile this page's identity against the measured 9.2 / 34–38 /
-   486 µs anchors — the one number the identity assumes (priced at the bind/refit
-   share, b063). Wiring shipmem's own demotion at certificate-clear (~1 game-s class)
-   remains part of it.
-2. Promote ES_SECULAR from comb cure to no-mint path; price its coverage as the
-   promotion rate on the belt (the resonance-exclusion width, B17's libration form, is
-   the knob — 38.5% vs 99.4%).
-3. The stagger's recurrence gate (≥3 intervals, the unprinted second spell,
+1. **The read stream is the burn knee** (this run's transfer of 0619's direction 2): at
+   10⁹ rtf 100 it is 5.74×10⁷ reads/s wall (11.5 reads/body/20k gs) — ~6 cores of pure
+   hit-path ε (lock+clone) even before misses. What are the resolver's re-reads of
+   kicked bodies FOR, and which representation deletes them? (0619 named this; the dial's
+   failure mode is now the measured reason.)
+2. Cliff position, seed stability and N-linearity are flown (checkers: cliff between 80
+and 100 gs with miss 72–75% flat from dwell 5 through 80; seed 2 within 6% and seed 3 at
+14.0% on the cliff's right side, digest-identical to its own ctl; reads linear at 2×10⁵
+to 0.13%). The coast dial saturates at ~N beyond ~2000 gs (dwell 10000: standing
+115,276 ≈ N, re-mints exactly 1.00× retain's — checker2). Remaining: a formation scene
+(the burst scale the cliff hangs on) and the sub-frame dwell class (the ledger's
+"~1 game-s" certificate-clear), still interpolated, not flown.
+3. ES_SECULAR's promotion-skip coverage (1a46) prices the event stream only — its effect
+   on the read stream is unmeasured.
+4. The stagger's recurrence gate (≥3 intervals, the unprinted second spell,
    9e75-checker2) before idle-time compute-ahead is considered at all.
 
 ## Contradictions
-Watch: dwell* on shipped bytes (0.1% of interval) vs the unmeasured rebind-certificate
-dwell — if real dwell runs ≥100 game-s, memory binds again on shipped bytes; and on the
-diet at the SHIPPED rate memory binds for dwell ∈ (2,808, 28,141] game-s (this run's
-P6, whose outcome the dossier left unreported) — there the diet becomes a 10⁹ lever
-after all. Prior art to reconcile: 0619's burn knee ("WS = demotions, not a working
-set", N + 30,187 integer-exact) vs this page's λ×dwell identity.
+Resolved by this run: 0619's burn knee ("WS = demotions, an archive") vs the ledger's
+λ×dwell identity — both were measuring different things (0619's retained_now counts the
+never-expired archive at dwell=∞; the terminal/wave-passage peak pins ~N at dwell ≥ 100).
+Checker correction: the standing resident is NOT λ_reads×dwell at finite dwell either —
+it is burst-structured (167 at dwell ≤ 17, a ~6.7k plateau from 40 to 100, 8.2k at 1000
+vs 82.9k λ×dwell); the "memory-feasible dwell ≤ 7.5 gs" bound was that model's artifact,
+and the no-dwell verdict rests on the measured miss cliff (CPU cliff-left, memory
+cliff-right). Standing watch:
+the ledger's P6 cell (diet at shipped rate binds memory for dwell ∈ (2,808, 28,141] gs)
+is coast-only until the read stream is priced.
 
 ## Runs
 - 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger):
-  the smallest promotion measured — 34–38 µs / 12–40 B ephemeral vs 486 µs / 8,257 B
-  sticky; "the smallest promotion is no promotion."
 - 20261015-0250-scout-760f (silver, prior art, uncited): promotion = one 4.6 µs
-  compile, bit-identical 120,083/120,083; 10⁹ lives in programs.
 - 20261015-1926-quant-c4d3 (silver, prior art, uncited): shipped `add_body` promotion
-  path 9.2 µs p50, flat in N to 2×10⁵; belt-key compiles 4.4–4.5 µs.
 - 20261015-1338-quant-1d52 … 0757, and 20261015-1615-quant-0619 (prior art, uncited):
-  demotion/retention built and flown, digests identical, ~0.15–0.9-core re-mint at 10⁹;
-  the burn knee is the demotion count (WS = N + 30,187), no bounded cap ships burn at
-  10⁹ (knee ≈ 1.4 TB).
 - 20261016-2327-library-cbc5 (library, this run): promotion ledger — dwell is the memory
-  dial, mint cost the CPU dial (= the 23 µs kick requirement), diet is a 10⁶ lever.
+- 20261014-0450-scout-b29a (silver, prior art on nladder): the smallest promotion
+- 20261015-0250-scout-760f (silver): promotion = one 4.6 µs compile, bit-identical
+- 20261015-1926-quant-c4d3 (silver): shipped `add_body` promotion path 9.2 µs p50, flat
+- 20261015-1338-quant-1d52 … 0757, and 20261015-1615-quant-0619: demotion/retention built
+- 20261016-2327-library-cbc5 (library, silver): promotion ledger — dwell is the memory
+- 20261017-0005-second-20261016-2327-library-cbc5-8792 (second author, this run): the
