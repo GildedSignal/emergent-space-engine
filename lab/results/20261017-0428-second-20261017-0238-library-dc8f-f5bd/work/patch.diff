@@ -1,0 +1,486 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..53e31f24 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,40 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On Linux (the lab's boxes): the resident set and its high-water mark, from /proc/self/status.
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        let kb = |key: &str| {
++            std::fs::read_to_string("/proc/self/status")
++                .ok()
++                .and_then(|s| {
++                    s.lines()
++                        .find(|l| l.starts_with(key))
++                        .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++                })
++                .unwrap_or(0)
++                * 1024
++        };
++        (kb("VmRSS:"), kb("VmHWM:"))
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -49,7 +69,8 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let threads: usize = std::env::var("ES_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, threads, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -63,8 +84,28 @@ fn main() {
+     let mut alive = true;
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    // ES_TRACE setup: thresholds (geometric, in game-s after the first second) and the id list.
++    let (trace, trace_ids, trace_path, mut ti) = (
++        std::env::var("ES_TRACE").ok().and_then(|v| {
++            let pts: Vec<f64> = v.split(':').filter_map(|x| x.parse().ok()).collect();
++            (pts.len() == 3 && pts[2] >= 2.0).then(|| {
++                let n = pts[2] as usize;
++                (0..n).map(|i| pts[0] * (pts[1] / pts[0]).powf(i as f64 / (n - 1) as f64)).collect::<Vec<f64>>()
++            })
++        }),
++        std::fs::read_to_string(std::env::var("ES_IDS").unwrap_or_default())
++            .map(|s| s.lines().filter_map(|l| l.trim().parse::<usize>().ok()).collect::<Vec<usize>>())
++            .unwrap_or_default(),
++        std::env::var("ES_TRACE_PATH").unwrap_or_else(|_| "trace.txt".into()),
++        0usize,
++    );
++    let _ = std::fs::remove_file(&trace_path);
++    let mut t_base: Option<i64> = None;
++    let rekick_every: Option<f64> = std::env::var("ES_REKICK").ok().and_then(|v| v.parse().ok());
++    let mut next_rk = rekick_every.unwrap_or(f64::INFINITY);
++    let (mut rk_sweeps, mut rk_done, mut rk_ns) = (0u64, 0u64, 0u64);
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs(std::env::var("ES_WALLCAP").ok().and_then(|v| v.parse().ok()).unwrap_or(55)) {
+             truncated = true;
+             break;
+         }
+@@ -74,6 +115,7 @@ fn main() {
+                 let _ = p.u.input(t, word(1, 8));
+             }
+             late_stats = Some((p.u.stats, p.u.now));
++            t_base = Some(p.u.now);
+             let _ = emergent_universe::prof::take();
+         }
+         let start = Instant::now();
+@@ -87,6 +129,47 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if let Ok(path) = std::env::var("ES_DUMP") {
++            use std::io::Write;
++            if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
++                let _ = writeln!(out, "{f} {} {}", took.as_secs_f64() * 1e3, frame.events);
++            }
++        }
++        // ES_TRACE="start_gs:end_gs:n": log-spaced horizons; at each, dump every ES_IDS body's
++        // position angle (the same readout the end dump uses) — the debt-vs-horizon instrument.
++        if let (Some(tr), Some(ids)) = (trace.as_ref(), Some(&trace_ids)) {
++            let gs = (p.u.now - t_base.unwrap_or(p.u.now)) as f64 * TICK_SECONDS;
++            while ti < tr.len() && gs + 1e-9 >= tr[ti] {
++                use std::io::Write;
++                if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&trace_path) {
++                    let _ = write!(out, "T {ti} {:.1}", tr[ti]);
++                    for &i in ids.iter() {
++                        let r = p.u.rec(i);
++                        let st = r.b.readout(p.u.now).ok();
++                        let ang = st.and_then(|st| {
++                            let sx = emergent_space::orbit::Scalar::raw(st.position[0] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                            let sy = emergent_space::orbit::Scalar::raw(st.position[1] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                            match (sx, sy) { (Some(x), Some(y)) => Some(y.atan2(x).to_degrees()), _ => None }
++                        });
++                        let _ = write!(out, " {}:{}", i, ang.map(|a| format!("{a:.7}")).unwrap_or("nan".into()));
++                    }
++                    let _ = writeln!(out);
++                }
++                ti += 1;
++            }
++        }
++        // ES_REKICK=<game-s>: every T game-s, one sparse secular re-kick sweep over the deleted
++        // set (timed inside step.rs, applied through the engine's own apply path).
++        if rekick_every.is_some() {
++            let gs = (p.u.now - t_base.unwrap_or(p.u.now)) as f64 * TICK_SECONDS;
++            if gs >= next_rk {
++                let (done, ns) = p.u.es_rekick_sweep(p.u.now, rekick_every.unwrap());
++                rk_sweeps += 1;
++                rk_done += done as u64;
++                rk_ns += ns;
++                next_rk += rekick_every.unwrap();
++            }
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -94,11 +177,72 @@ fn main() {
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+         }
++
+         if !rec.alive {
+             alive = false;
+             break;
+         }
+     }
++    // ES_STATES: every body's end state (doll, kind, fleet origin, plan length, key a, position
++    if let Ok(path) = std::env::var("ES_STATES") {
++        use std::io::Write;
++        let mut out = std::fs::OpenOptions::new().create(true).truncate(true).write(true).open(&path).unwrap();
++        let kf = |k: &emergent_space::orbit::OrbitKey| -> (f64, f64) {
++            let kk = k.k as f64 * 2f64.powi(k.k_exponent as i32 - 48);
++            let a = if kk > 0.5 { emergent_universe::num::to_f64(k.periapsis) * kk / (2.0 * kk - 1.0) } else { f64::NAN };
++            (a, if kk > 0.0 { 1.0 / kk - 1.0 } else { f64::NAN })
++        };
++        let now = p.u.now;
++        writeln!(out, "# dolls: idx name parent shift unit_mu centre mass_log2").unwrap();
++        for (i, d) in p.u.dolls.iter().enumerate() {
++            writeln!(out, "D {i} {} {:?} {} {:.6} {:?} {}", d.name, d.parent, d.shift, emergent_universe::num::to_f64(d.unit.mu), d.centre, d.mass_log2).unwrap();
++        }
++        writeln!(out, "# sources of each doll").unwrap();
++        for (i, s) in p.u.sources.iter().enumerate() {
++            for &j in s {
++                writeln!(out, "S {i} {j} {:.9e}", emergent_universe::num::to_f64(p.u.info[j].gm)).unwrap();
++            }
++        }
++        writeln!(out, "# bodies: i doll kind plan_len alive a e angle_deg radius; then fleet members").unwrap();
++        for i in 0..bodies {
++            let r = p.u.rec(i);
++            let kind = match r.kind { emergent_universe::body::Kind::Planet => "P", emergent_universe::body::Kind::Moon => "M", emergent_universe::body::Kind::Ship => "s", emergent_universe::body::Kind::Player => "Y" };
++            let key = r.b.entry.trajectory.key();
++            let (a, e) = key.as_ref().map(|k| kf(k)).unwrap_or((f64::NAN, f64::NAN));
++            let st = r.b.readout(now).ok();
++            let (angle, radius) = st
++                .map(|st| {
++                    let sx = emergent_space::orbit::Scalar::raw(st.position[0] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                    let sy = emergent_space::orbit::Scalar::raw(st.position[1] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                    match (sx, sy) {
++                        (Some(x), Some(y)) => (y.atan2(x).to_degrees(), (x * x + y * y).sqrt()),
++                        _ => (f64::NAN, f64::NAN),
++                    }
++                })
++                .unwrap_or((f64::NAN, f64::NAN));
++            let (vexp, lexp) = st.map(|st| (st.velocity_exponent, st.length_exponent)).unwrap_or((0, 0));
++            writeln!(out, "B {i} {} {kind} {} {} {a:.9e} {e:.9e} {angle:.6} {radius:.9e} {vexp} {lexp}", r.b.doll, r.plan.len(), u8::from(r.alive)).unwrap();
++        }
++        for (i, inf) in p.u.info.iter().enumerate() {
++            if let Some((f0, m0)) = inf.from {
++                writeln!(out, "F {i} {f0} {m0}").unwrap();
++            }
++        }
++    }
++    // ES_REKICK bench readout: per-event costs and the ratio the budget test needs.
++    if rekick_every.is_some() {
++        use emergent_universe::step::{ES_CARRY_N, ES_KICK_N, ES_KICK_NS, ES_RK_N, ES_RK_NS};
++        use std::sync::atomic::Ordering::Relaxed;
++        let (rn, rns, kn, kns) = (ES_RK_N.load(Relaxed), ES_RK_NS.load(Relaxed), ES_KICK_N.load(Relaxed), ES_KICK_NS.load(Relaxed));
++        println!(
++            "es_bench: sweeps {rk_sweeps} bodies {rk_done} sweep_ns {rk_ns} ({:.0} ns/sweep); re-kicks {rn} in {rns} ns ({:.0} ns each); fired kicks {kn} in {kns} ns ({:.0} ns each); carried {}; ratio {:.1}x",
++            rk_ns as f64 / rk_sweeps.max(1) as f64,
++            rns as f64 / rn.max(1) as f64,
++            kns as f64 / kn.max(1) as f64,
++            ES_CARRY_N.load(Relaxed),
++            (rns as f64 / rn.max(1) as f64) / (kns as f64 / kn.max(1) as f64).max(1.0),
++        );
++    }
+     let (now2, rss2) = footprint();
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..dd2945b8 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -97,6 +97,63 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
+ }
+ 
++// ---- ES_SECULAR (lab probe, default off): step 5's delete arm --------------------------------------
++//
++// docs/law.md's step 5 deletes the metronome's events for stable bodies instead of spreading them.
++// This probe implements the delete half behind a flag: a ship (not a fleet member, not the player)
++// whose orbit is secular-legal against EVERY perturber of its doll is deleted from the metronome —
++// r9's bound applied per perturber, `tau_p = 3 (m_p/m_host) (a/a_p)^3` under r9's `tau0 = 3.6e-3`
++// for the parent star and for every secondary source of the doll — and free of resonances with the
++// doll's secondaries (a small-integer period commensurability within 2%, co-orbital within 5% in a;
++// `ES_SECULAR_RES=1` disables the exclusion, the adversarial control). The body is then a pure tube,
++// the `has_forces == false` state: no kicks, no boundaries. The secular residual r9 bounded (the
++// apsidal precession the freeze no longer applies) is carried by nothing — the flight measures both
++// the deleted event ledger and that residual, which prices the sparse re-kick cadence the real
++// generator needs. With the flag off the shipped law is untouched, bit for bit.
++
++fn es_flag(name: &str) -> bool {
++    std::env::var(name).is_ok_and(|v| v != "0")
++}
++
++// ---- ES_REKICK bench timers (lab probe; inert unless ES_REKICK is set) ---------------------------
++pub static ES_RK_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static ES_RK_N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static ES_KICK_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static ES_KICK_N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static ES_CARRY_N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static ES_BENCH: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
++
++fn es_bench_on() -> bool {
++    match ES_BENCH.load(std::sync::atomic::Ordering::Relaxed) {
++        0 => {
++            let on = es_flag("ES_REKICK");
++            ES_BENCH.store(if on { 2 } else { 1 }, std::sync::atomic::Ordering::Relaxed);
++            on
++        }
++        2 => true,
++        _ => false,
++    }
++}
++
++/// One re-kick on body `i` (the ES_REKICK bench's public entry; `Universe::es_rekick_sweep` drives it).
++pub fn es_rekick(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, dt_game_s: f64) -> Update {
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let _ = w.rekick(t, dt_game_s);
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++}
++
++const SECULAR_TAU0: f64 = 3.6e-3;
++
++/// The semimajor axis of a bound turning key, as f64 in the doll's units. `None`: passage, plunge
++/// or unbound — never secular. The key holds `k`, the mantissa of `1/(1+e)`, so `a = p·k/(2k−1)`.
++fn es_a(periapsis: Scalar, k: u64, k_exponent: i16) -> Option<f64> {
++    let k = k as f64 * 2f64.powi(k_exponent as i32 - 48);
++    if k <= 0.5 {
++        return None; // e >= 1
++    }
++    Some(crate::num::to_f64(periapsis) * k / (2.0 * k - 1.0))
++}
++
+ /// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
+ /// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
+ /// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
+@@ -404,6 +461,8 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let bench = es_bench_on();
++        let t0 = if bench { Some(std::time::Instant::now()) } else { None };
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+@@ -425,6 +484,9 @@ impl Work<'_, '_> {
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
++                if bench {
++                    ES_CARRY_N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                }
+                 return Ok(());
+             }
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+@@ -439,6 +501,10 @@ impl Work<'_, '_> {
+         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
+             self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
+         }
++        if let Some(t0) = t0 {
++            ES_KICK_NS.fetch_add(t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++            ES_KICK_N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
+         Ok(())
+     }
+ 
+@@ -537,6 +603,118 @@ impl Work<'_, '_> {
+         Ok(())
+     }
+ 
++    /// ES_SECULAR's per-body decision (the module note above): secular-legal against every
++    /// perturber of the doll (r9's `tau_p` under `tau0`), and free of resonances with its
++    /// secondaries. Masses come from the ctx's own units (both sides of each ratio in the same
++    /// doll's units); distances from the keys, converted by the doll-pair shift.
++    fn secular(&self) -> bool {
++        if !matches!(self.rec.kind, Kind::Ship) || self.ctx.info[self.i].from.is_some() {
++            return false; // never the player or a fleet member: the battle and the hand own them
++        }
++        let Some(key) = self.rec.b.entry.trajectory.key() else { return false };
++        let Some(a) = es_a(key.periapsis, key.k, key.k_exponent) else { return false };
++        let d = self.rec.b.doll as usize;
++        let doll = &self.ctx.dolls[d];
++        let host = crate::num::to_f64(doll.unit.mu);
++        let t = self.rec.anchor;
++        // The parent star's tide: its mass in this doll's units (Ctx::tide's own conversion), the
++        // host's semimajor axis from its key in the parent's units, shifted into this doll's.
++        if let Some(p) = doll.parent {
++            let centre = doll.centre.expect("a child doll has a centre");
++            let Some((pm, _)) = self.ctx.tide(self.rec.b.doll, t).ok().flatten() else { return false };
++            let Some(ck) = self.ctx.bodies.binding_at(centre, t).and_then(|b| b.entry.trajectory.key()) else { return false };
++            let Some(a_p) = es_a(ck.periapsis, ck.k, ck.k_exponent) else { return false };
++            let shift = 2f64.powi(doll.shift as i32 - self.ctx.dolls[p as usize].shift as i32);
++            let a_host = a_p * shift;
++            if 3.0 * (crate::num::to_f64(pm) / host) * (a / a_host).powi(3) >= SECULAR_TAU0 {
++                return false;
++            }
++        }
++        // The secondaries: r9's tide per source, then the resonance exclusion.
++        let res_on = es_flag("ES_SECULAR_RES");
++        for &j in &self.ctx.sources[d] {
++            if j == self.i {
++                continue;
++            }
++            let Some(jk) = self.ctx.bodies.binding_at(j, t).and_then(|b| b.entry.trajectory.key()) else { continue };
++            let Some(a_j) = es_a(jk.periapsis, jk.k, jk.k_exponent) else { continue }; // a passing source has no resonance
++            let m_j = crate::num::to_f64(self.ctx.info[j].gm);
++            if 3.0 * (m_j / host) * (a / a_j).powi(3) >= SECULAR_TAU0 {
++                return false;
++            }
++            if !res_on
++                && ((a / a_j - 1.0).abs() < 0.05
++                    || (1..=8u32).any(|q| {
++                        (1..=8u32).any(|r| {
++                            let qr = q as f64 / r as f64;
++                            (((a / a_j).powf(1.5) * (host / (host + m_j)).sqrt()) / qr - 1.0).abs() < 0.02
++                        })
++                    }))
++            {
++                return false;
++            }
++        }
++        true
++    }
++
++    /// One sparse secular re-kick (ES_REKICK bench, lab probe): recompute the secular precession
++    /// rate from the doll's sources (the same walk `secular` does), advance the tube's orientation
++    /// by `rate·dt` (float bench of the exact-grid form a shipping version would carry), rebind.
++    /// Timed into ES_RK_NS/ES_RK_N; the comparable fired-kick path times into ES_KICK_*.
++    fn rekick(&mut self, t: Tick, dt_game_s: f64) -> Res<()> {
++        let t0 = std::time::Instant::now();
++        let key = self.rec.b.entry.trajectory.key().ok_or(Error::Refused("no key"))?;
++        let a = es_a(key.periapsis, key.k, key.k_exponent).ok_or(Error::Refused("no a"))?;
++        let d = self.rec.b.doll as usize;
++        let doll = &self.ctx.dolls[d];
++        let host = crate::num::to_f64(doll.unit.mu);
++        // Mean motion in the doll's units (rad per game-s), then the first-order apsidal rate
++        // from every source's tide (r9's tau family): omega = sum 0.75 n tau_p.
++        let n = (host / (a * a * a)).sqrt() / crate::view::TICK_SECONDS;
++        let mut omega = 0.0f64;
++        for &j in &self.ctx.sources[d] {
++            if j == self.i {
++                continue;
++            }
++            let Some(Some(jk)) = self.ctx.bodies.binding_at(j, t).map(|b| b.entry.trajectory.key()) else { continue };
++            let Some(a_j) = es_a(jk.periapsis, jk.k, jk.k_exponent) else { continue };
++            let m_j = crate::num::to_f64(self.ctx.info[j].gm);
++            omega += 0.75 * n * 3.0 * (m_j / host) * (a / a_j).powi(3);
++        }
++        if let Some(p) = doll.parent {
++            if let Some(centre) = doll.centre {
++                if let (Ok(Some((pm, _))), Some(Some(ck))) = (self.ctx.tide(self.rec.b.doll, t), self.ctx.bodies.binding_at(centre, t).map(|b| b.entry.trajectory.key())) {
++                    if let Some(a_p) = es_a(ck.periapsis, ck.k, ck.k_exponent) {
++                        let shift = 2f64.powi(doll.shift as i32 - self.ctx.dolls[p as usize].shift as i32);
++                        let a_host = a_p * shift;
++                        omega += 0.75 * n * 3.0 * (crate::num::to_f64(pm) / host) * (a / a_host).powi(3);
++                    }
++                }
++            }
++        }
++        // Rotate the bound state's position and velocity by omega*dt (the bench's float form).
++        let st = self.rec.b.readout(t)?;
++        let th = omega * dt_game_s;
++        let fx = |v: i64, e: i32| -> Res<f64> { Ok(crate::num::to_f64(Scalar::raw(v as i128, e)?)) };
++        let (c, s) = (th.cos(), th.sin());
++        let rot = |x: f64, y: f64| (x * c - y * s, x * s + y * c);
++        let (px, py) = rot(fx(st.position[0], st.length_exponent as i32)?, fx(st.position[1], st.length_exponent as i32)?);
++        let (vx, vy) = rot(fx(st.velocity[0], st.velocity_exponent as i32)?, fx(st.velocity[1], st.velocity_exponent as i32)?);
++        let q = |v: f64, e: i32| -> Res<i64> {
++            i64::try_from((v * 2f64.powi(-e)).round() as i128).map_err(|_| Error::Refused("outside the word"))
++        };
++        let next = IntegerState {
++            position: [q(px, st.length_exponent as i32)?, q(py, st.length_exponent as i32)?],
++            velocity: [q(vx, st.velocity_exponent as i32)?, q(vy, st.velocity_exponent as i32)?],
++            ..st
++        };
++        let doll = self.rec.b.doll;
++        self.rebind(next, t, doll)?;
++        ES_RK_NS.fetch_add(t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++        ES_RK_N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        Ok(())
++    }
++
+     /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
+     /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
+     fn plan_interval(&mut self, t: Tick) -> Res<()> {
+@@ -551,6 +729,11 @@ impl Work<'_, '_> {
+             self.rec.plan.clear();
+             return Ok(());
+         }
++        if es_flag("ES_SECULAR") && self.secular() {
++            // ES_SECULAR: deleted from the metronome (a pure tube; the module note above).
++            self.rec.plan.clear();
++            return Ok(());
++        }
+         if self.on_clock() {
+             return self.plan_clock(t);
+         }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..8e54695c 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -283,6 +283,32 @@ impl Universe {
+     pub fn ctx(&self) -> Ctx<'_> {
+         Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
+     }
++
++    /// ES_REKICK bench (lab probe): one sparse-secular re-kick sweep over every deleted body
++    /// (ship, non-fleet, empty plan): the same `apply` path a scheduled re-kick event would take.
++    /// Returns (bodies re-kicked, whole-sweep ns including the skip walk).
++    pub fn es_rekick_sweep(&mut self, t: Tick, dt_game_s: f64) -> (usize, u64) {
++        let t0 = std::time::Instant::now();
++        let n = self.bodies.len();
++        let updates: Vec<(usize, crate::step::Update)> = {
++            let ctx = self.ctx();
++            (0..n)
++                .filter(|&i| {
++                    let r = self.bodies.rec(i);
++                    r.plan.is_empty() && matches!(r.kind, crate::body::Kind::Ship) && self.info[i].from.is_none()
++                })
++                .map(|i| {
++                    let rec = self.bodies.rec(i);
++                    (i, crate::step::es_rekick(&ctx, i, rec, t, dt_game_s))
++                })
++                .collect()
++        };
++        let done = updates.len();
++        for (e, upd) in updates {
++            self.apply(e, upd);
++        }
++        (done, t0.elapsed().as_nanos() as u64)
++    }
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+     }
