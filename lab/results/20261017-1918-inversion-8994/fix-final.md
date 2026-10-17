@@ -1,0 +1,6 @@
+Working...
+Fixed and proven. `wave_100000`'s LETTER regenerates **bit-exact** (18.02 ms at 14,135 gs, events 443,696; also N=0: 23,461 events, crest at 153 gs), `belt_first` band exact (13,051 / 14,072 / 14,542), tree restored clean (only `lab/results/` untracked, wave.rs removed, no commit/push).
+
+**The fix** (`regen.sh` only, nothing else touched): line 6 `cd ../../../..` climbed one directory too high — the script lives 3 levels below the repo root (`lab/results/<id>/`), so cargo ran in `emergent-space-engine/` where no `Cargo.toml` exists. Now: `HERE=$(dirname $0)` → `cd $HERE/../../..`; binary paths derive from `CARGO_TARGET_DIR` (exported with the author's default) so build and read can never disagree; `OUT` anchored to the script path. Verified end-to-end exactly as the harness runs it (`git apply work/patch.diff` → `CARGO_TARGET_DIR=$HOME/lab-target-1 timeout 900 bash regen.sh`): **exit 0 in 247 s**, all 8 raw files regenerated, every deterministic dossier anchor exact and every qualitative verdict (12-ms crossing between 10⁴ and 10⁵, budget-free FALLS BEHIND at 3×10⁵, budgeted HOLDS with lag ≤ 1 gs through both combs) reproduced.
+
+Claim: regen.sh was cd'd one directory above the repo root; anchored to its own path (with CARGO_TARGET_DIR-derived binary paths) it regenerates every dossier number — exit 0 in 247 s, deterministic anchors exact.

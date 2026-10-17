@@ -1,0 +1,4 @@
+Working...
+Run complete. Dossier, pre-registered predictions, regen.sh, raw evidence (7 flights + anchor), and the folded `nladder` page are in `lab/results/20261017-1918-inversion-8994/`.
+
+**Claim:** the merged N1 gate's "N = 10⁶ keeps F1" is a property of its 20-s window, not of the flight — that window ends 11,051 game-s before the population's first belt item (13,051–14,542 game-s, `belt_first`), and flown through that comb the 12-ms letter's worst wall-second crosses budget between 10⁴ (3.15 ms) and 10⁵ (18.0 ms) and reaches 85.9 ms at 3×10⁵ (7.2× over, super-linear in N), with the shipped budget path still holding end-to-end at 3×10⁵ through both combs (lag ≤ 2 game-s) only because the crest drains in the inter-comb slack — slack the gate's own 10⁶ headline exhausts (crest work 15–35 s vs ~20.3 s of inter-comb capacity: combs stack), so the flight-wide letter is ~3×10⁵–10⁶ on M1-class rates, confirming 917c's ≈6×10⁵ from the shipped path.
