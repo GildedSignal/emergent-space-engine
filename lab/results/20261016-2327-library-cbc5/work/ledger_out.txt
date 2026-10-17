@@ -1,0 +1,30 @@
+== Controls (instrument check against e7ef) ==
+required kick cost, composed(/8)+61% delete, 4 cores: 23.1 us  [e7ef: 23 us]
+cores at 52.8 us x86: 9.1  [98cb: 8.8 x86]
+cores at 29.3 us M1:  5.1  [98cb: 5.1 M1]
+ladder wall 6 GB / plateau 4,854-5,062 B: 1.19-1.24 x1e6 bodies  [e7ef: 1.19-1.65e6]
+ladder wall 8 GB / plateau 4,854-5,062 B: 1.58-1.65 x1e6 bodies  [e7ef: 1.19-1.65e6]
+
+== Working-set identity (no fitted parameter) ==
+    shipped rate: resident at dwell=1 game-s = 35,500  vs measured N_hot 13,000-27,000 (ba64)
+     composed /8: resident at dwell=1 game-s = 4,438  vs measured N_hot 13,000-27,000 (ba64)
+ composed+delete: resident at dwell=1 game-s = 1,731  vs measured N_hot 13,000-27,000 (ba64)
+
+== Dwell wall: dwell* where resident x P busts 6 GB ==
+    shipped rate | P_ship ~5 kB: dwell* = 33 game-s = 0.1% of interval T=28,141.5
+    shipped rate | diet ~80 B: dwell* = 2,808 game-s = 10.0% of interval T=28,141.5
+     composed /8 | P_ship ~5 kB: dwell* = 267 game-s = 0.9% of interval T=28,141.5
+     composed /8 | diet ~80 B: dwell* = 22,460 game-s = 79.8% of interval T=28,141.5
+ composed+delete | P_ship ~5 kB: dwell* = 685 game-s = 2.4% of interval T=28,141.5
+ composed+delete | diet ~80 B: dwell* = 57,591 game-s = 204.6% of interval T=28,141.5
+
+== Promotion == kick identity (if every fired event mints a live body) ==
+promotion stream at 1e9 rtf 100: shipped 3,550,000/s, composed /8 443,750/s, +delete 173,063/s
+mint+demote priced at the bind/refit share (84% of 52.8 us = 44 us):
+    shipped rate: 157.4 cores  (kick ledger same: promotions ARE the kicks, 3294 fire=1.000)
+     composed /8: 19.7 cores  (kick ledger same: promotions ARE the kicks, 3294 fire=1.000)
+ composed+delete: 7.7 cores  (kick ledger same: promotions ARE the kicks, 3294 fire=1.000)
+mint+demote budget for 4 cores at composed+delete: 23.1 us  [= e7ef's kick requirement, identical]
+
+== Delete coverage = promotion-skip coverage (1a46, measured) ==
+in-situ locals: 200/233 = 85.8% skippable; belt frozen exclusion 274/712 = 38.5%; RES 708/712 = 99.4% (ledger effect -0.7%)
