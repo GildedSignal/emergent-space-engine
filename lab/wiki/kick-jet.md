@@ -2,11 +2,7 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261017-1240-quant-ceb2
-=======
-updated: 20261017-1240-spacex-9c67
->>>>>>> 20261017-1240-spacex-9c67
+updated: 20261017-1330-second-20261017-1240-spacex-9c67-d65c
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
@@ -16,22 +12,40 @@ deletion stands: `apply`'s post-event `root_state_raw` walk is replaced by the r
 handed-over state (+83/−7, `Update::own`), coverage 99.89% (35,275 handed / 39 walked; the
 player's ~14.3k events are gated out by the pre-existing `!= player` rule), the event cycle
 −3…−6% on the 32-body plane (author A/B/A 56.3–56.7 → 53.0–54.0 µs; checker 6 pairs −3.4% mean,
-5/6 negative; 5ade's −13% was the belt's deeper walk, unmeasured here), digests identical
-(game + replay, seeds 1 and 7, burns included) — but under `ES_POS_VERIFY` **17,643 of 35,275
-handed positions (49.97%) differ from the walk they replace at the bit level** [checker,
-per-kind probe: the mismatch lives on the NON-rebinding events — boundaries 17,442/17,442
-(100%), opens 108/162, kicks only 89/17,667 (0.5%) — because `apply` walks at the binding's
-`event_time` (the last kick's anchor) while the resolver reads at the ITEM tick, half a step
-apart on a boundary: the divergence is real motion, |Δx| 0.003–6.8×10⁵ root light-ticks, not
-sub-quantum bits; on rebinds the round-trip closes exactly by construction (`bind_in` stores
-residual = exact − turn(decoded), `readout` re-adds it), so 5ade's letter is half right: the
-post-kick walk is a true bit-exact duplicate, the post-boundary walk recomputes the stale
-anchor value already in the cache]. The digest's indifference to 17.6k divergences of up to
-~7×10⁵ light-ticks is the measured proof that the position cache sits outside the outcome
-channel (observe.rs's "deadlines and positions are never an outcome", now evidenced, not just
-documented; held by the checker on seed 42 and a 4× horizon of 1,200 frames)
-(20261017-1240-spacex-9c67, spacex; kill criterion POS_MISMATCH=0 pre-registered and fired;
-`pos_probe()` and the counters are permanent instrumentation).**
+5/6 negative), digests identical (game + replay, seeds 1 and 7, burns included). **Measured on
+the belt wave (N=10⁵, seed 1, steady 70–150 ks, 389k kicks + 420k boundaries, 5ade's own
+harness, 3 interleaved pairs, 20261017-1330-second-20261017-1240-spacex-9c67-d65c): apply
+5.6–5.9 → 2.2–2.6 µs/event (−55…−62%), the ROOT walk 4.7 → 1.2 µs/call (−72…−76%), wave CPU
+−7.8/−10.5/−11.1% control-normalized (the raw pairs are void under load: the untouched
+resolver drifted +0.6/+7.1/+21.9%); digests identical at both cuts and the pristine arm
+reproduces 5ade's anchors bit-for-bit (07891363…, 0d8ced80…). 5ade's −13% was ~30% optimistic:
+the hand-off deletes only the body's own tube walk — the belt ships sit in planet dolls, so the
+centre-chain walk stays (~1.2 µs/call, ROOT calls 2.06/kick unchanged) and the true belt gain is
+~−9…−11% (6.5–7.6 µs/kick by the stage arithmetic).** Belt census at 41× the plane's events:
+same mechanism — boundaries 719,845/719,845 (100%) mismatched at |Δx|
+0.0014–6.8×10⁵ root units, kicks 283/725,976 (0.04%), opens 404/561; coverage 99.99% of steady
+events (the 100,091 fallbacks are the belt's birth replans, not handoffs — checker-verified:
+walked stays 100,093 at a later window, and digests stay arm-identical at 3× horizon
+and at N=2×10⁴ / 330 ks).** [Checker-2: the |Δx| ceiling is window-scoped, not law-level —
+at 150–230 ks the belt's boundaries reach 1.75×10⁶ root units, firing the pre-registered
+"note if > 10⁶" clause; kicks stay 283 mismatches with the same 165.9–36,054.9 span.]** But under
+`ES_POS_VERIFY` **17,643 of 35,275 handed positions (49.97%) differ from the walk they replace
+at the bit level** [checker, per-kind probe, reproduced exactly by the second author: the
+mismatch lives on the NON-rebinding events — boundaries 17,442/17,442 (100%), opens 108/162,
+kicks only 89/17,667 (0.5%) — because `apply` walks at the binding's `event_time` (the last
+kick's anchor) while the resolver reads at the ITEM tick, half a step apart on a boundary: the
+divergence is real motion, |Δx| 0.003–6.8×10⁵ root light-ticks, not sub-quantum bits; on
+rebinds the round-trip closes exactly by construction (`bind_in` stores residual = exact −
+turn(decoded), `readout` re-adds it), so 5ade's letter is half right: the post-kick walk is a
+true bit-exact duplicate, the post-boundary walk recomputes the stale anchor value already in
+the cache]. The digest's indifference to divergences of up to ~7×10⁵ light-ticks — plane and
+belt, 4 seeds, 1,200-frame horizons, and the wave's 80 ks / 8.1×10⁵ events / 720,562 mismatched
+positions — is the measured proof that the position cache sits outside the outcome channel
+(observe.rs's "deadlines and positions are never an outcome", now evidenced, not just documented;
+held by the checker on seed 42 and a 4× horizon of 1,200 frames) (20261017-1240-spacex-9c67,
+spacex; kill criterion POS_MISMATCH=0 pre-registered and fired; belt measurement, per-kind
+reproduction and magnitude census by 20261017-1330-second-20261017-1240-spacex-9c67-d65c;
+`pos_probe()`, `pos_probe_kinds()` and the counters are permanent instrumentation).**
 
 
 **The kick's byte bill is measured and the von-Neumann worry is acquitted for the event
@@ -251,13 +265,11 @@ identities are exact (sympy); the weak-field adv corner is cancellation in pref_
 the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4->0 cleanly).
 
 ## Refuted
-<<<<<<< main
 - **"The read's memory bill rides the per-body knot table" (the reading under cd6e's
   "bracket+Newton on ~2.8 partial panels"), and any table-layout lever on the kick's wall:
   the cold tax is flat in knots 6→124 and majority (~60–90%) shared footprint; the data-only delta is
   0.5–1.6 µs of a ~3 µs read, and the whole event's 12.2–18.8 KB is 0.18–1.1 µs of
   bandwidth — compute-bound 45–900× (20261017-1240-quant-ceb2).**
-=======
 - **"Apply's position walk re-reads what the resolver just read" (5ade's "exact duplicate"
   letter, priced −13%): half exact — bit-true on rebinds (17,578/17,667 kicks match), a stale
   no-op on boundaries (the walk recomputes the last anchor's value already in the cache) and a
@@ -265,9 +277,9 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
   up to 6.8×10⁵ light-ticks, not sub-quantum bits; the residual round-trip itself is exact);
   the deletion is digest-identical (4 seeds incl. 2 held-out, to 1,200 frames) and −3…−6% on
   the plane, and it stands on the outcome-channel evidence, not on exactness
-  (20261017-1240-spacex-9c67).**
->>>>>>> 20261017-1240-spacex-9c67
-
+  (20261017-1240-spacex-9c67). Belt-measured by 20261017-1330-second-20261017-1240-spacex-9c67-d65c:
+  the true gain is −9…−11% of wave CPU, the letter's −13% being the centre-chain walk the
+  hand-off keeps; digests identical at belt scale, anchors reproduced.]**
 - **"The kick sits ~1,800× above a ~50 ns floor" (b063's headline, the board's premise,
   repeated by 12db's census): the 42–56 ns figure is the write floor (the binding's output
   bits, 1–2 cache lines); the law's arithmetic floor is ~6 µs on the shipped
@@ -309,12 +321,14 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
   net win to the e >= 0.99 tail plus memory.
 
 ## Open directions
-6. **The walk's clock, not the residual word [checker-corrected]:** the mismatch's cause is
-   that `apply` walks at `event_time` (last binding anchor) while resolvers read at the item
-   tick — the author's residual-word suspect is disproven (rebinds match by construction).
-   What remains open: whether deadline order (the only consumer of the cache) can ever touch
-   a recorded outcome at belt scale/long horizons, and the deletion's gain on the belt wave,
-   where 5ade priced −13% and this run measured only the 32-body plane.
+6. **The walk's clock, not the residual word [checker-corrected; measured at belt scale by
+   20261017-1330-second-20261017-1240-spacex-9c67-d65c]:** the mismatch's cause is that `apply`
+   walks at `event_time` (last binding anchor) while resolvers read at the item tick — the
+   author's residual-word suspect is disproven (rebinds match by construction; belt: 99.96% of
+   kicks). The belt gain is measured (−9…−11% of wave CPU, not 5ade's −13%: the planet-doll
+   centre chain still walks). What remains open: whether deadline order (the only consumer of
+   the cache) can ever touch a recorded outcome at LONG horizons (the belt wave's 80 ks and
+   the plane's 1,200 frames are blind to it), and the M1 re-measure of the −9…−11%.
 
 1. **Wire the Carlson compile into the fired kick (the integrator's one step):** on the
    plane population the compile is 82–87% of the rebind (52.8–65.3 µs) against a verified
@@ -427,3 +441,4 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - 20261017-0739-spacex-4ea0 (spacex, gold, checker-2): compile-on-read killed both ways —
 - 20261017-1240-quant-ceb2 (this run, awaiting grade): the kick's byte bill measured —
 - 20261017-1240-spacex-9c67 (spacex, silver): apply's position walk deleted — digest-identical (4 seeds, held to 1,200 frames), −3…−6%/event; NOT an exact duplicate, but the mismatch is the walk's stale clock (anchor vs item tick, up to 6.8×10⁵ light-ticks on boundaries), not the residual word [checker].
+- 20261017-1330-second-20261017-1240-spacex-9c67-d65c (second author, awaiting grade): the checker's two gold experiments done — per-kind+magnitude census reproduced exactly and made regenerable, and the deletion measured on the belt wave: apply −55…−62%, wave CPU −9…−11% control-normalized (5ade's −13% was the kept centre chain), digests identical at both cuts with 5ade's anchors reproduced, belt census boundaries 100%/kicks 0.04% at 41× scale.

@@ -2,7 +2,7 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1018-redteam-13c6
+updated: 20261017-1330-redteam-68e7
 
 # The premises of docs/representation.md: a census against the record
 
@@ -67,10 +67,26 @@ The census, ranked by player visibility (the rest of this page's standing record
    1024/1024, periods 632/632, assists 64/64; B11) — licensed domain now measured:
    p̄ ≳ 65M at ν ≤ 0.25 (→ handoff, 97b0).
 5. **Dense ≡ sparse (L70): SURVIVES in the lab** (tie rule 20261005-0543-redteam-6254,
-   batch rule, locality licence, B8) — unguarded in the field (→ replay-gate); **r5
-   remains uncreated and cannot be created in this lab: `lattice-metal`'s dense order
-   is `#[cfg(target_os = "macos")]` and compiles to a stub on Linux — an M1-side run
-   owns it (20261017-1018-redteam-13c6).**
+   batch rule, locality licence, B8) — unguarded in the field (→ replay-gate); **NOW
+   GUARDED BY AN EXECUTED RUNG ON LINUX: r5 created, frozen and PASSES
+   (20261017-1330-redteam-68e7) — the dense order is not only Metal: its CPU arm
+   (`Chronon`) is portable, the shipped `engine/tests/identity.rs` suite runs 9/9 on
+   this Linux box (435.76 s, debug), and the r5 rung (frozen at
+   `lab/results/20261017-1330-redteam-68e7/r5-dense-order.md`) holds 20/20 identical
+   Outcomes (10 scenes × threads 1, 4; the frozen s0–s7 ladder plus two held-out
+   draws: 2500 and 3000 bodies; 116,874 contacts, kicks and live carries in every
+   scene), the both-shifted positive control agrees 10/10, and the one-order-late
+   negative breaks 10/10. Only the GPU arm (`MetalChronon`, macOS-gated) stays with
+   an M1-side run. Bonus, orders of magnitude only (shared box, release): the sparse
+   event core beats lockstep 0.27 s vs 7.54 s at 2500 bodies and 0.84 s vs 10.80 s at
+   3000, equal only on the epoch-1 storm scene.**
+   Checker's domain facts (20261017-1330 check): identity holds beyond the rung's frozen
+   domain — 4000 bodies (27,957 contacts, epochs 513), horizon 8192 (epochs 1025), a
+   q 256 / div 4 / k 9 near-storm (epochs 2049, 7085 contacts), and cross-thread pairing
+   the rung never gated (lockstep t1 ≡ sparse t4 and t4 ≡ t1, lockstep t1 ≡ sparse t8 at
+   all three scenes); the epoch shift changes each order's outcome, so the negative is a
+   law change, not a no-op. The checker's full regen reproduced metrics byte-identically
+   (identity 1.0/1.0, late 0.0, contacts 116,874; suite 9/9 at 463 s debug).
 6. **Undisturbed ≈ 0 (L113): SURVIVES by rate, not by cost** (a4ed gold: belts pass 10⁹ at
    10× real time; but fire rate 1.000, one rebind per doll interval, 20261015-0724-system-3294).
 
@@ -97,18 +113,28 @@ The census, ranked by player visibility (the rest of this page's standing record
 - **"Any cache, however stale or foreign" as a cost claim** (view.rs doc, representation.md
   §2 "shortcuts… add speed, never error"): true for the view's rows, false for its cost —
   stale/foreign caches pay p99 5.13 vs the kept cache's 2.92 (20261017-1018-redteam-13c6).
+- **"r5 remains uncreated and cannot be created in this lab … `lattice-metal`'s dense order
+  is `#[cfg(target_os = "macos")]` and compiles to a stub on Linux — an M1-side run owns
+  it"** (13c6's blocker, this page before this run): a category error — the dense order is
+  "CPU, or Metal on the GPU" (law.md L50), and the CPU arm (`Chronon`) is portable; the
+  shipped identity suite runs 9/9 on Linux and the created r5 rung PASSES 20/20 with its
+  negative breaking 10/10 (20261017-1330-redteam-68e7). What is Mac-only is the GPU arm.
 
 ## Open directions
 1. **The integrator's one-pass amendment of representation.md** (no code): strike L67/L114
    for the recorded 43–160 µs and rebind-per-kick; relabel Binet cells as research;
-   annotate "crosses once"; mark r5 uncreatable off-Mac. Until then every new reader is
+   annotate "crosses once" (the "mark r5 uncreatable off-Mac" clause is dead — see
+   Refuted). Until then every new reader is
    seeded with refuted premises (principles 10 and 19, applied to the document).
 2. **Commit r6** (`lab/results/20261017-1018-redteam-13c6/r6-view.md`, frozen hash
    recorded, checker silver): the view's cost and presence are now guardable mechanically
    at rtf 100; the next rung is exactness, and the checker's bisection oracle already
    certifies warm's ticks 23,170/23,170 at the frozen scale — no smaller scene needed —
    plus bars that the negative fails at every cadence and a window past frame 178.
-3. r5 (dense order) needs an M1-side author (the Linux lab cannot execute it at all).
+3. **Adopt r5 into `lab/rungs/`** (`lab/results/20261017-1330-redteam-68e7/r5-dense-order.md`,
+   frozen before execution, PASS): the CPU arm is done and guardable on any box; what
+   remains M1-side is only its GPU extension (`MetalChronon` configs and
+   `metal_identity.rs`'s scenes, same criteria).
 4. The EOB strong-field flank: closed by 97b0's oracle (→ handoff); the merger scene's
    licence below p̄ ≈ 12M still wants an NR-calibrated EOB.
 
@@ -121,3 +147,4 @@ about it; both stand.
 ## Runs
 - 20261016-1207-redteam-12db (silver): premise census; kick cost 34.8 µs vs the doc's
 - 20261017-1018-redteam-13c6 (silver): r6 created, frozen and executed — PASS for the
+- 20261017-1330-redteam-68e7 (awaiting grade): r5 created and PASSES on Linux — dense≡sparse 20/20, the "uncreatable here" blocker refuted; GPU arm stays M1-side

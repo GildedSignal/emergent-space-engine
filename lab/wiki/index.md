@@ -8,17 +8,17 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [calendar](calendar.md) | open | 1 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [read-stream](read-stream.md) | open | 1 | **The wave's read stream is censused by call site on shipped main, and its N-linear half is |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
-| [representation-premises](representation-premises.md) | open | 2 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [birth-stagger](birth-stagger.md) | open | 3 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
+| [representation-premises](representation-premises.md) | open | 3 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
-| [library-directions](library-directions.md) | open | 5 | **Five more verbatim lessons (4,590 highlights fetched fresh, 5/5 script-verified |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
+| [library-directions](library-directions.md) | open | 6 | **Five lessons take the memory wall's newest hole (the FLOW's load-path pin) and the run attributes it: |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
@@ -32,7 +32,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [kick-cadence](kick-cadence.md) | open | 55 | **Open direction 1 is decided: the boundary comb is welded to the kick comb's own step and |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
-| [kick-jet](kick-jet.md) | open **conflict to resolve** | 80 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
+| [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |
-| [memory-h-live](memory-h-live.md) | open | 107 | **The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical |
+| [memory-h-live](memory-h-live.md) | open **conflict to resolve** | 109 | <<<<<<< main |
 | [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |

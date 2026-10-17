@@ -2,11 +2,81 @@ topic: memory-h-live
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0238-inversion-470f
+<<<<<<< main
+updated: 20261017-1330-inversion-4b8c
+=======
+updated: 20261017-1330-library-7bd9
+>>>>>>> 20261017-1330-library-7bd9
 
 # Memory at 10⁹ in 8 GB: live information per body (H_live), scars, the standing representation
 
 ## Current best
+
+<<<<<<< main
+**The bimodality's mechanism is named and knob-controlled: the growth is the engine's cleanup
+being wall-owned, not game-owned — the held encounter scans drain only while the frame's wall
+budget has `2·max(scan_ns, 750 µs)` left (universe.rs:1190; the condition itself is prior art —
+scan-queue's 69f3 froze it at belt/burn scale; here it is the play path's grower), and the
+history prune runs only at
+`frame_to`'s start, so a slow/loaded machine hoards ∝ game-s while the game state stays
+digest-identical (20261017-1330-inversion-4b8c, inversion; Linux/x86, seed 1, threads 1,
+`RUIN_PROBE` print-only).** Dose-response at members 400, rtf 100: engine-ms 50 → held 0, RSS flat
+45.7 MB; 5.0 → flat on a quiet box (≤1 held) but grew held 8→83, RSS +8 MB in an earlier same-box
+run under ambient load — the margin is marginal at the shipped default, which is 470f's bimodality
+reproduced by knob; 0.5 → the game crawls (77.5 vs 1,610 game-s presented) and memory grows.
+**Digests identical across all three budgets** (`2713edb5639d7a16…`): wall-path only, law innocent.
+The play-phase channel is the scans themselves (one per resolved player item, universe.rs:772 →
+`Held::capture`, each pinning `binding_at(j, t)` for every window candidate): members 100 →
+**4.5 kB/game-s ≈ 84 kB per held scan** (the comment's "about 10 KB each" is 8× low at just 100
+members), and **470f's 220.9 MB peak ≈ `SCAN_BACKLOG`(2048) × ~105 kB/scan — the cap, not a
+leak** (arithmetic, consistent with 470f's own 11 kB/gs × 20,000 gs and the 78k-allocation bulk
+drop; the cap was never observed engaged — held ≤ 172 in any arm here). The catch-up settle
+spike at cut 27,500 game-s (+21.9 MB at m100, +117.6/117.9 at m400/"m800", digests equal) exceeds
+the player-item scans' pin: the second channel is `settle`'s prune bypass (c304's ~10
+kB/ship-kick; 4,751 ship items here) — one disease, two symptoms: cleanup scheduled behind the
+wall. The "bound" is ∝ bodies-in-window, the concentrated-fleet case, not the spread belt (the
+3,000-body belt's flatness is the window, not innocence).
+**[Checker correction]** the "m400 = m800" identity is the CLI clamp, not saturation:
+`--members` clamps at 400 (xtask/src/universe/mod.rs:40 — `--members 800 --describe` prints "1
+fleet(s) of 400 members"), so the 800 arm is the 400 arm. The pin's N-scaling is sub-linear on
+real arms: 89–100 kB/scan at 100 members, 112 at 200 (checker, ms 0.5 arm) — not ∝ N; the
+concentration reading stands, the saturation evidence did not exist.
+
+*[The standing record (the FLOW bimodality, the catalogue intern, the rate and scar results, the
+wall ladder) is retained on main's page below this entry, unchanged.]*
+
+## Refuted
+- **"The growth path's mechanism is unknown (prune-starvation a lead)"** (the page's own open
+  lead): knob-controlled and decomposed — the held-scan drain condition and the settle prune
+  bypass, both wall-owned; the digest is invariant across the whole dose-response
+  (20261017-1330-inversion-4b8c).
+- **"`SCAN_BACKLOG` bounds the backlog at about 10 KB each" (universe.rs:77):** measured 84–100
+  kB per held scan at 100 members and 112 at 200 (checker); ~105 at 400 is inferred from 470f's
+  peak, not slope-measured (the 400 arm's play phase is too short); the bound is concentration's,
+  not the comment's (20261017-1330-inversion-4b8c).
+=======
+**The FLOW's growing path is attributed, and the wall's load-path pin is priced: the accumulator is the
+held-scans queue, and the fence is one constant.** A 13-s flight pair on shipped code (counting GlobalAlloc
++ the two standing queue counters, `flow_attr` example; 400 members, coast, rtf 100, 3,600 frames): quiet
+flat (live 14.6 MB, held_scans 0), under 6-way pinned load live_B grows 24.0→96.4 MB monotone at
+**13.1 kB/gs (470f's rate)** with **held_scans 10→433 in lockstep and handouts 0 throughout** —
+171 kB + 73 live allocations pinned per held scan (the capture is the candidates Vec, encounter.rs:174-195,
+≈400 B/candidate by measurement — the 216 B tuple guess does not close: 428 bodies × 216 B = 92 kB — the
+whole doll when the radial filter bails; the pin declines to ~90 kB/scan as the fleet dissolves:
+146→88 across the record log itself, checker), so `SCAN_BACKLOG = 2048`'s force-answer is
+470f's "one bulk drop of ~78k" (latch ETA 26,629 nominal gs; in presented game-s, which the load arm
+undershoots ~1.3×, ≈21,000 gs at the 0.096 scans/gs two checker flights reproduce — against their
+~20,000-gs drop) and the latch's bound at this scene is **2048 × 171 kB ≈ 0.35 GB** (worst, early
+flight; ~0.18 GB late) — ~1.5 GB at 604c's formation candidate counts, and **not a safe fence at scale**
+[checker, outside the author's 400-only range: at 1,600 members with births mid-flight the pin reaches
+~2 MB/scan (93 scans, 225 MB in 1,200 frames, no same-CPU spinners) — a multi-GB count-latch bound;
+`prune()` is unconditional (universe.rs:1082): 470f's prune-starvation
+lead is dead; `held_scans()` (universe.rs:299) existed unread — smoothness runs track its max, no memory
+instrument read the standing count. Growth is per-scan × capture, NOT per-body: at ladder scenes the
+candidates are the player's doll (c439's near set, O(1) in N), so the 10⁶ headline survives with a bounded
+~0.1–0.2 GB pin — a quiet-machine claim until flown under load (20261017-1330-library-7bd9, library;
+one flight per arm on top of 470f's 37, quotes 5/5 byte-identical, predictions half-held as stated in
+its dossier).**
 
 **The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical
 outcome.** At 400 fleet members the same flight (same seed, args, binary, quiet machine) either
@@ -221,6 +291,13 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
 
 ## Refuted
 
+- **470f's "prune starvation" mechanism lead, and universe.rs:77's "about 10 KB each" for a held scan**:
+  prune is unconditional (universe.rs:1082); the accumulator is the held-scans queue, and the measured pin
+  is 171 kB/scan on the 400-member plane (capture ≈ population × ~400 B by measurement — the 216 B tuple
+  guess does not close — declining to ~90 kB as the fleet dissolves; 20261017-1330-library-7bd9, checker).
+- **"The growth is counter-invisible" as a missing counter**: `held_scans()` existed (universe.rs:299);
+  no memory instrument or stats line read it — an instrumentation gap, closed by one print
+  (20261017-1330-library-7bd9).
 - "A reachable ruin state: peak RSS grows ~0.2 kB per surviving member per game-second
   through any battle that stays live" (d3fe, silver): at shipped size (48 members) and on the
   belt plane, dead on main at 4–7× the flown horizon — fleets dissolve by ~3,000 game-s, the
@@ -270,57 +347,22 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
   20261007-1106-second-…-0263, gold).
 - Return-based scar reabsorption as the balancer: 10⁻⁶ of creation; the layer grows
   only log in t (20261006-1029-components-21c3).
+>>>>>>> 20261017-1330-library-7bd9
 
 ## Open directions
-
-1. **Shrink and share the standing record** — the measured 75–615× lever on shipped
-   code: catalogue dedup, evictable/shared compiled shapes, out-of-line records,
-   free the whales (20261007-0711-spacex-cae7; 20261009-0401-spacex-4a62;
-   20261009-2212-fermi-a11b; 20261010-0306-quant-4985; 20261009-2348-components-42e6;
-   20261011-2235-second-…-e4cc; 20261012-0311-components-5465: 58% is a regenerable
-   cache; 20261012-1117-second-…-c304: prune the rebind history `settle` bypasses;
-   20261011-2028-components-6a0e: queue at 8 B/body, no container;
-   20261011-2028-system-3b42: delete the encounters copy). Would change: 10⁹ fits
-   with no law change.
-2. **The requantization law, phase anchored, plus epicyclic generator terms** —
-   deletes the 64-bit/radial-cycle phase dof and the one-time 146-bit synodic
-   scatter; sets q_v ≳ 10⁻⁶ v_K and the angle quantum ≥ ~2×10⁻⁷ rad
-   (20261010-1544-second-…-0820; 20261011-0517-spacex-d0ea; 20261007-0842-fermi-fc22;
-   20261012-0616-components-0e9c; 20261010-0306-spacex-acb2;
-   20261010-1544-components-986b; 20261012-0358-second-…-0ae6: per-population quanta
-   256× coarser restore the budget). Would change: the 4-field floor 15.7 GB → under
-   budget.
-3. **Wire the promotion census and the admission rule** — f_cum/promotion counters,
-   S by kick magnitude, f* ∈ [0.19, 0.55], re-fit + canonical relabelling
-   (20261008-2031-fermi-9d49; 20261011-0324-fermi-c211;
-   20261011-0517-second-…-b3e7; 20261011-0134-second-…-fdfc;
-   20261008-0041-fermi-8072). Would change: 10⁹ becomes a budget identity; the
-   `b-h-live` dashboard gets its counters.
-4. **The mixed-population entropy after repopulation** (0.126 → ~30 bits/body): the
-   only 8 GB-scale term; `b-h-live` is queued for it
-   (20261012-1621-second-…-09a1; 20261004-1525-components-98bc for the 0.126 anchor).
-5. **The secondary census** (k, μ distribution): sets the rebind prefactor and the
-   rebind/player balance; unmeasured (20261012-1621-second-…-09a1).
-6. **m_crit transition and contact recycling:** map ~10¹²–10¹⁸ kg by quantum — two
-   interior points now measured, μ_b ≈ 1.7×10⁻¹⁸ M☉ (~1 km; 20261010-1816-components-6273)
-   and ≈ 1.3×10⁻¹⁷ M☉ (~1.3 km, c7eb corrected; 20261009-1345-second-…-46a6, gold)
-   — plus the tp channel (no mass threshold; 20261009-1345-second-…-46a6);
-   make contacts terminal or
-   herd-re-programming legal before a close-in belt's 9–18 h ruin
-   (20261011-1600-fermi-13ad, gold; 20261008-2031-fermi-9d49, gold).
+1. **Game-owned cleanup (the fix this names):** the prune on a game-s cadence (not only
+   `frame_to`'s start — `settle` bypasses it, c304's half), and the held scans answered or
+   *dropped* at a game-s cadence — their answer feeds only the count/log/hash
+   (universe.rs:206), so a canonical drop (by tick, not by wall) keeps digests defined and
+   deletes both the 2048-cap memory term and the catch-up spike. Scan answers are hashed, so the
+   drop schedule must be canonical (a law-visible-none decision, like the comb cures).
+2. Burn arm unflown here: thrust changes the player's item rate (the scan generation rate); the
+   backlog under burn, and the belt's window occupancy at 10⁵-10⁶, price the cap's true scale.
 
 ## Contradictions
-
-None open among graded runs. The apparent conflicts resolve by regime or drive, each
-in the record: compute-bound (20261006-1354-fermi-c9fa, 90-min corner) vs
-memory-bound (20261011-1917-fermi-b946, belt scale) — the ordering is measured in
-20261011-0517-second-…-b3e7; self-stirred never scars
-(20261012-0616-second-…-07b4) vs giant-driven scars ~100% once
-(20261007-1646-quant-b30e; 20261010-1407-fermi-fc48; 20261007-1334-quant-7334);
-no-re-programming busts at ~130 bits/member (20261007-1646-quant-b30e) vs legal
-re-programming holds (20261008-0041-fermi-8072). The 4b55 silver's three mutually
-inconsistent headline values (42,462 / 4.7×10³ / 4.7 bits/s) were reconciled to one
-code path (`soi_truth.py`, 21.1 bits/s; 20261012-1621-second-…-09a1).
+- None new. The 84 kB/scan is RSS-slope ÷ held-slope on one arm (a direct pinned-`Arc` count
+  could move it ×2); the settle-spike split between scan pins and prune-bypassed history is
+  arithmetic (c304's per-kick figure carries that half), not separately instrumented.
 
 ## Runs
 - 20261012-1524-fermi-4b55 (silver): H_live term decomposition — rebinds,
@@ -432,3 +474,5 @@ code path (`soi_truth.py`, 21.1 bits/s; 20261012-1621-second-…-09a1).
 - 20261017-0238-inversion-470f (this run): peak memory is wall-path-dependent, not canonical: 5-of-15 flights at 400 members grow ~11 kB/gs of live allocs to a 221 MB peak (bulk-freed at 20,000 gs, RSS retained) with every shipped counter flat; shipped size and belt flat; fleets dissolve by ~3,000 gs; slices one-time.
 - checker (20261017-0238-inversion-470f): reproduced 3× (regen flipped arms: 40k flat, r1+r4 grew); load is the knob — 9/9 grew under load (N=100/400/800, seeds 1/5), 0/3 alone; long-run rate 9.0 kB/gs (the ~11 is the first-6,000-gs window); prune-starvation is the open mechanism lead.
 - second-checker (20261017-0238-inversion-470f): 20 of 22 fresh flights grew (8/8 under 8-way
+- 20261017-1330-inversion-4b8c (awaiting grade): the growth's mechanism knob-controlled — wall-owned cleanup (scan drain + settle prune bypass), digest-invariant; 470f's 220 MB = the 2048-scan cap
+- 20261017-1330-library-7bd9 (library): FLOW attributed — the held-scans queue is the accumulator (171 kB/scan, latch = the bulk drop, bound 0.35 GB here / ~1.5 GB at formations); growth is per-scan, not per-body.

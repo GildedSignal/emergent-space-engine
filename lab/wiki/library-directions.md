@@ -2,11 +2,22 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1018-library-cf2a
+updated: 20261017-1330-library-7bd9
 
 # Library lessons for the ladder's open decisions
 
 ## Current best
+
+**Five lessons take the memory wall's newest hole (the FLOW's load-path pin) and the run attributes it:
+the held-scans queue is the accumulator (memory-h-live's page), the latch is the bulk drop, and the fence
+is bytes-not-count** — (1) Taleb's Soros "clean slate"/path-free: peak must be f(scene), not f(load
+history) — bound the backlog by bytes; (2) Taleb's maximum-vs-average law: a quiet-only benchmark
+measures the average maximum; the 16-s load-arm pair is the cheapest protocol; (3) FS "results not
+visible… still accumulating": the seeing counter existed unread (held_scans) — one stats line; (4) We Are
+Legion's moved bottleneck: the record diet (efd4, memory open 1) does not touch the pin — fence first at
+fleet scenes, ~1.5 GB at the latch there; (5) Buffett's parade tip-toes: allocator retention makes one
+episode raise the floor forever — bound the peak, not the drain (20261017-1330-library-7bd9, library;
+quotes 5/5 byte-identical, 4,590 highlights fetched fresh).
 
 **Five more verbatim lessons (4,590 highlights fetched fresh, 5/5 script-verified
 byte-identical) take the board's #2 bottleneck — encounter work at 10⁹ — and
@@ -266,3 +277,4 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261017-0428-second-20261017-0238-library-dc8f-f5bd (this run): the checker's named
 - 20261017-0739-library-10c4 (this run): five lessons order the 10⁹ ledger; boundary comb
 - 20261017-1018-library-cf2a (this run): five lessons take the fleet row; composed ledger
+- 20261017-1330-library-7bd9 (library): the FLOW attributed (held-scans queue) — five lessons order the fence: bytes-not-count, load-arm protocol, the unread counter, diet-vs-pin, peak-not-drain.
