@@ -1,0 +1,800 @@
+diff --git a/crates/encounters/examples/fleetcal.rs b/crates/encounters/examples/fleetcal.rs
+new file mode 100644
+index 00000000..9a5dca69
+--- /dev/null
++++ b/crates/encounters/examples/fleetcal.rs
+@@ -0,0 +1,593 @@
++//! The calendar cure for fleet encounters, measured on shipped pieces only:
++//! `tier::arm_pair` (the `dioph.rs` first-hit schedule, already the tree tier's
++//! arm) as a pair's conjunction-calendar entry, vs the phase certificate's
++//! per-rebuild window sweep (fleetk's priced cost). Print-only, zero shipped
++//! lines. One JSON per line. Populations identical to fleetk (same `fleet`).
++//!
++//! Arms:
++//!   carm    timing: c_arm (arm_pair) vs c_exact (pair_events) per window pair
++//!   calkeys keys fleets F=1e3/1e4/1e5: birth arm pass, armed (= per-interval firings)
++//!   caltrain trains da=1e-4/1e-3: birth pass + DUE histogram -> steady firings/interval
++//!   kickrow per-kick incremental: re-arm the kicked member's row, eps ladder
++//!   truth   control: calendar events == group_events events (drops must be 0)
++//!   negctl  negative control: narrowed safety / halved reach must drop events
++//!   keysev  event-flow scaling with F (the physics floor under any certificate)
++//!
++//! `fleetcal [seed]` (default 20261017).
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::method::{pair_events, Stats};
++use emergent_encounters::phase::{group_events, Neighbours};
++use emergent_encounters::tier::{arm_pair, ArmStats};
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++const SAFETY: f64 = 1.1;
++/// One belt interval in time units at n = 1 (kick-cadence: 28,141.5 game-s) = 4,478 orbits.
++const H_IV: f64 = 28141.5;
++
++fn gauss(rng: &mut Rng) -> f64 {
++    (rng.f64() + rng.f64() + rng.f64() + rng.f64() + rng.f64() + rng.f64() - 3.0) * 2.0_f64.sqrt()
++}
++
++/// Identical to fleetk's `fleet` (same populations, same Rng draw order).
++fn fleet(seed: u64, f: usize, da: f64, sig_e: f64, clust: Option<f64>) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..f)
++        .map(|_| {
++            let a = if da == 0.0 { 1.0 } else { 1.0 + da * (rng.f64() - 0.5) };
++            let u = rng.f64();
++            let e = (sig_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = TAU * rng.f64();
++            let lam = match clust {
++                Some(s) => (TAU / 4.0 + s * gauss(&mut rng)).rem_euclid(TAU),
++                None => TAU * rng.f64(),
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++/// reach as phase.rs derives it (fleetk's copy, no shared-shape cancellation).
++fn reach_of(b: &[Body], rho: f64, t1: f64) -> f64 {
++    let mut centre = 0.0_f64;
++    let mut rmin = f64::INFINITY;
++    let (mut nlo, mut nhi) = (f64::INFINITY, 0.0_f64);
++    for x in b {
++        centre = centre.max(x.e + 2.0 * (x.e / (1.0 + x.sq)).asin());
++        rmin = rmin.min(x.rmin());
++        nlo = nlo.min(x.n);
++        nhi = nhi.max(x.n);
++    }
++    let angular = 2.0 * (rho / (2.0 * rmin)).min(1.0).asin();
++    angular + 2.0 * centre + (nhi - nlo) * t1 * 0.5
++}
++
++/// Midpoint-phase order (Neighbours::new's order, rebuilt here for row access).
++fn order(b: &[Body], t0: f64, t1: f64) -> Vec<(f64, u32)> {
++    let mid = t0 * 0.5 + t1 * 0.5;
++    let mut o: Vec<_> = b
++        .iter()
++        .enumerate()
++        .map(|(i, x)| ((x.mean_anomaly(mid) + x.pom).rem_euclid(TAU), i as u32))
++        .collect();
++    o.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
++    o
++}
++
++/// Forward-row extents of every member: row[p] = # of members strictly ahead
++/// (with wrap) within reach. Sum = the window's pair count (visit's count).
++fn rows(o: &[(f64, u32)], reach: f64) -> Vec<usize> {
++    let n = o.len();
++    let mut row = vec![0usize; n];
++    let mut end = 1usize;
++    for start in 0..n {
++        end = end.max(start + 1);
++        let phase = o[start].0;
++        while end < start + n {
++            let next = o[end % n].0 + if end >= n { TAU } else { 0.0 };
++            if next - phase > reach {
++                break;
++            }
++            end += 1;
++        }
++        row[start] = end - start - 1;
++    }
++    row
++}
++
++fn arm_row(
++    b: &[Body],
++    o: &[(f64, u32)],
++    p: usize,
++    len: usize,
++    rho: f64,
++    t0: f64,
++    t1: f64,
++    st: &mut ArmStats,
++    dues: &mut Vec<f64>,
++    armed_pairs: &mut Vec<(u32, u32)>,
++) -> (u64, u64) {
++    let n = o.len();
++    let i = o[p].1;
++    let mut armed = 0u64;
++    let mut silent = 0u64;
++    for q in 1..=len {
++        let j = o[(p + q) % n].1;
++        let (a, due) = arm_pair(&b[i as usize], &b[j as usize], rho, SAFETY, t0, t1, st);
++        if a {
++            armed += 1;
++            armed_pairs.push((i, j));
++        } else {
++            silent += 1;
++            dues.push(due);
++        }
++    }
++    (armed, silent)
++}
++
++/// Steady firing rate per interval: sample silent pairs, arm again at the first due,
++/// mean 1/recurrence. The first-due histogram alone cannot give a rate.
++#[allow(dead_code)]
++fn steady_rate(b: &[Body], pairs: &[(u32, u32, f64)], rho: f64) -> (f64, f64) {
++    let mut st = ArmStats::default();
++    let mut recs = Vec::new();
++    for &(i, j, due1) in pairs.iter().take(1_000) {
++        if !due1.is_finite() || due1 <= 0.0 {
++            continue;
++        }
++        let (_a, due2) = arm_pair(&b[i as usize], &b[j as usize], rho, SAFETY, due1 + 4.0 * TAU, due1 + 4.0 * TAU + H_IV, &mut st);
++        if due2.is_finite() && due2 > due1 {
++            recs.push((due2 - due1) / H_IV);
++        }
++    }
++    if recs.is_empty() {
++        return (f64::INFINITY, 0.0);
++    }
++    recs.sort_by(|x, y| x.total_cmp(y));
++    (recs[recs.len() / 2], recs.iter().map(|r| 1.0 / r).sum::<f64>() / recs.len() as f64)
++}
++
++/// One-period exact price (a same-period pair's capability is periodic: H = 1 orbit suffices).
++fn cap_cost(b: &[Body], armed_pairs: &[(u32, u32)], rho: f64) -> f64 {
++    let mut st = Stats::default();
++    let mut out = Vec::new();
++    let t = Instant::now();
++    let n = armed_pairs.len().min(400);
++    for &(i, j) in armed_pairs.iter().take(400) {
++        out.clear();
++        pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, TAU, &mut st, &mut out);
++    }
++    t.elapsed().as_secs_f64() * 1e6 / n as f64
++}
++
++/// Exact-check price over the armed set at one-interval horizon (per firing).
++fn fire_cost(b: &[Body], armed_pairs: &[(u32, u32)], rho: f64, cap: usize) -> (f64, f64) {
++    let mut st = Stats::default();
++    let mut out = Vec::new();
++    let t = Instant::now();
++    let n = armed_pairs.len().min(cap);
++    for &(i, j) in armed_pairs.iter().take(cap) {
++        out.clear();
++        pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, H_IV, &mut st, &mut out);
++    }
++    (t.elapsed().as_secs_f64() * 1e6 / n as f64, st.evals as f64 / n as f64)
++}
++
++fn main() {
++    let seed = std::env::args().nth(1).map_or(20261017, |s| s.parse().unwrap());
++    println!("{{\"seed\":{seed}}}");
++    let rho = 1e-4_f64;
++
++    // ---- carm: c_arm vs c_exact per window pair, keys F=5000, horizon one interval
++    {
++        let f = 5_000usize;
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        let o = order(&b, 0.0, H_IV);
++        let reach = reach_of(&b, rho, H_IV);
++        let row = rows(&o, reach);
++        let pairs: u64 = row.iter().map(|&r| r as u64).sum();
++        let mut st = ArmStats::default();
++        let mut dues = Vec::new();
++        let mut armed_pairs: Vec<(u32, u32)> = Vec::new();
++        let t = Instant::now();
++        let mut armed = 0u64;
++        for (p, &r) in row.iter().enumerate() {
++            let (a, _s) = arm_row(&b, &o, p, r, rho, 0.0, H_IV, &mut st, &mut dues, &mut armed_pairs);
++            armed += a;
++        }
++        let arm_secs = t.elapsed().as_secs_f64();
++        // exact-check cost on the same pair set (the sweep's per-rebuild price)
++        let t = Instant::now();
++        let mut est = Stats::default();
++        let mut hits = Vec::new();
++        for (p, &r) in row.iter().enumerate() {
++            for q in 1..=r {
++                let (i, j) = (o[p].1, o[(p + q) % o.len()].1);
++                hits.clear();
++                pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, H_IV, &mut est, &mut hits);
++            }
++        }
++        let exact_secs = t.elapsed().as_secs_f64();
++        // the sweep price at the 8-interval rebuild horizon (first 40k pairs)
++        let t = Instant::now();
++        let mut est8 = Stats::default();
++        let mut np = 0u64;
++        'outer: for (p, &r) in row.iter().enumerate() {
++            for q in 1..=r {
++                let (i, j) = (o[p].1, o[(p + q) % o.len()].1);
++                hits.clear();
++                pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, 8.0 * H_IV, &mut est8, &mut hits);
++                np += 1;
++                if np >= 40_000 {
++                    break 'outer;
++                }
++            }
++        }
++        let exact8_secs = t.elapsed().as_secs_f64();
++        let (fire_us, fire_evals) = fire_cost(&b, &armed_pairs, rho, 150);
++        println!(
++            "{{\"arm\":\"carm\",\"n\":{f},\"h_iv\":{H_IV},\"reach\":{reach:.4},\"pairs\":{pairs},\"armed\":{armed},\
++\"arm_us_per_pair\":{:.4},\"exact_us_per_pair\":{:.3},\"exact8_us_per_pair\":{:.3},\"fire_us_per_armed_iv\":{:.1},\"fire_evals_per_armed_iv\":{:.0},\"qsteps_per_pair\":{:.1},\"exact_evals_per_pair\":{:.1}}}",
++            arm_secs * 1e6 / pairs as f64,
++            exact_secs * 1e6 / pairs as f64,
++            exact8_secs * 1e6 / np as f64,
++            fire_us,
++            fire_evals,
++            st.qsteps as f64 / pairs as f64,
++            est.evals as f64 / pairs as f64
++        );
++    }
++
++    // ---- calkeys: keys fleets, birth arm pass; armed pairs = per-interval firings
++    for (f, sig_e) in [(1_000_usize, 1e-2_f64), (10_000, 1e-2), (100_000, 1e-2), (10_000, 1e-3)] {
++        let b = fleet(seed, f, 0.0, sig_e, None);
++        let o = order(&b, 0.0, H_IV);
++        let reach = reach_of(&b, rho, H_IV);
++        let row = rows(&o, reach);
++        let pairs: u64 = row.iter().map(|&r| r as u64).sum();
++        // Subsample rows at F = 1e5 (full pass would be ~3e8 arm calls); full below.
++        let (sample, label) = if f <= 10_000 {
++            ((0..f).collect::<Vec<_>>(), 1.0_f64)
++        } else {
++            let mut rng = Rng(seed ^ 0x5eed);
++            let s: Vec<usize> = (0..2_000usize).map(|_| (rng.f64() * f as f64) as usize).collect();
++            (s, f as f64 / 2_000.0)
++        };
++        let mut st = ArmStats::default();
++        let mut dues = Vec::new();
++        let mut armed_pairs: Vec<(u32, u32)> = Vec::new();
++        let t = Instant::now();
++        let mut armed = 0u64;
++        let mut sampled_pairs = 0u64;
++        for &p in &sample {
++            let (a, _s) = arm_row(&b, &o, p, row[p], rho, 0.0, H_IV, &mut st, &mut dues, &mut armed_pairs);
++            armed += a;
++            sampled_pairs += row[p] as u64;
++        }
++        let secs = t.elapsed().as_secs_f64();
++        let scale = if f <= 10_000 { 1.0 } else { label };
++        let (fire_us, _fe) = fire_cost(&b, &armed_pairs, rho, 150);
++        let cap_us = cap_cost(&b, &armed_pairs, rho);
++        println!(
++            "{{\"arm\":\"calkeys\",\"n\":{f},\"sig_e\":{sig_e},\"reach\":{reach:.4},\"pairs\":{pairs},\"sampled_pairs\":{sampled_pairs},\
++\"armed\":{armed},\"armed_scaled\":{:.0},\"armed_frac_of_pairs\":{:.3e},\"c_arm_us\":{:.4},\"birth_pass_us_per_member\":{:.1},\"firings_per_iv\":{:.0},\"fire_us_per_armed_iv\":{:.1},\"cap_us_per_armed_period\":{:.2}}}",
++            armed as f64 * scale,
++            armed as f64 * scale / pairs as f64,
++            secs * 1e6 / sampled_pairs as f64,
++            secs * 1e6 * (pairs as f64 / sampled_pairs as f64) / f as f64,
++            armed as f64 * scale,
++            fire_us,
++            cap_us
++        );
++    }
++
++    // ---- caltrain: trains; birth pass + due histogram -> steady firings per interval
++    for (f, da) in [(10_000_usize, 1e-4_f64), (100_000, 1e-4), (10_000, 1e-3)] {
++        let b = fleet(seed, f, da, 1e-2, None);
++        let o = order(&b, 0.0, H_IV);
++        let reach = reach_of(&b, rho, H_IV);
++        if reach >= std::f64::consts::PI {
++            println!(
++                "{{\"arm\":\"caltrain\",\"n\":{f},\"da\":{da},\"refused\":true,\"reach\":{reach:.4}}}"
++            );
++            continue;
++        }
++        let row = rows(&o, reach);
++        let pairs: u64 = row.iter().map(|&r| r as u64).sum();
++        let (sample, scale) = if f <= 10_000 {
++            ((0..f).collect::<Vec<_>>(), 1.0_f64)
++        } else {
++            let mut rng = Rng(seed ^ 0x5eed);
++            let s: Vec<usize> = (0..2_000usize).map(|_| (rng.f64() * f as f64) as usize).collect();
++            (s, f as f64 / 2_000.0)
++        };
++        let mut st = ArmStats::default();
++        let mut dues = Vec::new();
++        let mut armed_pairs: Vec<(u32, u32)> = Vec::new();
++        let mut silent_sample: Vec<(u32, u32, f64)> = Vec::new();
++        let t = Instant::now();
++        let mut armed = 0u64;
++        let mut sampled_pairs = 0u64;
++        for &p in &sample {
++            let (a, _s) = arm_row(&b, &o, p, row[p], rho, 0.0, H_IV, &mut st, &mut dues, &mut armed_pairs);
++            armed += a;
++            sampled_pairs += row[p] as u64;
++        }
++        // silent pair sample for recurrence: re-walk rows, keep (i, j, due) for silent pairs
++        let mut rng2 = Rng(seed ^ 0xd0e);
++        {
++            let mut want = 1_000usize;
++            while want > 0 && !sample.is_empty() {
++                let p = sample[(rng2.f64() * sample.len() as f64) as usize];
++                let n2 = o.len();
++                let i = o[p].1;
++                let q = 1 + (rng2.f64() * row[p].max(1) as f64) as usize;
++                if q > row[p] || row[p] == 0 {
++                    continue;
++                }
++                let j = o[(p + q) % n2].1;
++                let mut st2 = ArmStats::default();
++                let (a, due) = arm_pair(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, H_IV, &mut st2);
++                if !a && due.is_finite() {
++                    silent_sample.push((i, j, due));
++                    want -= 1;
++                }
++            }
++        }
++        let secs = t.elapsed().as_secs_f64();
++        // due histogram in units of the interval; bin k = [k*H_IV, (k+1)*H_IV)
++        let nb = 64;
++        let mut hist = vec![0u64; nb];
++        let mut never = 0u64;
++        for &d in &dues {
++            if !d.is_finite() {
++                never += 1;
++            } else {
++                let k = ((d / H_IV) as usize).min(nb - 1);
++                hist[k] += 1;
++            }
++        }
++        let scale = if f <= 10_000 { 1.0 } else { scale };
++        // K4 fallback (pre-registered): direct re-arm at interval 10 gives the steady
++        // firing count; recurrence-from-first-due is meaningless (burst structure).
++        let mut st10 = ArmStats::default();
++        let mut armed10 = 0u64;
++        let mut sp10 = 0u64;
++        for &p in &sample {
++            let (a, _s) = arm_row(&b, &o, p, row[p], rho, 10.0 * H_IV, 11.0 * H_IV, &mut st10, &mut dues, &mut armed_pairs);
++            armed10 += a;
++            sp10 += row[p] as u64;
++        }
++        let steady: f64 = if f <= 10_000 { armed10 as f64 } else { armed10 as f64 * (pairs as f64 / sp10 as f64) };
++        let (fire_us, _fe) = fire_cost(&b, &armed_pairs, rho, 2_000);
++        println!(
++            "{{\"arm\":\"caltrain\",\"n\":{f},\"da\":{da},\"reach\":{reach:.4},\"pairs\":{pairs},\"sampled_pairs\":{sampled_pairs},\
++\"armed\":{armed},\"armed_scaled\":{:.0},\"silent\":{},\"never\":{never},\"c_arm_us\":{:.4},\"firings_iv0\":{:.0},\"firings_iv10\":{:.0},\"fire_us_per_armed_iv\":{:.1},\"due_hist\":\"{}\"}}",
++            armed as f64 * scale,
++            dues.len(),
++            secs * 1e6 / sampled_pairs as f64,
++            armed as f64 * scale,
++            steady,
++            fire_us,
++            hist.iter().map(|h| h.to_string()).collect::<Vec<_>>().join(",")
++        );
++    }
++
++    // ---- kickrow: per-kick incremental (re-arm the kicked member's both-side row)
++    for (tag, f, da) in [("keys", 10_000_usize, 0.0_f64), ("train", 10_000, 1e-4)] {
++        let b0 = fleet(seed, f, da, 1e-2, None);
++        let o = order(&b0, 0.0, H_IV);
++        let reach = reach_of(&b0, rho, H_IV);
++        let row = rows(&o, reach);
++        let n = o.len();
++        let mut rng = Rng(seed ^ 0xfa11);
++        let nk = 64usize;
++        let kicked: Vec<usize> = (0..nk).map(|_| (rng.f64() * n as f64) as usize).collect();
++        for &eps in &[2f64.powi(-23), 1e-5, 1e-3] {
++            let tk = 100.0 * TAU;
++            let mut rsum = 0u64;
++            let mut armed0 = 0u64;
++            let mut armed1 = 0u64;
++            let mut fire_now_after = 0u64;
++            let mut fire_now_before = 0u64;
++            let mut dd_intervals = Vec::new();
++            let mut st = ArmStats::default();
++            let t = Instant::now();
++            for &p in &kicked {
++                let i = o[p].1 as usize;
++                // both sides: forward row from p, then walk the sorted circle backward
++                // while within reach (pairs where the kicked member is the tail)
++                let mut partners: Vec<usize> = (1..=row[p]).map(|q| (p + q) % n).collect();
++                let mut q = if p == 0 { n - 1 } else { p - 1 };
++                let mut steps = 0usize;
++                while steps < n - 1 {
++                    let d = (o[p].0 - o[q].0).rem_euclid(TAU);
++                    if d > reach || d == 0.0 {
++                        break;
++                    }
++                    partners.push(q);
++                    q = if q == 0 { n - 1 } else { q - 1 };
++                    steps += 1;
++                }
++                rsum += partners.len() as u64;
++                let old = b0[i];
++                let lam_k = old.mean_anomaly(tk) + old.pom;
++                let a_new = old.a * (1.0 + eps);
++                let n_new = a_new.powf(-1.5);
++                let new = Body::new(a_new, old.e, old.pom, lam_k - n_new * tk);
++                for &q in &partners {
++                    let j = o[q].1 as usize;
++                    let (a0, due0) = arm_pair(&old, &b0[j], rho, SAFETY, tk, tk + H_IV, &mut st);
++                    let (a1, due1) = arm_pair(&new, &b0[j], rho, SAFETY, tk, tk + H_IV, &mut st);
++                    armed0 += a0 as u64;
++                    armed1 += a1 as u64;
++                    fire_now_before += a0 as u64;
++                    fire_now_after += a1 as u64;
++                    if due0.is_finite() && due1.is_finite() {
++                        dd_intervals.push(((due1 - due0) / H_IV).abs());
++                    }
++                }
++            }
++            let secs = t.elapsed().as_secs_f64();
++            dd_intervals.sort_by(|x, y| x.total_cmp(y));
++            let med = dd_intervals[dd_intervals.len() / 2];
++            let p90 = dd_intervals[(dd_intervals.len() * 9 / 10).min(dd_intervals.len() - 1)];
++            println!(
++                "{{\"arm\":\"kickrow\",\"pop\":\"{tag}\",\"n\":{f},\"eps\":{eps:e},\"kicked\":{nk},\"row_mean\":{:.1},\
++\"rearm_us_per_kick\":{:.1},\"fire_before\":{fire_now_before},\"fire_after\":{fire_now_after},\"fire_per_kick\":{:.2},\
++\"ddue_med_iv\":{med:.4},\"ddue_p90_iv\":{p90:.4},\"c_arm_us_kick\":{:.4}}}",
++                rsum as f64 / nk as f64,
++                secs * 1e6 / nk as f64,
++                fire_now_after as f64 / nk as f64,
++                secs * 1e6 / (rsum as f64 * 2.0)
++            );
++        }
++    }
++
++    // ---- truth: calendar event set == group_events event set (drops must be 0)
++    for (tag, f, da) in [("keys", 2_000_usize, 0.0_f64), ("train", 2_000, 1e-4)] {
++        let b = fleet(seed, f, da, 1e-2, None);
++        let t1 = 100.0 * TAU;
++        let mut truth = Vec::new();
++        group_events(&b, rho, 0.0, t1, |i, j, t, d| truth.push((i, j, t, d)));
++        // calendar path: same window (Neighbours), arm_pair filter, then check_pair's body
++        let cert = Neighbours::new(&b, rho, 0.0, t1).unwrap();
++        let mut cal = Vec::new();
++        let mut st = ArmStats::default();
++        let mut est = Stats::default();
++        let mut out = Vec::new();
++        cert.visit(|i, j| {
++            let (bi, bj) = (&b[i as usize], &b[j as usize]);
++            for t in [0.0, t1] {
++                let (x, y) = (bi.state(t), bj.state(t));
++                if (x[0] - y[0]).hypot(x[1] - y[1]) < rho {
++                    cal.push((i, j, t));
++                }
++            }
++            let (a, _due) = arm_pair(bi, bj, rho, SAFETY, 0.0, t1, &mut st);
++            if a {
++                out.clear();
++                pair_events(bi, bj, rho, SAFETY, 0.0, t1, &mut est, &mut out);
++                for &(t, _d) in out.iter() {
++                    if t > 0.0 && t < t1 {
++                        cal.push((i, j, t));
++                    }
++                }
++            }
++        });
++        let mut cal_s: Vec<_> = cal.iter().map(|&(i, j, t)| (i.min(j), i.max(j), (t * 1e9).round() as i64)).collect();
++        let mut truth_s: Vec<_> = truth.iter().map(|&(i, j, t, _)| (i.min(j), i.max(j), (t * 1e9).round() as i64)).collect();
++        cal_s.sort();
++        truth_s.sort();
++        let cal_set: std::collections::BTreeSet<_> = cal_s.into_iter().collect();
++        let truth_set: std::collections::BTreeSet<_> = truth_s.into_iter().collect();
++        let dropped = truth_set.difference(&cal_set).count();
++        let added = cal_set.difference(&truth_set).count();
++        println!(
++            "{{\"arm\":\"truth\",\"pop\":\"{tag}\",\"n\":{f},\"h_orbits\":100,\"truth_events\":{},\"calendar_events\":{},\"dropped\":{dropped},\"added\":{added},\"armed_pairs\":{},\"window_pairs\":{},\"exact_evals_cal\":{},\"exact_evals_sweep\":{}}}",
++            truth_set.len(),
++            cal_set.len(),
++            st.armed,
++            st.armed + st.silent,
++            est.evals,
++            {
++                let mut s = Stats::default();
++                let mut v = Vec::new();
++                let cert2 = Neighbours::new(&b, rho, 0.0, t1).unwrap();
++                cert2.visit(|i, j| pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, t1, &mut s, &mut v));
++                s.evals
++            }
++        );
++    }
++
++    // ---- negctl: narrowed safety, then halved reach: the instrument must be able to drop
++    {
++        let f = 2_000usize;
++        let b = fleet(seed, f, 1e-4, 1e-2, None);
++        let t1 = 100.0 * TAU;
++        let mut truth = Vec::new();
++        group_events(&b, rho, 0.0, t1, |i, j, t, _d| truth.push((i, j, t)));
++        for &safety in &[0.9_f64, 0.5] {
++            let cert = Neighbours::new(&b, rho, 0.0, t1).unwrap();
++            let mut cal = Vec::new();
++            let mut st = ArmStats::default();
++            let mut est = Stats::default();
++            let mut out = Vec::new();
++            cert.visit(|i, j| {
++                let (bi, bj) = (&b[i as usize], &b[j as usize]);
++                let (a, _) = arm_pair(bi, bj, rho, safety, 0.0, t1, &mut st);
++                if a {
++                    out.clear();
++                    pair_events(bi, bj, rho, safety, 0.0, t1, &mut est, &mut out);
++                    for &(t, _d) in out.iter() {
++                        if t > 0.0 && t < t1 {
++                            cal.push((i, j, t));
++                        }
++                    }
++                }
++            });
++            let cal_set: std::collections::BTreeSet<(u32, u32, i64)> =
++                cal.iter().map(|&(i, j, t)| (i.min(j), i.max(j), (t * 1e9).round() as i64)).collect();
++            let truth_set: std::collections::BTreeSet<(u32, u32, i64)> = truth
++                .iter()
++                .map(|&(i, j, t)| (i.min(j), i.max(j), (t * 1e9).round() as i64))
++                .collect();
++            println!(
++                "{{\"arm\":\"negctl\",\"n\":{f},\"safety\":{safety},\"dropped\":{},\"added\":{}}}",
++                truth_set.difference(&cal_set).count(),
++                cal_set.difference(&truth_set).count()
++            );
++        }
++        // halved reach: enumerate only half the window (a broken certificate)
++        let reach = reach_of(&b, rho, t1);
++        let o = order(&b, 0.0, t1);
++        let row = rows(&o, reach / 2.0);
++        let n = o.len();
++        let mut cal = Vec::new();
++        let mut st = ArmStats::default();
++        let mut est = Stats::default();
++        let mut out = Vec::new();
++        for (p, &r) in row.iter().enumerate() {
++            for q in 1..=r {
++                let (i, j) = (o[p].1, o[(p + q) % n].1);
++                let (bi, bj) = (&b[i as usize], &b[j as usize]);
++                let (a, _) = arm_pair(bi, bj, rho, SAFETY, 0.0, t1, &mut st);
++                if a {
++                    out.clear();
++                    pair_events(bi, bj, rho, SAFETY, 0.0, t1, &mut est, &mut out);
++                    for &(t, _d) in out.iter() {
++                        if t > 0.0 && t < t1 {
++                            cal.push((i, j, t));
++                        }
++                    }
++                }
++            }
++        }
++        let cal_set: std::collections::BTreeSet<(u32, u32, i64)> =
++            cal.iter().map(|&(i, j, t)| (i.min(j), i.max(j), (t * 1e9).round() as i64)).collect();
++        let truth_set: std::collections::BTreeSet<(u32, u32, i64)> = truth
++            .iter()
++            .map(|&(i, j, t)| (i.min(j), i.max(j), (t * 1e9).round() as i64))
++            .collect();
++        println!(
++            "{{\"arm\":\"negctl\",\"n\":{f},\"reach_frac\":0.5,\"dropped\":{},\"added\":{}}}",
++            truth_set.difference(&cal_set).count(),
++            cal_set.difference(&truth_set).count()
++        );
++    }
++
++    // ---- keysev: real-contact flow vs F (the floor under any certificate)
++    for f in [400_usize, 1_600, 6_400] {
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        let t1 = 10.0 * TAU;
++        let mut events = 0usize;
++        group_events(&b, rho, 0.0, t1, |_, _, _, _| events += 1);
++        println!(
++            "{{\"arm\":\"keysev\",\"n\":{f},\"h_orbits\":10,\"events\":{events},\"events_per_orbit\":{:.2},\"events_per_body_orbit\":{:.5}}}",
++            events as f64 / 10.0,
++            events as f64 / 10.0 / f as f64
++        );
++    }
++}
+diff --git a/crates/encounters/examples/fleetk.rs b/crates/encounters/examples/fleetk.rs
+new file mode 100644
+index 00000000..cf233f87
+--- /dev/null
++++ b/crates/encounters/examples/fleetk.rs
+@@ -0,0 +1,195 @@
++//! The phase certificate's k, priced against fleet size, radial scatter and horizon.
++//! k is the conservative phase-window occupancy the shipped certificate PAYS (phase.rs),
++//! not the distance rank at a contact (taleb-09b5's gold property). One JSON per line.
++//!
++//! Arms:
++//!   keys   F bodies, one integer period (make_belt's "key"), Rayleigh e, uniform lambda
++//!   train  F bodies, a spread +-da/2, Rayleigh e, uniform lambda   (k grows with horizon)
++//!   clust  F bodies, one period, lambda clustered (sigma_l << window)
++//!   ring   control: uniform ring, fat rho (the shipped test's linear class)
++//!   event  keys fleet, group_events: real contacts + distance rank at contact vs paid k
++//!   time   visit-only and exact-checked ns per pair
++//!
++//! `fleetk [seed]` (default 20261017).
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::phase::{group_events, Neighbours};
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++fn gauss(rng: &mut Rng) -> f64 {
++    (rng.f64() + rng.f64() + rng.f64() + rng.f64() + rng.f64() + rng.f64() - 3.0) * 2.0_f64.sqrt()
++}
++
++/// `da = 0` gives one exact integer period (the fleet's "key"); else uniform in 1 +- da/2.
++/// `clust`: Some(sigma_l) clusters lambda around TAU/4 with that sigma.
++fn fleet(seed: u64, f: usize, da: f64, sig_e: f64, clust: Option<f64>) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..f)
++        .map(|_| {
++            let a = if da == 0.0 { 1.0 } else { 1.0 + da * (rng.f64() - 0.5) };
++            let u = rng.f64();
++            let e = (sig_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = TAU * rng.f64();
++            let lam = match clust {
++                Some(s) => (TAU / 4.0 + s * gauss(&mut rng)).rem_euclid(TAU),
++                None => TAU * rng.f64(),
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++/// reach as phase.rs derives it (no shared-shape cancellation: pom varies).
++fn reach_of(b: &[Body], rho: f64, t1: f64) -> f64 {
++    let mut centre = 0.0_f64;
++    let mut rmin = f64::INFINITY;
++    let (mut nlo, mut nhi) = (f64::INFINITY, 0.0_f64);
++    for x in b {
++        centre = centre.max(x.e + 2.0 * (x.e / (1.0 + x.sq)).asin());
++        rmin = rmin.min(x.rmin());
++        nlo = nlo.min(x.n);
++        nhi = nhi.max(x.n);
++    }
++    let angular = 2.0 * (rho / (2.0 * rmin)).min(1.0).asin();
++    angular + 2.0 * centre + (nhi - nlo) * t1 * 0.5
++}
++
++fn price(tag: &str, b: &[Body], rho: f64, h_orbits: f64) {
++    let t1 = h_orbits * TAU;
++    let n = b.len();
++    let reach = reach_of(b, rho, t1);
++    match Neighbours::new(b, rho, 0.0, t1) {
++        None => println!(
++            "{{\"arm\":\"{tag}\",\"n\":{n},\"h_orbits\":{h_orbits},\"refused\":true,\"reach\":{reach:.4},\"pred_pairs\":\"{}\"}}",
++            format!("{:.3e}", (n as f64) * (n as f64) * reach / TAU)
++        ),
++        Some(cert) => {
++            let t = Instant::now();
++            let (pairs, max_k) = cert.visit(|_, _| {});
++            let secs = t.elapsed().as_secs_f64();
++            println!(
++                "{{\"arm\":\"{tag}\",\"n\":{n},\"h_orbits\":{h_orbits},\"refused\":false,\"reach\":{reach:.4},\"pairs\":{pairs},\"pred_pairs\":\"{}\",\"mean_k\":{:.2},\"max_k\":{max_k},\"ns_per_pair\":{:.2},\"quad_frac\":{:.6}}}",
++                format!("{:.3e}", (n as f64) * (n as f64) * reach / TAU),
++                2.0 * pairs as f64 / n as f64,
++                if pairs > 0 { secs * 1e9 / pairs as f64 } else { 0.0 },
++                pairs as f64 / (n as f64 * (n as f64 - 1.0) / 2.0)
++            );
++        }
++    }
++}
++
++fn main() {
++    let seed = std::env::args().nth(1).map_or(20261017, |s| s.parse().unwrap());
++    println!("{{\"seed\":{seed}}}");
++    let rho = 1e-4_f64;
++
++    // ring control: the shipped test's linear class, rho = 1.5 TAU/n
++    for n in [10_000_usize, 100_000] {
++        let b: Vec<_> = (0..n)
++            .map(|i| Body::new(1.0, 0.0, 0.0, TAU * i as f64 / n as f64))
++            .collect();
++        price("ring", &b, 1.5 * TAU / n as f64, 1.0);
++    }
++
++    // keys fleets: one integer period, uniform lambda; k set by radial scatter alone
++    for f in [1_000_usize, 10_000, 100_000] {
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        price("keys", &b, rho, 1.0);
++    }
++
++    // trains: a-spread da; k grows with horizon until refusal
++    for (f, da) in [(1_000_usize, 1e-4_f64), (10_000, 1e-4), (100_000, 1e-4)] {
++        for h in [0.0078_f64, 1.0, 10.0, 100.0] {
++            let b = fleet(seed, f, da, 1e-2, None);
++            price("train", &b, rho, h);
++        }
++    }
++    for (f, da) in [(1_000_usize, 1e-3_f64), (1_000, 1e-2)] {
++        for h in [10.0_f64, 50.0, 100.0, 200.0] {
++            let b = fleet(seed, f, da, 1e-2, None);
++            price("train", &b, rho, h);
++        }
++    }
++
++    // clustered fleets: battle-group shape, sigma_l = 0.05
++    for f in [1_000_usize, 10_000, 30_000] {
++        let b = fleet(seed, f, 0.0, 1e-2, Some(0.05));
++        price("clust", &b, rho, 1.0);
++    }
++
++    // contacts: real events on a keys fleet; distance rank at contact vs the k paid
++    {
++        let f = 400_usize;
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        let t1 = 10.0 * TAU;
++        let cert = Neighbours::new(&b, rho, 0.0, t1).unwrap();
++        let (pairs, max_k) = cert.visit(|_, _| {});
++        let mut events = Vec::new();
++        let st = group_events(&b, rho, 0.0, t1, |i, j, t, d| events.push((i, j, t, d)));
++        let mut ranks = Vec::new();
++        for &(i, j, t, _d) in events.iter() {
++            let xi = b[i as usize].state(t);
++            let dj = {
++                let xj = b[j as usize].state(t);
++                (xi[0] - xj[0]).hypot(xi[1] - xj[1])
++            };
++            let rank = b
++                .iter()
++                .enumerate()
++                .filter(|&(k, _)| k != i as usize)
++                .filter_map(|(k, xk)| {
++                    let x = xk.state(t);
++                    let d = (xi[0] - x[0]).hypot(xi[1] - x[1]);
++                    (d < dj).then_some(d)
++                })
++                .count();
++            ranks.push(rank);
++        }
++        ranks.sort_unstable();
++        println!(
++            "{{\"arm\":\"event\",\"n\":{f},\"pairs_paid\":{pairs},\"mean_k_paid\":{:.1},\"max_k_paid\":{max_k},\"events\":{},\"rank_max\":{},\"rank_p90\":{},\"exact_evals\":{},\"boundary_checks\":{}}}",
++            2.0 * pairs as f64 / f as f64,
++            events.len(),
++            ranks.last().copied().unwrap_or(0),
++            ranks[(ranks.len() * 9 / 10).min(ranks.len().saturating_sub(1))],
++            st.exact.evals,
++            st.boundary_checks
++        );
++    }
++
++    // tree fallback: a refused train (reach >= pi) falls to the general tree tier
++    {
++        let f = 1_000_usize;
++        let b = fleet(seed, f, 1e-2, 1e-2, None);
++        let t1 = 100.0 * TAU;
++        let t = Instant::now();
++        let st = group_events(&b, rho, 0.0, t1, |_, _, _, _| {});
++        let secs = t.elapsed().as_secs_f64();
++        println!(
++            "{{\"arm\":\"tree\",\"n\":{f},\"h_orbits\":100,\"phase\":{},\"node_tests\":{},\"leafpair_tests\":{},\"cand\":{},\"exact_evals\":{},\"secs\":{:.3}}}",
++            st.phase, st.tree.node_tests, st.tree.leafpair_tests, st.tree.cand, st.exact.evals, secs
++        );
++    }
++
++    // timing: visit-only floor and the exact-checked cost, keys fleet F = 5000
++    {
++        let f = 5_000_usize;
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        let t1 = TAU;
++        let cert = Neighbours::new(&b, rho, 0.0, t1).unwrap();
++        let t = Instant::now();
++        let (pairs, _) = cert.visit(|_, _| {});
++        let visit_secs = t.elapsed().as_secs_f64();
++        let t = Instant::now();
++        let st = group_events(&b, rho, 0.0, t1, |_, _, _, _| {});
++        let checked_secs = t.elapsed().as_secs_f64();
++        println!(
++            "{{\"arm\":\"time\",\"n\":{f},\"pairs\":{pairs},\"visit_ns_per_pair\":{:.2},\"checked_us_per_pair\":{:.3},\"exact_evals\":{}}}",
++            visit_secs * 1e9 / pairs as f64,
++            checked_secs * 1e6 / pairs as f64,
++            st.exact.evals
++        );
++    }
++}

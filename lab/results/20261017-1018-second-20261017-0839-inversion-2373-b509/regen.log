@@ -1,0 +1,140 @@
+   Compiling emergent-encounters v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/encounters)
+warning: unused variable: `k`
+   --> crates/encounters/examples/fleetk.rs:142:31
+    |
+142 |                 .filter_map(|(k, xk)| {
+    |                               ^ help: if this is intentional, prefix it with an underscore: `_k`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: variable `armed0` is assigned to, but never used
+   --> crates/encounters/examples/fleetcal.rs:391:21
+    |
+391 |             let mut armed0 = 0u64;
+    |                     ^^^^^^
+    |
+    = note: consider using `_armed0` instead
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: variable `armed1` is assigned to, but never used
+   --> crates/encounters/examples/fleetcal.rs:392:21
+    |
+392 |             let mut armed1 = 0u64;
+    |                     ^^^^^^
+    |
+    = note: consider using `_armed1` instead
+
+warning: `emergent-encounters` (example "fleetk") generated 1 warning
+warning: `emergent-encounters` (example "fleetcal") generated 2 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.08s
+# c_arm=1.01us c_exact(H_iv)=57.7us c_exact(8iv)=414.7us per pair
+# fire: keys armed @H_iv=31.7ms (perpetual pairs) | interval=281.4s split=8 budget=4.0 cores
+
+# 1. The sweep term, repriced at the horizons a sound rebuild actually needs
+#       F  pairs(H_iv)  2373 basis  iv horizon  8iv horizon   (cores at N=1e9, phi=1, keys)
+#    1000       24,976        35.9        5124         4600
+#   10000    2,660,189       382.8       54574        48996
+#  100000  312,839,484      4502.2      641787       576192
+
+# 2. The calendar term (birth amortized over L intervals; standing-contact semantics
+#    for keys armed pairs: capability solved once over ONE period, cap_us each)
+#    pop       F    L     birth  firings/iv  firing cores     total
+#   keys    1000   25     0.001s    standing           0.0      3.78
+#   keys    1000  100     0.000s    standing           0.0      0.95
+#   keys   10000   25     0.113s    standing           0.0     40.31
+#   keys   10000  100     0.028s    standing           0.0     10.08
+#   keys  100000   25    13.292s    standing           0.0    472.31
+#   keys  100000  100     3.323s    standing           0.0    118.08
+#  train   10000   25      1.46s   6,798,256         51214     51733
+#  train   10000  100      0.37s   6,798,256         51214     51344
+#  train  100000   25    148.35s 686,180,160        775386    780658
+#  train  100000  100     37.09s 686,180,160        775386    776704
+
+# 3. F* (fleet size at which the term = 4 cores, phi=1): sweep vs calendar
+#    sweep(2373 basis, every-8): F* ~ 100 (their finding, reproduced)
+#    calendar keys L=100: term=9.5 cores at F=10000 -> F* ~ 6,475
+#    calendar keys L=25: term=38.2 cores at F=10000 -> F* ~ 3,237
+#    calendar train da=1e-4 L=100: term=51343.5 cores at F=10000 -> F* ~ 88
+
+# 4. The kick row (belt stream 2 events/body/interval applied to fleet members)
+#    keys: re-arm 1082us/kick + kick-created firings 356us/kick -> 10,213 cores worst-case (no slack)
+#    train: re-arm 15961us/kick + kick-created firings 40799us/kick -> 403,392 cores worst-case (no slack)
+#    slack: ddue_med=0.0000 iv (keys) / 0.0309 iv (train) at eps=2^-23:
+#    the belt's own kick quantum moves the median pair's due by < 1e-3 intervals -> re-arm deferrable;
+#    only the 17 (keys) / 1924 (train) kick-created firings per kick are undelayable real events.
+
+# 5. The event floor under any certificate (the population's own contact flow)
+#    keysev exponent gamma=1.97 on (1600,6400); events/body/interval at F=6400: 910
+#    vs the belt's own 2 events/body/interval -> fleet stream alone = 455x belt at F=6400
+#    at 50us/event: 161,637 cores at phi=1, F=6400-equivalent density
+
+# 6. Controls
+#    truth keys: dropped=0 added=0 (calendar vs group_events, F=2000, H=100 orbits)
+#    truth train: dropped=0 added=0 (calendar vs group_events, F=2000, H=100 orbits)
+#    negctl safety=0.9: dropped=1289
+#    negctl safety=0.5: dropped=6492
+#    negctl reach_frac=0.5: dropped=59
+
+# 7. VERDICT (checker's experiment): does the calendar bring F=1e3..1e5 under 4 cores at phi=1?
+#    keys F=  1000: calendar birth(L=100)     0.95 cores -> FITS
+#    keys F= 10000: calendar birth(L=100)    10.08 cores -> OVER
+#    keys F=100000: calendar birth(L=100)   118.08 cores -> OVER
+#    train da=1e-4 F=10000: calendar 51,344 cores -> OVER (firings dominate: 6,798,256/interval)
+#    the binding term at F>=1e4 is the conjunction FIRING FLOW (real events), not the certificate.
+--- fleetcal-20261017.jsonl ---
+{"seed":20261017}
+{"arm":"carm","n":5000,"h_iv":28141.5,"reach":0.1672,"pairs":666260,"armed":1156,"arm_us_per_pair":1.0093,"exact_us_per_pair":57.732,"exact8_us_per_pair":414.651,"fire_us_per_armed_iv":31685.0,"fire_evals_per_armed_iv":102757,"qsteps_per_pair":2.0,"exact_evals_per_pair":182.9}
+{"arm":"calkeys","n":1000,"sig_e":0.01,"reach":0.1579,"pairs":24976,"sampled_pairs":24976,"armed":54,"armed_scaled":54,"armed_frac_of_pairs":2.162e-3,"c_arm_us":1.0231,"birth_pass_us_per_member":25.6,"firings_per_iv":54,"fire_us_per_armed_iv":28701.5,"cap_us_per_armed_period":26.30}
+{"arm":"calkeys","n":10000,"sig_e":0.01,"reach":0.1672,"pairs":2660189,"sampled_pairs":2660189,"armed":4775,"armed_scaled":4775,"armed_frac_of_pairs":1.795e-3,"c_arm_us":1.0035,"birth_pass_us_per_member":266.9,"firings_per_iv":4775,"fire_us_per_armed_iv":33012.3,"cap_us_per_armed_period":31.58}
+{"arm":"calkeys","n":100000,"sig_e":0.01,"reach":0.1966,"pairs":312839484,"sampled_pairs":6255088,"armed":9541,"armed_scaled":477050,"armed_frac_of_pairs":1.525e-3,"c_arm_us":1.0232,"birth_pass_us_per_member":3200.8,"firings_per_iv":477050,"fire_us_per_armed_iv":30761.2,"cap_us_per_armed_period":34.67}
+{"arm":"calkeys","n":10000,"sig_e":0.001,"reach":0.0168,"pairs":267330,"sampled_pairs":267330,"armed":4708,"armed_scaled":4708,"armed_frac_of_pairs":1.761e-2,"c_arm_us":1.1260,"birth_pass_us_per_member":30.1,"firings_per_iv":4708,"fire_us_per_armed_iv":37135.3,"cap_us_per_armed_period":51.01}
+{"arm":"caltrain","n":10000,"da":0.0001,"reach":2.2742,"pairs":36192643,"sampled_pairs":36192643,"armed":9409913,"armed_scaled":9409913,"silent":56177117,"never":10,"c_arm_us":1.1182,"firings_iv0":9409913,"firings_iv10":6798256,"fire_us_per_armed_iv":21.2,"due_hist":"0,6375445,4338532,3327899,2399818,1681420,1217884,912916,704501,560987,459900,385562,326871,282049,246052,216258,190969,170724,153202,138337,124411,114280,104448,95212,88751,81615,75165,70601,65719,60941,57484,53761,50473,47685,45111,42692,40777,38517,36344,34345,32842,31254,29904,28637,27521,26030,25058,24038,22791,21979,21222,20244,19712,19117,18162,17634,16963,16283,16053,15350,14777,14564,14027,870900"}
+{"arm":"caltrain","n":100000,"da":0.0001,"reach":2.3088,"pairs":3674471220,"sampled_pairs":73487865,"armed":18733911,"armed_scaled":936695550,"silent":114518507,"never":24,"c_arm_us":1.1613,"firings_iv0":936695550,"firings_iv10":686180160,"fire_us_per_armed_iv":31.8,"due_hist":"0,13001910,8883488,6810516,4901581,3445631,2494114,1871624,1439621,1144576,939024,787224,667939,577574,503020,442110,392028,349203,313908,282853,256525,233650,213179,196302,179961,166820,154631,143521,133885,125316,117450,110144,104292,97686,91817,87017,82487,77918,73864,70386,67365,64585,61205,58442,55514,53341,51300,49150,46999,44772,43468,41960,40562,38596,37234,36338,34683,33470,32262,31615,30058,29489,28578,1778149"}
+{"arm":"caltrain","n":10000,"da":0.001,"refused":true,"reach":21.2672}
+{"arm":"kickrow","pop":"keys","n":10000,"eps":1.1920928955078125e-7,"kicked":64,"row_mean":532.3,"rearm_us_per_kick":1081.5,"fire_before":61,"fire_after":1073,"fire_per_kick":16.77,"ddue_med_iv":0.0000,"ddue_p90_iv":0.0000,"c_arm_us_kick":1.0159}
+{"arm":"kickrow","pop":"keys","n":10000,"eps":1e-5,"kicked":64,"row_mean":532.3,"rearm_us_per_kick":1094.4,"fire_before":61,"fire_after":20621,"fire_per_kick":322.20,"ddue_med_iv":0.0007,"ddue_p90_iv":0.0009,"c_arm_us_kick":1.0280}
+{"arm":"kickrow","pop":"keys","n":10000,"eps":1e-3,"kicked":64,"row_mean":532.3,"rearm_us_per_kick":1248.9,"fire_before":61,"fire_after":3789,"fire_per_kick":59.20,"ddue_med_iv":233.5363,"ddue_p90_iv":613.5717,"c_arm_us_kick":1.1731}
+{"arm":"kickrow","pop":"train","n":10000,"eps":1.1920928955078125e-7,"kicked":64,"row_mean":7238.7,"rearm_us_per_kick":15961.3,"fire_before":123211,"fire_after":123167,"fire_per_kick":1924.48,"ddue_med_iv":0.0309,"ddue_p90_iv":3.5877,"c_arm_us_kick":1.1025}
+{"arm":"kickrow","pop":"train","n":10000,"eps":1e-5,"kicked":64,"row_mean":7238.7,"rearm_us_per_kick":16478.0,"fire_before":123211,"fire_after":122723,"fire_per_kick":1917.55,"ddue_med_iv":1.6215,"ddue_p90_iv":23.0282,"c_arm_us_kick":1.1382}
+{"arm":"kickrow","pop":"train","n":10000,"eps":1e-3,"kicked":64,"row_mean":7238.7,"rearm_us_per_kick":17651.8,"fire_before":123211,"fire_after":149454,"fire_per_kick":2335.22,"ddue_med_iv":2.3598,"ddue_p90_iv":17.5676,"c_arm_us_kick":1.2193}
+{"arm":"truth","pop":"keys","n":2000,"h_orbits":100,"truth_events":12300,"calendar_events":12300,"dropped":0,"added":0,"armed_pairs":181,"window_pairs":100378,"exact_evals_cal":464942,"exact_evals_sweep":580212}
+{"arm":"truth","pop":"train","n":2000,"h_orbits":100,"truth_events":12925,"calendar_events":12925,"dropped":0,"added":0,"armed_pairs":13198,"window_pairs":126131,"exact_evals_cal":496960,"exact_evals_sweep":625887}
+{"arm":"negctl","n":2000,"safety":0.9,"dropped":1289,"added":0}
+{"arm":"negctl","n":2000,"safety":0.5,"dropped":6492,"added":0}
+{"arm":"negctl","n":2000,"reach_frac":0.5,"dropped":59,"added":0}
+{"arm":"keysev","n":400,"h_orbits":10,"events":60,"events_per_orbit":6.00,"events_per_body_orbit":0.01500}
+{"arm":"keysev","n":1600,"h_orbits":10,"events":850,"events_per_orbit":85.00,"events_per_body_orbit":0.05312}
+{"arm":"keysev","n":6400,"h_orbits":10,"events":13000,"events_per_orbit":1300.00,"events_per_body_orbit":0.20312}
+--- fleetk.jsonl ---
+{"seed":20261017}
+{"arm":"ring","n":10000,"h_orbits":1,"refused":false,"reach":0.0009,"pairs":10000,"pred_pairs":"1.500e4","mean_k":2.00,"max_k":1,"ns_per_pair":10.97,"quad_frac":0.000200}
+{"arm":"ring","n":100000,"h_orbits":1,"refused":false,"reach":0.0001,"pairs":100000,"pred_pairs":"1.500e5","mean_k":2.00,"max_k":1,"ns_per_pair":9.60,"quad_frac":0.000020}
+{"arm":"keys","n":1000,"h_orbits":1,"refused":false,"reach":0.1579,"pairs":24976,"pred_pairs":"2.513e4","mean_k":49.95,"max_k":38,"ns_per_pair":0.83,"quad_frac":0.050002}
+{"arm":"keys","n":10000,"h_orbits":1,"refused":false,"reach":0.1672,"pairs":2660189,"pred_pairs":"2.662e6","mean_k":532.04,"max_k":311,"ns_per_pair":0.08,"quad_frac":0.053209}
+{"arm":"keys","n":100000,"h_orbits":1,"refused":false,"reach":0.1966,"pairs":312839484,"pred_pairs":"3.129e8","mean_k":6256.79,"max_k":3271,"ns_per_pair":0.01,"quad_frac":0.062569}
+{"arm":"train","n":1000,"h_orbits":0.0078,"refused":false,"reach":0.1493,"pairs":23586,"pred_pairs":"2.376e4","mean_k":47.17,"max_k":36,"ns_per_pair":0.87,"quad_frac":0.047219}
+{"arm":"train","n":1000,"h_orbits":1,"refused":false,"reach":0.1497,"pairs":23667,"pred_pairs":"2.383e4","mean_k":47.33,"max_k":36,"ns_per_pair":0.87,"quad_frac":0.047381}
+{"arm":"train","n":1000,"h_orbits":10,"refused":false,"reach":0.1540,"pairs":24312,"pred_pairs":"2.451e4","mean_k":48.62,"max_k":36,"ns_per_pair":0.97,"quad_frac":0.048673}
+{"arm":"train","n":1000,"h_orbits":100,"refused":false,"reach":0.1964,"pairs":31077,"pred_pairs":"3.125e4","mean_k":62.15,"max_k":44,"ns_per_pair":0.66,"quad_frac":0.062216}
+{"arm":"train","n":10000,"h_orbits":0.0078,"refused":false,"reach":0.1639,"pairs":2608573,"pred_pairs":"2.608e6","mean_k":521.71,"max_k":317,"ns_per_pair":0.08,"quad_frac":0.052177}
+{"arm":"train","n":10000,"h_orbits":1,"refused":false,"reach":0.1643,"pairs":2615809,"pred_pairs":"2.615e6","mean_k":523.16,"max_k":317,"ns_per_pair":0.08,"quad_frac":0.052321}
+{"arm":"train","n":10000,"h_orbits":10,"refused":false,"reach":0.1686,"pairs":2682735,"pred_pairs":"2.683e6","mean_k":536.55,"max_k":321,"ns_per_pair":0.07,"quad_frac":0.053660}
+{"arm":"train","n":10000,"h_orbits":100,"refused":false,"reach":0.2110,"pairs":3355481,"pred_pairs":"3.358e6","mean_k":671.10,"max_k":398,"ns_per_pair":0.06,"quad_frac":0.067116}
+{"arm":"train","n":100000,"h_orbits":0.0078,"refused":false,"reach":0.1982,"pairs":315395604,"pred_pairs":"3.154e8","mean_k":6307.91,"max_k":3325,"ns_per_pair":0.01,"quad_frac":0.063080}
+{"arm":"train","n":100000,"h_orbits":1,"refused":false,"reach":0.1986,"pairs":316139502,"pred_pairs":"3.161e8","mean_k":6322.79,"max_k":3333,"ns_per_pair":0.01,"quad_frac":0.063229}
+{"arm":"train","n":100000,"h_orbits":10,"refused":false,"reach":0.2029,"pairs":322891467,"pred_pairs":"3.229e8","mean_k":6457.83,"max_k":3398,"ns_per_pair":0.01,"quad_frac":0.064579}
+{"arm":"train","n":100000,"h_orbits":100,"refused":false,"reach":0.2453,"pairs":390380174,"pred_pairs":"3.904e8","mean_k":7807.60,"max_k":4083,"ns_per_pair":0.01,"quad_frac":0.078077}
+{"arm":"train","n":1000,"h_orbits":10,"refused":false,"reach":0.1964,"pairs":31077,"pred_pairs":"3.125e4","mean_k":62.15,"max_k":44,"ns_per_pair":0.64,"quad_frac":0.062216}
+{"arm":"train","n":1000,"h_orbits":50,"refused":false,"reach":0.3847,"pairs":60949,"pred_pairs":"6.123e4","mean_k":121.90,"max_k":77,"ns_per_pair":0.34,"quad_frac":0.122020}
+{"arm":"train","n":1000,"h_orbits":100,"refused":false,"reach":0.6202,"pairs":98341,"pred_pairs":"9.870e4","mean_k":196.68,"max_k":116,"ns_per_pair":0.21,"quad_frac":0.196879}
+{"arm":"train","n":1000,"h_orbits":200,"refused":false,"reach":1.0911,"pairs":173093,"pred_pairs":"1.736e5","mean_k":346.19,"max_k":187,"ns_per_pair":0.12,"quad_frac":0.346533}
+{"arm":"train","n":1000,"h_orbits":10,"refused":false,"reach":0.6202,"pairs":98356,"pred_pairs":"9.871e4","mean_k":196.71,"max_k":116,"ns_per_pair":0.21,"quad_frac":0.196909}
+{"arm":"train","n":1000,"h_orbits":50,"refused":false,"reach":2.5038,"pairs":398010,"pred_pairs":"3.985e5","mean_k":796.02,"max_k":423,"ns_per_pair":0.06,"quad_frac":0.796817}
+{"arm":"train","n":1000,"h_orbits":100,"refused":true,"reach":4.8584,"pred_pairs":"7.732e5"}
+{"arm":"train","n":1000,"h_orbits":200,"refused":true,"reach":9.5674,"pred_pairs":"1.523e6"}
+{"arm":"clust","n":1000,"h_orbits":1,"refused":false,"reach":0.1579,"pairs":487709,"pred_pairs":"2.513e4","mean_k":975.42,"max_k":893,"ns_per_pair":0.02,"quad_frac":0.976394}
+{"arm":"clust","n":10000,"h_orbits":1,"refused":false,"reach":0.1656,"pairs":49150699,"pred_pairs":"2.636e6","mean_k":9830.14,"max_k":9031,"ns_per_pair":0.00,"quad_frac":0.983112}
+{"arm":"clust","n":30000,"h_orbits":1,"refused":false,"reach":0.1751,"pairs":445047480,"pred_pairs":"2.509e7","mean_k":29669.83,"max_k":27734,"ns_per_pair":0.00,"quad_frac":0.989027}
+{"arm":"event","n":400,"pairs_paid":3322,"mean_k_paid":16.6,"max_k_paid":17,"events":60,"rank_max":0,"rank_p90":0,"exact_evals":6908,"boundary_checks":6644}
+{"arm":"tree","n":1000,"h_orbits":100,"phase":false,"node_tests":1024,"leafpair_tests":496,"cand":479562,"exact_evals":1887677,"secs":1.540}
+{"arm":"time","n":5000,"pairs":666260,"visit_ns_per_pair":0.15,"checked_us_per_pair":3.062,"exact_evals":819125}

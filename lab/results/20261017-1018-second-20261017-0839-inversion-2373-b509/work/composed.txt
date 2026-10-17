@@ -1,0 +1,54 @@
+# c_arm=1.01us c_exact(H_iv)=57.7us c_exact(8iv)=414.7us per pair
+# fire: keys armed @H_iv=31.7ms (perpetual pairs) | interval=281.4s split=8 budget=4.0 cores
+
+# 1. The sweep term, repriced at the horizons a sound rebuild actually needs
+#       F  pairs(H_iv)  2373 basis  iv horizon  8iv horizon   (cores at N=1e9, phi=1, keys)
+#    1000       24,976        35.9        5124         4600
+#   10000    2,660,189       382.8       54574        48996
+#  100000  312,839,484      4502.2      641787       576192
+
+# 2. The calendar term (birth amortized over L intervals; standing-contact semantics
+#    for keys armed pairs: capability solved once over ONE period, cap_us each)
+#    pop       F    L     birth  firings/iv  firing cores     total
+#   keys    1000   25     0.001s    standing           0.0      3.78
+#   keys    1000  100     0.000s    standing           0.0      0.95
+#   keys   10000   25     0.113s    standing           0.0     40.31
+#   keys   10000  100     0.028s    standing           0.0     10.08
+#   keys  100000   25    13.292s    standing           0.0    472.31
+#   keys  100000  100     3.323s    standing           0.0    118.08
+#  train   10000   25      1.46s   6,798,256         51214     51733
+#  train   10000  100      0.37s   6,798,256         51214     51344
+#  train  100000   25    148.35s 686,180,160        775386    780658
+#  train  100000  100     37.09s 686,180,160        775386    776704
+
+# 3. F* (fleet size at which the term = 4 cores, phi=1): sweep vs calendar
+#    sweep(2373 basis, every-8): F* ~ 100 (their finding, reproduced)
+#    calendar keys L=100: term=9.5 cores at F=10000 -> F* ~ 6,475
+#    calendar keys L=25: term=38.2 cores at F=10000 -> F* ~ 3,237
+#    calendar train da=1e-4 L=100: term=51343.5 cores at F=10000 -> F* ~ 88
+
+# 4. The kick row (belt stream 2 events/body/interval applied to fleet members)
+#    keys: re-arm 1082us/kick + kick-created firings 356us/kick -> 10,213 cores worst-case (no slack)
+#    train: re-arm 15961us/kick + kick-created firings 40799us/kick -> 403,392 cores worst-case (no slack)
+#    slack: ddue_med=0.0000 iv (keys) / 0.0309 iv (train) at eps=2^-23:
+#    the belt's own kick quantum moves the median pair's due by < 1e-3 intervals -> re-arm deferrable;
+#    only the 17 (keys) / 1924 (train) kick-created firings per kick are undelayable real events.
+
+# 5. The event floor under any certificate (the population's own contact flow)
+#    keysev exponent gamma=1.97 on (1600,6400); events/body/interval at F=6400: 910
+#    vs the belt's own 2 events/body/interval -> fleet stream alone = 455x belt at F=6400
+#    at 50us/event: 161,637 cores at phi=1, F=6400-equivalent density
+
+# 6. Controls
+#    truth keys: dropped=0 added=0 (calendar vs group_events, F=2000, H=100 orbits)
+#    truth train: dropped=0 added=0 (calendar vs group_events, F=2000, H=100 orbits)
+#    negctl safety=0.9: dropped=1289
+#    negctl safety=0.5: dropped=6492
+#    negctl reach_frac=0.5: dropped=59
+
+# 7. VERDICT (checker's experiment): does the calendar bring F=1e3..1e5 under 4 cores at phi=1?
+#    keys F=  1000: calendar birth(L=100)     0.95 cores -> FITS
+#    keys F= 10000: calendar birth(L=100)    10.08 cores -> OVER
+#    keys F=100000: calendar birth(L=100)   118.08 cores -> OVER
+#    train da=1e-4 F=10000: calendar 51,344 cores -> OVER (firings dominate: 6,798,256/interval)
+#    the binding term at F>=1e4 is the conjunction FIRING FLOW (real events), not the certificate.
