@@ -2,7 +2,7 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1330-redteam-68e7
+updated: 20261017-1447-second-20261017-1330-redteam-68e7-506c
 
 # The premises of docs/representation.md: a census against the record
 
@@ -87,6 +87,37 @@ The census, ranked by player visibility (the rest of this page's standing record
    all three scenes); the epoch shift changes each order's outcome, so the negative is a
    law change, not a no-op. The checker's full regen reproduced metrics byte-identically
    (identity 1.0/1.0, late 0.0, contacts 116,874; suite 9/9 at 463 s debug).
+   **Budget axis guarded (20261017-1447-second-20261017-1330-redteam-68e7-506c, the
+   check's named gold experiment, rung r5-starve frozen then executed: PASS):** every
+   schedule, budget and thread count pops the same sequence — starved sparse (budget 1
+   and seeded 1..=97, up to 1.2×10⁷ advance calls in one battle) ≡ unbounded lockstep,
+   starved lockstep ≡ unbounded sparse, cross-thread starved t4 ≡ t1, and the same
+   seeded stream under 3 spinning hogs ≡ unloaded (11/11 scenes, incl. held-out 3500
+   bodies; slow 1.2–1.7×, so the load was real; 10/10 world digests equal the
+   checker-verified 68e7 rows). The allocator hosting `EventCore` regions under its own
+   least-slack schedule with one-event budgets, sabotage and 1/8 workers (27 cells;
+   rollbacks racy at 8 workers, identity either way) merges to exactly one `Chronon` per
+   scene. Scheduler metadata (units/merges) is wall-fed by design under calibrated budgets
+   and worker races — digests never move; no rung should gate on it. Both-shifted starved
+   agrees 11/11; one-order-late breaks 11/11. Coverage is per config now (the check's
+   note 3). Remaining unguarded: only the GPU arm (M1-side).**
+   Checker's domain facts (20261017-1447 check): identity holds beyond the rung's frozen
+   domain — 4000 bodies starved (both orders, 27,957 contacts), budget spans 997 and
+   65535 (rung span 97), budget 1 + 3 hogs + 4 threads combined (the dossier's named
+   untested case), an alternate budget-stream seed on the 3000-body formation, and the
+   allocator's `heavy_tail` scene class (giant gas region + 16 islands; budget 1,
+   sabotage, 8 workers, plus fixed-budget-1 under 3 hogs — 2,581 contacts, every cell
+   one `Chronon`). Full clean-tree regen: PASS, battle rows byte-identical across three
+   executions, 0 digest flips; slow_min 1.11–1.33 across executions (the quoted 1.2–1.7
+   band is per-execution wall variance, as the dossier itself says).
+   Second check (20261017-1447 check2), independent arms: identity holds at horizon 8192
+   under starvation (h3deep 31,499 contacts, 27.2M budget-1 calls; s7deep 93,659 contacts,
+   epochs 8193), with both orders starved at mismatched threads (lockstep-f1-t4 ≡
+   sparse-rand-t8), and in 12/12 allocator cells at odd workers {3,5}, fixed budgets {3,7}
+   and a different sabotage seed. Domain fact: `Chronon` floors the budget axis at one
+   chronon (starved calls = horizon exactly, whatever the budget) — the dense order's
+   budget clause is satisfied at its granularity floor, so the budget attack surface is
+   the sparse queue and the allocator, which are where the slicing was measured.
 6. **Undisturbed ≈ 0 (L113): SURVIVES by rate, not by cost** (a4ed gold: belts pass 10⁹ at
    10× real time; but fire rate 1.000, one rebind per doll interval, 20261015-0724-system-3294).
 
@@ -131,10 +162,11 @@ The census, ranked by player visibility (the rest of this page's standing record
    at rtf 100; the next rung is exactness, and the checker's bisection oracle already
    certifies warm's ticks 23,170/23,170 at the frozen scale — no smaller scene needed —
    plus bars that the negative fails at every cadence and a window past frame 178.
-3. **Adopt r5 into `lab/rungs/`** (`lab/results/20261017-1330-redteam-68e7/r5-dense-order.md`,
-   frozen before execution, PASS): the CPU arm is done and guardable on any box; what
-   remains M1-side is only its GPU extension (`MetalChronon` configs and
-   `metal_identity.rs`'s scenes, same criteria).
+3. **Adopt r5 and r5-starve into `lab/rungs/`** (`lab/results/20261017-1330-redteam-68e7/r5-dense-order.md`
+   and `…-506c/r5-starve.md`, both frozen before execution, both PASS): the CPU arm is
+   guarded on every axis this lab can reach — orders, threads, budgets, sabotage and
+   competing load; what remains M1-side is only the GPU extension (`MetalChronon`
+   configs and `metal_identity.rs`'s scenes, same criteria, starved wrapper included).
 4. The EOB strong-field flank: closed by 97b0's oracle (→ handoff); the merger scene's
    licence below p̄ ≈ 12M still wants an NR-calibrated EOB.
 
@@ -148,3 +180,4 @@ about it; both stand.
 - 20261016-1207-redteam-12db (silver): premise census; kick cost 34.8 µs vs the doc's
 - 20261017-1018-redteam-13c6 (silver): r6 created, frozen and executed — PASS for the
 - 20261017-1330-redteam-68e7 (awaiting grade): r5 created and PASSES on Linux — dense≡sparse 20/20, the "uncreatable here" blocker refuted; GPU arm stays M1-side
+- 20261017-1447-second-20261017-1330-redteam-68e7-506c (awaiting grade): r5-starve frozen and executed — dense≡sparse holds under starvation and load, 11/11 + 27 allocator cells, allocator arm first for EventCore
