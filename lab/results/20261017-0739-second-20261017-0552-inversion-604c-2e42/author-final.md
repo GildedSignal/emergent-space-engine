@@ -1,0 +1,4 @@
+Working...
+All artifacts complete and verified: `regen.sh` exit 0 twice from a clean patch application (61-73 s), every digest and deterministic counter reproduces across three passes, patch reverse-checks against the shipped tree, no commit made.
+
+**Claim.** The checker's named experiment, run: the K=1,000 formation frame's over-budget tail is comb-owned, not scan-owned — 97.7-98.5% item pipeline against 0.6-1.0% scan on both seeds and three passes (worst frames `ev=1002` wave frames: comb 43.9-65.4 ms vs scan 0.24-0.35 ms; 92-99.7% comb at every K from 200 to 10⁴) — so the fix ranking inverts (the comb's cadence first, the observer's phase axis second, which owns only the mean's ~10% below 69f3's latch and the 51-93 MB pin above it, while SCAN_BACKLOG never fires: held_max ≤ 71 of 2,048, correcting 0552's P5 mechanism), with the prior art re-scoped as asked (cdf0/3999/69f3 cited, 0552's new content named).

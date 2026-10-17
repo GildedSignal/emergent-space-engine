@@ -1,0 +1,462 @@
+diff --git a/crates/universe/examples/scanprobe.rs b/crates/universe/examples/scanprobe.rs
+new file mode 100644
+index 00000000..b58a300a
+--- /dev/null
++++ b/crates/universe/examples/scanprobe.rs
+@@ -0,0 +1,225 @@
++//! The formation probe: what the player's neighbourhood scan costs when the crowd around the player is
++//! a fleet formation on the player's own circle (the game's own scene: factions fly in fleets), instead
++//! of the N ladder's spread population (locals capped at 300, none on the player's low orbit, the rest a
++//! belt the radial filter cuts). Coasting only, flown the way the page flies it; every number a
++//! key=value on one `probe:` line. The scan census (`radial::scanstat`) is counters only.
++//!
++//! The second-author extension: a per-frame split of every late frame's wall time into channels —
++//! the scan (capture + held answers), the comb (the item pipeline: rekey, apply, process, requeue,
++//! take_due, hand-out) and the rest — so the worst frames decompose, not just the flight's means.
++//! Channels are top-level stages only (FIT sits inside PROCESS or the hand-out's bind, ROOT inside
++//! rekey/apply, the P_* are PROCESS's own windows mirrored for classification, the H_* inside the
++//! hand-out, FIT2 inside its caller: prof nests, a stage's share reads against its parent).
++//!
++//! cargo run --release --features prof -p emergent-universe --example scanprobe [-- <form> [<extra> [<wall seconds> [<rtf> [<seed>]]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::radial::scanstat;
++use emergent_universe::scenario::plane_formation;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident, peak) from /proc on Linux, zeros elsewhere: the lab's machines are Linux.
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut rss = 0;
++    let mut hwm = 0;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            rss = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0);
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            hwm = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0);
++        }
++    }
++    (rss * 1024, hwm * 1024)
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let form: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let extra: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seed: u64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let budget_ms = 12.0;
++    let frames = (seconds * 60.0) as usize;
++    let (_, rss0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_formation(Config::default(), seed, Order::Sparse, 1, 48, extra, form).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (_, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    println!(
++        "probe form={form} extra={extra} seed={seed} ({bodies} bodies), coast, rtf {rtf}, {seconds} s; build {build:.2} s, peak {rss0}..{rss1} bytes; cand_bytes {}",
++        scanstat::candidate_bytes()
++    );
++    let mut rows: Vec<(usize, f64, u64)> = Vec::new(); // frame, engine ms, events
++    let mut wall_ns: Vec<u64> = Vec::new(); // the late frames' wall nanoseconds (the channels' denominator)
++    let mut frame_ns: Vec<[u64; emergent_universe::prof::N]> = Vec::new(); // per-frame stage deltas, late frames only
++    let mut frame_calls: Vec<[u64; emergent_universe::prof::N]> = Vec::new();
++    let mut stage_ns = [0u64; emergent_universe::prof::N];
++    let mut stage_calls = [0u64; emergent_universe::prof::N];
++    let mut held_max = 0usize;
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    let mut last_stats = p.u.stats;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(55) {
++            break;
++        }
++        if f == 60 {
++            late_stats = Some((p.u.stats, p.u.now));
++            scanstat::reset();
++            let _ = emergent_universe::prof::take();
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let took = start.elapsed();
++        let (ns, calls) = emergent_universe::prof::take();
++        if f >= 60 {
++            for k in 0..emergent_universe::prof::N {
++                stage_ns[k] += ns[k];
++                stage_calls[k] += calls[k];
++            }
++            frame_ns.push(ns);
++            frame_calls.push(calls);
++            wall_ns.push(took.as_nanos() as u64);
++        }
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events));
++        held_max = held_max.max(p.u.held_scans());
++        last_stats = p.u.stats;
++    }
++    let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let pct = |p: f64| if ms.is_empty() { 0.0 } else { ms[(((ms.len() - 1) as f64) * p).round() as usize] };
++    let over = late.iter().filter(|r| r.1 > budget_ms).count();
++    let (_, rss2) = footprint();
++    let g = |c: &std::sync::atomic::AtomicU64| c.load(std::sync::atomic::Ordering::Relaxed);
++    let f64bits = |c: &std::sync::atomic::AtomicU64| f64::from_bits(c.load(std::sync::atomic::Ordering::Relaxed));
++    println!(
++        "window: r={:.3e} v={:.3e} h={:.3e} near={:.3e} reach={:.3e} speed_cap={:.3e} radius_cap={:.3e} bins={:.1}",
++        f64bits(&scanstat::W_R), f64bits(&scanstat::W_V), f64bits(&scanstat::W_H), f64bits(&scanstat::W_NEAR), f64bits(&scanstat::W_REACH), f64bits(&scanstat::W_VCAP), f64bits(&scanstat::W_RCAP), g(&scanstat::BINS_SUM) as f64 / (g(&scanstat::CALLS) as f64).max(1.0)
++    );
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    let (kicks, evs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events());
++    use std::sync::atomic::Ordering::Relaxed;
++    let g = |c: &std::sync::atomic::AtomicU64| c.load(Relaxed);
++    let (calls, walks) = (g(&scanstat::CALLS), g(&scanstat::WALKS));
++    let captures = g(&scanstat::CAPTURES).max(1);
++    println!(
++        "scan: bodies={} scans={} kept={} bailed_count={} bailed_range={} no_doll={} | hit/scan mean {:.1} max {} | near/scan mean {:.1} max {} | full-walk scans {} mean {:.1} bodies | binding_at/scan mean {:.1} max {} | candidates/scan mean {:.1} max {} | unbounded/scan mean {:.1} | bins/scan mean {:.1}",
++        g(&scanstat::BODIES),
++        calls,
++        calls - g(&scanstat::BAIL_COUNT) - g(&scanstat::BAIL_RANGE),
++        g(&scanstat::BAIL_COUNT),
++        g(&scanstat::BAIL_RANGE),
++        g(&scanstat::NO_DOLL),
++        g(&scanstat::HIT_SUM) as f64 / calls.max(1) as f64,
++        g(&scanstat::HIT_MAX),
++        g(&scanstat::NEAR_SUM) as f64 / captures as f64,
++        g(&scanstat::NEAR_MAX),
++        walks,
++        g(&scanstat::WALK_SUM) as f64 / walks.max(1) as f64,
++        g(&scanstat::BIND_SUM) as f64 / captures as f64,
++        g(&scanstat::BIND_MAX),
++        g(&scanstat::CAND_SUM) as f64 / captures as f64,
++        g(&scanstat::CAND_MAX),
++        g(&scanstat::UNB_SUM) as f64 / calls.max(1) as f64,
++        g(&scanstat::BINS_SUM) as f64 / calls.max(1) as f64,
++    );
++    if emergent_universe::prof::ENABLED {
++        let n = late.len().max(1);
++        for k in 0..emergent_universe::prof::N {
++            if stage_calls[k] > 0 {
++                println!("  {:<38} {:>9.1} us/frame {:>8.2} calls/frame {:>10.0} ns/call", emergent_universe::prof::NAMES[k], stage_ns[k] as f64 / 1e3 / n as f64, stage_calls[k] as f64 / n as f64, stage_ns[k] as f64 / stage_calls[k] as f64);
++            }
++        }
++    }
++    // ---- the second author's channel split -------------------------------------------------------
++    use emergent_universe::prof::{APPLY, ENCOUNTERS, F_ADV, F_RUN, FIT, FIT2, HANDOUT, PRUNE, P_BOUNDARY, P_KICK, P_KICK_CLOCK, P_KICK_SUB, PROCESS, REKEY, REQUEUE, SCANS, TAKE_DUE};
++    let chans = |ns: &[u64; emergent_universe::prof::N]| {
++        let scan = ns[ENCOUNTERS] + ns[SCANS];
++        let comb = ns[REKEY] + ns[APPLY] + ns[REQUEUE] + ns[PROCESS] + ns[TAKE_DUE] + ns[HANDOUT];
++        let other = ns[PRUNE] + ns[F_RUN] + ns[F_ADV];
++        (scan, comb, other)
++    };
++    let detail = |ns: &[u64; emergent_universe::prof::N]| (ns[P_KICK] + ns[P_KICK_CLOCK] + ns[P_KICK_SUB], ns[P_BOUNDARY], ns[FIT] + ns[FIT2], ns[SCANS]);
++    if !wall_ns.is_empty() {
++        let line = |name: &str, idx: &[usize]| {
++            let (mut scan, mut comb, mut other, mut wall, mut kick, mut bnd, mut fit, mut ans) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
++            for &i in idx {
++                let (s, c, o) = chans(&frame_ns[i]);
++                scan += s;
++                comb += c;
++                other += o;
++                wall += wall_ns[i];
++                let (k, b, f, a) = detail(&frame_ns[i]);
++                kick += k;
++                bnd += b;
++                fit += f;
++                ans += a;
++            }
++            let share = |x: u64| if wall == 0 { 0.0 } else { 100.0 * x as f64 / wall as f64 };
++            println!(
++                "chan {name}: frames={} wall_mean_ms={:.2} | scan {:.1}% comb {:.1}% other {:.1}% unaccounted {:.1}% | of comb: kicks {:.1}% boundaries {:.1}% fits {:.1}% | answers {} ms",
++                idx.len(),
++                wall as f64 / 1e6 / idx.len().max(1) as f64,
++                share(scan),
++                share(comb),
++                share(other),
++                share(wall.saturating_sub(scan + comb + other)),
++                if comb == 0 { 0.0 } else { 100.0 * kick as f64 / comb as f64 },
++                if comb == 0 { 0.0 } else { 100.0 * bnd as f64 / comb as f64 },
++                if comb == 0 { 0.0 } else { 100.0 * fit as f64 / comb as f64 },
++                ans as f64 / 1e6,
++            );
++        };
++        let all: Vec<usize> = (0..wall_ns.len()).collect();
++        line("late", &all);
++        let over_idx: Vec<usize> = (0..wall_ns.len()).filter(|&i| wall_ns[i] as f64 > budget_ms * 1e6).collect();
++        line("over", &over_idx);
++        let mut by_wall: Vec<usize> = (0..wall_ns.len()).collect();
++        by_wall.sort_by_key(|&i| std::cmp::Reverse(wall_ns[i]));
++        let tail = (wall_ns.len() + 99) / 100; // the worst 1%: the p99 frames and above
++        line("p99", &by_wall[..tail.max(1).min(by_wall.len())]);
++        let under_scan: u64 = frame_ns.iter().zip(wall_ns.iter()).filter(|(_, w)| **w as f64 <= budget_ms * 1e6).map(|(n, _)| chans(n).0).sum();
++        let scan_tot: u64 = frame_ns.iter().map(|n| chans(n).0).sum();
++        println!(
++            "chan scan-placement: scan-channel {} ms total, {:.0}% of it inside under-budget frames (drained into idle room, not the over-budget frames)",
++            scan_tot as f64 / 1e6,
++            if scan_tot == 0 { 0.0 } else { 100.0 * under_scan as f64 / scan_tot as f64 }
++        );
++        println!("chan worst frames (wall | scan/comb/other/unaccounted ms | kick/boundary/fit/answer ms | answers captures events):");
++        for &i in by_wall.iter().take(12) {
++            let (s, c, o) = chans(&frame_ns[i]);
++            let (k, b, f, a) = detail(&frame_ns[i]);
++            println!(
++                "  worst: f={} wall={:.2} | {:.2}/{:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2}/{:.2} | ans={} cap={} ev={}",
++                60 + i,
++                wall_ns[i] as f64 / 1e6,
++                s as f64 / 1e6,
++                c as f64 / 1e6,
++                o as f64 / 1e6,
++                wall_ns[i].saturating_sub(s + c + o) as f64 / 1e6,
++                k as f64 / 1e6,
++                b as f64 / 1e6,
++                f as f64 / 1e6,
++                a as f64 / 1e6,
++                frame_calls[i][SCANS],
++                frame_calls[i][ENCOUNTERS],
++                rows[60 + i].2,
++            );
++        }
++    }
++    println!(
++        "probe: form={form} extra={extra} seed={seed} bodies={bodies} frames={} build_s={build:.2} hwm_mb={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} held_max={held_max} kicks={kicks} events={evs} game_s={game_s:.1} digest={}",
++        rows.len(),
++        rss2 as f64 / 1e6,
++        pct(0.5),
++        pct(0.99),
++        pct(1.0),
++        p.u.digest()
++    );
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..4879baf7 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -171,13 +171,31 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        {
++            use std::sync::atomic::Ordering::Relaxed;
++            use crate::radial::scanstat as S;
++            S::CAPTURES.fetch_add(1, Relaxed);
++            match &near {
++                Some(ids) => {
++                    S::NEAR_SUM.fetch_add(ids.len() as u64, Relaxed);
++                    S::NEAR_MAX.fetch_max(ids.len() as u64, Relaxed);
++                }
++                None => {
++                    S::WALKS.fetch_add(1, Relaxed);
++                    S::WALK_SUM.fetch_add(ctx.bodies.len() as u64, Relaxed);
++                }
++            }
++        }
+         let mut candidates = Vec::new();
++        let (mut binds, mut bind_max) = (0u64, 0u64);
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+             }
++            binds += 1;
+             let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++            bind_max = bind_max.max(binds);
+             if other.doll != me.doll {
+                 continue;
+             }
+@@ -187,6 +205,14 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        {
++            use std::sync::atomic::Ordering::Relaxed;
++            use crate::radial::scanstat as S;
++            S::BIND_SUM.fetch_add(binds, Relaxed);
++            S::BIND_MAX.fetch_max(bind_max, Relaxed);
++            S::CAND_SUM.fetch_add(candidates.len() as u64, Relaxed);
++            S::CAND_MAX.fetch_max(candidates.len() as u64, Relaxed);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..585be3cc 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -20,6 +20,64 @@ use crate::body::Kind;
+ use crate::num::to_f64;
+ use emergent_space::{binding::Trajectory, orbit::Scalar};
+ use std::collections::HashMap;
++/// A print-only census of the scan's radial filter (the lab's formation probe): what the filter keeps,
++/// what it bails on, and what the caller then walks. Counters only; no read of them changes anything.
++pub mod scanstat {
++    /// The last window asked, and the doll's caps when it was (f64 bits; the probe's diagnosis).
++    pub static W_R: AtomicU64 = AtomicU64::new(0);
++    pub static W_V: AtomicU64 = AtomicU64::new(0);
++    pub static W_H: AtomicU64 = AtomicU64::new(0);
++    pub static W_REACH: AtomicU64 = AtomicU64::new(0);
++    pub static W_VCAP: AtomicU64 = AtomicU64::new(0);
++    pub static W_RCAP: AtomicU64 = AtomicU64::new(0);
++    pub static W_NEAR: AtomicU64 = AtomicU64::new(0);
++    use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++    /// Scans that reached the index (the doll is registered).
++    pub static CALLS: AtomicU64 = AtomicU64::new(0);
++    /// Scans of a doll the index does not know: the caller walks every body.
++    pub static NO_DOLL: AtomicU64 = AtomicU64::new(0);
++    /// Bails: the window spanned more than 4096 bins.
++    pub static BAIL_RANGE: AtomicU64 = AtomicU64::new(0);
++    /// Bails: the kept set exceeded `bodies/4 + 64`.
++    pub static BAIL_COUNT: AtomicU64 = AtomicU64::new(0);
++    /// Bodies in the window's bins, summed and worst over those scans.
++    pub static HIT_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static HIT_MAX: AtomicU64 = AtomicU64::new(0);
++    /// Unbounded bodies (planets, moons, the player) added to every kept set.
++    pub static UNB_SUM: AtomicU64 = AtomicU64::new(0);
++    /// Bins a window spans, summed.
++    pub static BINS_SUM: AtomicU64 = AtomicU64::new(0);
++    /// Bodies registered when last asked.
++    pub static BODIES: AtomicU64 = AtomicU64::new(0);
++    /// The capture half (encounter.rs): scans taken, their near sets, and the walks the bails became.
++    pub static CAPTURES: AtomicU64 = AtomicU64::new(0);
++    pub static NEAR_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static NEAR_MAX: AtomicU64 = AtomicU64::new(0);
++    pub static WALKS: AtomicU64 = AtomicU64::new(0);
++    pub static WALK_SUM: AtomicU64 = AtomicU64::new(0);
++    /// `binding_at` calls of the candidate loop (the cheap half's reads), summed and worst a scan.
++    pub static BIND_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static BIND_MAX: AtomicU64 = AtomicU64::new(0);
++    /// Candidates a scan holds (its read set, and its memory), summed and worst.
++    pub static CAND_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static CAND_MAX: AtomicU64 = AtomicU64::new(0);
++
++    /// Zero every counter (the probe's own reset, before its measured window).
++    pub fn reset() {
++        for c in [&CALLS, &NO_DOLL, &BAIL_RANGE, &BAIL_COUNT, &HIT_SUM, &HIT_MAX, &UNB_SUM, &BINS_SUM, &CAPTURES, &NEAR_SUM, &NEAR_MAX, &WALKS, &WALK_SUM, &BIND_SUM, &BIND_MAX, &CAND_SUM, &CAND_MAX] {
++            c.store(0, Relaxed);
++        }
++        for c in [&W_R, &W_V, &W_H, &W_REACH, &W_VCAP, &W_RCAP, &W_NEAR] {
++            c.store(0, Relaxed);
++        }
++        BODIES.store(0, Relaxed);
++    }
++
++    /// The bytes one held candidate pins (a `Binding` and its key), for the held-scan memory.
++    pub fn candidate_bytes() -> usize {
++        std::mem::size_of::<crate::bind::Binding>() + std::mem::size_of::<usize>() + std::mem::size_of::<emergent_space::orbit::Scalar>()
++    }
++}
+ 
+ /// Bins per octave of radius.
+ const PER_OCTAVE: f64 = 16.0;
+@@ -243,15 +301,34 @@ impl Radial {
+     /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+     /// in the doll (the caller then reads every body, as it did before there was an index).
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
+-        let idx = self.dolls.get(d as usize)?;
++        use std::sync::atomic::Ordering::Relaxed;
++        let Some(idx) = self.dolls.get(d as usize) else {
++            scanstat::NO_DOLL.fetch_add(1, Relaxed);
++            return None;
++        };
++        scanstat::CALLS.fetch_add(1, Relaxed);
+         let near = (w.reach_p + idx.radius_cap) * 2f64.powi(w.near_log2);
+         let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
++            scanstat::BAIL_RANGE.fetch_add(1, Relaxed);
+             return None;
+         }
+         let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
++        scanstat::HIT_SUM.fetch_add(hit as u64, Relaxed);
++        scanstat::HIT_MAX.fetch_max(hit as u64, Relaxed);
++        scanstat::UNB_SUM.fetch_add(idx.unbounded.len() as u64, Relaxed);
++        scanstat::BINS_SUM.fetch_add((hi - lo + 1) as u64, Relaxed);
++        scanstat::W_R.store(w.r.to_bits(), Relaxed);
++        scanstat::W_V.store(w.v.to_bits(), Relaxed);
++        scanstat::W_H.store(w.h.to_bits(), Relaxed);
++        scanstat::W_REACH.store(reach.to_bits(), Relaxed);
++        scanstat::W_VCAP.store(idx.speed_cap.to_bits(), Relaxed);
++        scanstat::W_RCAP.store(idx.radius_cap.to_bits(), Relaxed);
++        scanstat::W_NEAR.store(near.to_bits(), Relaxed);
++        scanstat::BODIES.store(self.bodies as u64, Relaxed);
+         if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
++            scanstat::BAIL_COUNT.fetch_add(1, Relaxed);
+             return None;
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..d7e5940b 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,19 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_built(cfg, seed, order, threads, world, extra, 0)
++}
++
++/// [`plane_extra`] with `form` of the bodies a fleet formation on the player's own circle about Home
++/// (see [`formation_ship`]): the game's fleet scene, the ladder's population beside it. `form = 0` is
++/// [`plane_extra`], bit for bit.
++pub fn plane_formation(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, form: usize) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_built(cfg, seed, order, threads, world, extra, form)
++}
++
++/// The plane's own construction (everything above, plus the ladder's and the formation's ships).
++pub fn plane_built(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, form: usize) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -257,6 +270,13 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         names.push(format!("Skimmer {}", k + 1));
+     }
+     // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
++    // The formation: real ships on the player's own circle (the fleet scene's crowd, each on its own
++    // exact orbit beside the player's, ids with the ladder's).
++    for k in 0..form {
++        let (spec, radius) = formation_ship(seed, k as u64, home_doll)?;
++        ships.push(u.add_body(Kind::Ship, spec, radius)?);
++        names.push(String::new());
++    }
+     for k in 0..extra {
+         let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+@@ -279,6 +299,36 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
+ 
++/// One ship of the formation scene: co-orbital with the player on Home's low orbit (the fleet's
++/// circle, 4,740 root units — the player's own periapsis), within ±2 % in size (inside one
++/// sixteenth-octave bin of the scan's index, so the radial filter cannot cut it), e Rayleigh of
++/// scale 0.005, uniform angle and phase. A fleet formation: the game's own crowd, drawn from
++/// integers and the seed like [`ladder_ship`], with `k` offset so its draws never collide with the
++/// ladder's.
++pub fn formation_ship(seed: u64, k: u64, home_doll: u16) -> Res<(OrbitSpec, Scalar)> {
++    let d = |lane: u64| draw(seed, k.wrapping_add(1 << 40), lane);
++    let jit = |lane: u64| (d(lane) >> 32) as i128 - (1i128 << 31); // [-1/2, 1/2) turn of 2^32
++    let base = 4_740i128 << 16; // the fleet's circle in root units, Q16 (the ladder locals' shape)
++    let peri_q16 = base + base * jit(1) / (50 * (1i128 << 32)); // ±2 %
++    let mut e = rayleigh_q48((d(2) & 0xFFFF_FFFF) as u32, 5);
++    for lane in 16.. {
++        if e <= (1u64 << 48) / 20 {
++            break;
++        }
++        e = rayleigh_q48((d(lane) & 0xFFFF_FFFF) as u32, 5);
++    }
++    let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
++    let spec = OrbitSpec {
++        doll: home_doll,
++        periapsis: Scalar::raw(peri_q16, 18 - 16)?,
++        e_q48: e,
++        clockwise: false,
++        angle,
++        phase,
++    };
++    Ok((spec, Scalar::raw(34, -10 + 18)?))
++}
++
+ // ---- the N ladder's population -------------------------------------------------------------------
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.

@@ -1,0 +1,41 @@
+probe form=200 extra=100000 seed=1 (100228 bodies), coast, rtf 100, 6 s; build 4.64 s, peak 2654208..237850624 bytes; cand_bytes 216
+window: r=1.243e9 v=2.837e-5 h=1.100e12 near=2.763e8 reach=1.114e10 speed_cap=9.756e-3 radius_cap=2.611e5 bins=2042.7
+scan: bodies=100271 scans=47 kept=47 bailed_count=0 bailed_range=0 no_doll=0 | hit/scan mean 2524.3 max 2622 | near/scan mean 396.0 max 403 | full-walk scans 0 mean 0.0 bodies | binding_at/scan mean 383.9 max 394 | candidates/scan mean 383.9 max 394 | unbounded/scan mean 22.4 | bins/scan mean 2042.7
+  rekey (all deadlines)                       25.0 us/frame     1.00 calls/frame      24977 ns/call
+    position walk (root_state_raw)           294.6 us/frame    38.17 calls/frame       7720 ns/call
+  apply (whole)                              337.3 us/frame    38.32 calls/frame       8802 ns/call
+  requeue                                     22.4 us/frame    98.30 calls/frame        228 ns/call
+  process (whole)                           1405.6 us/frame    38.22 calls/frame      36780 ns/call
+    fit: bind_surface (kicks, hand-outs)     488.5 us/frame    19.69 calls/frame      24811 ns/call
+  take_due                                     0.3 us/frame    13.73 calls/frame         19 ns/call
+  prune                                       50.5 us/frame     1.00 calls/frame      50512 ns/call
+  encounters: capture (cheap half)            36.0 us/frame     0.16 calls/frame     230100 ns/call
+  encounters: held scans answered            270.0 us/frame     0.15 calls/frame    1760866 ns/call
+  item: kick (Wisdom-Holman)                1023.2 us/frame    19.58 calls/frame      52250 ns/call
+  item: boundary                             383.3 us/frame    18.60 calls/frame      20610 ns/call
+  item: crash                                  0.2 us/frame     0.04 calls/frame       5480 ns/call
+  fleet: battle run_to                        15.5 us/frame     4.61 calls/frame       3359 ns/call
+  fleet: advance (whole item)                 20.8 us/frame     4.61 calls/frame       4511 ns/call
+  hand-out (a member made a body)             58.3 us/frame     0.11 calls/frame     546736 ns/call
+    hand-out: pull planets and moons           0.0 us/frame     0.11 calls/frame        147 ns/call
+    hand-out: bind (the member as a tube)      44.2 us/frame     0.11 calls/frame     414070 ns/call
+    hand-out: first plan (replan)             12.1 us/frame     0.11 calls/frame     113184 ns/call
+    fit again: the coarser word (bind_surface)      18.3 us/frame     0.06 calls/frame     323078 ns/call
+chan late: frames=300 wall_mean_ms=2.27 | scan 13.5% comb 81.5% other 3.8% unaccounted 1.2% | of comb: kicks 55.3% boundaries 20.7% fits 27.4% | answers 80.999827 ms
+chan over: frames=1 wall_mean_ms=12.25 | scan 2.3% comb 97.5% other 0.0% unaccounted 0.2% | of comb: kicks 9.8% boundaries 59.7% fits 4.7% | answers 0 ms
+chan p99: frames=3 wall_mean_ms=11.99 | scan 2.3% comb 96.4% other 0.4% unaccounted 0.8% | of comb: kicks 55.1% boundaries 20.9% fits 25.0% | answers 0 ms
+chan scan-placement: scan-channel 91.814517 ms total, 100% of it inside under-budget frames (drained into idle room, not the over-budget frames)
+chan worst frames (wall | scan/comb/other/unaccounted ms | kick/boundary/fit/answer ms | answers captures events):
+  worst: f=211 wall=12.25 | 0.28/11.94/0.00/0.03 | 1.17/7.12/0.56/0.00 | ans=0 cap=1 ev=362
+  worst: f=113 wall=11.88 | 0.26/11.41/0.09/0.11 | 8.79/0.05/3.98/0.00 | ans=0 cap=1 ev=213
+  worst: f=246 wall=11.84 | 0.28/11.33/0.07/0.16 | 9.13/0.07/4.13/0.00 | ans=0 cap=1 ev=221
+  worst: f=219 wall=11.81 | 0.23/11.37/0.06/0.15 | 8.82/0.00/4.03/0.00 | ans=0 cap=1 ev=208
+  worst: f=126 wall=11.79 | 0.29/11.36/0.08/0.06 | 9.12/0.04/4.24/0.00 | ans=0 cap=1 ev=213
+  worst: f=204 wall=11.73 | 0.24/11.36/0.09/0.04 | 9.02/0.00/4.37/0.00 | ans=0 cap=1 ev=205
+  worst: f=178 wall=11.71 | 0.29/11.20/0.08/0.14 | 8.98/0.10/4.11/0.00 | ans=0 cap=1 ev=221
+  worst: f=159 wall=11.70 | 0.26/11.20/0.04/0.20 | 2.12/5.88/0.94/0.00 | ans=0 cap=1 ev=337
+  worst: f=165 wall=11.70 | 0.23/11.21/0.07/0.17 | 9.06/0.10/4.15/0.00 | ans=0 cap=1 ev=221
+  worst: f=101 wall=11.67 | 0.25/11.17/0.10/0.15 | 8.99/0.18/4.06/0.00 | ans=0 cap=1 ev=233
+  worst: f=233 wall=11.67 | 0.25/11.18/0.09/0.14 | 9.08/0.06/4.07/0.00 | ans=0 cap=1 ev=219
+  worst: f=88 wall=11.65 | 0.26/11.15/0.08/0.17 | 8.85/0.17/4.00/0.00 | ans=0 cap=1 ev=229
+probe: form=200 extra=100000 seed=1 bodies=100228 frames=360 build_s=4.64 hwm_mb=251 p50_ms=0.093 p99_ms=11.814 max_ms=12.247 over=1 held_max=1 kicks=5899 events=12894 game_s=478.6 digest=e0f22d051b293080a5554e9bc5490e1e12659d8628c0b17d1b8ea1d6b0801c11
