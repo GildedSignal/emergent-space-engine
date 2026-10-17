@@ -1,0 +1,26 @@
+ladder: n=10000 bodies=10028 flight=coast rtf=600 frames=3600 build_s=0.43 foot_build_mb=0 foot_end_mb=0 b_per_body=0 p50_ms=1.198 p99_ms=10.375 max_ms=11.946 over=0 lag_s=0.000 kicks_per_body_gs=1.844e-4 events_per_body_gs=3.721e-4 refusals=0 dead=0 held_max=7 view_ms=206.6 truncated=false wall_s=8.2
+census: site calls distinct repeated conflict_frac top_mult | per-source rel-drift (whole flight)
+census:   L1274184655 top j1 t=0 (game s 0) x9714
+census:   L1274184655 top j0 t=0 (game s 0) x9714
+census:   L1274184655 top j2 t=0 (game s 0) x9714
+census:   L1274184655 top j3 t=5368709120 (game s 26444) x342
+census:   L1274184655 top j3 t=4294967296 (game s 21155) x341
+census: L1274184655 (crates/universe/src/ctx.rs) calls 262840 distinct 93127 repeated 169713 conflict_frac 0.000000 top_mult 9714 errs 0 | j0: 3.053e-2 j1: 7.505e-3 j2: 5.992e-4 j3: 9.847e-2
+census:   L1274184655 j0 calls 50008 distinct_ticks 29843 repeated 20165 top_mult 9714 span_ticks 7226261024
+census:   L1274184655 j0 passes single_tick 12 multi_tick 137 | canonical-tick rel-err p50 6.77e-6 p90 8.45e-6 p99 5.74e-5 max 3.78e-3 | pass tick-span p50 1.95e6 p99 1.38e7 max 1.22e9 (game s 9.61..5994.39)
+census:   L1274184655 j1 calls 50009 distinct_ticks 29844 repeated 20165 top_mult 9714 span_ticks 7226261024
+census:   L1274184655 j1 passes single_tick 13 multi_tick 137 | canonical-tick rel-err p50 1.66e-6 p90 2.08e-6 p99 1.41e-5 max 9.31e-4 | pass tick-span p50 1.95e6 p99 1.38e7 max 1.22e9 (game s 9.61..5994.39)
+census:   L1274184655 j2 calls 50009 distinct_ticks 29844 repeated 20165 top_mult 9714 span_ticks 7226261024
+census:   L1274184655 j2 passes single_tick 13 multi_tick 137 | canonical-tick rel-err p50 1.33e-7 p90 1.66e-7 p99 1.13e-6 max 7.44e-5 | pass tick-span p50 1.95e6 p99 1.38e7 max 1.22e9 (game s 9.61..5994.39)
+census:   L1274184655 j3 calls 112814 distinct_ticks 3596 repeated 109218 top_mult 342 span_ticks 7306477568
+census:   L1274184655 j3 passes single_tick 3392 multi_tick 96 | canonical-tick rel-err p50 1.41e-5 p90 1.41e-5 p99 2.12e-5 max 2.43e-5 | pass tick-span p50 1.05e6 p99 1.57e6 max 1.80e6 (game s 5.16..8.88)
+census:   L1274184659 top j1 t=1073741824 (game s 5289) x76
+census:   L1274184659 top j1 t=3221225472 (game s 15866) x76
+census:   L1274184659 top j1 t=5368709120 (game s 26444) x76
+census:   L1274184659 top j1 t=5385486336 (game s 26526) x43
+census:   L1274184659 top j1 t=5419040768 (game s 26691) x43
+census: L1274184659 (crates/universe/src/ctx.rs) calls 57032 distinct 3911 repeated 53121 conflict_frac 0.000000 top_mult 76 errs 0 | j1: 7.586e-3 j2: 6.038e-4
+census:   L1274184659 j1 calls 56596 distinct_ticks 3584 repeated 53012 top_mult 76 span_ticks 7304380416
+census:   L1274184659 j1 passes single_tick 3391 multi_tick 93 | canonical-tick rel-err p50 1.09e-6 p90 1.09e-6 p99 1.36e-6 max 1.87e-6 | pass tick-span p50 1.05e6 p99 1.31e6 max 1.80e6 (game s 5.16..8.88)
+census:   L1274184659 j2 calls 436 distinct_ticks 327 repeated 109 top_mult 2 span_ticks 7281311744
+census:   L1274184659 j2 passes single_tick 327 multi_tick 0 (every pass reads one tick: fully batched)

@@ -1,0 +1,436 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..be8b64ad 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,8 +14,13 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++#[cfg(target_os = "macos")]
++ extern "C" {
++     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++ }
++#[cfg(not(target_os = "macos"))]
++unsafe fn proc_pid_rusage(_pid: i32, _flavor: i32, _buffer: *mut u64) -> i32 {
++    0
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+@@ -160,4 +165,7 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    emergent_universe::census::report();
++    emergent_universe::memo::report_timing();
++    emergent_universe::memo::report();
+ }
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..3501f47d
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,209 @@
++//! A print-only census of `Ctx::state_of`: who reads whom at what tick, how often the same
++//! (source, tick) is read again, whether a repeated key ever returns two different states
++//! (it must not: bindings change only at the source's own events, resolved in tick order),
++//! and — this run's addition — how far each source drifts *within one comb pass*, the error a
++//! canonical-tick field read (one read per pass, at the pass's first tick) would make, at the
++//! pass's own scale instead of the whole flight's. A pass is one `Universe::advance` (the
++//! frame's window; `census::pass` is bumped there), an upper bound on the drain's finer
++//! slices. Opt-in via `ES_CENSUS=1`; nothing here writes into the universe, so digests cannot
++//! move.
++use std::cell::Cell;
++use std::collections::HashMap;
++use std::sync::{LazyLock, Mutex};
++
++#[derive(Default)]
++struct Site {
++    calls: u64,
++    errors: u64,
++    keys: HashMap<(u32, i64), KeyState>,
++    /// whole-flight drift per source j: first read's position and the max |Δ| against it
++    drift: HashMap<u32, Drift>,
++    /// per (j, pass): the comb-scale drift, tick span and distinct ticks
++    passes: HashMap<(u32, u64), Pass>,
++    name: &'static str,
++}
++struct KeyState {
++    hash: u64,
++    count: u64,
++    conflicts: u64,
++}
++struct Drift {
++    first: (f64, f64),
++    max_abs: f64,
++    ref_mag: f64,
++}
++struct Pass {
++    first: (f64, f64),
++    ref_mag: f64,
++    max_abs: f64,
++    min_t: i64,
++    max_t: i64,
++    distinct: std::collections::HashSet<i64>,
++}
++
++fn enabled() -> bool {
++    static E: LazyLock<bool> = LazyLock::new(|| std::env::var("ES_CENSUS").is_ok_and(|v| !v.is_empty()));
++    *E
++}
++
++fn sites() -> &'static Mutex<HashMap<u32, Site>> {
++    static S: LazyLock<Mutex<HashMap<u32, Site>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
++    &S
++}
++
++thread_local! {
++    static PASS: Cell<u64> = const { Cell::new(0) };
++}
++
++/// One `advance` begins: later reads belong to the next comb pass.
++pub fn pass() {
++    if enabled() {
++        PASS.with(|p| p.set(p.get() + 1));
++    }
++}
++
++fn hash_of(v: &crate::num::Res<(crate::num::V2, crate::num::V2)>) -> Option<(u64, (f64, f64))> {
++    let (p, _) = v.as_ref().ok()?;
++    let f = |s: emergent_space::orbit::Scalar| (s.significand() as f64) * 2f64.powi(s.exponent() as i32);
++    let mut h = 0xcbf29ce484222325u64;
++    for s in p.iter().chain(v.as_ref().unwrap().1.iter()) {
++        h ^= (s.significand() as u64).wrapping_mul(0x100000001b3);
++        h ^= (s.exponent() as u64 as u64).wrapping_mul(0x9e3779b97f4a7c15);
++    }
++    Some((h, (f(p[0]), f(p[1]))))
++}
++
++/// Record one call at `loc` for source `j` at tick `t` with result `v`.
++pub fn record(loc: &'static std::panic::Location<'static>, j: usize, t: i64, v: &crate::num::Res<(crate::num::V2, crate::num::V2)>) {
++    if !enabled() {
++        return;
++    }
++    let pass = PASS.with(|p| p.get());
++    let line = loc.line() ^ (loc.file().len() as u32).rotate_left(13) ^ (loc.file().bytes().fold(0u32, |a, b| a.rotate_left(5) ^ b as u32));
++    let mut sites = sites().lock().unwrap();
++    let s = sites.entry(line).or_insert_with(|| Site { name: loc.file(), ..Default::default() });
++    s.calls += 1;
++    let Some((h, pos)) = hash_of(v) else {
++        s.errors += 1;
++        return;
++    };
++    let k = s.keys.entry((j as u32, t)).or_insert(KeyState { hash: h, count: 0, conflicts: 0 });
++    k.count += 1;
++    if k.hash != h {
++        k.conflicts += 1;
++    }
++    let d = s.drift.entry(j as u32).or_insert(Drift { first: pos, max_abs: 0.0, ref_mag: (pos.0 * pos.0 + pos.1 * pos.1).sqrt() });
++    let dx = pos.0 - d.first.0;
++    let dy = pos.1 - d.first.1;
++    d.max_abs = d.max_abs.max((dx * dx + dy * dy).sqrt());
++    let p = s.passes.entry((j as u32, pass)).or_insert(Pass {
++        first: pos,
++        ref_mag: (pos.0 * pos.0 + pos.1 * pos.1).sqrt(),
++        max_abs: 0.0,
++        min_t: t,
++        max_t: t,
++        distinct: std::collections::HashSet::new(),
++    });
++    p.distinct.insert(t);
++    p.min_t = p.min_t.min(t);
++    p.max_t = p.max_t.max(t);
++    let dx = pos.0 - p.first.0;
++    let dy = pos.1 - p.first.1;
++    p.max_abs = p.max_abs.max((dx * dx + dy * dy).sqrt());
++}
++
++fn quantile(mut v: Vec<f64>, p: f64) -> f64 {
++    if v.is_empty() {
++        return 0.0;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[(((v.len() - 1) as f64) * p).round() as usize]
++}
++
++/// Print the census: per call site, calls, distinct keys, repeated calls, bit-conflicts,
++/// top key multiplicity, the per-source whole-flight drift, and — the addition — the per-pass
++/// (comb-scale) drift a canonical-tick read would make, as quantiles over the passes.
++pub fn report() {
++    if !enabled() {
++        return;
++    }
++    let sites = sites().lock().unwrap();
++    println!("census: site calls distinct repeated conflict_frac top_mult | per-source rel-drift (whole flight)");
++    let mut lines: Vec<_> = sites.iter().collect();
++    lines.sort_by_key(|(l, _)| **l);
++    for (line, s) in lines {
++        let repeated: u64 = s.keys.values().map(|k| k.count - 1).sum();
++        let conflicts: u64 = s.keys.values().map(|k| k.conflicts).sum();
++        let top = s.keys.values().map(|k| k.count).max().unwrap_or(0);
++        let mut topk: Vec<(&(u32, i64), &KeyState)> = s.keys.iter().collect();
++        topk.sort_by(|a, b| b.1.count.cmp(&a.1.count));
++        for ((j, t), k) in topk.into_iter().take(5) {
++            println!("census:   L{line} top j{j} t={t} (game s {:.0}) x{}", *t as f64 * 4.925_490_947e-6, k.count);
++        }
++        let drift: Vec<String> = {
++            let mut d: Vec<_> = s.drift.iter().collect();
++            d.sort_by_key(|(j, _)| **j);
++            d.iter()
++                .map(|(j, x)| format!("j{j}: {:.3e}", if x.ref_mag > 0.0 { x.max_abs / x.ref_mag } else { 0.0 }))
++                .collect()
++        };
++        println!(
++            "census: L{line} ({}) calls {} distinct {} repeated {} conflict_frac {:.6} top_mult {} errs {} | {}",
++            s.name,
++            s.calls,
++            s.keys.len(),
++            repeated,
++            if s.calls > 0 { conflicts as f64 / s.calls as f64 } else { 0.0 },
++            top,
++            s.errors,
++            drift.join(" ")
++        );
++        // the comb-scale half: per source, the distribution over passes of the canonical-tick
++        // error (drift from the pass's first read) and of the pass's tick span.
++        let mut per_src: Vec<(u32, usize, i64, i64)> = Vec::new();
++        for j in s.drift.keys() {
++            let ts: Vec<i64> = s.keys.keys().filter(|(jj, _)| jj == j).map(|(_, t)| *t).collect();
++            if let (Some(min), Some(max)) = (ts.iter().min(), ts.iter().max()) {
++                per_src.push((*j, ts.len(), *min, *max));
++            }
++        }
++        per_src.sort();
++        for (j, n, min, max) in per_src {
++            let calls_j: u64 = s.keys.iter().filter(|(k, _)| k.0 == j).map(|(_, v)| v.count).sum();
++            let top_j = s.keys.iter().filter(|(k, _)| k.0 == j).map(|(_, v)| v.count).max().unwrap_or(0);
++            println!("census:   L{line} j{j} calls {calls_j} distinct_ticks {n} repeated {} top_mult {top_j} span_ticks {}", calls_j.saturating_sub(n as u64), max - min);
++            let mut rel: Vec<f64> = Vec::new();
++            let mut spans: Vec<f64> = Vec::new();
++            let mut single = 0usize;
++            let mut multi = 0usize;
++            for ((jj, _), p) in s.passes.iter() {
++                if *jj != j {
++                    continue;
++                }
++                if p.distinct.len() <= 1 {
++                    single += 1;
++                    continue;
++                }
++                multi += 1;
++                rel.push(if p.ref_mag > 0.0 { p.max_abs / p.ref_mag } else { 0.0 });
++                spans.push((p.max_t - p.min_t) as f64);
++            }
++            if multi > 0 {
++                println!(
++                    "census:   L{line} j{j} passes single_tick {single} multi_tick {multi} | canonical-tick rel-err p50 {:.2e} p90 {:.2e} p99 {:.2e} max {:.2e} | pass tick-span p50 {:.2e} p99 {:.2e} max {:.2e} (game s {:.2}..{:.2})",
++                    quantile(rel.clone(), 0.5),
++                    quantile(rel.clone(), 0.9),
++                    quantile(rel.clone(), 0.99),
++                    quantile(rel.clone(), 1.0),
++                    quantile(spans.clone(), 0.5),
++                    quantile(spans.clone(), 0.99),
++                    quantile(spans.clone(), 1.0),
++                    quantile(spans.clone(), 0.5) * 4.925_490_947e-6,
++                    quantile(spans.clone(), 1.0) * 4.925_490_947e-6
++                );
++            } else {
++                println!("census:   L{line} j{j} passes single_tick {single} multi_tick 0 (every pass reads one tick: fully batched)");
++            }
++        }
++    }
++}
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..7f42c670 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -57,10 +57,27 @@ pub struct Ctx<'a> {
+ }
+ 
+ impl Ctx<'_> {
+-    /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
++    #[track_caller]
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        let tic = crate::memo::tic();
++        if crate::memo::on() {
++            if let Some(v) = crate::memo::get(j, t) {
++                crate::memo::toc(tic, true);
++                crate::memo::count(true);
++                return Ok(v);
++            }
++            crate::memo::count(false);
++        }
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+-        b.cartesian(t)
++        let r = b.cartesian(t);
++        crate::memo::toc(tic, false);
++        crate::census::record(std::panic::Location::caller(), j, t, &r);
++        if crate::memo::on() {
++            if let Ok(v) = &r {
++                crate::memo::put(j, t, *v);
++            }
++        }
++        r
+     }
+ 
+     /// The units body `i`'s tube is compiled in, in doll `d`: about the doll's centre alone for a test particle,
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..f2695679 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,6 +1,7 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+ pub mod bind;
+ pub mod body;
++pub mod census;
+ pub mod ctx;
+ pub mod dash;
+ pub mod encounter;
+@@ -8,6 +9,7 @@ pub mod ext;
+ pub mod fleet;
+ pub mod force;
+ pub mod lorentz;
++pub mod memo;
+ pub mod num;
+ pub mod observe;
+ pub mod prof;
+diff --git a/crates/universe/src/memo.rs b/crates/universe/src/memo.rs
+new file mode 100644
+index 00000000..e9cf79b0
+--- /dev/null
++++ b/crates/universe/src/memo.rs
+@@ -0,0 +1,120 @@
++//! An opt-in memo of `Ctx::state_of`'s Ok results, keyed `(body, tick)`, cleared at each
++//! `Universe::advance` (so it never survives a prune, and is bounded by one frame's distinct
++//! keys, not the flight's). The census (census.rs, run 20261017-1447) measured the read stream
++//! to be 44–78% exact `(j,t)` repetition with zero bit-conflicts over ~2.1M reads, so the
++//! repeated evaluations return literally the same bits; this flies that measurement. Refusals
++//! are never cached (`Err` and a missing binding both fall through to recomputation), so a
++//! memo can only serve a value that recomputation just produced at the same `(j,t)`.
++//! `ES_MEMO=1` enables; `ES_MEMO_STATS=1` prints hits/misses at exit.
++use std::cell::RefCell;
++use crate::num::{Tick, V2};
++
++type Val = (V2, V2);
++/// (hits, misses, clears, max live keys)
++type Stats = (u64, u64, u64, usize);
++
++thread_local! {
++    static MAP: RefCell<std::collections::HashMap<(u32, i64), Val>> =
++        RefCell::new(std::collections::HashMap::new());
++    static STATS: RefCell<Stats> = const { RefCell::new((0, 0, 0, 0)) };
++}
++
++/// Enabled by `ES_MEMO`; read once so the off path pays one load.
++pub fn on() -> bool {
++    static E: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_MEMO").is_ok_and(|v| !v.is_empty() && v != "0"));
++    *E
++}
++
++#[inline]
++pub fn get(j: usize, t: Tick) -> Option<Val> {
++    MAP.with(|m| m.borrow().get(&(j as u32, t)).copied())
++}
++
++// ---- an opt-in timer for `state_of`'s two paths (ES_STATEOF_T=1): attribution only ----
++// The clean timing arms run without it; this exists to price the read term itself.
++
++fn timing() -> bool {
++    static E: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_STATEOF_T").is_ok_and(|v| !v.is_empty() && v != "0"));
++    *E
++}
++
++thread_local! {
++    static TSTATE: RefCell<(u64, u64, u64, u64)> = const { RefCell::new((0, 0, 0, 0)) }; // hit_ns, hits, miss_ns, misses
++}
++
++pub struct Tic(Option<std::time::Instant>);
++
++#[inline]
++pub fn tic() -> Tic {
++    Tic(if timing() { Some(std::time::Instant::now()) } else { None })
++}
++
++#[inline]
++pub fn toc(t: Tic, hit: bool) {
++    if let Some(i) = t.0 {
++        let ns = i.elapsed().as_nanos() as u64;
++        TSTATE.with(|s| {
++            let mut s = s.borrow_mut();
++            if hit { s.0 += ns; s.1 += 1 } else { s.2 += ns; s.3 += 1 }
++        });
++    }
++}
++
++/// Print the read term's own wall: ns and calls on the hit and miss paths.
++pub fn report_timing() {
++    if !timing() {
++        return;
++    }
++    let (hns, h, mns, m) = TSTATE.with(|s| *s.borrow());
++    println!(
++        "stateof_t: hit_ns {hns} hits {h} ({:.0} ns/call) miss_ns {mns} misses {m} ({:.0} ns/call)",
++        if h > 0 { hns / h } else { 0 },
++        if m > 0 { mns / m } else { 0 }
++    );
++}
++
++#[inline]
++pub fn put(j: usize, t: Tick, v: Val) {
++    MAP.with(|m| m.borrow_mut().insert((j as u32, t), v));
++}
++
++#[inline]
++pub fn count(hit: bool) {
++    STATS.with(|s| {
++        let mut s = s.borrow_mut();
++        if hit { s.0 += 1 } else { s.1 += 1 }
++    });
++}
++
++/// One `advance` begins: drop the memo and keep the high-water mark of live keys.
++pub fn clear() {
++    if !on() {
++        return;
++    }
++    let live = MAP.with(|m| {
++        let mut m = m.borrow_mut();
++        let n = m.len();
++        m.clear();
++        n
++    });
++    STATS.with(|s| {
++        let mut s = s.borrow_mut();
++        s.2 += 1;
++        s.3 = s.3.max(live);
++    });
++}
++
++/// Print the flight's totals: hits, misses, hit rate, clears, the largest live key set.
++pub fn report() {
++    if !on() || !std::env::var("ES_MEMO_STATS").is_ok_and(|v| !v.is_empty()) {
++        return;
++    }
++    let (hits, misses, clears, max_live) = STATS.with(|s| *s.borrow());
++    let live = MAP.with(|m| m.borrow().len());
++    println!(
++        "memo: hits {hits} misses {misses} hit_frac {:.4} clears {clears} max_live_keys {max_live} live_now {live}",
++        hits as f64 / (hits + misses).max(1) as f64
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..852b363d 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -982,6 +982,8 @@ impl Universe {
+ 
+     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
+     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
++        crate::census::pass();
++        crate::memo::clear();
+         self.target = target;
+         self.rekey();
+         let start = self.resolved;

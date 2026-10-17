@@ -1,0 +1,41 @@
+== 1. build (patched: memo + census + timer, Linux nladder link) ==
+== 2. digest control: memo OFF vs ON, 3 cases x 4 schedules ==
+-- coast through off --
+N=3000 coast through the wave | d2632de90255f5c10de9fd7372a3790d | kicks  34537 encounters    934 contacts   0 | 4 schedules agree  [22.4 s]
+-- coast through memo --
+N=3000 coast through the wave | d2632de90255f5c10de9fd7372a3790d | kicks  34537 encounters    934 contacts   0 | 4 schedules agree  [21.3 s]
+-- belt crossing off --
+N=3000 belt crossing L10     | 4995f38448103cc20232d292eb40a84b | kicks  40106 encounters    789 contacts   0 | 4 schedules agree  [18.2 s]
+-- belt crossing memo --
+N=3000 belt crossing L10     | 4995f38448103cc20232d292eb40a84b | kicks  40106 encounters    789 contacts   0 | 4 schedules agree  [16.9 s]
+-- key mashing off --
+N=3000 key mashing           | 253d8aed3c9469679b97dbc7a6738b54 | kicks   4723 encounters   8891 contacts   0 | 4 schedules agree  [11.4 s]
+-- key mashing memo --
+N=3000 key mashing           | 253d8aed3c9469679b97dbc7a6738b54 | kicks   4723 encounters   8891 contacts   0 | 4 schedules agree  [11.2 s]
+== 3. timing matrix ==
+done
+== 4. read-term attribution (timer-instrumented, attribution only) ==
+== off ==
+ladder: n=10000 bodies=10028 flight=coast rtf=600 frames=3600 build_s=0.42 foot_build_mb=0 foot_end_mb=0 b_per_body=0 p50_ms=1.206 p99_ms=9.968 max_ms=11.943 over=0 lag_s=4.231 kicks_per_body_gs=1.844e-4 events_per_body_gs=3.721e-4 refusals=0 dead=0 held_max=7 view_ms=199.6 truncated=false wall_s=8.2
+stateof_t: hit_ns 0 hits 0 (0 ns/call) miss_ns 1079079662 misses 319905 (3373 ns/call)
+== on ==
+ladder: n=10000 bodies=10028 flight=coast rtf=600 frames=3600 build_s=0.33 foot_build_mb=0 foot_end_mb=0 b_per_body=0 p50_ms=1.103 p99_ms=9.612 max_ms=11.947 over=0 lag_s=0.000 kicks_per_body_gs=1.844e-4 events_per_body_gs=3.721e-4 refusals=0 dead=0 held_max=7 view_ms=103.7 truncated=false wall_s=7.4
+stateof_t: hit_ns 15303195 hits 222832 (68 ns/call) miss_ns 341630864 misses 97040 (3520 ns/call)
+memo: hits 222832 misses 97040 hit_frac 0.6966 clears 3600 max_live_keys 728 live_now 60389
+== 5. census matrix (comb-scale canonical-tick error) ==
+census:   L1274184655 j0 passes single_tick 12 multi_tick 137 | canonical-tick rel-err p50 6.77e-6 p90 8.45e-6 p99 5.74e-5 max 3.78e-3 | pass tick-span p50 1.95e6 p99 1.38e7 max 1.22e9 (game s 9.61..5994.39)
+census:   L1274184655 j1 passes single_tick 13 multi_tick 137 | canonical-tick rel-err p50 1.66e-6 p90 2.08e-6 p99 1.41e-5 max 9.31e-4 | pass tick-span p50 1.95e6 p99 1.38e7 max 1.22e9 (game s 9.61..5994.39)
+census:   L1274184655 j2 passes single_tick 13 multi_tick 137 | canonical-tick rel-err p50 1.33e-7 p90 1.66e-7 p99 1.13e-6 max 7.44e-5 | pass tick-span p50 1.95e6 p99 1.38e7 max 1.22e9 (game s 9.61..5994.39)
+census:   L1274184655 j3 passes single_tick 3392 multi_tick 96 | canonical-tick rel-err p50 1.41e-5 p90 1.41e-5 p99 2.12e-5 max 2.43e-5 | pass tick-span p50 1.05e6 p99 1.57e6 max 1.80e6 (game s 5.16..8.88)
+census:   L1274184659 j1 passes single_tick 3391 multi_tick 93 | canonical-tick rel-err p50 1.09e-6 p90 1.09e-6 p99 1.36e-6 max 1.87e-6 | pass tick-span p50 1.05e6 p99 1.31e6 max 1.80e6 (game s 5.16..8.88)
+census:   L1274184655 j0 passes single_tick 296 multi_tick 137 | canonical-tick rel-err p50 6.81e-6 p90 8.36e-6 p99 4.14e-5 max 5.92e-3 | pass tick-span p50 1.93e6 p99 9.95e6 max 1.41e9 (game s 9.52..6927.21)
+census:   L1274184655 j1 passes single_tick 297 multi_tick 137 | canonical-tick rel-err p50 1.68e-6 p90 2.06e-6 p99 1.02e-5 max 1.46e-3 | pass tick-span p50 1.93e6 p99 9.95e6 max 1.41e9 (game s 9.52..6927.21)
+census:   L1274184655 j2 passes single_tick 297 multi_tick 137 | canonical-tick rel-err p50 1.34e-7 p90 1.64e-7 p99 8.12e-7 max 1.17e-4 | pass tick-span p50 1.93e6 p99 9.95e6 max 1.41e9 (game s 9.52..6927.21)
+census:   L1274184655 j3 passes single_tick 1881 multi_tick 214 | canonical-tick rel-err p50 1.41e-5 p90 2.48e-5 p99 2.65e-5 max 2.74e-5 | pass tick-span p50 1.05e6 p99 1.97e6 max 2.03e6 (game s 5.16..10.01)
+census:   L1274184659 j1 passes single_tick 1881 multi_tick 210 | canonical-tick rel-err p50 1.09e-6 p90 1.91e-6 p99 2.04e-6 max 2.04e-6 | pass tick-span p50 1.05e6 p99 1.97e6 max 2.03e6 (game s 5.16..10.01)
+census:   L1274184655 j0 passes single_tick 3 multi_tick 509 | canonical-tick rel-err p50 3.13e-4 p90 5.44e-4 p99 6.91e-4 max 1.26e-2 | pass tick-span p50 9.32e7 p99 1.70e8 max 3.48e9 (game s 458.86..17141.51)
+census:   L1274184655 j1 passes single_tick 4 multi_tick 509 | canonical-tick rel-err p50 7.70e-5 p90 1.34e-4 p99 1.70e-4 max 3.10e-3 | pass tick-span p50 9.32e7 p99 1.70e8 max 3.48e9 (game s 458.86..17141.51)
+census:   L1274184655 j2 passes single_tick 4 multi_tick 509 | canonical-tick rel-err p50 6.15e-6 p90 1.07e-5 p99 1.36e-5 max 2.47e-4 | pass tick-span p50 9.32e7 p99 1.70e8 max 3.48e9 (game s 458.86..17141.51)
+census:   L1274184655 j3 passes single_tick 3207 multi_tick 92 | canonical-tick rel-err p50 1.41e-5 p90 1.41e-5 p99 2.12e-5 max 2.12e-5 | pass tick-span p50 1.05e6 p99 1.57e6 max 1.57e6 (game s 5.16..7.75)
+census:   L1274184659 j1 passes single_tick 3203 multi_tick 90 | canonical-tick rel-err p50 1.09e-6 p90 1.09e-6 p99 1.09e-6 max 1.36e-6 | pass tick-span p50 1.05e6 p99 1.05e6 max 1.31e6 (game s 5.16..6.46)
+done
