@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place (predictions.md written pre-run, dossier, executable regen.sh, folded wiki page; the test file is the patch). Final verification ran green: 3/3 tests, digests printed per scene, grep control confirmed zero callers of the plane catalogue's `get`.
+
+**Claim:** the plane's compiled-trajectory catalogue is a cache pretending to be state — its entries are a pure function of an intern key it already holds, nothing queries it, and the digest ignores slot ids — so one structure (key → shared compile, then eviction) deletes the co-orbital standing duplication (measured 513 entries standing for 2 distinct keys, 99.6%, against a 513/513 distinct-orbit control and 0.4% on the belt), the creation compile for program births on shared orbits (16.4 µs/ship), and the dead-body entries, while the kick-CPU memo stays dead (memo.rs).

@@ -1,0 +1,20 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.86s
+     Running tests/cache_duty.rs (/home/glmlab/lab-target-3/release/deps/cache_duty-bfaa82329ba0dd73)
+
+running 3 tests
+test a_co_orbital_formation_mints_one_entry_per_ship_for_one_key ... formation: build 8.445626ms (16495 ns/ship), 513 live bindings, 513 standing entries, 2 distinct keys
+formation after 0.5 s at rtf 100: 1 live, 513 standing, 1 distinct, kicks 0, digest 94c1792b265dc3bf3612b609545170447d279e6c3b870b28269d7a15d8e8bde6
+ok
+test a_distinct_orbit_scatter_shares_nothing ... scatter: build 5.75225ms (11235 ns/ship), 513 live, 513 standing, 513 distinct
+scatter after 0.5 s at rtf 100: 513 live, 513 standing, 513 distinct, kicks 0, digest c2e2b9225031b1b45221e9c6ea13613dea834406656f7f716e97a31490686288
+ok
+test the_plane_and_its_belt_stand_one_entry_per_live_binding ... plane: 38 live, 39 standing, 38 distinct, kicks 14, digest 153c6b3929e812b7582eda69dbed9226a6c4a4dd7613cf8391d4ea862c12e169
+belt(2000): fly 444.546885ms, 2036 live, 2044 standing, 2036 distinct, kicks 2550, digest 748f46ed4d488416d80662c1ec411fab647d40a98572960e3243ede69c56dae3
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+---
+grep control (callers of the plane catalogue's get, expect none outside bind.rs):
+none

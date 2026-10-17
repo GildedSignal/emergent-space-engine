@@ -1,0 +1,208 @@
+diff --git a/crates/universe/tests/cache_duty.rs b/crates/universe/tests/cache_duty.rs
+new file mode 100644
+index 00000000..91b4ed07
+--- /dev/null
++++ b/crates/universe/tests/cache_duty.rs
+@@ -0,0 +1,98 @@
++//! The compiled-trajectory catalogue's duplication and duty, on shipped code.
++//!
++//! Three facts from reading, to be priced here by measurement:
++//! 1. `Entry` is a pure function of its intern key (doll unit, `OrbitKey`, sense): `Orbit::compile(key)`
++//!    is deterministic integer code, so two bindings with the same key hold identical bytes.
++//! 2. The plane's `Catalogue` mints one entry per binding and never dedups (`crates/space`'s own
++//!    catalogue interns by `(OrbitKey, bool, Option<Scalar>)`; the plane's fork kept the free list and
++//!    dropped the intern).
++//! 3. Nothing reads through the catalogue: every reader holds the `Arc<Entry>` in the `Binding`, and the
++//!    digest leaves slot ids out (ties.rs), so sharing entries cannot change a bit.
++//!
++//! What this measures: how many standing entries are exact duplicates (the intern's deletion), at what
++//! compile price (creation wall time per body), on a co-orbital formation (cae7's control), a
++//! distinct-orbit scatter (the belt's shape: no gain, by prediction), and the flown plane.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane, plane_extra, restricted, AU};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::collections::HashSet;
++use std::time::Instant;
++
++/// Standing catalogue entries, distinct intern keys among live bindings, and live bindings carrying a
++/// compiled cycle. A binding whose trajectory has no key (a plunge) counts as distinct by construction.
++fn census(u: &emergent_universe::Universe) -> (usize, usize, usize) {
++    let mut keys = HashSet::new();
++    let mut plunges = 0usize;
++    let mut live = 0usize;
++    for i in 0..u.n_bodies() {
++        let rec = u.rec(i);
++        if !rec.alive {
++            continue;
++        }
++        live += 1;
++        if let Some(k) = rec.b.entry.trajectory.key() {
++            keys.insert((rec.b.doll, rec.b.entry.unit.mu, rec.b.entry.clockwise, k));
++        } else {
++            plunges += 1; // a plunge holds no shape key: never shared
++        }
++    }
++    (u.catalogue_live(), keys.len() + plunges, live)
++}
++
++fn fly(u: &mut emergent_universe::Universe, seconds: f64, rtf: f64) {
++    u.start().unwrap();
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    while u.now < cut {
++        u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), cut);
++    }
++    u.settle(cut);
++}
++
++/// 512 ships on one circular orbit (the co-orbital formation: one exact (E, L), 512 phases).
++#[test]
++fn a_co_orbital_formation_mints_one_entry_per_ship_for_one_key() {
++    let ships: Vec<(i64, u32)> = (0..512u32).map(|k| (50_000, k * 8_388_608)).collect();
++    let t0 = Instant::now();
++    let mut w = restricted(-10, 5 * AU, 47_400, &ships, 1).unwrap();
++    let build = t0.elapsed();
++    let (standing, distinct, live) = census(&w.u);
++    println!("formation: build {:?} ({:.0} ns/ship), {live} live bindings, {standing} standing entries, {distinct} distinct keys", build, build.as_nanos() as f64 / 512.0);
++    fly(&mut w.u, 0.5, 100.0);
++    let (standing, distinct, live) = census(&w.u);
++    println!("formation after 0.5 s at rtf 100: {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", w.u.stats.kicks, w.u.digest());
++    assert!(standing > live / 2, "the shipped store mints per binding: {standing} entries for {live} bindings");
++    assert!(distinct <= 8, "one orbit, a planet and a moon: a handful of keys, not {distinct}");
++}
++
++/// 512 ships on 512 distinct orbits (the belt's shape): the intern's null control.
++#[test]
++fn a_distinct_orbit_scatter_shares_nothing() {
++    let ships: Vec<(i64, u32)> = (0..512u32).map(|k| (1_000_000 + (k as i64 % 512) * 600_000, k * 8_388_608)).collect();
++    let t0 = Instant::now();
++    let mut w = restricted(-10, 5 * AU, 47_400, &ships, 1).unwrap();
++    let build = t0.elapsed();
++    let (standing, distinct, live) = census(&w.u);
++    println!("scatter: build {:?} ({:.0} ns/ship), {live} live, {standing} standing, {distinct} distinct", build, build.as_nanos() as f64 / 512.0);
++    fly(&mut w.u, 0.5, 100.0);
++    let (standing, distinct, live) = census(&w.u);
++    println!("scatter after 0.5 s at rtf 100: {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", w.u.stats.kicks, w.u.digest());
++    assert!(standing >= distinct - 2, "distinct orbits: standing tracks distinct");
++}
++
++/// The flown plane with a ladder belt (distinct orbits at belt scale) and without.
++#[test]
++fn the_plane_and_its_belt_stand_one_entry_per_live_binding() {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++    fly(&mut p.u, 0.5, 100.0);
++    let (standing, distinct, live) = census(&p.u);
++    println!("plane: {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", p.u.stats.kicks, p.u.digest());
++
++    let mut b = plane_extra(Config::default(), 1, Order::Sparse, 1, 16, 2000).unwrap();
++    let t0 = Instant::now();
++    fly(&mut b.u, 0.5, 3000.0);
++    let flew = t0.elapsed();
++    let (standing, distinct, live) = census(&b.u);
++    println!("belt(2000): fly {:?}, {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", flew, b.u.stats.kicks, b.u.digest());
++    assert!(standing > 2000, "the belt mints per binding: {standing}");
++}
+diff --git a/crates/universe/tests/cache_duty.rs b/crates/universe/tests/cache_duty.rs
+new file mode 100644
+index 00000000..91b4ed07
+--- /dev/null
++++ b/crates/universe/tests/cache_duty.rs
+@@ -0,0 +1,98 @@
++//! The compiled-trajectory catalogue's duplication and duty, on shipped code.
++//!
++//! Three facts from reading, to be priced here by measurement:
++//! 1. `Entry` is a pure function of its intern key (doll unit, `OrbitKey`, sense): `Orbit::compile(key)`
++//!    is deterministic integer code, so two bindings with the same key hold identical bytes.
++//! 2. The plane's `Catalogue` mints one entry per binding and never dedups (`crates/space`'s own
++//!    catalogue interns by `(OrbitKey, bool, Option<Scalar>)`; the plane's fork kept the free list and
++//!    dropped the intern).
++//! 3. Nothing reads through the catalogue: every reader holds the `Arc<Entry>` in the `Binding`, and the
++//!    digest leaves slot ids out (ties.rs), so sharing entries cannot change a bit.
++//!
++//! What this measures: how many standing entries are exact duplicates (the intern's deletion), at what
++//! compile price (creation wall time per body), on a co-orbital formation (cae7's control), a
++//! distinct-orbit scatter (the belt's shape: no gain, by prediction), and the flown plane.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane, plane_extra, restricted, AU};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::collections::HashSet;
++use std::time::Instant;
++
++/// Standing catalogue entries, distinct intern keys among live bindings, and live bindings carrying a
++/// compiled cycle. A binding whose trajectory has no key (a plunge) counts as distinct by construction.
++fn census(u: &emergent_universe::Universe) -> (usize, usize, usize) {
++    let mut keys = HashSet::new();
++    let mut plunges = 0usize;
++    let mut live = 0usize;
++    for i in 0..u.n_bodies() {
++        let rec = u.rec(i);
++        if !rec.alive {
++            continue;
++        }
++        live += 1;
++        if let Some(k) = rec.b.entry.trajectory.key() {
++            keys.insert((rec.b.doll, rec.b.entry.unit.mu, rec.b.entry.clockwise, k));
++        } else {
++            plunges += 1; // a plunge holds no shape key: never shared
++        }
++    }
++    (u.catalogue_live(), keys.len() + plunges, live)
++}
++
++fn fly(u: &mut emergent_universe::Universe, seconds: f64, rtf: f64) {
++    u.start().unwrap();
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    while u.now < cut {
++        u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), cut);
++    }
++    u.settle(cut);
++}
++
++/// 512 ships on one circular orbit (the co-orbital formation: one exact (E, L), 512 phases).
++#[test]
++fn a_co_orbital_formation_mints_one_entry_per_ship_for_one_key() {
++    let ships: Vec<(i64, u32)> = (0..512u32).map(|k| (50_000, k * 8_388_608)).collect();
++    let t0 = Instant::now();
++    let mut w = restricted(-10, 5 * AU, 47_400, &ships, 1).unwrap();
++    let build = t0.elapsed();
++    let (standing, distinct, live) = census(&w.u);
++    println!("formation: build {:?} ({:.0} ns/ship), {live} live bindings, {standing} standing entries, {distinct} distinct keys", build, build.as_nanos() as f64 / 512.0);
++    fly(&mut w.u, 0.5, 100.0);
++    let (standing, distinct, live) = census(&w.u);
++    println!("formation after 0.5 s at rtf 100: {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", w.u.stats.kicks, w.u.digest());
++    assert!(standing > live / 2, "the shipped store mints per binding: {standing} entries for {live} bindings");
++    assert!(distinct <= 8, "one orbit, a planet and a moon: a handful of keys, not {distinct}");
++}
++
++/// 512 ships on 512 distinct orbits (the belt's shape): the intern's null control.
++#[test]
++fn a_distinct_orbit_scatter_shares_nothing() {
++    let ships: Vec<(i64, u32)> = (0..512u32).map(|k| (1_000_000 + (k as i64 % 512) * 600_000, k * 8_388_608)).collect();
++    let t0 = Instant::now();
++    let mut w = restricted(-10, 5 * AU, 47_400, &ships, 1).unwrap();
++    let build = t0.elapsed();
++    let (standing, distinct, live) = census(&w.u);
++    println!("scatter: build {:?} ({:.0} ns/ship), {live} live, {standing} standing, {distinct} distinct", build, build.as_nanos() as f64 / 512.0);
++    fly(&mut w.u, 0.5, 100.0);
++    let (standing, distinct, live) = census(&w.u);
++    println!("scatter after 0.5 s at rtf 100: {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", w.u.stats.kicks, w.u.digest());
++    assert!(standing >= distinct - 2, "distinct orbits: standing tracks distinct");
++}
++
++/// The flown plane with a ladder belt (distinct orbits at belt scale) and without.
++#[test]
++fn the_plane_and_its_belt_stand_one_entry_per_live_binding() {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++    fly(&mut p.u, 0.5, 100.0);
++    let (standing, distinct, live) = census(&p.u);
++    println!("plane: {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", p.u.stats.kicks, p.u.digest());
++
++    let mut b = plane_extra(Config::default(), 1, Order::Sparse, 1, 16, 2000).unwrap();
++    let t0 = Instant::now();
++    fly(&mut b.u, 0.5, 3000.0);
++    let flew = t0.elapsed();
++    let (standing, distinct, live) = census(&b.u);
++    println!("belt(2000): fly {:?}, {live} live, {standing} standing, {distinct} distinct, kicks {}, digest {}", flew, b.u.stats.kicks, b.u.digest());
++    assert!(standing > 2000, "the belt mints per binding: {standing}");
++}
