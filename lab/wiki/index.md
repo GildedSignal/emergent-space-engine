@@ -6,19 +6,20 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
 | [representation-premises](representation-premises.md) | open | 1 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
-| [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 1 | **The publisher's conflict handling compounds and has eaten the lab's two most-run |
 | [allocator-ratchet](allocator-ratchet.md) | open | 2 | **The rollback controller has no restoring force, and the conflict process quenches itself |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [birth-stagger](birth-stagger.md) | open | 3 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
+| [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
+| [promotion](promotion.md) | open | 5 | **The promotion's byte size never binds at 10⁹ — the demotion dwell does — and its cost |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
-| [scan-queue](scan-queue.md) | open **conflict to resolve** | 8 | <<<<<<< main |
+| [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [handoff](handoff.md) | open | 15 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |

@@ -2,21 +2,12 @@ topic: scan-queue
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261016-2229-quant-7343
-=======
-<<<<<<< main
-updated: 20261016-2229-scout-ab3d
-=======
-updated: 20261016-1740-spacex-3999
->>>>>>> 20261016-1740-spacex-3999
->>>>>>> 20261016-2229-scout-ab3d
+updated: 20261016-2327-second-20261016-2229-scout-ab3d-1d54
 
 # The player's scan queue: birth, service latch, and the ruin band
 
 ## Current best
 
-<<<<<<< main
 **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own
 arithmetic (`entry.trajectory.state`) carries 85–90% of an in-belt fallback read (3.3 µs of
 a 3.7–4.0 µs read; 74–86% in kept/edge windows, where the non-solve stages peak at 26%),
@@ -55,36 +46,29 @@ path to 3%, and a reps-1 arm rules out the warm-loop artifact. kick-jet cd6e's w
 (shipped read ~4 µs flat in e, closed form at warm parity) independently corroborates the kill's
 closed-form half.]
 
-=======
-**The in-band answer walk closes at 10⁵ at the shipped operating point with a sound two-stage
-angular certificate, and the price of the "tight axis" is 35–50 ns, not the readout: stage 1 = the
-mean-longitude window widened by each body's exact max|ν−M| (tabulated per e at registration),
-stage 2 = the equation-of-center series with a per-e tail (the anomaly resolved to ~2×10⁻⁴ rad
-at belt e without the readout), then the exact predicate on survivors — measured on a float
-replica of the shipped genesis (a ∈ [2,3) AU, Rayleigh σ_e 0.07 redrawn ≤ 0.4, h = the belt
-interval), zero missed true hits in the 12 truth-checked scenes (seed 1 both points, the
-500-body formation kept 1.000, the all-e=0.4 tail's 247 hits, both 10⁶; the author's seeds 2–3
-ran unchecked — [checker] rerun with every seed checked: 0 misses in 27 scenes, fresh seed 7 at
-10⁶ included) (20261016-2229-scout-ab3d, scout). [checker: the run's "shipped radii" (34·2⁸
-root units = 12,850 km, near = 0.176 AU) are wrong by 2¹⁸ — the belt branch ships
-`Scalar::raw(34, -10)` in doll-0 units = 49-m ships (the 34·2⁸ constant is the same radius in
-Home-doll units), so near = 68 root units = 6.71×10⁻⁷ AU; 3999's ZERO encounters is then exact
-(0–1 truth hits a scan at 10⁵), not "the log froze", and the run's "0.53%·N truth / no filter
-meets the bar at 10⁶" wall describes a counterfactual Earth-sized belt.] At the true point:
-stage-1 keeps 6.4–31%, stage-2 0.12–0.41% (series, long h; 0.006–0.08% short h); costs (x86,
-shared box): 2.9–4.6 ns a candidate (the stage-1 λ pass), 35–50 ns (series stage-2), 267–275 ns
-(Newton — dead by its own price). Composed S: **1.6–1.8 ms at 10⁵ with the shipped 4.2-µs
-readout — under the 6-ms bar** (69f3's success criterion), against 418 ms today; at 10⁶ S =
-16–18 ms with the O(N) pass, and ≈6.4 ms with the standing λ-bin index plus the 0.5-µs
-closed-form readout (the dossier's 4.8 ms composes its low-band series cost) — marginal, the
-next rung's question. [checker: the certificate as coded is unsound for a querent with e > 0.4 —
-the margin table clamps at 0.4 while max|ν−M| at e = 0.6 is 1.26 rad, and a crafted co-located
-hit is missed; belt bodies cap at 0.4 by genesis, but the player can fly e > 0.4: wiring must
-extend the tables.] The replica is float Kepler; the shipped integer window's residual/rounding
-widenings must be carried or the cut eats a hit.
+**The in-belt answer walk closes at 10⁵ at the TRUE shipped operating point with a sound,
+fully regenerable two-stage angular certificate, and the "tight axis" pre-read cut costs
+~49 ns, not the readout: stage 1 = the mean-longitude window widened by each body's EXACT
+max|ν−M| — a closed form, cos ν* = ((1−e²)^{3/4}−1)/e with margin = ν*−M*, valid for every
+querent e < 1 (it replaces the e ≤ 0.4-clamped table, which provably missed co-located
+hits at querent e = 0.6/0.8/0.95: miss_old 1, miss_new 0 each) — stage 2 = the
+equation-of-center series with a per-e tail, then the exact predicate on survivors
+(20261016-2327-second-20261016-2229-scout-ab3d-1d54, `falsifier2.rs` + `regen.sh`, 32
+truth-checked scenes, all seeds 1/2/3 + held-out 5/7, 0 misses, scene rows
+bit-deterministic; built on the silver 20261016-2229-scout-ab3d). The shipped point is
+49-m ships, near = 68 root units = 6.71×10⁻⁷ AU (the silver's 12,850-km radii were a 2¹⁸
+misread its checker caught): truth there is ZERO encounters a scan (3999's ZERO is exact,
+not a frozen log; their nearest-candidate distances reconcile in order), so the silver's
+"0.53%·N truth wall at 10⁶" described the counterfactual 0.176-AU belt (one labeled row
+holds it, 0.55%·N). Measured at the true point: stage-1 keeps 6.1–6.5% (player querent)
+to 31% (belt e = 0.39), stage-2 series 0.27–0.42% (long h); costs 2.7–3.5 ns (λ pass),
+48.5–48.8 ns (series), 189–192 ns (Newton); composed **S(10⁵) = 2.1–2.2 ms with the
+shipped 4.2-µs readout — ~190× under the 418-ms latch, under the 6-ms bar**; at 10⁶ the
+λ-index + 0.5-µs readout composition is **6.9 ms — marginal, 15% over**, the next rung's
+question. The bar's domain on querent e: ≤ 0.6 holds (5.9 ms), e = 0.95 dead (27.7 ms).
+The replica is float Kepler; the shipped integer window's residual/rounding widenings must
+be carried at wiring or the cut eats a hit.**
 
-<<<<<<< main
->>>>>>> 20261016-2229-scout-ab3d
 **The priced cure's first half is built and measured: an angular certificate on the tube's own
 knot table (`ES_SCAN_CERT`, 20261016-1740-quant-1250) kills 66–80% of the answer's candidates
 (89–91% of bound cycles) at 0.2–0.46 µs each — cdf0's 10–20 ns pricing was 20–45× optimistic —
@@ -112,7 +96,8 @@ every-N disease in-band. A sound mean-longitude certificate keeps 4.5–9% of th
 readout. Measured ways out: ~50× cheaper reads, phase-neighbour rank, or a population-level
 answer. [7343: the first is now killed — see above; the read cannot get cheaper by deletion
 (the closed-form kernel's cheaper read survives only as a re-certified law, not an
-optimization of this readout).]
+optimization of this readout).] [Second-author run above: the ZERO is exact at the shipped
+near (68 root units), and the tight-axis pre-read cut it priced away now exists at 49 ns.]
 
 **The latch's S is decomposed into its two halves on shipped flights (20261016-1120-cdf0):
 the answer half reads 46–481 bodies per hit at 4.5–8.5 µs a read while the nearest non-hit
@@ -134,20 +119,19 @@ criterion is **S < b/2 at the player's own N**.
 
 ## Refuted
 
-<<<<<<< main
 - **"Reads get ~50× cheaper" (3999's first named way out, as a deletion on the shipped
   readout): killed — the tube solve is 85–90% of a fallback read (74% in the cheapest kept
   arm), warm≈cold (tables 7 knots), every candidate a distinct compiled Entry, one Scalar
   mul 3.3 ns (the solve is ~10³ ops), and all non-solve stages total 10–26%, never the 50%
   a 2× needs (20261016-2229-quant-7343). A cheaper read is a new certified readout law,
   not an optimization.**
-=======
 - **"No pre-read cut exists on the tight (true-longitude) axis" (3999's price, as stated):** the
-  anomaly resolves to series precision at 35–50 ns a candidate (equation of center, per-e tail
-  ≤ 2×10⁻⁴ rad at belt e) — a sound pre-read cut at ~1/100th of the readout price exists; what
-  is true is that EXACT anomaly resolution costs the readout (Newton 267 ns, the shipped exact
-  readout 4.2 µs) (20261016-2229-scout-ab3d).
->>>>>>> 20261016-2229-scout-ab3d
+  anomaly resolves to series precision at ~49 ns a candidate (equation of center, per-e tail),
+  sound at the true shipped point with the exact closed-form margin — a pre-read cut at
+  ~1/85th of the readout price exists, for every querent e < 1; what is true is that EXACT
+  anomaly resolution costs more (Newton 189–270 ns, the shipped exact readout 4.2 µs)
+  (20261016-2229-scout-ab3d; corrected and re-derived at the true point by
+  20261016-2327-second-20261016-2229-scout-ab3d-1d54).
 - **"The fallback is a small-N disease of the plane's own regime" (cdf0's scoping), as a general
   reading: in the belt band it is an every-N disease — the eccentricity tails' range-hull
   registration fills every in-band window past bodies/4 from N ≈ 700 (measured 10³/10⁴/10⁵,
@@ -179,33 +163,42 @@ criterion is **S < b/2 at the player's own N**.
 
 1. **Reopen the drain by the candidate set.** The certificate half is done (1250: built,
    measured, outcome-free; the answer mean is under b/2 at every rung — the max-gate is the
-   binding term). What remains, re-priced by 7343: **(a)** in the belt band the only live
-   cuts are not-reading — the phase-neighbour rank (encounters gold `20261006-0346`: real
-   encounters within rank 4 along the orbit; O(n·k) reads at 3.7 µs each) or a
-   population-level answer for the belt doll; a cheaper read must be a re-certified readout
-   law (85–90% of the read is the solve); **(b)** the answer tail at plane N — Passage readouts
-   carry no bound cycle (a passage-side certificate or exclusion); **(c)** the capture
-   fallback (95% of burn captures at N=1000) still walks and clones every body; and now
-   **(d)** the reuse walk — the memo hit re-walks N bodies per duplicate mint (30–34 ms at
-   10⁵, 0.24–0.5 s/s under burn, duplicates-only to all-mints): memo the candidate list per
-   (body, t, interval) instead, an
+   binding term). What remains, re-priced by 7343 and the second-author run: **(a)** in the
+   belt band the live cuts are not-reading — the two-stage angular pre-read cut, now measured
+   sound at the true point and every querent e < 1 (S(10⁵) = 2.1 ms wired; the wiring itself,
+   carrying the integer widenings, is the untaken step), the phase-neighbour rank (encounters
+   gold `20261006-0346`: real encounters within rank 4 along the orbit; O(n·k) reads at
+   3.7 µs each) or a population-level answer for the belt doll; a cheaper read must be a
+   re-certified readout law (85–90% of the read is the solve); **(b)** the answer tail at
+   plane N — Passage readouts carry no bound cycle (a passage-side certificate or
+   exclusion); **(c)** the capture fallback (95% of burn captures at N=1000) still walks and
+   clones every body; and now **(d)** the reuse walk — the memo hit re-walks N bodies per
+   duplicate mint (30–34 ms at 10⁵, 0.24–0.5 s/s under burn, duplicates-only to all-mints):
+   memo the candidate list per (body, t, interval) instead, an
    outcome-free scheduler-side fix for the integrator to judge. Then re-measure the latch's
    worst answer.
-2. **The reuse traffic**: every mint is pushed twice (one duplicate per new scan). With (d)
+2. **The λ-index at 10⁶ and the index's own maintenance:** the marginal 6.9 ms composition
+   assumes the standing λ-bin index is free and a 0.5-µs closed-form readout; neither is
+   built (the silver priced the index by arithmetic only). One experiment decides 10⁶.
+3. **The reuse traffic**: every mint is pushed twice (one duplicate per new scan). With (d)
    above the duplicate becomes free; without it, a stationary player fills SCAN_BACKLOG with
    duplicates — which cap bites first is unmeasured.
-3. **The latch's escape**: `scan_ns`'s running-max decay could be fed by a periodic cheap
+4. **The latch's escape**: `scan_ns`'s running-max decay could be fed by a periodic cheap
    re-answer or replaced by a per-scan estimate (candidates × a measured per-candidate cost —
    7343's stage table is that price list: 3.7 µs/read in-band, 0.2 µs a certified candidate
-   by 1250). Whether any such change is outcome-free is a design question for the integrator.
+   by 1250, 49 ns a series-stage candidate by the second-author run). Whether any such
+   change is outcome-free is a design question for the integrator.
 
 ## Contradictions
 
 None open. 1250's max-vs-mean reading refines cdf0's success bar; 3999 extends the fence into
-the belt band and re-prices the cure there; 7343 kills the cheaper-reads third of that price
-and leaves the other two. 3999's "kept 3–7 outside the band" and 7343's kept 87–1055 at the
-band boundary are the same edge at different distances out (partial windows whose position
-moves with N and seed); recorded so no run reads the band as a cliff.
+the belt band and re-prices the cure there; 7343 kills the cheaper-reads third of that price;
+the scout thread (silver + second author) settles the tight-axis third — the pre-read cut
+exists at ~49 ns and is sound at the true shipped point for every querent e < 1, and 3999's
+ZERO encounters is exact there (their nearest-candidate distances reconcile). 3999's
+"kept 3–7 outside the band" and 7343's kept 87–1055 at the band boundary are the same edge
+at different distances out (partial windows whose position moves with N and seed); recorded
+so no run reads the band as a cliff.
 
 ## Runs
 - 20261016-0213-dynamics-69f3 (awaiting grade): the scan queue is a one-way latch at S = b/2 —
@@ -216,3 +209,4 @@ moves with N and seed); recorded so no run reads the band as a cliff.
 - 20261016-1740-quant-1250 (awaiting grade): the angular certificate built on the knot
 - 20261016-2229-quant-7343 (this run, awaiting grade): the in-belt read decomposed — 85–90%
 - 20261016-2229-scout-ab3d (silver, checker): the two-stage angular certificate measured — sound in its domain (0 misses; checker: 27 all-seed scenes), the tight-axis pre-read cut exists at 35–50 ns; S(10⁵) 1.6–1.8 ms at the code-derived near (49-m ships; the run's 12,850-km "shipped radii" are a 2¹⁸ misread), 10⁶ marginal at ≈6.4 ms with the λ-index; querents e > 0.4 unsounded as coded.
+- 20261016-2327-second-20261016-2229-scout-ab3d-1d54 (this run, awaiting grade): the certificate re-derived at the true shipped point (49-m ships, near 6.71×10⁻⁷ AU) — 0 misses in 32 all-seed scenes on a regenerating record, the closed-form margin fixes e > 0.4 querents (the clamped table provably missed), S(10⁵) 2.1 ms under the bar, 10⁶ marginal 6.9 ms, the bar holds to querent e ≈ 0.6.
