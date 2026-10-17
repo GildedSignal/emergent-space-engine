@@ -1,0 +1,28 @@
+# c_checked=3.16us/pair c_visit=0.15ns/pair (measured, this box)
+# interval=28141.5 gs wall@rtf100=281.4s split=8 budget=4.0 cores
+
+# Fleet term at N=1e+09, phi=1 (all bodies in fleets), sigma_e=1e-2, keys/uniform:
+#       F  reach   k_body | cores@8iv(visit) cores@8iv(checked) cores@per-kick(checked)
+#    1000  0.158     25.0 |           0.0017               35.1                    561
+#   10000  0.167    266.0 |           0.0177              373.4                   5974
+#  100000  0.197   3128.4 |           0.2084             4391.1                  70257
+
+# Cluster fleets (sigma_l=0.05 < reach): complete graph, quad_frac measured:
+#   F=  1000 quad_frac=0.9764 k_body=488 cores@8iv(checked)=685
+#   F= 10000 quad_frac=0.9831 k_body=4915 cores@8iv(checked)=6899
+#   F= 30000 quad_frac=0.9890 k_body=14835 cores@8iv(checked)=20823
+
+# Fit: max fleet size F* that keeps the fleet term within the 4-core budget
+# (every-8-interval full rebuilds, checked pairs, sigma_e=1e-2 keys):
+#   at F=  1000: k_body=25.0 -> F* ~ 114
+#   at F= 10000: k_body=266.0 -> F* ~ 107
+#   at F=100000: k_body=3128.4 -> F* ~ 91
+
+# The contrast at F=400: events=60 rank_max=0 (the ANSWER is rank-0) vs mean_k_paid=16.6, max_k_paid=17 (the SEARCH)
+#   checked pairs per real event: 55
+#   exact evals per real event:   115
+
+# Refused train fallback (F=1000, da=1e-2, H=100): tree tier cand=479562 (= 96% of the complete graph), exact_evals=1887677, 1.597s
+
+# Per-member-event unit (incremental re-window of the kicked body), F=1e4 keys:
+#   266 checked pairs x 3.16us = 0.84 ms per member event, vs the stream's own ~50us/event anchor: 17x

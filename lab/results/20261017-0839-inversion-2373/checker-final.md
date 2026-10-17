@@ -1,0 +1,9 @@
+Working...
+Check complete. **`Grade: silver`** — written to `lab/results/20261017-0839-inversion-2373/check.md`, author's page corrected in place, tree left clean (patch reverted, my probe example removed, nothing committed).
+
+**What I verified:**
+
+- **Reproduction:** applied `work/patch.diff` in a clean tree, rebuilt, ran. Every deterministic field of `fleetk.jsonl` reproduces **bit-identically** at seed 20261017; only timing varies (c_checked 3.16–3.76 µs across my runs, the fixer's, and regen — disclosed box noise). The composed cores (36/383/4,500 at F=10³/10⁴/10⁵; F*≈100) recompute exactly, and all cited ledger constants check against the wiki pages.
+- **Predictions:** written before the run (timestamps 08:52 vs dossier 08:56); 6/9 bands hit with the 3 misses disclosed; on my two fresh seeds **all bands hold**; the author's own suggested checker arm hits mean_k dead on (2798/2806 in [2800,3400]); rank_max=0 replicates at 4 seeds.
+- **Attacks:** σ_e=1e-3 confirms F*∝1/σ_e; F=10⁶ extends k∝F·√ln F; ρ-dial is 0.6% exactly. The decisive one: a **coherent-shape fleet** (identical e, pom — the population the author's instrument cannot draw) pays mean_k **0.38**, flat in horizon — "quadratic for every fleet with radial scatter" is wrong as worded; the driver is *shape* dispersion.
+- **Why silver, not gold:** the mechanism is prior art on the coorbital-cert page (74a1/4ec3: Θ(n²) at zero encounters on this same build; 5ffb: 0.19–0.45·n² pairs; c5ab/a110: k∝n·σe) — none cited, and "k never priced" is false on the record. What stands as new: the closed-form law on three decades, H*≈P_syn/2 with the priced tree fallback, and the 10⁹ composition proving the current ledger's "encounters closed at 0.03–0.6" is void for the goal's own population. The gold experiment: measure the run's own fix (birth-constant keys capability + `dioph.rs` first-hit) composed at 10⁹.

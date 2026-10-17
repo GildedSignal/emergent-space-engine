@@ -1,0 +1,72 @@
+   Compiling emergent-encounters v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/encounters)
+warning: unused variable: `k`
+   --> crates/encounters/examples/fleetk.rs:142:31
+    |
+142 |                 .filter_map(|(k, xk)| {
+    |                               ^ help: if this is intentional, prefix it with an underscore: `_k`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-encounters` (example "fleetk") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.37s
+# c_checked=3.16us/pair c_visit=0.15ns/pair (measured, this box)
+# interval=28141.5 gs wall@rtf100=281.4s split=8 budget=4.0 cores
+
+# Fleet term at N=1e+09, phi=1 (all bodies in fleets), sigma_e=1e-2, keys/uniform:
+#       F  reach   k_body | cores@8iv(visit) cores@8iv(checked) cores@per-kick(checked)
+#    1000  0.158     25.0 |           0.0017               35.1                    561
+#   10000  0.167    266.0 |           0.0177              373.4                   5974
+#  100000  0.197   3128.4 |           0.2084             4391.1                  70257
+
+# Cluster fleets (sigma_l=0.05 < reach): complete graph, quad_frac measured:
+#   F=  1000 quad_frac=0.9764 k_body=488 cores@8iv(checked)=685
+#   F= 10000 quad_frac=0.9831 k_body=4915 cores@8iv(checked)=6899
+#   F= 30000 quad_frac=0.9890 k_body=14835 cores@8iv(checked)=20823
+
+# Fit: max fleet size F* that keeps the fleet term within the 4-core budget
+# (every-8-interval full rebuilds, checked pairs, sigma_e=1e-2 keys):
+#   at F=  1000: k_body=25.0 -> F* ~ 114
+#   at F= 10000: k_body=266.0 -> F* ~ 107
+#   at F=100000: k_body=3128.4 -> F* ~ 91
+
+# The contrast at F=400: events=60 rank_max=0 (the ANSWER is rank-0) vs mean_k_paid=16.6, max_k_paid=17 (the SEARCH)
+#   checked pairs per real event: 55
+#   exact evals per real event:   115
+
+# Refused train fallback (F=1000, da=1e-2, H=100): tree tier cand=479562 (= 96% of the complete graph), exact_evals=1887677, 1.597s
+
+# Per-member-event unit (incremental re-window of the kicked body), F=1e4 keys:
+#   266 checked pairs x 3.16us = 0.84 ms per member event, vs the stream's own ~50us/event anchor: 17x
+--- fleetk.jsonl ---
+{"seed":20261017}
+{"arm":"ring","n":10000,"h_orbits":1,"refused":false,"reach":0.0009,"pairs":10000,"pred_pairs":"1.500e4","mean_k":2.00,"max_k":1,"ns_per_pair":9.04,"quad_frac":0.000200}
+{"arm":"ring","n":100000,"h_orbits":1,"refused":false,"reach":0.0001,"pairs":100000,"pred_pairs":"1.500e5","mean_k":2.00,"max_k":1,"ns_per_pair":9.40,"quad_frac":0.000020}
+{"arm":"keys","n":1000,"h_orbits":1,"refused":false,"reach":0.1579,"pairs":24976,"pred_pairs":"2.513e4","mean_k":49.95,"max_k":38,"ns_per_pair":0.84,"quad_frac":0.050002}
+{"arm":"keys","n":10000,"h_orbits":1,"refused":false,"reach":0.1672,"pairs":2660189,"pred_pairs":"2.662e6","mean_k":532.04,"max_k":311,"ns_per_pair":0.08,"quad_frac":0.053209}
+{"arm":"keys","n":100000,"h_orbits":1,"refused":false,"reach":0.1966,"pairs":312839484,"pred_pairs":"3.129e8","mean_k":6256.79,"max_k":3271,"ns_per_pair":0.01,"quad_frac":0.062569}
+{"arm":"train","n":1000,"h_orbits":0.0078,"refused":false,"reach":0.1493,"pairs":23586,"pred_pairs":"2.376e4","mean_k":47.17,"max_k":36,"ns_per_pair":0.87,"quad_frac":0.047219}
+{"arm":"train","n":1000,"h_orbits":1,"refused":false,"reach":0.1497,"pairs":23667,"pred_pairs":"2.383e4","mean_k":47.33,"max_k":36,"ns_per_pair":0.88,"quad_frac":0.047381}
+{"arm":"train","n":1000,"h_orbits":10,"refused":false,"reach":0.1540,"pairs":24312,"pred_pairs":"2.451e4","mean_k":48.62,"max_k":36,"ns_per_pair":0.85,"quad_frac":0.048673}
+{"arm":"train","n":1000,"h_orbits":100,"refused":false,"reach":0.1964,"pairs":31077,"pred_pairs":"3.125e4","mean_k":62.15,"max_k":44,"ns_per_pair":0.65,"quad_frac":0.062216}
+{"arm":"train","n":10000,"h_orbits":0.0078,"refused":false,"reach":0.1639,"pairs":2608573,"pred_pairs":"2.608e6","mean_k":521.71,"max_k":317,"ns_per_pair":0.08,"quad_frac":0.052177}
+{"arm":"train","n":10000,"h_orbits":1,"refused":false,"reach":0.1643,"pairs":2615809,"pred_pairs":"2.615e6","mean_k":523.16,"max_k":317,"ns_per_pair":0.08,"quad_frac":0.052321}
+{"arm":"train","n":10000,"h_orbits":10,"refused":false,"reach":0.1686,"pairs":2682735,"pred_pairs":"2.683e6","mean_k":536.55,"max_k":321,"ns_per_pair":0.07,"quad_frac":0.053660}
+{"arm":"train","n":10000,"h_orbits":100,"refused":false,"reach":0.2110,"pairs":3355481,"pred_pairs":"3.358e6","mean_k":671.10,"max_k":398,"ns_per_pair":0.06,"quad_frac":0.067116}
+{"arm":"train","n":100000,"h_orbits":0.0078,"refused":false,"reach":0.1982,"pairs":315395604,"pred_pairs":"3.154e8","mean_k":6307.91,"max_k":3325,"ns_per_pair":0.01,"quad_frac":0.063080}
+{"arm":"train","n":100000,"h_orbits":1,"refused":false,"reach":0.1986,"pairs":316139502,"pred_pairs":"3.161e8","mean_k":6322.79,"max_k":3333,"ns_per_pair":0.01,"quad_frac":0.063229}
+{"arm":"train","n":100000,"h_orbits":10,"refused":false,"reach":0.2029,"pairs":322891467,"pred_pairs":"3.229e8","mean_k":6457.83,"max_k":3398,"ns_per_pair":0.01,"quad_frac":0.064579}
+{"arm":"train","n":100000,"h_orbits":100,"refused":false,"reach":0.2453,"pairs":390380174,"pred_pairs":"3.904e8","mean_k":7807.60,"max_k":4083,"ns_per_pair":0.01,"quad_frac":0.078077}
+{"arm":"train","n":1000,"h_orbits":10,"refused":false,"reach":0.1964,"pairs":31077,"pred_pairs":"3.125e4","mean_k":62.15,"max_k":44,"ns_per_pair":0.65,"quad_frac":0.062216}
+{"arm":"train","n":1000,"h_orbits":50,"refused":false,"reach":0.3847,"pairs":60949,"pred_pairs":"6.123e4","mean_k":121.90,"max_k":77,"ns_per_pair":0.34,"quad_frac":0.122020}
+{"arm":"train","n":1000,"h_orbits":100,"refused":false,"reach":0.6202,"pairs":98341,"pred_pairs":"9.870e4","mean_k":196.68,"max_k":116,"ns_per_pair":0.21,"quad_frac":0.196879}
+{"arm":"train","n":1000,"h_orbits":200,"refused":false,"reach":1.0911,"pairs":173093,"pred_pairs":"1.736e5","mean_k":346.19,"max_k":187,"ns_per_pair":0.12,"quad_frac":0.346533}
+{"arm":"train","n":1000,"h_orbits":10,"refused":false,"reach":0.6202,"pairs":98356,"pred_pairs":"9.871e4","mean_k":196.71,"max_k":116,"ns_per_pair":0.21,"quad_frac":0.196909}
+{"arm":"train","n":1000,"h_orbits":50,"refused":false,"reach":2.5038,"pairs":398010,"pred_pairs":"3.985e5","mean_k":796.02,"max_k":423,"ns_per_pair":0.06,"quad_frac":0.796817}
+{"arm":"train","n":1000,"h_orbits":100,"refused":true,"reach":4.8584,"pred_pairs":"7.732e5"}
+{"arm":"train","n":1000,"h_orbits":200,"refused":true,"reach":9.5674,"pred_pairs":"1.523e6"}
+{"arm":"clust","n":1000,"h_orbits":1,"refused":false,"reach":0.1579,"pairs":487709,"pred_pairs":"2.513e4","mean_k":975.42,"max_k":893,"ns_per_pair":0.02,"quad_frac":0.976394}
+{"arm":"clust","n":10000,"h_orbits":1,"refused":false,"reach":0.1656,"pairs":49150699,"pred_pairs":"2.636e6","mean_k":9830.14,"max_k":9031,"ns_per_pair":0.00,"quad_frac":0.983112}
+{"arm":"clust","n":30000,"h_orbits":1,"refused":false,"reach":0.1751,"pairs":445047480,"pred_pairs":"2.509e7","mean_k":29669.83,"max_k":27734,"ns_per_pair":0.00,"quad_frac":0.989027}
+{"arm":"event","n":400,"pairs_paid":3322,"mean_k_paid":16.6,"max_k_paid":17,"events":60,"rank_max":0,"rank_p90":0,"exact_evals":6908,"boundary_checks":6644}
+{"arm":"tree","n":1000,"h_orbits":100,"phase":false,"node_tests":1024,"leafpair_tests":496,"cand":479562,"exact_evals":1887677,"secs":1.597}
+{"arm":"time","n":5000,"pairs":666260,"visit_ns_per_pair":0.15,"checked_us_per_pair":3.160,"exact_evals":819125}

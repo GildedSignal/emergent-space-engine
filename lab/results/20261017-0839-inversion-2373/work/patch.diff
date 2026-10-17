@@ -1,0 +1,201 @@
+diff --git a/crates/encounters/examples/fleetk.rs b/crates/encounters/examples/fleetk.rs
+new file mode 100644
+index 00000000..cf233f87
+--- /dev/null
++++ b/crates/encounters/examples/fleetk.rs
+@@ -0,0 +1,195 @@
++//! The phase certificate's k, priced against fleet size, radial scatter and horizon.
++//! k is the conservative phase-window occupancy the shipped certificate PAYS (phase.rs),
++//! not the distance rank at a contact (taleb-09b5's gold property). One JSON per line.
++//!
++//! Arms:
++//!   keys   F bodies, one integer period (make_belt's "key"), Rayleigh e, uniform lambda
++//!   train  F bodies, a spread +-da/2, Rayleigh e, uniform lambda   (k grows with horizon)
++//!   clust  F bodies, one period, lambda clustered (sigma_l << window)
++//!   ring   control: uniform ring, fat rho (the shipped test's linear class)
++//!   event  keys fleet, group_events: real contacts + distance rank at contact vs paid k
++//!   time   visit-only and exact-checked ns per pair
++//!
++//! `fleetk [seed]` (default 20261017).
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::phase::{group_events, Neighbours};
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++fn gauss(rng: &mut Rng) -> f64 {
++    (rng.f64() + rng.f64() + rng.f64() + rng.f64() + rng.f64() + rng.f64() - 3.0) * 2.0_f64.sqrt()
++}
++
++/// `da = 0` gives one exact integer period (the fleet's "key"); else uniform in 1 +- da/2.
++/// `clust`: Some(sigma_l) clusters lambda around TAU/4 with that sigma.
++fn fleet(seed: u64, f: usize, da: f64, sig_e: f64, clust: Option<f64>) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..f)
++        .map(|_| {
++            let a = if da == 0.0 { 1.0 } else { 1.0 + da * (rng.f64() - 0.5) };
++            let u = rng.f64();
++            let e = (sig_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = TAU * rng.f64();
++            let lam = match clust {
++                Some(s) => (TAU / 4.0 + s * gauss(&mut rng)).rem_euclid(TAU),
++                None => TAU * rng.f64(),
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++/// reach as phase.rs derives it (no shared-shape cancellation: pom varies).
++fn reach_of(b: &[Body], rho: f64, t1: f64) -> f64 {
++    let mut centre = 0.0_f64;
++    let mut rmin = f64::INFINITY;
++    let (mut nlo, mut nhi) = (f64::INFINITY, 0.0_f64);
++    for x in b {
++        centre = centre.max(x.e + 2.0 * (x.e / (1.0 + x.sq)).asin());
++        rmin = rmin.min(x.rmin());
++        nlo = nlo.min(x.n);
++        nhi = nhi.max(x.n);
++    }
++    let angular = 2.0 * (rho / (2.0 * rmin)).min(1.0).asin();
++    angular + 2.0 * centre + (nhi - nlo) * t1 * 0.5
++}
++
++fn price(tag: &str, b: &[Body], rho: f64, h_orbits: f64) {
++    let t1 = h_orbits * TAU;
++    let n = b.len();
++    let reach = reach_of(b, rho, t1);
++    match Neighbours::new(b, rho, 0.0, t1) {
++        None => println!(
++            "{{\"arm\":\"{tag}\",\"n\":{n},\"h_orbits\":{h_orbits},\"refused\":true,\"reach\":{reach:.4},\"pred_pairs\":\"{}\"}}",
++            format!("{:.3e}", (n as f64) * (n as f64) * reach / TAU)
++        ),
++        Some(cert) => {
++            let t = Instant::now();
++            let (pairs, max_k) = cert.visit(|_, _| {});
++            let secs = t.elapsed().as_secs_f64();
++            println!(
++                "{{\"arm\":\"{tag}\",\"n\":{n},\"h_orbits\":{h_orbits},\"refused\":false,\"reach\":{reach:.4},\"pairs\":{pairs},\"pred_pairs\":\"{}\",\"mean_k\":{:.2},\"max_k\":{max_k},\"ns_per_pair\":{:.2},\"quad_frac\":{:.6}}}",
++                format!("{:.3e}", (n as f64) * (n as f64) * reach / TAU),
++                2.0 * pairs as f64 / n as f64,
++                if pairs > 0 { secs * 1e9 / pairs as f64 } else { 0.0 },
++                pairs as f64 / (n as f64 * (n as f64 - 1.0) / 2.0)
++            );
++        }
++    }
++}
++
++fn main() {
++    let seed = std::env::args().nth(1).map_or(20261017, |s| s.parse().unwrap());
++    println!("{{\"seed\":{seed}}}");
++    let rho = 1e-4_f64;
++
++    // ring control: the shipped test's linear class, rho = 1.5 TAU/n
++    for n in [10_000_usize, 100_000] {
++        let b: Vec<_> = (0..n)
++            .map(|i| Body::new(1.0, 0.0, 0.0, TAU * i as f64 / n as f64))
++            .collect();
++        price("ring", &b, 1.5 * TAU / n as f64, 1.0);
++    }
++
++    // keys fleets: one integer period, uniform lambda; k set by radial scatter alone
++    for f in [1_000_usize, 10_000, 100_000] {
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        price("keys", &b, rho, 1.0);
++    }
++
++    // trains: a-spread da; k grows with horizon until refusal
++    for (f, da) in [(1_000_usize, 1e-4_f64), (10_000, 1e-4), (100_000, 1e-4)] {
++        for h in [0.0078_f64, 1.0, 10.0, 100.0] {
++            let b = fleet(seed, f, da, 1e-2, None);
++            price("train", &b, rho, h);
++        }
++    }
++    for (f, da) in [(1_000_usize, 1e-3_f64), (1_000, 1e-2)] {
++        for h in [10.0_f64, 50.0, 100.0, 200.0] {
++            let b = fleet(seed, f, da, 1e-2, None);
++            price("train", &b, rho, h);
++        }
++    }
++
++    // clustered fleets: battle-group shape, sigma_l = 0.05
++    for f in [1_000_usize, 10_000, 30_000] {
++        let b = fleet(seed, f, 0.0, 1e-2, Some(0.05));
++        price("clust", &b, rho, 1.0);
++    }
++
++    // contacts: real events on a keys fleet; distance rank at contact vs the k paid
++    {
++        let f = 400_usize;
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        let t1 = 10.0 * TAU;
++        let cert = Neighbours::new(&b, rho, 0.0, t1).unwrap();
++        let (pairs, max_k) = cert.visit(|_, _| {});
++        let mut events = Vec::new();
++        let st = group_events(&b, rho, 0.0, t1, |i, j, t, d| events.push((i, j, t, d)));
++        let mut ranks = Vec::new();
++        for &(i, j, t, _d) in events.iter() {
++            let xi = b[i as usize].state(t);
++            let dj = {
++                let xj = b[j as usize].state(t);
++                (xi[0] - xj[0]).hypot(xi[1] - xj[1])
++            };
++            let rank = b
++                .iter()
++                .enumerate()
++                .filter(|&(k, _)| k != i as usize)
++                .filter_map(|(k, xk)| {
++                    let x = xk.state(t);
++                    let d = (xi[0] - x[0]).hypot(xi[1] - x[1]);
++                    (d < dj).then_some(d)
++                })
++                .count();
++            ranks.push(rank);
++        }
++        ranks.sort_unstable();
++        println!(
++            "{{\"arm\":\"event\",\"n\":{f},\"pairs_paid\":{pairs},\"mean_k_paid\":{:.1},\"max_k_paid\":{max_k},\"events\":{},\"rank_max\":{},\"rank_p90\":{},\"exact_evals\":{},\"boundary_checks\":{}}}",
++            2.0 * pairs as f64 / f as f64,
++            events.len(),
++            ranks.last().copied().unwrap_or(0),
++            ranks[(ranks.len() * 9 / 10).min(ranks.len().saturating_sub(1))],
++            st.exact.evals,
++            st.boundary_checks
++        );
++    }
++
++    // tree fallback: a refused train (reach >= pi) falls to the general tree tier
++    {
++        let f = 1_000_usize;
++        let b = fleet(seed, f, 1e-2, 1e-2, None);
++        let t1 = 100.0 * TAU;
++        let t = Instant::now();
++        let st = group_events(&b, rho, 0.0, t1, |_, _, _, _| {});
++        let secs = t.elapsed().as_secs_f64();
++        println!(
++            "{{\"arm\":\"tree\",\"n\":{f},\"h_orbits\":100,\"phase\":{},\"node_tests\":{},\"leafpair_tests\":{},\"cand\":{},\"exact_evals\":{},\"secs\":{:.3}}}",
++            st.phase, st.tree.node_tests, st.tree.leafpair_tests, st.tree.cand, st.exact.evals, secs
++        );
++    }
++
++    // timing: visit-only floor and the exact-checked cost, keys fleet F = 5000
++    {
++        let f = 5_000_usize;
++        let b = fleet(seed, f, 0.0, 1e-2, None);
++        let t1 = TAU;
++        let cert = Neighbours::new(&b, rho, 0.0, t1).unwrap();
++        let t = Instant::now();
++        let (pairs, _) = cert.visit(|_, _| {});
++        let visit_secs = t.elapsed().as_secs_f64();
++        let t = Instant::now();
++        let st = group_events(&b, rho, 0.0, t1, |_, _, _, _| {});
++        let checked_secs = t.elapsed().as_secs_f64();
++        println!(
++            "{{\"arm\":\"time\",\"n\":{f},\"pairs\":{pairs},\"visit_ns_per_pair\":{:.2},\"checked_us_per_pair\":{:.3},\"exact_evals\":{}}}",
++            visit_secs * 1e9 / pairs as f64,
++            checked_secs * 1e6 / pairs as f64,
++            st.exact.evals
++        );
++    }
++}
