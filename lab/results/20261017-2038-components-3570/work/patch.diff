@@ -1,0 +1,172 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..b65aa0ed 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,24 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++// lab patch 20261017-2038-components-3570: the Linux port of the same reading (VmRSS and
++// VmHWM from /proc/self/status; the M1's compressed pages have no Linux counterpart).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let text = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in text.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim().trim_end_matches(" kB").parse().unwrap_or(0) * 1024;
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim().trim_end_matches(" kB").parse().unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..53ea514b 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -45,6 +45,59 @@ use emergent_space::{
+     orbit::Scalar,
+ };
+ use std::sync::Arc;
++// ==== lab probe 20261017-2038-components-3570: print-only census of boundary/kick events (env BOUND_PROBE).
++// No behaviour change: reads state the resolver already computed and writes one line per event.
++use std::sync::atomic::{AtomicU64, Ordering as AOrd};
++pub fn probe_on() -> bool {
++    static P: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("BOUND_PROBE").is_ok());
++    *P
++}
++pub static PROBE_EVENTS: AtomicU64 = AtomicU64::new(0);
++thread_local! {
++    static PROBE_NOTE: std::cell::Cell<[i64; 6]> = const { std::cell::Cell::new([99; 6]) };
++}
++/// ceil(log2(a/b)) as the smallest k with a <= b·2^k; 99 when undefined.
++fn p2_class(a: Scalar, b: Scalar) -> i64 {
++    if a.is_zero() || b.is_zero() {
++        return 99;
++    }
++    for k in -60i64..=60 {
++        if let Ok(s) = b.scale(k as i32) {
++            if a <= s {
++                return k;
++            }
++        }
++    }
++    99
++}
++fn traj_class(t: &Trajectory) -> i64 {
++    match t {
++        Trajectory::Cycle(_) => 0,
++        Trajectory::Passage(_) => 1,
++        Trajectory::Plunge(_) => 2,
++        _ => 3,
++    }
++}
++fn kind_class(k: Kind) -> i64 {
++    match k {
++        Kind::Ship => 0,
++        Kind::Player => 1,
++        Kind::Planet => 2,
++        Kind::Moon => 3,
++    }
++}
++fn probe_note(b: &Binding, kind: Kind, r: Scalar, surface: Scalar, edge: Scalar) {
++    PROBE_NOTE.with(|c| {
++        c.set([
++            p2_class(r, surface),
++            p2_class(r, edge),
++            traj_class(&b.entry.trajectory),
++            kind_class(kind),
++            b.doll as i64,
++            0,
++        ])
++    });
++}
+ 
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+@@ -726,7 +779,10 @@ impl Work<'_, '_> {
+         let st = self.rec.b.readout(t)?;
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+-        if self.rec.kind != Kind::Planet && r < self.doll().surface {
++        if probe_on() {
++            probe_note(&self.rec.b, self.rec.kind, r, self.doll().surface, Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16));
++        }
++         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+@@ -759,7 +815,11 @@ impl Work<'_, '_> {
+         let st = self.rec.b.readout(t)?;
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+-        if self.rec.kind != Kind::Planet && r < self.doll().surface {
++        if probe_on() {
++            let edge = if d == 0 { Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) } else { self.doll().edge };
++            probe_note(&self.rec.b, self.rec.kind, r, self.doll().surface, edge);
++        }
++         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+@@ -829,8 +889,20 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+     let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+-    let t = item.t;
+     let h0 = w.rec.interval;
++    let t = item.t;
++    let probe = probe_on() && matches!(item.what, What::Boundary | What::Kick(_));
++    let p0 = probe.then(|| {
++        PROBE_EVENTS.fetch_add(1, AOrd::Relaxed);
++        (
++            std::time::Instant::now(),
++            w.rec.interval,
++            w.rec.step,
++            w.rec.plan.len(),
++            w.rec.alive,
++            w.rec.anchor,
++        )
++    });
+     let result = match item.what {
+         What::Kick(l) if w.rec.ext.is_some() => w.kick_clock(t, l),
+         What::Kick(l) => w.kick(t, l).map(|_| Resolved::Kick),
+@@ -861,6 +933,16 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
++    if probe {
++        let (t0, iv0, st0, pl0, alive0, _anchor0) = p0.expect("probe pair");
++        let n = PROBE_NOTE.with(|c| c.replace([99; 6]));
++        let what = if matches!(item.what, What::Boundary) { 'B' } else { 'K' };
++        eprintln!(
++            "EV {what} {t} {i} doll={} traj={} kind={} ms={} me={} iv0={} iv={} st0={} st={} pl0={} pl={} dead0={} dead={} ns={}",
++            n[4], n[2], n[3], n[0], n[1], iv0, w.rec.interval, st0, w.rec.step, pl0, w.rec.plan.len(),
++            u64::from(!alive0), u64::from(!w.rec.alive), t0.elapsed().as_nanos() as u64
++        );
++    }
+     Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
+ }
+ 

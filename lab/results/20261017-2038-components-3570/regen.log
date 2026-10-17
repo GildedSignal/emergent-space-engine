@@ -1,0 +1,160 @@
+patch already applied or tree dirty; continuing
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+warning: unreachable pattern
+  --> crates/universe/src/step.rs:78:9
+   |
+78 |         _ => 3,
+   |         ^ no value can reach this
+   |
+note: multiple earlier patterns match some of the same values
+  --> crates/universe/src/step.rs:78:9
+   |
+75 |         Trajectory::Cycle(_) => 0,
+   |         -------------------- matches some of the same values
+76 |         Trajectory::Passage(_) => 1,
+   |         ---------------------- matches some of the same values
+77 |         Trajectory::Plunge(_) => 2,
+   |         --------------------- matches some of the same values
+78 |         _ => 3,
+   |         ^ collectively making this unreachable
+   = note: `#[warn(unreachable_patterns)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.58s
+{
+ "events": 708348,
+ "boundaries": 348819,
+ "kicks": 359529,
+ "parity_B_over_K": 0.9702,
+ "boundary_noop_frac": 0.9992,
+ "boundary_dead": 0,
+ "boundary_step_change": 21,
+ "boundary_interval_change": 275,
+ "boundary_plan_grew": 290094,
+ "ms_hist": {
+  "1": 144981,
+  "2": 96793,
+  "3": 34205,
+  "4": 8407,
+  "5": 3414,
+  "6": 1751,
+  "7": 241,
+  "8": 391,
+  "9": 33612,
+  "10": 24998,
+  "11": 26
+ },
+ "me_hist": {
+  "-14": 10,
+  "-13": 96,
+  "-12": 47911,
+  "-11": 10694,
+  "-10": 19,
+  "-8": 1153,
+  "-7": 19289,
+  "-6": 167908,
+  "-5": 72449,
+  "-4": 18783,
+  "-3": 6181,
+  "-2": 2389,
+  "-1": 1480,
+  "0": 439,
+  "1": 18
+ },
+ "me_le_-4_frac": 0.9699,
+ "ms_le_1_frac": 0.4156,
+ "doll_hist": {
+  "0": 58730,
+  "2": 287784,
+  "3": 2305
+ },
+ "traj_hist": {
+  "0": 348150,
+  "1": 669
+ },
+ "boundary_wall": {
+  "n": 348819,
+  "p50_us": 17.76,
+  "p99_us": 30.92,
+  "mean_us": 16.61
+ },
+ "kick_wall": {
+  "n": 359529,
+  "p50_us": 35.31,
+  "p99_us": 68.03,
+  "mean_us": 39.42
+ },
+ "kick_over_boundary_p50": 1.99,
+ "news_frac": 0.0008,
+ "saved_us_per_game_s": 21.4,
+ "belt_cpu_saved_frac": 0.29
+}
+--- author's census (for comparison) ---
+{
+ "events": 336767,
+ "boundaries": 167609,
+ "kicks": 169158,
+ "parity_B_over_K": 0.9908,
+ "boundary_noop_frac": 0.9988,
+ "boundary_dead": 0,
+ "boundary_step_change": 15,
+ "boundary_interval_change": 196,
+ "boundary_plan_grew": 138468,
+ "ms_hist": {
+  "1": 69225,
+  "2": 45948,
+  "3": 16419,
+  "4": 4048,
+  "5": 1581,
+  "6": 822,
+  "7": 212,
+  "8": 229,
+  "9": 16800,
+  "10": 12315,
+  "11": 10
+ },
+ "me_hist": {
+  "-14": 5,
+  "-13": 19,
+  "-12": 23865,
+  "-11": 5247,
+  "-10": 7,
+  "-8": 547,
+  "-7": 9337,
+  "-6": 79945,
+  "-5": 34471,
+  "-4": 9018,
+  "-3": 2940,
+  "-2": 1135,
+  "-1": 720,
+  "0": 341,
+  "1": 12
+ },
+ "me_le_-4_frac": 0.9693,
+ "ms_le_1_frac": 0.413,
+ "doll_hist": {
+  "0": 29143,
+  "2": 137373,
+  "3": 1093
+ },
+ "traj_hist": {
+  "0": 167044,
+  "1": 565
+ },
+ "boundary_wall": {
+  "n": 167609,
+  "p50_us": 25.23,
+  "p99_us": 35.4,
+  "mean_us": 32.34
+ },
+ "kick_wall": {
+  "n": 169158,
+  "p50_us": 50.43,
+  "p99_us": 557.74,
+  "mean_us": 83.08
+ },
+ "kick_over_boundary_p50": 2.0,
+ "news_frac": 0.0012,
+ "saved_us_per_game_s": 20.1,
+ "belt_cpu_saved_frac": 0.278
+}
