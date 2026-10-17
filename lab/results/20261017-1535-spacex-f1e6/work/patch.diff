@@ -1,0 +1,257 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..6926c804 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,6 +14,7 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+@@ -21,13 +22,33 @@ extern "C" {
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        // Linux: the resident set and its high-water mark (not a compressed-footprint match; enough for MB orders).
++        let mut now = 0u64;
++        let mut peak = 0u64;
++        if let Ok(status) = std::fs::read_to_string("/proc/self/status") {
++            for line in status.lines() {
++                if let Some(v) = line.strip_prefix("VmRSS:") {
++                    now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++                if let Some(v) = line.strip_prefix("VmHWM:") {
++                    peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++            }
++        }
++        (now, peak)
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -160,4 +181,10 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    if let Some((hits, misses, entries)) = p.u.memo_stats() {
++        println!(
++            "memo: hits={hits} misses={misses} entries={entries} hit_rate={:.4}",
++            hits as f64 / (hits + misses).max(1) as f64
++        );
++    }
+ }
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..c44dc7f3 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -54,6 +54,88 @@ pub struct Ctx<'a> {
+     pub cfg: &'a Config,
+     /// Where each doll's bodies can be, by radius: who a scan must read.
+     pub radial: &'a crate::radial::Radial,
++    /// The lab arm `ES_MEMO=1`: a `(doll, tick, except)` memo on [`Ctx::secondaries`], invalidated when a
++    /// source of the doll rebinds ([`crate::universe::Universe::apply`], the one place a body's plan changes).
++    /// `None` on the default build: the engine is what it was.
++    pub memo: Option<&'a SecondaryMemo>,
++}
++
++/// The `secondaries` memo (lab arm `ES_MEMO`): what a doll's sources were at a tick, keyed
++/// `(doll, tick, except)` — `except` normalised to `usize::MAX` when the body is not itself a source
++/// of the doll, so test particles share entries. Each doll carries a generation a source's rebind
++/// advances, so a cached read can never cross a change of the field it cached; a miss tags its entry
++/// with the generation it read, so an insert racing a rebind is born stale and simply never hits.
++/// The map is dropped (never partially: entries carry no cross-tick meaning) at each frame and past
++/// `1 << 20` entries.
++pub struct SecondaryMemo {
++    inner: std::sync::Mutex<MemoInner>,
++    hits: std::sync::atomic::AtomicU64,
++    misses: std::sync::atomic::AtomicU64,
++}
++
++#[derive(Default)]
++struct MemoInner {
++    map: std::collections::HashMap<(u16, Tick, usize), (u64, std::sync::Arc<Vec<Secondary>>)>,
++    gens: Vec<u64>,
++}
++
++impl Default for SecondaryMemo {
++    fn default() -> Self {
++        Self { inner: std::sync::Mutex::new(MemoInner::default()), hits: 0.into(), misses: 0.into() }
++    }
++}
++
++impl SecondaryMemo {
++    /// (hits, misses, live entries).
++    pub fn stats(&self) -> (u64, u64, usize) {
++        let hits = self.hits.load(std::sync::atomic::Ordering::Relaxed);
++        let misses = self.misses.load(std::sync::atomic::Ordering::Relaxed);
++        (hits, misses, self.inner.lock().map(|i| i.map.len()).unwrap_or(0))
++    }
++    /// The generation the caller must tag its entry with, and the entry if one is live at it.
++    fn get(&self, d: u16, t: Tick, except: usize) -> (u64, Option<std::sync::Arc<Vec<Secondary>>>) {
++        let inner = match self.inner.lock() {
++            Ok(i) => i,
++            Err(e) => e.into_inner(),
++        };
++        let g = inner.gens.get(d as usize).copied().unwrap_or(0);
++        match inner.map.get(&(d, t, except)) {
++            Some((vg, v)) if *vg == g => {
++                self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                (g, Some(v.clone()))
++            }
++            _ => {
++                self.misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                (g, None)
++            }
++        }
++    }
++    fn put(&self, d: u16, t: Tick, except: usize, gen: u64, v: Vec<Secondary>) {
++        let mut inner = match self.inner.lock() {
++            Ok(i) => i,
++            Err(e) => e.into_inner(),
++        };
++        if inner.map.len() >= (1 << 20) {
++            inner.map.clear();
++        }
++        inner.map.insert((d, t, except), (gen, std::sync::Arc::new(v)));
++    }
++    /// One of doll `d`'s sources rebinds: every entry of the doll dies at once.
++    pub fn rebind(&self, d: u16) {
++        let mut inner = match self.inner.lock() {
++            Ok(i) => i,
++            Err(e) => e.into_inner(),
++        };
++        if inner.gens.len() <= d as usize {
++            inner.gens.resize(d as usize + 1, 0);
++        }
++        inner.gens[d as usize] += 1;
++    }
++    pub fn clear(&self) {
++        if let Ok(mut i) = self.inner.lock() {
++            i.map.clear();
++        }
++    }
+ }
+ 
+ impl Ctx<'_> {
+@@ -77,6 +159,22 @@ impl Ctx<'_> {
+ 
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++        if let Some(m) = self.memo {
++            // `except` only matters when the body is itself a source of the doll: normalise, so
++            // test particles (the belt) share one entry a tick.
++            let ex = if self.sources[d as usize].contains(&except) { except } else { usize::MAX };
++            let (g, hit) = m.get(d, t, ex);
++            if let Some(v) = hit {
++                return Ok((*v).clone());
++            }
++            let out = self.secondaries_uncached(d, t, except)?;
++            m.put(d, t, ex, g, out.clone());
++            return Ok(out);
++        }
++        self.secondaries_uncached(d, t, except)
++    }
++
++    fn secondaries_uncached(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
+         let mut out = Vec::new();
+         for &j in &self.sources[d as usize] {
+             if j == except {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..e3ea4e15 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -178,6 +178,8 @@ pub struct Universe {
+     observed: bool,
+     /// Where each doll's bodies can be, by radius ([`crate::radial`]): kept by [`Universe::apply`] and [`Universe::prune`].
+     radial: crate::radial::Radial,
++    /// The lab arm `ES_MEMO=1`: the `(doll, tick)` memo on [`crate::ctx::Ctx::secondaries`] (see there).
++    memo: Option<crate::ctx::SecondaryMemo>,
+     /// The bodies whose history holds more than one retired binding (the only ones [`Universe::prune`] can shorten), keyed by the
+     /// earliest tick it could: the end of the oldest one plus what is kept behind the present (twice the light distance, and a margin).
+     prunable: Calendar,
+@@ -253,6 +255,7 @@ impl Universe {
+             moved: 0,
+             observed: false,
+             radial: crate::radial::Radial::default(),
++            memo: std::env::var_os("ES_MEMO").is_some_and(|v| v != "0").then(crate::ctx::SecondaryMemo::default),
+             prunable: Calendar::new(0),
+             now: 0,
+             player: None,
+@@ -281,7 +284,11 @@ impl Universe {
+     }
+ 
+     pub fn ctx(&self) -> Ctx<'_> {
+-        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, memo: self.memo.as_ref() }
++    }
++    /// The memo's (hits, misses, live entries), when the lab arm `ES_MEMO` is on.
++    pub fn memo_stats(&self) -> Option<(u64, u64, usize)> {
++        self.memo.as_ref().map(|m| m.stats())
+     }
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+@@ -443,7 +450,7 @@ impl Universe {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+-        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }.tube_unit(i, spec.doll)?;
++        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, memo: self.memo.as_ref() }.tube_unit(i, spec.doll)?;
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+@@ -517,7 +524,7 @@ impl Universe {
+ 
+     /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+     fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+-        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }, &mut self.fleets)
++        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial, memo: self.memo.as_ref() }, &mut self.fleets)
+     }
+ 
+     /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
+@@ -659,6 +666,15 @@ impl Universe {
+         let t = upd.rec.b.event_time;
+         self.radial.note(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), &upd.rec.b);
+         self.bodies.put(i, upd.rec);
++        // The memo (lab arm `ES_MEMO`): this is the one place a body's plan changes, so a source's
++        // rebind kills its doll's cached fields here and nowhere else.
++        if let Some(m) = &self.memo {
++            for (d, src) in self.sources.iter().enumerate() {
++                if src.contains(&i) {
++                    m.rebind(d as u16);
++                }
++            }
++        }
+         if self.info[i].kind == Kind::Ship {
+             let next = self.bodies.next_time(i);
+             let _ = self.ship_ticks.set(i, next.map(Scalar::integer));
+@@ -1073,6 +1089,9 @@ impl Universe {
+     /// kick are what the view derives ([`crate::observe::held_thrust`]), and the player's own kicks, at the
+     /// thrust's canonical step, flush them into the state.
+     pub fn frame_to(&mut self, wall_dt: f64, rtf: f64, budget: Budget, limit: Tick) -> Frame {
++        if let Some(m) = &self.memo {
++            m.clear();
++        }
+         let want = (rtf * wall_dt / crate::view::TICK_SECONDS) as Tick;
+         let target = self.now.saturating_add(want.max(1)).min(limit.max(self.now));
+         // Histories older than every light cone the view can need are forgotten, every frame and inside its budget (before the
