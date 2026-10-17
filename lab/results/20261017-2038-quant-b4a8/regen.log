@@ -1,0 +1,14 @@
+build_s 0.69
+G0 belt 11700 (clock 11700 = 100.0%), locals 300 (clock 0), frame_ticks 338375
+G0 control aligned-residues: planets+moon 4/4 on grid, locals 300/300 on grid
+G0 genesis train: 11700 bodies, 11700 distinct first-kick ticks, largest battalion 1 (0.0% of belt), max/mean-per-distinct 1.0x
+G0 firsts per 338375-tick frame: bins 891 mean 13.1 max 65 p99 53 p99.9 60
+G0 belt steps: 11700 distinct; top [("2^32", 1), ("2^32", 1), ("2^32", 1), ("2^32", 1), ("2^32", 1), ("2^32", 1)]
+S1 settle to 20657453733 (3 steps span) in 20.21s: kicks 206554 boundaries 194155 handoffs 5 lost 8 refused 0
+S1 belt residues mod step: on-grid {0,S/2} 0 vs off-grid 11700 (of 11700)
+S1 battalions: 11700 distinct next ticks, largest 1 (0.0% of 11700 measured)
+S1 carried state: chain-predictable from genesis 0 , step-changed 11700 , phase-shifted same-step 0 , no-next 0
+S1 dues per 338375-tick frame: bins 7143 mean 1.64 max 17 (max/mean 10x) p99 9 (5x) p99.9 11
+S1 drift over 3 fires: |dstep|/step p50 2.55e-4 p99 7.77e-4 max 8.88e-4; phase error vs id-prediction p50 2857417851 p99 2938147205 max 2950314324 ticks (one frame = 338375 ticks)
+S1 control locals on-grid after settle: 300 ok 0 off
+total_wall_s 20.92

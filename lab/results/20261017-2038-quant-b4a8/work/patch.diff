@@ -1,0 +1,306 @@
+diff --git a/crates/universe/examples/calendar.rs b/crates/universe/examples/calendar.rs
+new file mode 100644
+index 00000000..51379d01
+--- /dev/null
++++ b/crates/universe/examples/calendar.rs
+@@ -0,0 +1,300 @@
++//! The calendar probe (run 20261017-2038-quant-b4a8): which schedule law each population of
++//! the shipped plane runs, the belt's fire-time battalions, and what a frame pays.
++//! Run: cargo run --release -p emergent-universe --example calendar
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config, Universe};
++
++const EXTRA: usize = 12_000;
++/// A 60 FPS frame at rtf 100, in ticks.
++const FRAME_TICKS: i64 = ((1.0 / 60.0) * 100.0 / TICK_SECONDS) as i64;
++
++#[derive(Clone, Copy)]
++struct Row {
++    id: usize,
++    doll: u16,
++    clock: bool,
++    step: i64,
++    next: i64,
++    anchor: i64,
++}
++
++fn census(u: &Universe, ids: &[usize]) -> Vec<Row> {
++    ids.iter()
++        .map(|&i| {
++            let r = u.rec(i);
++            Row {
++                id: i,
++                doll: r.b.doll,
++                clock: r.ext.is_some(),
++                step: r.step,
++                next: u.key_of(i).map(|(t, _)| t).unwrap_or(-1),
++                anchor: r.anchor,
++            }
++        })
++        .collect()
++}
++
++/// Histogram a set of ticks into bins of `w`; return (n_bins_touched, mean, max, p99, p999, at_max).
++fn windowed(ticks: &[i64], w: i64) -> (usize, f64, i64, i64, i64, i64) {
++    if ticks.is_empty() {
++        return (0, 0.0, 0, 0, 0, 0);
++    }
++    let lo = *ticks.iter().min().unwrap();
++    let hi = *ticks.iter().max().unwrap();
++    let nb = ((hi - lo) / w + 1) as usize;
++    let mut bins = vec![0i64; nb + 1];
++    for &t in ticks {
++        bins[((t - lo) / w) as usize] += 1;
++    }
++    let mut sorted = bins.clone();
++    sorted.sort_unstable();
++    let n = sorted.len();
++    let p = |q: f64| sorted[((n as f64 - 1.0) * q) as usize];
++    let max = *sorted.last().unwrap();
++    (nb, ticks.len() as f64 / nb as f64, max, p(0.99), p(0.999), max)
++}
++
++fn main() {
++    let t0 = std::time::Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 16, EXTRA).unwrap();
++    println!("build_s {:.2}", t0.elapsed().as_secs_f64());
++    let u = &mut p.u;
++    let ladder: Vec<usize> = p.ships[p.ships.len() - EXTRA..].to_vec();
++    let controls: Vec<usize> = p.planets.iter().copied().chain([p.moon]).collect();
++
++    // ---- G0: the genesis census ---------------------------------------------------------------
++    let g = census(u, &ladder);
++    let belt: Vec<Row> = g.iter().copied().filter(|r| r.doll == 0).collect();
++    let locals: Vec<Row> = g.iter().copied().filter(|r| r.doll != 0).collect();
++    let clock_belt = belt.iter().filter(|r| r.clock).count();
++    let clock_locals = locals.iter().filter(|r| r.clock).count();
++    println!(
++        "G0 belt {} (clock {} = {:.1}%), locals {} (clock {}), frame_ticks {}",
++        belt.len(),
++        clock_belt,
++        100.0 * clock_belt as f64 / belt.len().max(1) as f64,
++        locals.len(),
++        clock_locals,
++        FRAME_TICKS
++    );
++    // Control: the non-clock populations must sit exactly on the aligned grid (0 or step/2).
++    let mut ctrl_ok = 0;
++    let mut ctrl_bad = 0;
++    for &i in &controls {
++        let r = u.rec(i);
++        if let Some((t, _)) = u.key_of(i) {
++            let s = r.step;
++            if t.rem_euclid(s) == 0 || t.rem_euclid(s) == s / 2 {
++                ctrl_ok += 1;
++            } else {
++                ctrl_bad += 1;
++            }
++        }
++    }
++    let loc_clock_off = locals.iter().filter(|r| !r.clock).count();
++    let mut loc_ok = 0;
++    let mut loc_bad = 0;
++    for r in locals.iter().filter(|r| !r.clock) {
++        if r.next < 0 {
++            continue;
++        }
++        if r.next.rem_euclid(r.step) == 0 || r.next.rem_euclid(r.step) == r.step / 2 {
++            loc_ok += 1;
++        } else {
++            loc_bad += 1;
++        }
++    }
++    println!(
++        "G0 control aligned-residues: planets+moon {}/{} on grid, locals {}/{} on grid",
++        ctrl_ok,
++        ctrl_ok + ctrl_bad,
++        loc_ok,
++        loc_ok + loc_bad
++    );
++
++    // The genesis train: first-kick ticks of the clock-run belt.
++    let firsts: Vec<i64> = belt.iter().map(|r| r.next).filter(|&t| t >= 0).collect();
++    let (nb, mean, max, p99, p999, _) = windowed(&firsts, FRAME_TICKS);
++    // Battalions: exact shared first-kick ticks.
++    let mut by_tick: std::collections::HashMap<i64, usize> = std::collections::HashMap::new();
++    for &t in &firsts {
++        *by_tick.entry(t).or_insert(0) += 1;
++    }
++    let mut sizes: Vec<usize> = by_tick.values().copied().collect();
++    sizes.sort_unstable();
++    let distinct = sizes.len();
++    let largest = *sizes.last().unwrap_or(&0);
++    let spread = if distinct > 1 { *sizes.last().unwrap() as f64 / (firsts.len() as f64 / distinct as f64) } else { f64::INFINITY };
++    println!(
++        "G0 genesis train: {} bodies, {} distinct first-kick ticks, largest battalion {} ({:.1}% of belt), max/mean-per-distinct {:.1}x",
++        firsts.len(),
++        distinct,
++        largest,
++        100.0 * largest as f64 / firsts.len().max(1) as f64,
++        spread
++    );
++    println!(
++        "G0 firsts per {}-tick frame: bins {} mean {:.1} max {} p99 {} p99.9 {}",
++        FRAME_TICKS, nb, mean, max, p99, p999
++    );
++    // Steps at genesis.
++    let mut steps: std::collections::HashMap<i64, usize> = std::collections::HashMap::new();
++    for r in belt.iter() {
++        *steps.entry(r.step).or_insert(0) += 1;
++    }
++    let mut st: Vec<(i64, usize)> = steps.into_iter().collect();
++    st.sort_unstable();
++    println!(
++        "G0 belt steps: {} distinct; top {:?}",
++        st.len(),
++        st.iter().rev().take(6).map(|(s, n)| (format!("2^{}", s.ilog2()), *n)).collect::<Vec<_>>()
++    );
++
++    // ---- S1: settle past ~3 fire generations --------------------------------------------------
++    let s_max = belt.iter().map(|r| r.step).max().unwrap().max(1);
++    let first_max = firsts.iter().copied().max().unwrap_or(0);
++    let horizon = 3 * s_max + first_max;
++    let t1 = std::time::Instant::now();
++    u.settle(horizon);
++    println!(
++        "S1 settle to {} ({} steps span) in {:.2}s: kicks {} boundaries {} handoffs {} lost {} refused {}",
++        horizon,
++        3,
++        t1.elapsed().as_secs_f64(),
++        u.stats.kicks,
++        u.stats.boundaries,
++        u.stats.handoffs,
++        u.stats.lost,
++        u.stats.refused
++    );
++
++    let s = census(u, &ladder);
++    let sbelt: Vec<Row> = s.iter().copied().filter(|r| r.doll == 0).collect();
++    // (a) residues mod step: aligned signature {0, S/2} vs spread anchors.
++    let mut on_grid = 0;
++    let mut off_grid = 0;
++    let mut residues: Vec<i64> = Vec::new();
++    for r in sbelt.iter() {
++        if r.next < 0 || r.step <= 0 {
++            continue;
++        }
++        let res = r.next.rem_euclid(r.step);
++        residues.push(res);
++        if res == 0 || res == r.step / 2 {
++            on_grid += 1;
++        } else {
++            off_grid += 1;
++        }
++    }
++    println!(
++        "S1 belt residues mod step: on-grid {{0,S/2}} {} vs off-grid {} (of {})",
++        on_grid,
++        off_grid,
++        on_grid + off_grid
++    );
++    // (b) battalions after settle: shared exact next ticks.
++    let nexts: Vec<i64> = sbelt.iter().map(|r| r.next).filter(|&t| t >= 0).collect();
++    let mut by_tick2: std::collections::HashMap<i64, usize> = std::collections::HashMap::new();
++    for &t in &nexts {
++        *by_tick2.entry(t).or_insert(0) += 1;
++    }
++    let mut sizes2: Vec<usize> = by_tick2.values().copied().collect();
++    sizes2.sort_unstable();
++    let distinct2 = sizes2.len();
++    let largest2 = *sizes2.last().unwrap_or(&0);
++    println!(
++        "S1 battalions: {} distinct next ticks, largest {} ({:.1}% of {} measured)",
++        distinct2,
++        largest2,
++        100.0 * largest2 as f64 / nexts.len().max(1) as f64,
++        nexts.len()
++    );
++    // (c) the carried-state census: settled next vs the genesis chain prediction
++    // (id-derivable iff next == first + m * genesis_step for integer m, same step).
++    let gmap: std::collections::HashMap<usize, Row> = g.iter().map(|r| (r.id, *r)).collect();
++    let mut chain_ok = 0;
++    let mut step_changed = 0;
++    let mut phase_shifted = 0;
++    let mut dead = 0;
++    for r in sbelt.iter() {
++        let g0 = match gmap.get(&r.id) {
++            Some(x) => *x,
++            None => continue,
++        };
++        if r.next < 0 {
++            dead += 1;
++            continue;
++        }
++        if g0.step != r.step {
++            step_changed += 1;
++            continue;
++        }
++        if r.next >= g0.next && (r.next - g0.next).rem_euclid(g0.step) == 0 {
++            chain_ok += 1;
++        } else {
++            phase_shifted += 1;
++        }
++    }
++    println!(
++        "S1 carried state: chain-predictable from genesis {} , step-changed {} , phase-shifted same-step {} , no-next {}",
++        chain_ok, step_changed, phase_shifted, dead
++    );
++    // (d) the burst: dues per frame over one step span.
++    let (nb2, mean2, max2, p992, p9992, _) = windowed(&nexts, FRAME_TICKS);
++    println!(
++        "S1 dues per {}-tick frame: bins {} mean {:.2} max {} (max/mean {:.0}x) p99 {} ({:.0}x) p99.9 {}",
++        FRAME_TICKS,
++        nb2,
++        mean2,
++        max2,
++        max2 as f64 / mean2.max(1e-9),
++        p992,
++        p992 as f64 / mean2.max(1e-9),
++        p9992
++    );
++    // (e) the same census for the aligned control (locals) after settle.
++    let mut loc2_ok = 0;
++    // (f) how far the chain drifts: step deltas and the phase error vs the id-prediction
++    // (first + m * genesis step) after 3 generations.
++    let mut ad: Vec<f64> = Vec::new();
++    let mut dr: Vec<i64> = Vec::new();
++    for r in sbelt.iter() {
++        if let Some(g0) = gmap.get(&r.id) {
++            if r.step > 0 && g0.step > 0 && r.next >= g0.next {
++                ad.push(((r.step - g0.step) as f64 / g0.step as f64).abs());
++                let m = (r.next - g0.next).div_euclid(g0.step);
++                dr.push((r.next - (g0.next + m * g0.step)).abs());
++            }
++        }
++    }
++    ad.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    dr.sort_unstable();
++    let qf = |v: &[f64], f: f64| v[((v.len() as f64 - 1.0) * f) as usize];
++    let qi = |v: &[i64], f: f64| v[((v.len() as f64 - 1.0) * f) as usize];
++    println!(
++        "S1 drift over 3 fires: |dstep|/step p50 {:.2e} p99 {:.2e} max {:.2e}; phase error vs id-prediction p50 {} p99 {} max {} ticks (one frame = {} ticks)",
++        qf(&ad, 0.5),
++        qf(&ad, 0.99),
++        qf(&ad, 1.0),
++        qi(&dr, 0.5),
++        qi(&dr, 0.99),
++        *dr.last().unwrap_or(&0),
++        FRAME_TICKS
++    );
++    let mut loc2_bad = 0;
++    for r in s.iter().filter(|r| r.doll != 0 && !r.clock) {
++        if r.next < 0 || r.step <= 0 {
++            continue;
++        }
++        let res = r.next.rem_euclid(r.step);
++        if res == 0 || res == r.step / 2 {
++            loc2_ok += 1;
++        } else {
++            loc2_bad += 1;
++        }
++    }
++    println!("S1 control locals on-grid after settle: {} ok {} off", loc2_ok, loc2_bad);
++    println!("total_wall_s {:.2}", t0.elapsed().as_secs_f64());
++}
