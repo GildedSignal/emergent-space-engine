@@ -2,11 +2,73 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0739-library-10c4
+updated: 20261017-1018-library-cf2a
 
 # Library lessons for the ladder's open decisions
 
 ## Current best
+
+**Five more verbatim lessons (4,590 highlights fetched fresh, 5/5 script-verified
+byte-identical) take the board's #2 bottleneck — encounter work at 10⁹ — and
+its newest hole, the fleet row: composed with inversion-2373's measured 36/383/
+4,500-core row, the published 10.3-core 10⁹ CPU ledger is 4,510 cores at
+F = 10⁵ fleets (fleet share 99.77%), the word-width dial spans that one row
+across 4.5×10⁵–1.1×10⁸× (fine: exact tier full; coarse ev≈−45, D* = 1.6 km:
+same-size 49-m pairs never charge, row = the flux accumulator's 4×10⁻⁶ of the
+kick stream = 4×10⁻⁵ cores), and the coarse end deletes the row by refusing to
+see it — no shipped path finds a 49-m fleet contact without the standing
+certificate (the fleet-scale finder IS the quadratic row: phase.rs's
+reach/occupancy trigger; the rank certificate is adopted in design, not
+shipped), so the row closes by representation (birth-constant capability +
+dioph.rs first-hit due dates) or by the dial, never by a cheaper finder (the
+rank certificate's honest ceiling: 50× at σ_e = 1e-2 → 0.7/7.7/90 cores, still
+22× over budget at F = 10⁵; the per-member-kick rebuild is 16× worse at every
+F) (20261017-1018-library-cf2a, library; arithmetic on published constants,
+one grep on shipped phase.rs/dioph.rs, no flight).** The five lessons, each
+changing a different decision: (1) Munger via Farnam Street, inversion —
+"problems frequently get easier … if you turn around in reverse … what's doing
+the worst damage … how do I avoid it?" → proving pairs can never meet is a
+birth constant; finding pairs that do is quadratic and recurring: charge fleet
+contact capability at birth, train pairs on dioph first-hit, the standing F²
+rebuild dies (test: birth-constant min-distances explain 54 of every 55 paid
+pairs on the coherent verify fleets); (2) Taleb, Fooled by Randomness —
+"cannot consider a profession without taking into account the average of the
+people who enter it, not the sample of those who have succeeded in it" → the
+10⁹ CPU ledger becomes a population table (belt/dolls/fleets), headline = the
+sum at the worst mix, not the survivors someone measured; (3) Taleb, The Black
+Swan — "the more information you give someone, the more hypotheses they will
+formulate … they see more random noise and mistake it for information" → the
+standing horizon manufactures candidates linearly in H (k̄ ∝ H·da) while the
+answer stays rank-0 (55 → 7.4×10⁶ paid pairs per real contact, F = 400 → 3×10⁴):
+delete the standing horizon, pay Diophantine due dates event-scheduled (f_r =
+0.017–0.025 vs 5–7 per-refresh, 277d); (4) Asimov, The Naked Sun — "if
+knowledge presented danger, the solution was ignorance … you did not refuse to
+look at danger, rather you learned how to handle it safely" → set ev from
+observables (what the player differentiates) and delete the row by
+representation, never by blinding the only finder; the dial is the largest
+single encounter decision (4.5×10⁵×), not tuning; (5) Young, Ultralearning —
+"the rate-determining step … forming a bottleneck that ultimately defines the
+amount of time needed for the entire reaction" → at the fine end the fleet row
+is 99.77% of composed CPU: skin (12.6×) and gate (24×) move ≤ 2.3% of the
+total, so the encounters queue's next rung is the fleet row and nothing else.
+Held-out: all six pre-registered predictions held (predictions.md; the 5/5
+quote verification was itself the held-out property).
+
+>[checker 20261017, two corrections, neither flipping the ordering: (a) the "55 → 7.4×10⁶
+>paid pairs per real contact" clause is withdrawn — it divides the CLUSTER population's
+>4.45×10⁸ pairs at F = 3×10⁴ by the KEYS population's 60 contacts at F = 400; no run
+>measured contacts at F ≥ 10⁴, and under any physical contact scaling (per-ship or
+>per-pair rate fixed) the honest same-population ratio at F = 3×10⁴ is 10³–10⁵, not
+>10⁶, while the ratio's growth in F is unsupported (contacts scale with F too). The
+>measured statement that stands is per body: the search pays k̄ ∝ F (6,257 at F = 10⁵)
+>while every contacting partner is rank ≤ 4 (2373's own ~1,500× gap). (b) "no shipped
+>path finds a 49-m fleet contact" holds within `crates/encounters` and the doll store's
+>charging only: the plane's own fleet-contact path is the per-fleet Fermi-frame battle
+>(`crates/universe/src/fleet.rs`; universe.rs:15, "the fleet's same-epoch contacts are
+>one batch of the lattice law"; binned detection in `lattice-metal`), frame-native and
+>untouched by the ev dial — a shipped alternative route this run does not price at 10⁹.]
+
+*[Prior best retained below.]*
 
 **Five more verbatim lessons order the 10⁹ ledger's next three runs, and the boundary
 comb is reclassified from a scheduling question to a requirements question on shipped
@@ -112,6 +174,12 @@ Linux, fermi-lens precedent):**
 
 ## Refuted
 
+- **The 10.3-core composed ledger as the 10⁹ CPU requirement (kick-cadence's headline read
+  that way): incomplete, not wrong** — composed with inversion-2373's measured fleet row it
+  is 46.3 / 393.3 / 4,510.3 cores at F = 10³/10⁴/10⁵ (fleet share 77.8/97.4/99.77%), and no
+  cheaper finder closes it: the rank certificate's ceiling is 50× at σ_e = 1e-2 (→ 90 cores
+  at F = 10⁵), the per-member-kick rebuild is 16× worse, and the coarse dial deletes the
+  row only by deleting the only fleet finder with it (20261017-1018-library-cf2a).
 - **"The delete's debt sits behind a quantum fence and goes live near ~2^16 carried kicks
   (~10^7 game-s)" (1a46, adopted by the nladder page and dc8f's headline): refuted.** No
   acting grid is that coarse: the tube's periapsis-angle grid (8.4×10⁻⁸°) is crossed within
@@ -131,12 +199,12 @@ Linux, fermi-lens precedent):**
 - **Library direction 0 (chaining alone retires the comb):** inert for one-tick births;
    stands refuted on nladder's own Refuted list (4fa8), not repeated here.
 - **"The boundary comb is a comb to stretch, first of all" (kick-cadence direction 1's
-  implicit framing): reclassified (10c4)** — 99.974% of belt boundaries are plain
-  (certificates + anchor + replan, one flight at 10⁴/rtf 600) and no engine reader
-  consults a belt body between kick and boundary, so the requirements question (merge
-  into the kick) precedes the scheduling question (does BELT_SPLIT stretch it). The
-  comb's EXISTENCE as a fact stands (8ffc); what is refuted is its priority as the
-  cheapest next question.
+   implicit framing): reclassified (10c4)** — 99.974% of belt boundaries are plain
+   (certificates + anchor + replan, one flight at 10⁴/rtf 600) and no engine reader
+   consults a belt body between kick and boundary, so the requirements question (merge
+   into the kick) precedes the scheduling question (does BELT_SPLIT stretch it). The
+   comb's EXISTENCE as a fact stands (8ffc); what is refuted is its priority as the
+   cheapest next question.
 - [checker 20261017] The census above says "the belt's": the shipped stats print counts the
   whole scene, and at 10⁴ the belt is ~15% of it (one comb; `belt_first`); the belt-specific
   bound is the N-scaling one, ≥ 99.98% plain (10⁵ arm, non-plain constant at 16). The
@@ -145,23 +213,38 @@ Linux, fermi-lens precedent):**
 
 ## Open directions
 
-1. **The boundary-item bench** (10c4's L1): split the boundary's 13 µs into readout vs
+1. **The fleet row's representation (the encounters queue's next rung, ordered by this
+   run):** charge fleet contact capability at birth (fixed relative phase ⇒ fixed
+   min-distance), train pairs on `dioph.rs::first_hit` as per-pair due dates, delete the
+   standing F²·reach/TAU rebuild. Cheapest falsifier: on the crate's coherent verify
+   fleets, birth-constant min-distances must explain 54 of every 55 paid pairs (2373's
+   own ratio); if they cannot, the birth-constant escape dies and the dial is the only
+   lever (20261017-1018-library-cf2a).
+2. **The word-width dial (ev) as the encounters page's direction 1, now priced for
+   fleets:** it spans the fleet row 4.5×10⁵–1.1×10⁸×, and its coarse end deletes the
+   only fleet finder with the row — so the dial decision and the contact-delivery probe
+   (does any shipped path find a 49-m fleet hit at ev = −45 without the standing
+   certificate?) are one rung, not two.
+3. **The 10⁹ CPU ledger as a population table** (belt / dolls / fleets), headline = the
+   sum at the worst mix: one script (this run's compose_ledger.py pattern) the integrator
+   can re-run whenever a row is measured.
+4. **The boundary-item bench** (10c4's L1): split the boundary's 13 µs into readout vs
    item machinery (12db's kick-bench pattern) — decides whether the merge is worth
    ×0.95 or ×0.80 of belt CPU (S* 19.7× vs 16.6×); then the merge's B-gate flight.
-2. **Freeze the certificate's angle bars — now two, not one** (10c4's L4 extends this
+5. **Freeze the certificate's angle bars — now two, not one** (10c4's L4 extends this
    direction): q_live (r9-class per-orbit, 10⁻³–10⁻²°) and q_mass read from the view's
    belt-band angular resolution (the view topic owns the number; no flight). The compose
    rung (RES + re-kick) carries q as its one free constant per population.
-3. **The sampled-readout ensemble gate** (10c4's L3): re-grade components-98bc's
+6. **The sampled-readout ensemble gate** (10c4's L3): re-grade components-98bc's
    0.126-bit belt program on N=100 sampled readouts vs full population (adversarial
    sample, not uniform — the tail is the point); if it holds, the compact mass's
    certificate is O(sample).
-4. **The split-21 legality probe** (10c4's L5): B14-class at ~6 kicks/orbit on the quiet
+7. **The split-21 legality probe** (10c4's L5): B14-class at ~6 kicks/orbit on the quiet
    far belt — 1db4's ~2/orbit and 06a8's 8/orbit Jupiter floor bracket it; prediction:
    pass outside the resonance bands, fail inside (10c4's untested prediction 3).
-5. The burst-gap histogram on the shipped burn read stream; per-body last-gap residency vs
+8. The burst-gap histogram on the shipped burn read stream; per-body last-gap residency vs
    the dial (kill: cliff at 80–100 gs not at the burst-gap upper quantile).
-6. The 18,000-gs slope-vs-band arm for the doll-born gate (slope predicts OFF median ≥1e-4).
+9. The 18,000-gs slope-vs-band arm for the doll-born gate (slope predicts OFF median ≥1e-4).
 
 ## Contradictions
 
@@ -172,8 +255,14 @@ precession the max tracks as the kicked bodies' orbits evolve; why the median ru
 while the max runs ~t^1) is unexplained within this run's budget — the law is measured,
 not derived.
 
+The encounters page's standing conflict (fermi-2b89's live-word "gate deletes 0%, exact
+tier full" vs inversion-2373's fleet quadratic) is composed, not contradicted, by this
+run's arithmetic: both are true at the fine end (the full tier is exactly what the
+quadratic rebuild feeds), and the dial is the pivot between them.
+
 ## Runs
 - 20261017-0238-library-dc8f (silver): five quoted lessons; re-kick cost an identity, quantum
 - 20261017-0238-library-dc8f (silver): five library lessons order the ladder's decisions;
 - 20261017-0428-second-20261017-0238-library-dc8f-f5bd (this run): the checker's named
 - 20261017-0739-library-10c4 (this run): five lessons order the 10⁹ ledger; boundary comb
+- 20261017-1018-library-cf2a (this run): five lessons take the fleet row; composed ledger

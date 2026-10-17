@@ -7,21 +7,21 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 |---|---|---|---|
 | [calendar](calendar.md) | open | 1 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [read-stream](read-stream.md) | open | 1 | **The wave's read stream is censused by call site on shipped main, and its N-linear half is |
-| [representation-premises](representation-premises.md) | open | 1 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
+| [representation-premises](representation-premises.md) | open | 2 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [birth-stagger](birth-stagger.md) | open | 3 | **The exodus is attributed and it is not a birth-wave term at all: the worst frame and worst |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
-| [library-directions](library-directions.md) | open | 4 | **Five more verbatim lessons order the 10⁹ ledger's next three runs, and the boundary |
+| [library-directions](library-directions.md) | open | 5 | **Five more verbatim lessons (4,590 highlights fetched fresh, 5/5 script-verified |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
-| [allocator-ratchet](allocator-ratchet.md) | open **conflict to resolve** | 8 | <<<<<<< main |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
+| [allocator-ratchet](allocator-ratchet.md) | open | 12 | **The finality-assert conflict is resolved: the crash is an engine-side publish/rollback |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
 | [handoff](handoff.md) | open | 15 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
@@ -33,6 +33,6 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-cadence](kick-cadence.md) | open | 53 | The 10⁹ ledger is recomposed on the two-comb and on 1a46's own belt count, and both corrections point the same way: at flown legality the composed bottom line is **10.3 M1 cores (2.6× over the 4-core budget)**, not e7ef' |
 | [kick-jet](kick-jet.md) | open | 78 | **Compile-on-read is dead in both forms, and the reader was never the view: one build serves |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
-| [encounters](encounters.md) | open **conflict to resolve** | 100 | <<<<<<< main |
+| [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |
 | [memory-h-live](memory-h-live.md) | open | 107 | **The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical |
 | [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |
