@@ -1,0 +1,34 @@
+== C1: today's damage (independent census)
+  nladder.md: {'open': 7, 'mid': 7, 'close': 5, 'orphan_mid': 1, 'orphan_close': 0, 'unclosed': 2, 'markers': 19, 'lines': 477, 'labels': 0, 'banners': 0}
+  encounters.md: {'open': 5, 'mid': 5, 'close': 5, 'orphan_mid': 0, 'orphan_close': 0, 'unclosed': 0, 'markers': 15, 'lines': 328, 'labels': 0, 'banners': 0}
+  scan-queue.md: {'open': 5, 'mid': 4, 'close': 4, 'orphan_mid': 0, 'orphan_close': 0, 'unclosed': 1, 'markers': 13, 'lines': 218, 'labels': 0, 'banners': 0}
+  index rows leaking marker text: 3 of 27 topic rows
+== S2: real 1637 window through SHIPPED apply (control)
+  wiki: 20261016-1637-dynamics-87fd merged nladder.md with conflicts  wiki: 20261016-1637-second-20261016-1319-fermi-1051-1a46 merged nladder.md with conflicts
+  nladder after shipped replay: {'open': 16, 'mid': 16, 'close': 14, 'orphan_mid': 4, 'orphan_close': 0, 'unclosed': 2, 'markers': 46, 'lines': 550, 'labels': 0, 'banners': 0}
+  tree restored byte-identical: True
+== S3: patched heal on copies of the real pages
+  wiki: healed encounters.md  wiki: healed nladder.md  wiki: healed scan-queue.md
+  nladder.md: markers=0 (o0/m0/c0), banners=7 labels=14, content-lost=0, runs-identical=True -> OK
+  encounters.md: markers=0 (o0/m0/c0), banners=5 labels=10, content-lost=0, runs-identical=True -> OK
+  scan-queue.md: markers=0 (o0/m0/c0), banners=5 labels=10, content-lost=0, runs-identical=True -> OK
+  unmarked pages byte-identical: True
+  healed index marker leak: 0
+    | [scan-queue](scan-queue.md) | open **conflict to resolve** | 8 | **The read is priced from the inside and the cheap-re
+    | [encounters](encounters.md) | open **conflict to resolve** | 95 | **The exact tier is empty at the key's own quantum, 
+    | [nladder](nladder.md) | open **conflict to resolve** | 145 | **The cure's legality is adjudicated on the population no
+== S4: two concurrent next-runs on healed nladder through PATCHED apply
+  wiki: 20261017-0300-fermi-c3d4 merged nladder.md  wiki: 20261017-0300-taleb-a1b2 merged nladder.md with conflicts
+  markers=0 (o0/m0/c0), banners=8, runs gained=2 (expect 2) -> OK
+  healed content still fully present: True
+== S5: fresh publish from today's DAMAGED page through PATCHED apply
+  wiki: 20261017-0300-inversion-e5f6 merged nladder.md with conflicts
+  markers=0 (o0/m0/c0), banners=13
+  after heal: markers=0, content-lost=0 -> OK
+  heal idempotent: True
+== S6: re-presenting an already-folded run
+  patched: wiki: 20261017-0300-taleb-a1b2 merged nladder.md
+  patched: markers=0, banners=7, runs gained=1 (expect 1)
+  no-skip control: wiki: 20261016-1637-dynamics-87fd merged nladder.md with conflicts  wiki: 20261017-0300-taleb-a1b2 merged nladder.md with conflicts
+  no-skip: markers=0, banners=14, lines=558 vs patched 508
+== VERDICTS: S3 OK | S4 OK | S5 OK
