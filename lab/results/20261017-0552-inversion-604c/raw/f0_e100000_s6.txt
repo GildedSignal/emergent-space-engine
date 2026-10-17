@@ -1,0 +1,24 @@
+probe form=0 extra=100000 (100028 bodies), coast, rtf 100, 6 s; build 4.38 s, peak 2576384..237424640 bytes; cand_bytes 216
+window: r=1.243e9 v=2.837e-5 h=1.100e12 near=2.763e8 reach=1.114e10 speed_cap=9.756e-3 radius_cap=2.611e5 bins=2088.3
+scan: bodies=100071 scans=48 kept=48 bailed_count=0 bailed_range=0 no_doll=0 | hit/scan mean 2353.2 max 2402 | near/scan mean 199.5 max 203 | full-walk scans 0 mean 0.0 bodies | binding_at/scan mean 187.1 max 194 | candidates/scan mean 187.1 max 194 | unbounded/scan mean 22.7 | bins/scan mean 2088.3
+  rekey (all deadlines)                       10.0 us/frame     1.00 calls/frame       9958 ns/call
+    position walk (root_state_raw)            52.7 us/frame     7.25 calls/frame       7273 ns/call
+  apply (whole)                               59.8 us/frame     7.41 calls/frame       8078 ns/call
+  requeue                                      5.1 us/frame    37.14 calls/frame        138 ns/call
+  process (whole)                            427.8 us/frame     7.30 calls/frame      58602 ns/call
+    fit: bind_surface (kicks, hand-outs)     173.8 us/frame     3.86 calls/frame      45066 ns/call
+  take_due                                     0.2 us/frame    14.33 calls/frame         16 ns/call
+  prune                                        5.5 us/frame     1.00 calls/frame       5501 ns/call
+  encounters: capture (cheap half)            18.4 us/frame     0.16 calls/frame     115106 ns/call
+  encounters: held scans answered            127.2 us/frame     0.16 calls/frame     794845 ns/call
+  item: kick (Wisdom-Holman)                 360.6 us/frame     3.75 calls/frame      96168 ns/call
+  item: boundary                              67.2 us/frame     3.51 calls/frame      19136 ns/call
+  item: crash                                  0.2 us/frame     0.04 calls/frame       4526 ns/call
+  fleet: battle run_to                        12.0 us/frame     4.76 calls/frame       2523 ns/call
+  fleet: advance (whole item)                 16.5 us/frame     4.76 calls/frame       3460 ns/call
+  hand-out (a member made a body)             49.3 us/frame     0.11 calls/frame     462280 ns/call
+    hand-out: pull planets and moons           0.0 us/frame     0.11 calls/frame         88 ns/call
+    hand-out: bind (the member as a tube)      37.5 us/frame     0.11 calls/frame     351152 ns/call
+    hand-out: first plan (replan)             10.3 us/frame     0.11 calls/frame      96715 ns/call
+    fit again: the coarser word (bind_surface)      16.8 us/frame     0.06 calls/frame     296062 ns/call
+probe: form=0 extra=100000 bodies=100028 frames=360 build_s=4.38 hwm_mb=244 p50_ms=0.046 p99_ms=5.541 max_ms=11.370 over=0 held_max=1 kicks=1149 events=3661 game_s=498.6 digest=075965478f5798aa95768cd3ad55e77aa4fa128b6d4ffd3a772d353112ee3e41
