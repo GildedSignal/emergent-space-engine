@@ -1,0 +1,286 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..5398538d 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -13,13 +13,14 @@ use emergent_universe::thrust::word;
+ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+-
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +31,22 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// The Linux arm of the same reading: resident now and its high-water mark from /proc (kB fields).
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -160,4 +177,5 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    emergent_universe::memo_oracle::report();
+ }
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 22f8ffe3..b71d9c3c 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -60,7 +60,11 @@ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+-        b.cartesian(t)
++        let out = b.cartesian(t);
++        if let Ok(v) = &out {
++            crate::memo_oracle::record(j, t, v);
++        }
++        out
+     }
+ 
+     /// The units body `i`'s tube is compiled in, in doll `d`: about the doll's centre alone for a test particle,
+@@ -78,13 +82,19 @@ impl Ctx<'_> {
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
+         let mut out = Vec::new();
+-        for &j in &self.sources[d as usize] {
+-            if j == except {
+-                continue;
++        crate::memo_oracle::enter_doll(d);
++        let built: Res<()> = (|| {
++            for &j in &self.sources[d as usize] {
++                if j == except {
++                    continue;
++                }
++                let (pos, vel) = self.state_of(j, t)?;
++                out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
+             }
+-            let (pos, vel) = self.state_of(j, t)?;
+-            out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
+-        }
++            Ok(())
++        })();
++        crate::memo_oracle::leave_doll();
++        built?;
+         Ok(out)
+     }
+ 
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..16bd5123 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -9,6 +9,7 @@ pub mod fleet;
+ pub mod force;
+ pub mod lorentz;
+ pub mod num;
++pub mod memo_oracle;
+ pub mod observe;
+ pub mod prof;
+ pub mod radial;
+diff --git a/crates/universe/src/memo_oracle.rs b/crates/universe/src/memo_oracle.rs
+new file mode 100644
+index 00000000..1d373571
+--- /dev/null
++++ b/crates/universe/src/memo_oracle.rs
+@@ -0,0 +1,176 @@
++//! Print-only staleness oracle for the proposed `(j, t)` state memo (read-stream page, direction 1:
++//! "a pure `(d, t)`-keyed cache ... is bit-identical by construction"). The oracle never changes a
++//! value: it hashes every `Ctx::state_of(j, t)` result at its exact key and, on every repeat,
++//! compares the fresh value against the first-seen hash. A mismatch is a read the memo would have
++//! answered stale — the adoption's ruin mode (silent canonical corruption), measured instead of
++//! argued. Stats are windowed by tick and split by the doll whose `secondaries` loop is reading,
++//! so one flight separates the reader populations (belt comb, locals' doll, birth) that share
++//! sources. Enabled by `ES_MEMO_ORACLE=1`; silent otherwise.
++
++use std::cell::RefCell;
++use std::collections::HashMap;
++
++use crate::num::{Tick, V2};
++
++/// Ticks a window spans: ~120 game-s at the plane's clock, fine enough to separate the birth
++/// wave from the spread belt, coarse enough that one flight's windows fit a page.
++const WINDOW: Tick = 1 << 20;
++/// How many staleness events to name individually.
++const NAME: u64 = 20;
++
++#[derive(Default)]
++struct Totals {
++    calls: u64,
++    hits: u64,
++    mismatch: u64,
++}
++
++thread_local! {
++    /// (j, t) -> (fnv hash of the value, times seen).
++    static SEEN: RefCell<HashMap<(usize, Tick), (u64, u64)>> = RefCell::new(HashMap::new());
++    static WINDOWS: RefCell<HashMap<Tick, Totals>> = RefCell::new(HashMap::new());
++    /// The doll whose `secondaries` loop is on the stack (u16::MAX outside one): the reader
++    /// population a call belongs to — the belt comb and the locals' doll read the same sources.
++    static DOLL: RefCell<u16> = const { RefCell::new(u16::MAX) };
++    static DOLLS: RefCell<HashMap<u16, Totals>> = RefCell::new(HashMap::new());
++    static MISMATCHES: RefCell<u64> = const { RefCell::new(0) };
++    static CALLS: RefCell<u64> = const { RefCell::new(0) };
++    static ENABLED: bool = std::env::var("ES_MEMO_ORACLE").as_deref() == Ok("1");
++}
++
++fn fnv(bytes: &[u8]) -> u64 {
++    let mut h = 0xcbf29ce484222325u64;
++    for &b in bytes {
++        h ^= b as u64;
++        h = h.wrapping_mul(0x100000001b3);
++    }
++    h
++}
++
++/// Enter/leave the doll whose secondaries are being built (observation only).
++pub fn enter_doll(d: u16) {
++    DOLL.with(|x| *x.borrow_mut() = d);
++}
++
++pub fn leave_doll() {
++    DOLL.with(|x| *x.borrow_mut() = u16::MAX);
++}
++
++/// Record one `state_of` result. Observation only.
++pub fn record(j: usize, t: Tick, v: &(V2, V2)) {
++    if !ENABLED.with(|e| *e) {
++        return;
++    }
++    CALLS.with(|c| *c.borrow_mut() += 1);
++    let h = fnv(format!("{v:?}").as_bytes());
++    let w = t.div_euclid(WINDOW) * WINDOW;
++    // First sight stores the hash. A repeat is a hit; a repeat whose fresh hash differs from the
++    // stored one is a staleness event: the never-invalidated memo would answer with the first
++    // value, so every such read is a silent corruption caught in the act.
++    let (hit, stale) = SEEN.with(|s| {
++        let mut s = s.borrow_mut();
++        match s.get_mut(&(j, t)) {
++            Some(e) => {
++                e.1 += 1;
++                (true, e.0 != h)
++            }
++            None => {
++                s.insert((j, t), (h, 1));
++                (false, false)
++            }
++        }
++    });
++    WINDOWS.with(|ws| {
++        let mut ws = ws.borrow_mut();
++        let w0 = ws.entry(w).or_default();
++        w0.calls += 1;
++        if hit {
++            w0.hits += 1;
++        }
++        if stale {
++            w0.mismatch += 1;
++        }
++    });
++    let d = DOLL.with(|x| *x.borrow());
++    DOLLS.with(|ds| {
++        let mut ds = ds.borrow_mut();
++        let d0 = ds.entry(d).or_default();
++        d0.calls += 1;
++        if hit {
++            d0.hits += 1;
++        }
++        if stale {
++            d0.mismatch += 1;
++        }
++    });
++    if stale {
++        MISMATCHES.with(|m| {
++            let seen = {
++                let mut m = m.borrow_mut();
++                let seen = *m;
++                *m += 1;
++                seen
++            };
++            if seen < NAME {
++                println!("memo_oracle STALE: j={j} t={t} window={w} doll={d}");
++            }
++        });
++    }
++}
++
++/// Print the census: global, per-doll (reader population) and per-window calls, hits, mismatches.
++pub fn report() {
++    if !ENABLED.with(|e| *e) {
++        return;
++    }
++    let calls = CALLS.with(|c| *c.borrow());
++    let (keys, hits, maxmult) = SEEN.with(|s| {
++        let s = s.borrow();
++        (
++            s.len() as u64,
++            s.values().map(|e| e.1.saturating_sub(1)).sum::<u64>(),
++            s.values().map(|e| e.1).max().unwrap_or(0),
++        )
++    });
++    let mismatches = MISMATCHES.with(|m| *m.borrow());
++    println!(
++        "memo_oracle: calls={calls} keys={keys} hits={hits} ({:.1}%) top_mult={maxmult} STALE={mismatches}",
++        100.0 * hits as f64 / calls.max(1) as f64
++    );
++    let mut ds: Vec<(u16, Totals)> = DOLLS.with(|d| {
++        d.borrow()
++            .iter()
++            .map(|(k, v)| (*k, Totals { calls: v.calls, hits: v.hits, mismatch: v.mismatch }))
++            .collect()
++    });
++    ds.sort_by_key(|(k, _)| *k);
++    for (k, d) in ds {
++        println!(
++            "memo_oracle: doll={k} calls={} hits={:.1}% STALE={}",
++            d.calls,
++            100.0 * d.hits as f64 / d.calls.max(1) as f64,
++            d.mismatch
++        );
++    }
++    let mut ws: Vec<(Tick, Totals)> = WINDOWS.with(|w| {
++        w.borrow()
++            .iter()
++            .map(|(k, v)| (*k, Totals { calls: v.calls, hits: v.hits, mismatch: v.mismatch }))
++            .collect()
++    });
++    ws.sort_by_key(|(k, _)| *k);
++    let mut quiet = 0u64;
++    for (k, w) in ws {
++        if w.calls < 100 {
++            quiet += 1;
++            continue;
++        }
++        println!(
++            "memo_oracle: w_tick={k} calls={} hits={:.1}% STALE={}",
++            w.calls,
++            100.0 * w.hits as f64 / w.calls.max(1) as f64,
++            w.mismatch
++        );
++    }
++    println!("memo_oracle: {quiet} window(s) under 100 calls suppressed (their STALE is tallied in the global line)");
++}

@@ -1,0 +1,24 @@
+patch not applied (already present or tree dirty) - continuing
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 21.05s
+== A0 exodus (N=0, promotions channel) ==
+worst frames (frame, ms, events, lag s): (62, 11.13, 31, 1.448) (63, 3.79, 16, 0.000) (69, 2.24, 36, 0.000) (81, 2.21, 35, 0.000) (230, 2.16, 25, 0.000)
+memo_oracle: calls=1976 keys=325 hits=1651 (83.6%) top_mult=36 STALE=0
+== A1 coast N=1e4 (wave + spread, 45 s at rtf 600) ==
+game 26398.3 s after the first second: kicks 51256 (1.936e-4/body/game-s), events 94523 (3.571e-4/body/game-s), stats {opens 221, boundaries 41040, handoffs 0, lost 14, refused 0, slices 2006}; refusals held 0, dead 0, alive(player) true
+memo_oracle: calls=277785 keys=66785 hits=211000 (76.0%) top_mult=9714 STALE=0
+memo_oracle: doll=0 calls=150047 hits=59.3% STALE=0
+memo_oracle: doll=2 calls=84905 hits=96.8% STALE=0
+memo_oracle: doll=65535 calls=42833 hits=93.1% STALE=0
+== A2 burn N=1e4 (held out) ==
+memo_oracle: calls=287147 keys=73477 hits=213670 (74.4%) top_mult=9714 STALE=0
+== A3 coast N=3e4 (held out, 5eb2's arm) ==
+memo_oracle: calls=544173 keys=188581 hits=355592 (65.3%) top_mult=29714 STALE=0
+memo_oracle: doll=0 calls=458676 hits=59.7% STALE=0
+memo_oracle: doll=2 calls=56860 hits=96.8% STALE=0
+memo_oracle: doll=65535 calls=28637 hits=93.0% STALE=0
+== digest identity, oracle off vs on (N=3000 mashing), modulo wall-time annotations ==
+4a5
+> memo_oracle STALE: j=3 t=2436305361 window=2435842048 doll=2
+== window curve (A1): first and late windows ==
+regen done

@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered, decisive flights flown on one binary, patch verified (`--check -R` passes), regen.sh and the resolved wiki page delivered in `lab/results/20261017-1535-taleb-ce22/`.
+
+**Claim:** the `(j,t)` state memo's ruin mode — a stale read silently corrupting canonical state — is unreachable in every regime the shipped flows fly (STALE = 0 across 1,327,081 censused reads in five arms, including the never-censused spread-belt windows and the exodus's promotion frames), and the sharing it feeds on is reader-population structural (belt doll 59.4% N-linear, locals' doll 96.8% and non-secondaries paths 93% N-flat, birth multiplicity = belt count), so read-stream's direction-1 adoption is now gated by a runnable certificate rather than a construction argument, and the page's 5ade-vs-6671 contradiction is located (the late stream's sharing belongs to the locals, not the belt comb) with the conflict itself resolved.
