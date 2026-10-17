@@ -1,0 +1,48 @@
+   Compiling emergent-allocator v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/allocator)
+warning: unused import: `law::Law`
+  --> crates/allocator/examples/ruin.rs:19:42
+   |
+19 | use emergent_lattice::{chronon::Chronon, law::Law, World};
+   |                                          ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: value assigned to `last` is never read
+  --> crates/allocator/examples/ruin.rs:65:13
+   |
+65 |     let mut last = 0i64;
+   |             ^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-allocator` (example "ruin") generated 2 warnings (run `cargo fix --example "ruin"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.08s
+=== A 14k shipped s1 ===
+1500 13.3 live=1 last=1 init=1176 E=64 rb=6 m=40 av=53 px=12115 wo=39816 chr=118115
+DONE regions=1 E=64 rollbacks=6 merges=40 avoided=53 exceeded=12115 wasted=39816 wall=13.3s digest=e538163e31ab3f6ebbf4a1dbbb47c0d2165b49ad852570318412e043ab20a595/02416450f88f069a03e11012c9ec4c0f2a8efb0e0a65c8dfc997de808d84c6ab
+=== B 14k ES_CAP=64 s1 ===
+1500 15.0 live=1 last=1 init=1176 E=64 rb=7 m=39 av=45 px=12134 wo=72532 chr=105944
+DONE regions=1 E=64 rollbacks=7 merges=39 avoided=45 exceeded=12134 wasted=72532 wall=15.0s digest=e538163e31ab3f6ebbf4a1dbbb47c0d2165b49ad852570318412e043ab20a595/02416450f88f069a03e11012c9ec4c0f2a8efb0e0a65c8dfc997de808d84c6ab
+=== C 28k shipped s1 ===
+1500 44.8 live=2442 last=2442 init=2328 E=64 rb=6 m=37 av=557 px=30193 wo=96725 chr=78608
+DONE regions=2442 E=64 rollbacks=6 merges=37 avoided=557 exceeded=30193 wasted=96725 wall=44.8s digest=a00441eac7021f38cf0d00cb6dbb9294d1c55548bba04d153b204d8232b6eafb/fa38f937823726bf9541f446e3f7c91da76b8e42517fee5eb2b7d84e63acaf75
+=== C2 28k shipped s1 (replicate) ===
+1500 18.4 live=2415 last=2415 init=2328 E=128 rb=7 m=40 av=464 px=28890 wo=122529 chr=191097
+DONE regions=2415 E=128 rollbacks=7 merges=40 avoided=464 exceeded=28890 wasted=122529 wall=18.4s digest=a00441eac7021f38cf0d00cb6dbb9294d1c55548bba04d153b204d8232b6eafb/fa38f937823726bf9541f446e3f7c91da76b8e42517fee5eb2b7d84e63acaf75
+=== E 28k shipped s7 ===
+1500 19.6 live=1 last=1 init=2328 E=256 rb=8 m=44 av=0 px=17917 wo=114160 chr=69119
+DONE regions=1 E=256 rollbacks=8 merges=44 avoided=0 exceeded=17917 wasted=114160 wall=19.6s digest=44cbdc4557cf3e975a2f074c9b1f7529e6214c272f58b1a6f671b8a08e9ca731/45f38b27b6e00764da6cf54b516c71cc8badff485c505a63b1aa0cdd094a3fa5
+=== G 28k shipped s2 (the 160 s draw) ===
+1500 33.1 live=2489 last=2489 init=2328 E=128 rb=7 m=54 av=667 px=33811 wo=197112 chr=106984
+DONE regions=2489 E=128 rollbacks=7 merges=54 avoided=667 exceeded=33811 wasted=197112 wall=33.1s digest=8dc6c09734fb0149b82373802cdc25ee7dcd8d403a65ab8e85316188a89a6786/75be17bf892f07f48a669a19a85f52ced917552408382902bf70bd93f8f8876f
+=== F 28k quiet control, traced ===
+run cols=24 arch=32x72 per=12 N=27936 H=1500 m=0.5 cannon=1 quiet=1 chunk=150 cap=250s seed=1 ES_CAP=none
+tick wall_s regions E rollbacks merges merges_avoided promises_exceeded wasted_ops chr_per_s
+=== panic probe 864 chunk100 (x2) ===
+thread 'alloc-6' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/allocator/src/alloc.rs:1456:17:
+thread 'alloc-3' panicked at /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/allocator/src/alloc.rs:1456:17:
+=== panic probe 14k chunk500 ===
+DONE regions=1 E=64 rollbacks=0 merges=0 avoided=0 exceeded=0 wasted=0 wall=8.2s digest=e538163e31ab3f6ebbf4a1dbbb47c0d2165b49ad852570318412e043ab20a595/02416450f88f069a03e11012c9ec4c0f2a8efb0e0a65c8dfc997de808d84c6ab
+=== panic probe 28k chunk500 ===
+DONE regions=1 E=64 rollbacks=0 merges=0 avoided=0 exceeded=0 wasted=0 wall=20.9s digest=a00441eac7021f38cf0d00cb6dbb9294d1c55548bba04d153b204d8232b6eafb/fa38f937823726bf9541f446e3f7c91da76b8e42517fee5eb2b7d84e63acaf75
