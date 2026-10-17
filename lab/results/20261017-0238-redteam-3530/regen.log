@@ -1,0 +1,40 @@
+C1 quadrature vs RK4-Binet worst rel err: 3.15e-05
+C1b weak-field series (p=100, e=0.2): num=0.197415 series=0.196997 rel=2.12e-03
+C2 e(x) 2pn: x=0.00200 num=-9.986120816e-04 series=-9.986121442e-04 rel=6.27e-08
+C2 e(x) 3pn: x=0.00200 num=-9.986121192e-04 series=-9.986121194e-04 rel=1.92e-10
+C3 nu=0 ISCO 2pn vs doc law identical: True (r=6.000000, j=3.464102, E=-0.0571910, Om=0.068041)
+C3 nu=0 ISCO 3pn vs doc law identical: True (r=6.000000, j=3.464102, E=-0.0571910, Om=0.068041)
+CONTROLS PASS
+ISCO nu=0.00 1pn: r=6.0000 j=3.4641 Eb/mu=-0.057191 Om=0.068041 x=0.16667
+ISCO nu=0.00 2pn: r=6.0000 j=3.4641 Eb/mu=-0.057191 Om=0.068041 x=0.16667
+ISCO nu=0.00 3pn: r=6.0000 j=3.4641 Eb/mu=-0.057191 Om=0.068041 x=0.16667
+ISCO nu=0.05 1pn: r=6.0000 j=3.4641 Eb/mu=-0.057273 Om=0.068237 x=0.16699
+ISCO nu=0.05 2pn: r=5.9465 j=3.4527 Eb/mu=-0.057719 Om=0.069014 x=0.16825
+ISCO nu=0.05 3pn: r=5.7900 j=3.4284 Eb/mu=-0.058863 Om=0.071479 x=0.17223
+ISCO nu=0.10 1pn: r=6.0000 j=3.4641 Eb/mu=-0.057355 Om=0.068434 x=0.16731
+ISCO nu=0.10 2pn: r=5.8917 j=3.4411 Eb/mu=-0.058267 Om=0.070031 x=0.16990
+ISCO nu=0.10 3pn: r=5.5416 j=3.3878 Eb/mu=-0.060889 Om=0.075893 x=0.17925
+ISCO nu=0.25 1pn: r=6.0000 j=3.4641 Eb/mu=-0.057606 Om=0.069036 x=0.16829
+ISCO nu=0.25 2pn: r=5.7176 j=3.4045 Eb/mu=-0.060052 Om=0.073402 x=0.17531
+ISCO nu=0.25 3pn: NO ISCO (monotone to light ring)
+doc law nu=1/4 at r=6 through the map: Eb/mu=-0.057606
+map at E_eff=0, nu=1/4: E_real=0.7071 (binding 29.3% of M c^2)
+peri p= 1000 e=0.2: doc=  0.01890 2PN=  0.01890 rel= 0.001% (Q:  0.001%) B11tol=2.60% within
+peri p=  100 e=0.2: doc=  0.19742 2PN=  0.19740 rel= 0.006% (Q:  0.006%) B11tol=17.00% within
+peri p=   40 e=0.5: doc=  0.53296 2PN=  0.53301 rel=-0.010% (Q: -0.010%) B11tol=41.00% within
+peri p=   20 e=0.001: doc=  1.22661 2PN=  1.22196 rel= 0.380% (Q:  0.380%) B11tol=81.00% within
+peri p=   20 e=0.3: doc=  1.22921 2PN=  1.22550 rel= 0.303% (Q:  0.303%) B11tol=81.00% within
+peri p=   20 e=0.6: doc=  1.23701 2PN=  1.23565 rel= 0.110% (Q:  0.109%) B11tol=81.00% within
+peri p=   12 e=0.001: doc=  2.60234 2PN=  2.56554 rel= 1.434% (Q:  1.434%) B11tol=134.33% within
+peri p=   12 e=0.3: doc=  2.61929 2PN=  2.58433 rel= 1.353% (Q:  1.352%) B11tol=134.33% within
+peri p=   12 e=0.5: doc=  2.64953 2PN=  2.61833 rel= 1.192% (Q:  1.191%) B11tol=134.33% within
+peri p=    8 e=0.001: doc=  6.28279 2PN=  5.90557 rel= 6.388% (Q:  6.388%) B11tol=201.00% within
+peri p=    8 e=0.3: doc=  6.50631 2PN=  6.08142 rel= 6.987% (Q:  6.986%) B11tol=201.00% within
+circ r=100.00: Eb/mu doc=-0.004964 3PN=-0.004964 rel= -0.00% (x=0.0100)
+circ r= 50.00: Eb/mu doc=-0.009848 3PN=-0.009849 rel= -0.02% (x=0.0200)
+circ r= 25.00: Eb/mu doc=-0.019323 3PN=-0.019341 rel= -0.09% (x=0.0401)
+circ r= 12.50: Eb/mu doc=-0.036622 3PN=-0.036880 rel= -0.70% (x=0.0802)
+circ r=  8.33: Eb/mu doc=-0.050316 3PN=-0.051791 rel= -2.85% (x=0.1199)
+circ r=  6.25: Eb/mu doc=-0.057422 3PN=-0.063228 rel= -9.18% (x=0.1585)
+wrote flank.json
+regen complete: controls must say PASS; tables reproduce dossier.md
