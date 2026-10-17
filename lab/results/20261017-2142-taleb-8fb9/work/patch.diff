@@ -1,0 +1,137 @@
+diff --git a/crates/universe/examples/belt_comb.rs b/crates/universe/examples/belt_comb.rs
+new file mode 100644
+index 00000000..9cf98c32
+--- /dev/null
++++ b/crates/universe/examples/belt_comb.rs
+@@ -0,0 +1,92 @@
++//! 20261017-2142-taleb-8fb9: does a period/phase-quantized belt (the compact store's own form: shared
++//! (anchor, full) means shared fire ticks) re-create a standing comb on the shipped chained clock, or does
++//! the per-fire step drift shear it apart? One flight of the ladder population (`scenario::plane_extra`,
++//! the draw quantized by ES_BELT_A_SHIFT / ES_BELT_PHASE_SHIFT before `ladder_ship` sees it), advanced one
++//! rtf-100 frame at a time with an unlimited budget (the true dues, never deferred), recording every
++//! frame's event count and wall ms. Fire windows of WINDOW ticks each: the genesis train is window 0,
++//! steady state is the later windows.
++//!
++//! cargo run --release -p emergent-universe --example belt_comb [-- <N> <windows> <seed>]
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::{Budget, Config};
++use emergent_universe::fleet::Order;
++use std::time::Instant;
++
++const WINDOW: i64 = 6_000_000_000; // ticks per fire window (one belt period is 4.3-5.9e9)
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize].min(sorted[sorted.len() - 1])
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(50_000);
++    let windows: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(5);
++    let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let (qa, qp) = (
++        std::env::var("ES_BELT_A_SHIFT").ok().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0),
++        std::env::var("ES_BELT_PHASE_SHIFT").ok().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0),
++    );
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    println!(
++        "comb: n={n} bodies={bodies} seed={seed} a_shift={qa} phase_shift={qp} windows={windows} build_s={build:.2} wall_start_s={:.1}",
++        t0.elapsed().as_secs_f64()
++    );
++    let mut rows: Vec<(i64, u64, f64)> = Vec::new(); // window, events, wall ms
++    let mut total_events = 0u64;
++    let horizon = WINDOW * windows as i64;
++    let mut t_prev = p.u.now;
++    while p.u.now < horizon {
++        let start = Instant::now();
++        let f = p.u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), i64::MAX);
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        let w = (p.u.now - 1).max(0) / WINDOW; // the frame that contains this frame's dues
++        rows.push((w, f.events, took));
++        total_events += f.events;
++        if p.u.now == t_prev {
++            break; // no progress: nothing more is due
++        }
++        t_prev = p.u.now;
++    }
++    let mut worst: Vec<(i64, u64, f64)> = rows.clone();
++    worst.sort_by(|a, b| b.1.cmp(&a.1));
++    println!(
++        "comb: frames={} events_total={total_events} events_per_frame_mean={:.2}",
++        rows.len(),
++        total_events as f64 / rows.len().max(1) as f64
++    );
++    for w in 0..windows as i64 {
++        let mut ev: Vec<f64> = rows.iter().filter(|r| r.0 == w).map(|r| r.1 as f64).collect();
++        let mut ms: Vec<f64> = rows.iter().filter(|r| r.0 == w).map(|r| r.2).collect();
++        if ev.is_empty() {
++            println!("comb: w={w} frames=0");
++            continue;
++        }
++        ev.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let sum: f64 = ev.iter().sum();
++        let (ge100, ge400) = (
++            ev.iter().filter(|e| **e >= 100.0).count(),
++            ev.iter().filter(|e| **e >= 400.0).count(),
++        );
++        println!(
++            "comb: w={w} frames={} ev_mean={:.2} ev_p99={:.0} ev_max={:.0} ev_sum={:.0} ev_ge100={ge100} ev_ge400={ge400} ms_p50={:.3} ms_p99={:.3} ms_max={:.3}",
++            ev.len(),
++            sum / ev.len() as f64,
++            pct(&ev, 0.99),
++            ev[ev.len() - 1],
++            sum,
++            pct(&ms, 0.5),
++            pct(&ms, 0.99),
++            ms[ms.len() - 1],
++        );
++    }
++    println!(
++        "comb: worst10={}",
++        worst.iter().take(10).map(|r| format!("(w{},{}ev,{:.2}ms)", r.0, r.1, r.2)).collect::<Vec<_>>().join(" ")
++    );
++    println!("comb: wall_total_s={:.1}", t0.elapsed().as_secs_f64());
++}
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..703b62d7 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -299,6 +299,12 @@ fn draw(seed: u64, k: u64, lane: u64) -> u64 {
+     mix64(mix64(seed ^ 0x5DEE_CE66_D1CE_4E5B) ^ k.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (lane << 56))
+ }
+ 
++/// 20261017-2142-taleb-8fb9: the belt draw's optional quantization, from the environment (bits; 0 = off).
++fn belt_quant() -> (u32, u32) {
++    let v = |k: &str| std::env::var(k).ok().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
++    (v("ES_BELT_A_SHIFT"), v("ES_BELT_PHASE_SHIFT"))
++}
++
+ /// `e · 2^48` of a Rayleigh draw of scale `sigma_milli / 1000` from a uniform 32-bit `u`: `σ √(−2 ln(1 − u))`, in integers
+ /// (`log2` by squaring, `ln = ln2 · log2`, an integer root): the same bits on every machine.
+ pub fn rayleigh_q48(u: u32, sigma_milli: u64) -> u64 {
+@@ -331,7 +337,12 @@ pub fn ladder_ship(seed: u64, k: u64, extra: u64, home_doll: u16) -> Res<(OrbitS
+     let locals = ladder_locals(extra);
+     if k >= locals {
+         // The belt: a uniform in [2, 3) AU at 2^-8 of a root unit, e Rayleigh (re-drawn above 0.4), p = a (1 - e).
+-        let a_q8 = ((2 * AU as u128) << 8) + (d(1) as u128 % ((AU as u128) << 8));
++        // 20261017-2142-taleb-8fb9: optional quantization of the draw itself — ES_BELT_A_SHIFT coarsens the
++        // semi-major axis onto shared classes (shared Kepler period), ES_BELT_PHASE_SHIFT the genesis phase
++        // (shared anchor). 0/0 is the shipped draw bit for bit (shifts by zero are the identity).
++        let (qs, qp) = belt_quant();
++        let span = (AU as u128) << 8;
++        let a_q8 = ((2 * AU as u128) << 8) + ((((d(1) as u128) % span) >> qs) << qs);
+         let mut e = rayleigh_q48((d(2) >> 32) as u32, 70);
+         for lane in 16.. {
+             if e <= (2u64 << 48) / 5 {
+@@ -340,6 +351,7 @@ pub fn ladder_ship(seed: u64, k: u64, extra: u64, home_doll: u16) -> Res<(OrbitS
+             e = rayleigh_q48((d(lane) >> 32) as u32, 70);
+         }
+         let p_q8 = a_q8 - ((a_q8 * e as u128) >> 48);
++        let phase = ((phase >> qp) << qp) as u32;
+         let spec = OrbitSpec { doll: 0, periapsis: Scalar::raw(p_q8 as i128, -8)?, e_q48: e, clockwise: false, angle, phase };
+         return Ok((spec, Scalar::raw(34, -10)?));
+     }

@@ -1,0 +1,75 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.12s
+arm         w0 max steady max steady p99  ge400 w1..4  ge100 w1..4 steady ms_max ev_sum w1..4
+ctrl           487        367        134            0         1189          12.4       868605
+per            517        369        134            0         1199          12.4       868593
+phase          487        367        134            0         1189          12.1       868605
+both384        507        373        134            0         1202          12.9       868574
+both96         482        365        134            0         1213          12.3       868541
+both48         492        371        134            0         1217          12.0       868466
+anchor100      501        368        134            0         1210          11.8       868410
+anchor200      478        364        134            0         1212          12.2       868496
+ctrl_s7        487        387        128            0         1053          15.1       942491
+both96_s7      480        369        128            0         1058          15.1       942413
+
+--- CTRL s=0 p=0 (shipped)  (total events 1455164)
+    w0: mean  16.72 p99   263 max    487 ge100  1094 ge400    23 ms_max   24.03
+    w1: mean  16.36 p99   143 max    424 ge100   870 ge400     1 ms_max   15.49
+    w2: mean  16.31 p99   133 max    367 ge100   409 ge400     0 ms_max   12.03
+    w3: mean  16.30 p99   133 max    343 ge100   399 ge400     0 ms_max   11.46
+    w4: mean  16.37 p99   134 max    343 ge100   381 ge400     0 ms_max   12.44
+--- PER s=27 (193 period classes)  (total events 1455149)
+    w0: mean  16.72 p99   265 max    517 ge100  1094 ge400    24 ms_max   24.22
+    w1: mean  16.36 p99   144 max    417 ge100   877 ge400     1 ms_max   14.13
+    w2: mean  16.31 p99   133 max    369 ge100   413 ge400     0 ms_max   12.42
+    w3: mean  16.30 p99   133 max    344 ge100   403 ge400     0 ms_max   11.31
+    w4: mean  16.37 p99   134 max    349 ge100   383 ge400     0 ms_max   10.46
+--- PHASE p=8 (256 phases)  (total events 1455164)
+    w0: mean  16.72 p99   263 max    487 ge100  1094 ge400    23 ms_max   22.91
+    w1: mean  16.36 p99   143 max    424 ge100   870 ge400     1 ms_max   14.47
+    w2: mean  16.31 p99   133 max    367 ge100   409 ge400     0 ms_max   12.05
+    w3: mean  16.30 p99   133 max    343 ge100   399 ge400     0 ms_max   11.19
+    w4: mean  16.37 p99   134 max    343 ge100   381 ge400     0 ms_max   10.31
+--- BOTH s=28 p=2 (~384 combos)  (total events 1455131)
+    w0: mean  16.72 p99   266 max    507 ge100  1093 ge400    26 ms_max   23.96
+    w1: mean  16.36 p99   144 max    420 ge100   870 ge400     1 ms_max   14.39
+    w2: mean  16.31 p99   133 max    373 ge100   412 ge400     0 ms_max   12.89
+    w3: mean  16.30 p99   133 max    351 ge100   403 ge400     0 ms_max   12.03
+    w4: mean  16.37 p99   134 max    351 ge100   387 ge400     0 ms_max   10.46
+--- BOTH s=29 p=1 (~96 combos)  (total events 1455099)
+    w0: mean  16.72 p99   266 max    482 ge100  1096 ge400    23 ms_max   25.62
+    w1: mean  16.36 p99   144 max    410 ge100   884 ge400     1 ms_max   14.06
+    w2: mean  16.31 p99   133 max    365 ge100   423 ge400     0 ms_max   12.27
+    w3: mean  16.30 p99   133 max    341 ge100   401 ge400     0 ms_max   11.16
+    w4: mean  16.37 p99   134 max    345 ge100   389 ge400     0 ms_max   10.10
+--- BOTH s=30 p=1 (25 periods, ~continuous phase)  (total events 1455023)
+    w0: mean  16.72 p99   263 max    492 ge100  1094 ge400    26 ms_max   24.15
+    w1: mean  16.36 p99   144 max    416 ge100   889 ge400     1 ms_max   14.14
+    w2: mean  16.31 p99   133 max    371 ge100   422 ge400     0 ms_max   11.99
+    w3: mean  16.30 p99   133 max    336 ge100   407 ge400     0 ms_max   10.93
+    w4: mean  16.36 p99   134 max    340 ge100   388 ge400     0 ms_max   10.12
+--- ANCHOR s=30 p=30 (25 periods x 4 phases, ~100 combos)  (total events 1454966)
+    w0: mean  16.72 p99   265 max    501 ge100  1087 ge400    24 ms_max   23.36
+    w1: mean  16.36 p99   145 max    445 ge100   902 ge400     1 ms_max   15.30
+    w2: mean  16.31 p99   133 max    368 ge100   423 ge400     0 ms_max   11.81
+    w3: mean  16.30 p99   133 max    334 ge100   397 ge400     0 ms_max   11.08
+    w4: mean  16.36 p99   134 max    353 ge100   390 ge400     0 ms_max   10.50
+--- ANCHOR s=30 p=29 (25 periods x 8 phases, ~200 combos)  (total events 1455052)
+    w0: mean  16.72 p99   262 max    478 ge100  1087 ge400    31 ms_max   23.48
+    w1: mean  16.36 p99   144 max    431 ge100   890 ge400     1 ms_max   14.79
+    w2: mean  16.31 p99   133 max    364 ge100   423 ge400     0 ms_max   12.16
+    w3: mean  16.30 p99   133 max    340 ge100   399 ge400     0 ms_max   10.74
+    w4: mean  16.37 p99   134 max    348 ge100   390 ge400     0 ms_max   10.45
+--- CTRL seed 7  (total events 1605791)
+    w0: mean  18.81 p99   268 max    487 ge100  1048 ge400    21 ms_max   23.72
+    w1: mean  18.60 p99   143 max    442 ge100   875 ge400     1 ms_max   15.24
+    w2: mean  18.57 p99   128 max    387 ge100   393 ge400     0 ms_max   12.74
+    w3: mean  18.18 p99   128 max    362 ge100   359 ge400     0 ms_max   15.09
+    w4: mean  16.40 p99   126 max    358 ge100   301 ge400     0 ms_max   10.63
+--- BOTH96 seed 7  (total events 1605710)
+    w0: mean  18.81 p99   268 max    480 ge100  1050 ge400    21 ms_max   23.18
+    w1: mean  18.60 p99   145 max    436 ge100   876 ge400     1 ms_max   14.96
+    w2: mean  18.57 p99   128 max    369 ge100   399 ge400     0 ms_max   13.09
+    w3: mean  18.18 p99   128 max    348 ge100   358 ge400     0 ms_max   15.09
+    w4: mean  16.40 p99   126 max    355 ge100   301 ge400     0 ms_max   10.96
+REGEN OK
