@@ -1,0 +1,144 @@
+diff --git a/crates/universe/src/reads.rs b/crates/universe/src/reads.rs
+new file mode 100644
+index 00000000..be8dbcad
+--- /dev/null
++++ b/crates/universe/src/reads.rs
+@@ -0,0 +1,138 @@
++//! Print-only read counters (a lab probe, 20261017-0111-spacex-5e79): what every store read
++//! (`binding_at`) is FOR, which bodies it falls on, and how much of the resolver's per-event
++//! source poll is a repeated `(doll, tick)` key. Counting only: no behaviour change.
++use std::cell::Cell;
++use std::collections::HashSet;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::sync::{LazyLock, Mutex};
++
++pub const KICK: u16 = 0; // Work::kick's source poll (secondaries + tide)
++pub const OPEN: u16 = 1; // Work::open (engage poll, maybe_capture's centre reads)
++pub const CLOCK: u16 = 2; // clock law: plan_clock/project/kick_clock + ext::constants
++pub const BOUNDARY: u16 = 3; // boundary/boundary_clock (certificates, maybe_capture)
++pub const HANDOFF: u16 = 4; // capture/release: the doll centre's exact readout
++pub const SCAN: u16 = 5; // encounters: the scan's me + candidates
++pub const VIEW: u16 = 6; // observe (ramped/partial/state_rate) + the view's crossings
++pub const FLEET: u16 = 7; // fleet origin state + its kicks' source polls
++pub const OTHER: u16 = 8;
++pub const N: usize = 9;
++pub const LABELS: [&str; N] = ["kick", "open", "clock", "boundary", "handoff", "scan", "view", "fleet", "other"];
++
++static READS: [AtomicU64; N] = [const { AtomicU64::new(0) }; N];
++thread_local! {
++    static TAG: Cell<u16> = const { Cell::new(OTHER) };
++}
++
++/// Run `f` with every store read it makes counted under tag `t`.
++pub fn tagged<R>(t: u16, f: impl FnOnce() -> R) -> R {
++    struct Reset(u16);
++    impl Drop for Reset {
++        fn drop(&mut self) {
++            TAG.with(|c| c.set(self.0));
++        }
++/// Run `f` with every store read it makes counted under tag `t`.
++pub struct TagGuard(u16);
++impl TagGuard {
++    /// Every store read until this guard drops is counted under tag `t`.
++    pub fn new(t: u16) -> Self {
++        TagGuard(TAG.with(|c| c.replace(t)))
++    }
++}
++impl Drop for TagGuard {
++    fn drop(&mut self) {
++        TAG.with(|c| c.set(self.0));
++    }
++}
++        if let Some(c) = b.borrow().get(i) {
++            c.fetch_add(1, Ordering::Relaxed);
++        }
++    });
++}
++
++/// The resolver polled doll `d`'s sources at `t`; `v` is the poll's validity key (the latest
++/// `event_time` among the sources read, so a rebind in between makes a different key).
++pub fn poll(d: u16, t: i64, v: i64) {
++    POLLS.fetch_add(1, Ordering::Relaxed);
++    if !KEYS_ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let mut k = KEYS.lock().unwrap_or_else(|e| e.into_inner());
++    if k.len() >= CAP {
++        FULL.store(true, Ordering::Relaxed);
++        return;
++    }
++    k.insert((d, t, v));
++}
++
++const CAP: usize = 3_000_000;
++static FULL: AtomicBool = AtomicBool::new(false);
++static KEYS_ON: AtomicBool = AtomicBool::new(true);
++static POLLS: AtomicU64 = AtomicU64::new(0);
++static KEYS: LazyLock<Mutex<HashSet<(u16, i64, i64)>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
++thread_local! {
++    static PER_BODY: Cell<Option<std::rc::Rc<Vec<AtomicU64>>>> = const { Cell::new(None) };
++}
++
++/// Point the per-body counters at `n` fresh slots (repeated calls re-zero in place).
++pub fn size(n: usize) {
++    PER_BODY.with(|b| {
++        let fresh = match b.take() {
++            Some(v) if v.len() >= n => {
++                for c in &v[..n] {
++                    c.store(0, Ordering::Relaxed);
++                }
++                v
++            }
++            _ => std::rc::Rc::new((0..n).map(|_| AtomicU64::new(0)).collect()),
++        };
++        b.set(Some(fresh));
++    });
++}
++
++/// Zero the tag counters, the per-body counters and the key set (between arms of one process).
++pub fn reset() {
++    for r in &READS {
++        r.store(0, Ordering::Relaxed);
++    }
++    KEYS.lock().unwrap_or_else(|e| e.into_inner()).clear();
++    FULL.store(false, Ordering::Relaxed);
++    POLLS.store(0, Ordering::Relaxed);
++}
++
++/// Totals by tag plus the poll-key duplication.
++pub fn report() -> String {
++    let total: u64 = READS.iter().map(|r| r.load(Ordering::Relaxed)).sum();
++    let keys = KEYS.lock().unwrap_or_else(|e| e.into_inner()).len() as u64;
++    let mut s = format!(
++        "reads_total={total} polls={} poll_keys={keys} keys_full={}",
++        POLLS.load(Ordering::Relaxed),
++        FULL.load(Ordering::Relaxed)
++    );
++    for (i, l) in LABELS.iter().enumerate() {
++        s.push_str(&format!(" {l}={}", READS[i].load(Ordering::Relaxed)));
++    }
++    s
++}
++
++/// Per-body reads: (index, count) sorted descending, top `m`.
++pub fn top(m: usize) -> Vec<(usize, u64)> {
++    let mut v: Vec<(usize, u64)> = PER_BODY
++        .with(|b| b.borrow().clone())
++        .iter()
++        .enumerate()
++        .map(|(i, c)| (i, c.load(Ordering::Relaxed)))
++        .filter(|&(_, c)| c > 0)
++        .collect();
++    v.sort_unstable_by(|a, b| b.1.cmp(&a.1));
++    v.truncate(m);
++    v
++}
++
++/// How many distinct bodies were read at least once.
++pub fn distinct() -> usize {
++    PER_BODY.with(|b| b.borrow().iter().filter(|c| c.load(Ordering::Relaxed) > 0).count())
++}
++
++pub fn total() -> u64 {
++    READS.iter().map(|r| r.load(Ordering::Relaxed)).sum()
++}
