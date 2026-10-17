@@ -1,0 +1,4 @@
+Working...
+Regen reproduces every number from the restored tree in 26 s (deterministic: 64,197/1/16 again). All deliverables are in place: `predictions.md`, `dossier.md`, `regen.sh` (+ `work/patch.diff`, scripts, flight log, Readwise cache), and `wiki/library-directions.md` with the result folded in.
+
+**Claim:** Five script-verified lessons from Julien's library reorder the 10⁹ ledger's next runs — the boundary comb is a requirements question, not a scheduling one: 99.974% of the belt's boundary events do no law work and no engine reader consults a belt body between its kick and its boundary, so the merge-into-kick (bounded 10.3 → 8.3–9.8 cores, S* 20.7× → 16.6–19.7×) precedes the BELT_SPLIT stretch, compute-ahead stays a 10⁵–10⁶ lever until delete lands, certificates and angle bars go per population (q_live and q_mass), and the split-21 legality flight serializes ahead of the compact store's wiring.
