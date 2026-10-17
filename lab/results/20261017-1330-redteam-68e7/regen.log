@@ -1,0 +1,41 @@
+== 1. The blocker claim: does the shipped sparse-vs-dense suite run on Linux? ==
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 571.88s
+
+== 2. The r5 rung: harness rows (release; the integer law is profile-independent) ==
+running 10 tests
+test r5s0 ... ok
+test r5s1 ... ok
+test r5s2 ... ok
+test r5s3 ... ok
+test r5s4 ... ok
+test r5s5 ... ok
+test r5h1 ... ok
+test r5s6 ... ok
+test r5h2 ... ok
+test r5s7 ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 44.34s
+
+== 3. metrics.json and the mechanical verdict ==
+{
+ "cpu-pair": {
+  "identical_fraction": 1.0,
+  "covered_scenes": 10,
+  "contacts_total": 116874,
+  "secs_lockstep": 81.7397,
+  "secs_sparse": 25.214
+ },
+ "cpu-pair-shifted": {
+  "identical_fraction": 1.0,
+  "covered_scenes": 10
+ },
+ "cpu-pair-late": {
+  "identical_fraction": 0.0,
+  "covered_scenes": 10
+ }
+}
+Verdict: PASS; cpu-pair passed every criterion
+cpu-pair candidate pass
+cpu-pair-shifted positive pass
+cpu-pair-late negative fail ident

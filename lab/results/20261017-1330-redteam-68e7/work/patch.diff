@@ -1,0 +1,133 @@
+diff --git a/crates/engine/tests/r5_dense_order.rs b/crates/engine/tests/r5_dense_order.rs
+new file mode 100644
+index 00000000..211313a1
+--- /dev/null
++++ b/crates/engine/tests/r5_dense_order.rs
+@@ -0,0 +1,127 @@
++//! r5 rung harness (lab/results/20261017-1330-redteam-68e7): the dense and sparse orders of
++//! one event graph give identical bits, CPU arm, on the existing crates (representation.md
++//! §3; law.md "Both orders give identical bits"). Eight scenes are the frozen ladder of
++//! `identity.rs` (same parameters, same seeds); two held-out scenes (r5h1, r5h2) are this
++//! run's own draw, written in predictions.md before the run.
++//!
++//! Each scene test runs six battles to HORIZON and writes `$R5_OUT/r5-<scene>.json`:
++//! lockstep (`Chronon`) vs sparse (`EventCore`) at threads 1 and 4 with no shift
++//! (config `cpu-pair`), both shifted by one chronon (`cpu-pair-shifted`, the positive
++//! control: the orders must still agree), and lockstep unshifted vs sparse shifted
++//! (`cpu-pair-late`, the planted negative: the orders must disagree).
++//! `metrics.py` in the run folder assembles `metrics.json` from these rows.
++use emergent_engine::{scenes, Battle, Frame, Outcome};
++use emergent_lattice::law::{Tick, World};
++use emergent_lattice::{chronon::Chronon, Stepper};
++use emergent_lattice_event::EventCore;
++use std::time::Instant;
++
++const HORIZON: Tick = 4096;
++
++struct Scene {
++    name: &'static str,
++    bodies: u64,
++    q: i64,
++    seed: u64,
++    div: i64,
++    formation: bool,
++    k: u32,
++}
++
++fn build(s: &Scene) -> (World, Frame) {
++    let (w, extent) = scenes::battle(s.bodies, s.q, s.seed, s.div, s.formation);
++    let r_orbit = (s.q << s.k) / 4;
++    let r_extent = 32 * (extent + 4 * HORIZON * (s.q / s.div));
++    let f = Frame::new(s.q, r_orbit.max(r_extent), 1u64 << (60 - s.k)).unwrap();
++    (w, f)
++}
++
++struct Run {
++    out: Outcome,
++    contacts: u64,
++    epochs: u64,
++    carried: bool,
++    secs: f64,
++}
++
++fn lockstep(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
++    let t = Instant::now();
++    let mut b = Battle::new(Chronon::new(w.clone(), false).unwrap(), f.clone(), threads).with_epoch_shift(shift);
++    b.run_to(HORIZON).unwrap();
++    Run {
++        out: b.outcome(),
++        contacts: b.stepper().log().contacts,
++        epochs: b.stats().epochs,
++        carried: b.carries().iter().any(|c| *c != [0, 0]),
++        secs: t.elapsed().as_secs_f64(),
++    }
++}
++
++fn sparse(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
++    let t = Instant::now();
++    let mut b = Battle::new(EventCore::new(w.clone(), false).unwrap(), f.clone(), threads).with_epoch_shift(shift);
++    b.run_to(HORIZON).unwrap();
++    Run {
++        out: b.outcome(),
++        contacts: b.stepper().log().contacts,
++        epochs: b.stats().epochs,
++        carried: b.carries().iter().any(|c| *c != [0, 0]),
++        secs: t.elapsed().as_secs_f64(),
++    }
++}
++
++fn row(scene: &str, config: &str, threads: usize, a: &Run, b: &Run) -> String {
++    let world = a.out.world.chars().take(12).collect::<String>();
++    format!(
++        "{{\"scene\":\"{scene}\",\"config\":\"{config}\",\"threads\":{threads},\"identical\":{},\"contacts\":{},\"epochs\":{},\"carried\":{},\"secs_lockstep\":{:.4},\"secs_sparse\":{:.4},\"world\":\"{world}\"}}\n",
++        a.out == b.out, a.contacts, a.epochs, a.carried, a.secs, b.secs
++    )
++}
++
++fn scene(s: Scene) {
++    let (w, f) = build(&s);
++    let l1 = lockstep(&w, &f, 1, 0);
++    let s1 = sparse(&w, &f, 1, 0);
++    let l4 = lockstep(&w, &f, 4, 0);
++    let s4 = sparse(&w, &f, 4, 0);
++    let l1s = lockstep(&w, &f, 1, 1);
++    let s1s = sparse(&w, &f, 1, 1);
++    let mut rows = String::new();
++    rows += &row(s.name, "cpu-pair", 1, &l1, &s1);
++    rows += &row(s.name, "cpu-pair", 4, &l4, &s4);
++    rows += &row(s.name, "cpu-pair-shifted", 1, &l1s, &s1s);
++    rows += &row(s.name, "cpu-pair-late", 1, &l1, &s1s);
++    // R5_OUT is relative to the workspace root (the test binary's cwd is the crate).
++    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
++        .parent()
++        .and_then(|p| p.parent())
++        .unwrap()
++        .join(std::env::var("R5_OUT").unwrap_or_else(|_| "lab/results/20261017-1330-redteam-68e7/rows".into()));
++    std::fs::create_dir_all(&dir).unwrap();
++    std::fs::write(format!("{}/r5-{}.json", dir.display(), s.name), rows).unwrap();
++    println!("{:<4} {:>5} bodies q={:<5} k={} contacts {:<6} epochs {:<5} carried {} | cpu-pair t1 {} t4 {} | shifted {} | late {}",
++        s.name, s.bodies, s.q, s.k, l1.contacts, l1.epochs, l1.carried,
++        l1.out == s1.out, l4.out == s4.out, l1s.out == s1s.out, l1.out == s1s.out);
++}
++
++macro_rules! scenes {
++    ($($fn_name:ident: $name:literal, $n:expr, $q:expr, $seed:expr, $div:expr, $form:expr, $k:expr;)*) => {
++        $(#[test] fn $fn_name() {
++            scene(Scene { name: $name, bodies: $n, q: $q, seed: $seed, div: $div, formation: $form, k: $k });
++        })*
++    };
++}
++
++// The frozen ladder of identity.rs, then this run's held-out draw (predictions.md P2).
++scenes! {
++    r5s0: "s0", 50, 1024, 1, 32, false, 16;
++    r5s1: "s1", 100, 1024, 2, 8, false, 15;
++    r5s2: "s2", 200, 512, 3, 8, false, 14;
++    r5s3: "s3", 400, 1024, 4, 16, true, 13;
++    r5s4: "s4", 800, 2048, 5, 16, false, 12;
++    r5s5: "s5", 1200, 1024, 6, 32, true, 11;
++    r5s6: "s6", 1600, 1024, 7, 32, false, 10;
++    r5s7: "s7", 2000, 1024, 8, 8, true, 8;
++    r5h1: "h1", 2500, 512, 11, 32, false, 12;
++    r5h2: "h2", 3000, 2048, 12, 8, true, 14;
++}
