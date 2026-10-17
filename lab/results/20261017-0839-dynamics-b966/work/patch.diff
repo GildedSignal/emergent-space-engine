@@ -1,0 +1,113 @@
+diff --git a/crates/allocator/examples/finframe.rs b/crates/allocator/examples/finframe.rs
+new file mode 100644
+index 00000000..50362a01
+--- /dev/null
++++ b/crates/allocator/examples/finframe.rs
+@@ -0,0 +1,107 @@
++//! Does the shipped publish/rollback boundary assert fire in the frame harness — the way
++//! the player runs the engine? `alloc.rs` "rollback … would revise its published tick" is
++//! known reachable through chunked batch advance (lab run 20261017-0739-taleb-9b46); in
++//! `run_frames` publication is continuous (every worker commit publishes) but speculation
++//! is capped at `ahead_seconds` of present, which bounds how far one region can lag another
++//! — the two effects point opposite ways, and this example decides which wins.
++//!
++//! Scene `drift`: two loose gas clusters drifting together at Q/8 each (their conflict is
++//! discovered mid-run, after publications), plus two far quiet islands. Scene `quiet`: the
++//! islands alone (no conflict ever). Modes: `frames` (decisive), `chunks` (positive
++//! control, the shipped `Regions::advance` pattern), `batch` (single call).
++//!
++//!     cargo run -p emergent-allocator --release --offline --example finframe -- <scene> <mode> [n] [horizon|seconds] [chunk]
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig, Report};
++use emergent_lattice::{chronon::Chronon, law::{Law, Response}, worlds};
++use std::sync::Arc;
++
++/// Two gas clusters at ±140 units closing at Q/8 each (hulls touch near chronon ~1000),
++/// two quiet islands ±2000 units east/west (no body reaches anything in the horizon).
++fn drift(q: i64, n: u64) -> Vec<emergent_lattice::law::World> {
++    let speed = q / 8;
++    let mut ws = vec![
++        scenes::loose_gas(n, q, 8, 11, 1, [-140, 0]),
++        scenes::loose_gas(n, q, 8, 12, 1 + n, [140, 0]),
++    ];
++    for (i, off) in [[-2000i64, 0i64], [2000, 0]].iter().enumerate() {
++        let w = worlds::random(n, 300, q, 1, 21 + i as u64, Response::Bounce);
++        ws.push(scenes::world(&w, scenes::place(&w, 1_000_000 + 1000 * i as u64, *off, 1, 1, [0, 0])));
++    }
++    // The closing drift, on top of each cluster's internal velocities.
++    let (mut a, mut b) = (ws[0].clone(), ws[1].clone());
++    a.bodies.iter_mut().for_each(|b| b.k[0] += speed);
++    b.bodies.iter_mut().for_each(|b| b.k[0] -= speed);
++    ws[0] = a;
++    ws[1] = b;
++    ws
++}
++
++fn quiet(q: i64, n: u64) -> Vec<emergent_lattice::law::World> {
++    let mut ws = vec![];
++    for i in 0..4i64 {
++        let w = worlds::random(n, 300, q, 1, 31 + i as u64, Response::Bounce);
++        ws.push(scenes::world(&w, scenes::place(&w, 2_000_000 + 1000 * i as u64, [i * 2000 - 3000, 0], 1, 1, [0, 0])));
++    }
++    ws
++}
++
++fn cfg() -> Config {
++    Config { p_workers: 3, e_workers: 4, min_region: 1, speed_margin: 0.5, observer: [0, 0], view_radius: 300 * 256, ..Config::default() }
++}
++
++fn row(tag: &str, r: &Report) {
++    println!(
++        "| {tag:<18} | {:>6.2} | {:>6} | {:>5} | {:>7} | {:>8} | {:>7} | {:>9} | {:>10} | {:>8} | {:>7} | {:>7.1} |",
++        r.wall_seconds,
++        r.regions.last,
++        r.regions.rollbacks,
++        r.regions.merges,
++        r.regions.merges_avoided,
++        r.regions.promises_exceeded,
++        r.regions.wasted_ops,
++        r.units.count,
++        r.units.stepper_advance_ms.p50,
++        r.units.lock_wait_ms.p99,
++        r.sim.present_chronons_per_wall_second,
++    );
++}
++
++fn main() {
++    let q = 256i64;
++    let args: Vec<String> = std::env::args().skip(1).collect();
++    let scene = args.first().map(|s| s.as_str()).unwrap_or("drift");
++    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("frames").to_string();
++    let n: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(120);
++    let hs: i64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1800);
++    let chunk: i64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(150);
++    let rate: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(600.0);
++    let ws = if scene == "quiet" { quiet(q, n) } else { drift(q, n) };
++    let ws = scenes::with_law(ws, Law::Relativistic);
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let mut a = Allocator::new(ws, factory, cfg()).expect("scene");
++    let t0 = 0i64;
++    println!("| case               | wall s | regions | rb | merges | avoided | exceeded | wasted ops | units | step p50 ms | lock p99 | present/s |");
++    match mode.as_str() {
++        "frames" => {
++            let r = a.run_frames(&FrameConfig { hz: 120.0, seconds: hs as f64, rate, ahead_seconds: 0.25, record: false });
++            row(&format!("{scene} frames {hs}s"), &r);
++            let f = r.frames.as_ref().expect("frames report");
++            println!("frames: {} drawn, deadline misses {}, accel drops {}, frontier {}", f.frames, f.deadline_misses, f.acceleration_drops, r.finality.frontier);
++        }
++        "batch" => {
++            let r = a.run_to(t0 + hs);
++            row(&format!("{scene} batch H{hs}"), &r);
++        }
++        "chunks" => {
++            let mut tick = t0;
++            while tick < t0 + hs {
++                let next = (tick + chunk).min(t0 + hs);
++                let r = a.run_to(next);
++                row(&format!("{scene} chunk→{next}"), &r);
++                println!("  chunk {next}: frontier {}, regions {}, escalation {:.0}", r.finality.frontier, r.regions.last, r.regions.speed_escalation);
++                tick = next;
++            }
++        }
++        _ => panic!("mode must be frames | batch | chunks"),
++    }
++}
