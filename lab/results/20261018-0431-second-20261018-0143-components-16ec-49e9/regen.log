@@ -1,0 +1,67 @@
+Removing crates/universe/examples/bound_probe.rs
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 23.77s
+== exactness probe (16ec's, unchanged) ==
+bound_probe: 1204 bindings (1200 cycles swept, 4 non-cycles refused, 0 cycles without a computable range); worst relative excursion beyond the widened range: +0.000e0 at 
+== flights (N=10^4, 60 s wall, rtf 1800, cut pinned 1.2e10) ==
+== digests (r) ==
+coast_ctl a725217f1dcd9f2a total 19423 fast 0 slow_cycle 0 passage 0 deaths 0
+coast_fast a725217f1dcd9f2a total 19423 fast 19423 slow_cycle 0 passage 0 deaths 0
+shipA 08b6399c4898a671 total 19761 fast 0 slow_cycle 0 passage 0 deaths 0
+shipB 08b6399c4898a671 total 19761 fast 0 slow_cycle 0 passage 0 deaths 0
+pin_ctlA 1198b23ec9b91432 total 19761 fast 0 slow_cycle 0 passage 0 deaths 0
+pin_ctlB 1198b23ec9b91432 total 19761 fast 0 slow_cycle 0 passage 0 deaths 0
+pin_fastA 1198b23ec9b91432 total 19761 fast 19423 slow_cycle 0 passage 338 deaths 0
+pin_fastB 1198b23ec9b91432 total 19761 fast 19423 slow_cycle 0 passage 338 deaths 0
+strad_ctl 0c3b1c7dcd0dfeeb total 17675 fast 0 slow_cycle 0 passage 0 deaths 1753
+strad_fast 0c3b1c7dcd0dfeeb total 17675 fast 12549 slow_cycle 5126 passage 0 deaths 1753
+== verdicts (author a_* vs regen r_*) ==
+-- deterministic arms (must be identical ctl vs fast, author vs regen) --
+a_coast_ctl = a_coast_fast : IDENTICAL (a725217f1dcd9f2a)
+r_coast_ctl = r_coast_fast : IDENTICAL (a725217f1dcd9f2a)
+a_coast_ctl = r_coast_ctl : IDENTICAL (a725217f1dcd9f2a)
+a_pin_ctlA = a_pin_ctlB : IDENTICAL (1198b23ec9b91432)
+a_pin_ctlA = a_pin_fastA : IDENTICAL (1198b23ec9b91432)
+a_pin_fastA = a_pin_fastB : IDENTICAL (1198b23ec9b91432)
+r_pin_ctlA = r_pin_ctlB : IDENTICAL (1198b23ec9b91432)
+r_pin_ctlA = r_pin_fastA : IDENTICAL (1198b23ec9b91432)
+r_pin_fastA = r_pin_fastB : IDENTICAL (1198b23ec9b91432)
+a_pin_ctlA = r_pin_ctlA : IDENTICAL (1198b23ec9b91432)
+a_strad_ctl = a_strad_fast : IDENTICAL (0c3b1c7dcd0dfeeb)
+r_strad_ctl = r_strad_fast : IDENTICAL (0c3b1c7dcd0dfeeb)
+a_strad_ctl = r_strad_ctl : IDENTICAL (0c3b1c7dcd0dfeeb)
+-- shipped-harness burn (the instrument: equal logged ticks -> equal digests only) --
+bound: inject input at presented 247463935
+bound: inject input at presented 247463935
+bound: inject input at presented 343400821
+bound: inject input at presented 343400821
+a_shipA = a_shipB : IDENTICAL (37efae11f5ba5019)
+r_shipA = r_shipB : IDENTICAL (08b6399c4898a671)
+a_shipA vs r_shipA : DIFFER (37efae11f5ba5019 vs 08b6399c4898a671)
+-- pinned arms' injection line (same scheduled tick, schedules vary) --
+bound: inject scheduled at 365400000 (presented 230686719, player event_time 228589568)
+bound: inject scheduled at 365400000 (presented 288804896, player event_time 287309824)
+bound: inject scheduled at 365400000 (presented 343400821, player event_time 341835776)
+bound: inject scheduled at 365400000 (presented 343400821, player event_time 341835776)
+-- decomposition (flight window, one shipped command) --
+bound: decomp window clock 19423 all 107093 clock_share 0.1814
+bound: decomp window clock 19423 all 107234 clock_share 0.1811
+bound: decomp window clock 19761 all 106274 clock_share 0.1859
+bound: decomp window clock 19761 all 106054 clock_share 0.1863
+bound: decomp window clock 19761 all 105715 clock_share 0.1869
+bound: decomp window clock 19761 all 105441 clock_share 0.1874
+bound: decomp window clock 19762 all 105996 clock_share 0.1864
+bound: decomp window clock 19762 all 105996 clock_share 0.1864
+bound: decomp window clock 17675 all 104007 clock_share 0.1699
+bound: decomp window clock 17675 all 103975 clock_share 0.1700
+bound: decomp window clock 19423 all 110156 clock_share 0.1763
+bound: decomp window clock 19423 all 110156 clock_share 0.1763
+bound: decomp window clock 19761 all 108363 clock_share 0.1824
+bound: decomp window clock 19761 all 108363 clock_share 0.1824
+bound: decomp window clock 19761 all 108363 clock_share 0.1824
+bound: decomp window clock 19761 all 108363 clock_share 0.1824
+bound: decomp window clock 19761 all 108337 clock_share 0.1824
+bound: decomp window clock 19761 all 108337 clock_share 0.1824
+bound: decomp window clock 17675 all 106655 clock_share 0.1657
+bound: decomp window clock 17675 all 106655 clock_share 0.1657
+Removing crates/universe/examples/bound_probe.rs

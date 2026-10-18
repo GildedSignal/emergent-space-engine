@@ -1,0 +1,353 @@
+diff --git a/crates/universe/examples/bound_probe.rs b/crates/universe/examples/bound_probe.rs
+new file mode 100644
+index 00000000..ae29e424
+--- /dev/null
++++ b/crates/universe/examples/bound_probe.rs
+@@ -0,0 +1,117 @@
++//! The exactness probe for the boundary's key-range fast path (lab/results/20261018-0143-components-16ec).
++//!
++//! Builds bindings the way the engine does — an exact doll-unit state off a compiled cycle (the same
++//! `cartesian`-after-`to_doll` readout `decode` uses), optionally perturbed so the fit carries a
++//! residual — then sweeps the readout over whole cycles and asserts the invariant the fast path stands
++//! on: the readout's radius never leaves the widened [periapsis, apoapsis] range, at any tick,
++//! residual included. Non-cycle tubes must be refused (no finite range).
++//!
++use emergent_space::binding::{cartesian, Trajectory};
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use emergent_universe::bind::{bind, bind_exact, choose_units, scalars};
++use emergent_universe::num::{norm2, Tick};
++use emergent_universe::step::safe_range;
++use emergent_universe::world::Unit;
++
++fn as_f(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32 - 62)
++}
++
++fn main() {
++    let mut cases = 0usize;
++    let mut cycles = 0usize;
++    let mut noncycles = 0usize;
++    let mut held = 0usize;
++    let mut worst = (0.0f64, String::new());
++    for p_exp in [4i16, 8, 12, 16, 20] {
++        for e48 in [0u64, 1 << 44, 1 << 47, (0.9 * (1u64 << 48) as f64) as u64, (0.99 * (1u64 << 48) as f64) as u64] {
++            let key = OrbitKey::bound(Scalar::power_of_two(p_exp), e48).unwrap();
++            let Ok(orbit) = Orbit::compile(key) else { continue };
++            let period_m = orbit.period().unwrap();
++            let k = key.shape().unwrap();
++            let apo_m = key.periapsis.div(k.scale(1).unwrap().sub(Scalar::ONE).unwrap()).unwrap();
++            for mu_pow in [10i16, 20] {
++                for mu in [Scalar::power_of_two(mu_pow), Scalar::raw(3, mu_pow as i32 - 1).unwrap()] {
++                    let unit = Unit::of(mu).unwrap();
++                    let period = unit.to_doll(period_m).unwrap();
++                    let apo = unit.to_doll(apo_m).unwrap();
++                    for phase in 0..4u64 {
++                        let t0: Tick = 1 << 20;
++                        let mut st = orbit.state(period_m.scale(-(2 + phase as i32)).unwrap()).unwrap();
++                        st.radius = unit.to_doll(st.radius).unwrap();
++                        let vmax = st.radial_velocity.abs().max(st.transverse_velocity.abs()).scale(2).unwrap();
++                        let units = choose_units(apo, vmax);
++                        let exact = cartesian(st, (phase as u32) * 0x40000000, phase % 2 == 0, units).unwrap();
++                        for perturb in [0i64, 255, 1 << 20] {
++                            let mut ex = exact;
++                            for c in &mut ex.velocity {
++                                *c = c.saturating_add(perturb);
++                            }
++                            for c in &mut ex.position {
++                                *c = c.saturating_add(perturb / 64);
++                            }
++                            let Ok(bound) = bind(ex, t0, 0, None, unit) else { continue };
++                            let binding = bind_exact(bound.entry.clone(), bound.tube, 0, bound.units, t0, 0);
++                            cases += 1;
++                            let range = safe_range(&binding);
++                            if !matches!(&bound.entry.trajectory, Trajectory::Cycle(_)) {
++                                noncycles += 1;
++                                assert!(range.is_none(), "a non-cycle must have no range");
++                                continue;
++                            }
++                            cycles += 1;
++                            let Some((lo, hi)) = range else { held += 1; continue };
++                            // Three cycles densely, plus both turning-point families.
++                            let mut ts: Vec<i64> = Vec::new();
++                            for j in 0..96i128 {
++                                let dt = period.mul(Scalar::integer(j as i64)).unwrap().div(Scalar::integer(32)).unwrap();
++                                ts.push(t0 + dt.fixed(0).unwrap() as i64);
++                            }
++                            for j in 0..7i128 {
++                                let dt = period.mul(Scalar::integer(j as i64)).unwrap().div(Scalar::integer(2)).unwrap();
++                                ts.push(t0 + dt.fixed(0).unwrap() as i64);
++                            }
++                            for t in ts {
++                                let (x, _) = scalars(&binding.readout(t).unwrap()).unwrap();
++                                let r = norm2(x).unwrap();
++                                let viol = lo.sub(r).unwrap().max(r.sub(hi).unwrap());
++                                let v = as_f(viol) / as_f(r);
++                                if v > worst.0 {
++                                    worst = (v, format!("p2^{p_exp} e{e48} mu2^{mu_pow}{} phase{phase} pert{perturb} dt{:e}", if mu == Scalar::power_of_two(mu_pow) { "" } else { "x1.5" }, as_f(period) * ((t - t0) as f64 / as_f(period))));
++                                }
++                                assert!(r >= lo && r <= hi, "range violated: r={:?} outside [{lo:?}, {hi:?}] (p2^{p_exp} e{e48} pert{perturb})", as_f(r));
++                            }
++                        }
++                    }
++                }
++            }
++        }
++    }
++    // The refusal control: unbound states must compile to passages and never claim a range.
++    for p_exp in [8i16, 16] {
++        let key = OrbitKey::bound(Scalar::power_of_two(p_exp), 1 << 44).unwrap();
++        let orbit = Orbit::compile(key).unwrap();
++        let period_m = orbit.period().unwrap();
++        for mu in [Scalar::power_of_two(10i16), Scalar::raw(3, 9).unwrap()] {
++            let unit = Unit::of(mu).unwrap();
++            let mut st = orbit.state(period_m.scale(-3).unwrap()).unwrap();
++            st.radius = unit.to_doll(st.radius).unwrap();
++            st.transverse_velocity = st.transverse_velocity.scale(1).unwrap();
++            let vmax = st.transverse_velocity.scale(2).unwrap();
++            let units = choose_units(st.radius.scale(4).unwrap(), vmax);
++            let mut ex = cartesian(st, 0, false, units).unwrap();
++            for c in &mut ex.velocity {
++                *c = c.saturating_mul(3) / 2 + 1;
++            }
++            let bound = bind(ex, 1 << 20, 0, Some(Scalar::power_of_two(p_exp + 30)), unit).unwrap();
++            cases += 1;
++            let binding = bind_exact(bound.entry.clone(), bound.tube, 0, bound.units, 1 << 20, 0);
++            assert!(safe_range(&binding).is_none(), "an unbound state must have no range (p2^{p_exp})");
++            noncycles += 1;
++        }
++    }
++    println!(
++        "bound_probe: {cases} bindings ({cycles} cycles swept, {noncycles} non-cycles refused, {held} cycles without a computable range); worst relative excursion beyond the widened range: {:+.3e} at {}",
++        worst.0, worst.1
++    );
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e540b7d0 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,11 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+-
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +29,20 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux twin of the macOS footprint: resident + swap now, the high-water mark for the peak.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let kb = |name: &str| -> u64 {
++        status
++            .lines()
++            .find_map(|l| l.strip_prefix(name))
++            .and_then(|v| v.trim().trim_end_matches(" kB").parse::<u64>().ok())
++            .map_or(0, |kb| kb * 1024)
++    };
++    (kb("VmRSS:") + kb("VmSwap:"), kb("VmHWM:"))
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -45,11 +58,15 @@ fn main() {
+     let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let seed: u64 = std::env::var("ES_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    if std::env::var("ES_BOUND_RANGE").is_ok() {
++        emergent_universe::step::RANGE_FAST.store(true, std::sync::atomic::Ordering::Relaxed);
++    }
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -61,6 +78,8 @@ fn main() {
+     let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
+     let mut last_stats = p.u.stats;
+     let mut alive = true;
++    let mut last_target: i64 = 0;
++    let limit: i64 = std::env::var("ES_LIMIT").ok().and_then(|s| s.parse().ok()).unwrap_or(i64::MAX);
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+@@ -77,8 +96,9 @@ fn main() {
+             let _ = emergent_universe::prof::take();
+         }
+         let start = Instant::now();
+-        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, limit);
+         let took = start.elapsed();
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
+         let (ns, calls) = emergent_universe::prof::take();
+         if f >= 60 {
+             for k in 0..emergent_universe::prof::N {
+@@ -86,7 +106,7 @@ fn main() {
+                 stage_calls[k] += calls[k];
+             }
+         }
+-        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        last_target = frame.target;
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -100,6 +120,19 @@ fn main() {
+         }
+     }
+     let (now2, rss2) = footprint();
++    let cut = if limit < i64::MAX { limit } else { last_target };
++    p.u.settle(cut);
++    // The canonical cut and the digest: budget- and schedule-independent, so arms compare bit for bit.
++    let digest = p.u.digest();
++    let census = &emergent_universe::step::BOUND_CENSUS;
++    let rd = |f: &std::sync::atomic::AtomicU64| f.load(std::sync::atomic::Ordering::Relaxed);
++    println!(
++        "bound: digest {} cut {cut} total {} fast {} slow_cycle {} passage {} deaths {}; ns slow {} ({} ns/event), ns fast {} ({} ns/event)",
++        &digest[..16],
++        rd(&census.total), rd(&census.fast), rd(&census.slow_cycle), rd(&census.passage), rd(&census.deaths),
++        rd(&census.ns_slow), rd(&census.ns_slow) as f64 / (rd(&census.total) - rd(&census.fast)).max(1) as f64,
++        rd(&census.ns_fast), rd(&census.ns_fast) as f64 / rd(&census.fast).max(1) as f64
++    );
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+     ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..071e4308 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -69,6 +69,76 @@ pub enum Resolved {
+     Refused,
+ }
+ 
++// ---- the boundary's key-range fast path (lab/results/20261018-0143-components-16ec) ------------------
++//
++// A clock body's boundary tests two certificates against the readout's radius: the doll's surface and
++// the system's leave radius. Between events the body rides one compiled tube, and a bound cycle's
++// radius never leaves [periapsis, apoapsis] (x = k + (1-k)·cos psi spans exactly [2k-1, 1]), so when
++// that range, widened by everything the readout adds on top of the tube (component rounding, the
++// turn's shear slack, the carried residual), sits strictly inside (surface, leave), no readout at any
++// tick can fire a certificate: the walk is deleted, never skipped around — the anchor write and the
++// event's tick are unchanged, so the digest cannot move unless the bound itself is wrong.
++
++/// Whether the fast path decides boundaries (an adoption dial; the census is print-only).
++pub static RANGE_FAST: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++
++/// Print-only census of the clock path's boundaries (zero when nothing reads them).
++#[derive(Default)]
++pub struct BoundCensus {
++    pub total: std::sync::atomic::AtomicU64,
++    pub fast: std::sync::atomic::AtomicU64,
++    /// A cycle whose range straddled a certificate radius (or whose range failed to compute).
++    pub slow_cycle: std::sync::atomic::AtomicU64,
++    /// A passage or plunge: no finite range, the readout always runs.
++    pub passage: std::sync::atomic::AtomicU64,
++    pub ns_slow: std::sync::atomic::AtomicU64,
++    pub ns_fast: std::sync::atomic::AtomicU64,
++    /// Boundaries whose shipped path killed the body.
++    pub deaths: std::sync::atomic::AtomicU64,
++}
++pub static BOUND_CENSUS: BoundCensus = BoundCensus {
++    total: std::sync::atomic::AtomicU64::new(0),
++    fast: std::sync::atomic::AtomicU64::new(0),
++    slow_cycle: std::sync::atomic::AtomicU64::new(0),
++    passage: std::sync::atomic::AtomicU64::new(0),
++    ns_slow: std::sync::atomic::AtomicU64::new(0),
++    ns_fast: std::sync::atomic::AtomicU64::new(0),
++    deaths: std::sync::atomic::AtomicU64::new(0),
++};
++
++impl BoundCensus {
++    fn add(f: &std::sync::atomic::AtomicU64) -> u64 {
++        f.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
++    }
++}
++
++/// The tube's exact radial range in the doll's units, widened by everything the readout adds to the
++/// tube: component rounding at the position quantum, the turn's shear (within two quanta of the
++/// rotation it stands for) and the carried residual (in position quanta). A bound cycle's radius
++/// never leaves it, at any tick. `None` when the trajectory has no finite range (a passage compiles
++/// out to an edge, a plunge ends at the surface) or the key is not a plain bound cycle.
++pub fn safe_range(b: &Binding) -> Option<(Scalar, Scalar)> {
++    let Trajectory::Cycle(c) = &b.entry.trajectory else { return None };
++    let key = c.key();
++    if !key.periodic() {
++        return None;
++    }
++    // The outer turning point in the tube's units: radius = periapsis/(2k-1) (the same
++    // expression `word_for` uses to size the integer word).
++    let outer = key.shape().ok()?.scale(1).ok()?.sub(Scalar::ONE).ok()?;
++    if !outer.is_positive() {
++        return None;
++    }
++    let hi = b.to_doll(key.periapsis.div(outer).ok()?).ok()?;
++    let lo = b.to_doll(key.periapsis).ok()?;
++    // Slack, in the doll's units: |res| component sums (an upper bound of its norm) plus four
++    // position quanta for rounding and the turn.
++    let res = b.residual.position;
++    let quanta = res[0].abs() + res[1].abs() + 4;
++    let slack = Scalar::raw(quanta, b.units.0 as i32).ok()?;
++    Some((lo.sub(slack).ok()?, hi.add(slack).ok()?))
++}
++
+ /// The kick step of a tube: `1/64` of its radial period (a passage: of its duration), a power of
+ /// two of ticks. Inside a planet's doll the orbit that leaves the doll (a flyby, a quasi-parabolic
+ /// capture) is resolved over what it spends in the doll: twice the leg from periapsis to the edge.
+@@ -723,17 +793,37 @@ impl Work<'_, '_> {
+     /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's edge),
+     /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
+     fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
++        let watch = std::time::Instant::now();
++        BoundCensus::add(&BOUND_CENSUS.total);
++        if RANGE_FAST.load(std::sync::atomic::Ordering::Relaxed) {
++            if let Some((lo, hi)) = safe_range(&self.rec.b) {
++                let leave = Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16);
++                if lo > self.doll().surface && hi < leave {
++                    BoundCensus::add(&BOUND_CENSUS.fast);
++                    BOUND_CENSUS.ns_fast.fetch_add(watch.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++                    self.rec.anchor = t;
++                    return Ok(Resolved::Boundary);
++                }
++                BoundCensus::add(&BOUND_CENSUS.slow_cycle);
++            } else {
++                BoundCensus::add(&BOUND_CENSUS.passage);
++            }
++        }
+         let st = self.rec.b.readout(t)?;
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+-        if self.rec.kind != Kind::Planet && r < self.doll().surface {
+-            self.rec.alive = false;
+-            return Ok(Resolved::Lost);
+-        }
+-        if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
++        let dead = if self.rec.kind != Kind::Planet && r < self.doll().surface {
++            true
++        } else {
++            r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16)
++        };
++        if dead {
++            BoundCensus::add(&BOUND_CENSUS.deaths);
+             self.rec.alive = false;
++            BOUND_CENSUS.ns_slow.fetch_add(watch.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+             return Ok(Resolved::Lost);
+         }
++        BOUND_CENSUS.ns_slow.fetch_add(watch.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+         self.rec.anchor = t;
+         Ok(Resolved::Boundary)
+     }
