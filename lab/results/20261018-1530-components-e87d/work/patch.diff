@@ -1,0 +1,552 @@
+diff --git a/crates/encounters/examples/beatstore.rs b/crates/encounters/examples/beatstore.rs
+new file mode 100644
+index 00000000..032ce4f6
+--- /dev/null
++++ b/crates/encounters/examples/beatstore.rs
+@@ -0,0 +1,546 @@
++//! Beat-store falsifier (lab run 20261018-1530-components-e87d).
++//!
++//! Component: the encounter pair certificate at the design reach (encounters od 1).
++//! Measures, on the SHIPPED integer section representation:
++//!  (1) anchor distributions (w, d, pi, k_first, section kinds);
++//!  (2) the exact per-kick movement of the section integers (delta_d, delta_pi, delta_w)
++//!      under one belt-quantum kick (2^-23 * v) and the checker arms (2^-17, 2^-14);
++//!  (3) the shipped-due re-roll control: silent->armed flips at horizon 10^6 passages (1a29's kill);
++//!  (4) the beat-resident certificate's slack: min over l<=L of distance(s_l, window) and its
++//!      drift under one kick, for L in {10^2, 10^3};
++//!  (5) the float-vs-integer price of one re-arm decision (arm_pair vs first_hit-only);
++//!  (6) the leak of stale records: P(in-window hit <= L | certified safe k kicks earlier).
++//! Everything exact in the section integers; floats only build sections (as shipped).
++
++use emergent_encounters::belt::{make_belt, Rng, Spec};
++use emergent_encounters::dioph::first_hit;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::pairs::{cone_pairs, is_candidate, Kind};
++use emergent_encounters::tier::{arm_pair, arm_sections, ArmStats};
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++/// One section's integer rotation, replicating `arm_pair`'s setup at t0 = 0 (index space).
++struct Rot {
++    c0: u64,
++    d: u64,
++    pi: u64,
++    w: u64,
++    kind: Kind,
++}
++
++fn rots(bi: &Body, bj: &Body, rho: f64, safety: f64) -> Vec<Rot> {
++    let mut out = Vec::new();
++    for sec in arm_sections(bi, bj, rho, safety) {
++        let ti = sec.ti as i128;
++        let tj = sec.tj as i128;
++        let pi = bi.period as i128;
++        let pj = bj.period as i128;
++        let ext = pi + 2 * pj;
++        let base = tj + (0i128 - ext - tj).div_euclid(pj) * pj;
++        let w1 = sec.w1 as i128;
++        let w = (w1 + sec.w2 as i128).clamp(0, pi - 1);
++        let c0 = (ti - base + w1).rem_euclid(pi);
++        let d = (pi - pj.rem_euclid(pi)).rem_euclid(pi);
++        out.push(Rot { c0: c0 as u64, d: d as u64, pi: pi as u64, w: w as u64, kind: sec.kind });
++    }
++    out
++}
++
++/// s_l = (c0 + l*d) mod pi. l <= 4e6 and d < pi ~ 8e10 so l*d < 2^63: direct.
++#[inline]
++fn section_at(r: &Rot, l: u64) -> u64 {
++    debug_assert!(l <= 4_000_000);
++    (r.c0 + l * r.d) % r.pi
++}
++
++/// First in-window passage index <= L, and the slack (min distance to the window) up to L.
++fn scan(r: &Rot, l_max: u64) -> (Option<u64>, u64) {
++    let mut first: Option<u64> = None;
++    let mut slack = u64::MAX;
++    for l in 1..=l_max {
++        let s = section_at(r, l);
++        if s <= r.w {
++            first = Some(l);
++            break;
++        }
++        let dist = (s - r.w).min(r.pi - s);
++        if dist < slack {
++            slack = dist;
++        }
++    }
++    if slack == u64::MAX {
++        slack = 0;
++    }
++    (first, slack)
++}
++
++/// Exact kick: state at t, add dv along (cos th, sin th), rebuild the Body (integer period).
++fn kick(b: &Body, t: f64, dv: f64, th: f64) -> Body {
++    let s = b.state(t);
++    let vx = s[2] + dv * th.cos();
++    let vy = s[3] + dv * th.sin();
++    let (x, y) = (s[0], s[1]);
++    let r = (x * x + y * y).sqrt();
++    let v2 = vx * vx + vy * vy;
++    let a = 1.0 / (2.0 / r - v2);
++    let rv = x * vx + y * vy;
++    let ex = (v2 - 1.0 / r) * x - rv * vx;
++    let ey = (v2 - 1.0 / r) * y - rv * vy;
++    let e = (ex * ex + ey * ey).sqrt();
++    let pom = ey.atan2(ex).rem_euclid(TAU);
++    let n = a.powf(-1.5);
++    let mut ea = if e > 1e-14 { ((1.0 - r / a) / e).clamp(-1.0, 1.0).acos() } else { 0.0 };
++    if rv < 0.0 {
++        ea = TAU - ea;
++    }
++    let m = (ea - e * ea.sin()).rem_euclid(TAU);
++    let lam0 = (pom + m - n * t).rem_euclid(TAU);
++    Body::new(a, e, pom, lam0)
++}
++
++fn vmax(b: &Body) -> f64 {
++    let s = b.state(0.0);
++    s[2].hypot(s[3])
++}
++
++fn median(v: &mut [f64]) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.total_cmp(b));
++    v[v.len() / 2]
++}
++
++fn vmax_of(v: &[f64]) -> f64 {
++    v.iter().copied().fold(0.0, f64::max)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("all");
++    let rho: f64 = 3.34e-6; // design reach B = 5e5 m = 3.34e-6 AU
++    let safety = 1.1; // 1a29's shipped Phase-A arm
++    let seed = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(20261018u64);
++    let width: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1e-4);
++
++    // Cell population: 2000 bodies in a narrow AU window at 2 AU (the 10^4-occupancy cell shape).
++    let spec = Spec {
++        name: "cell".into(),
++        n: 2000,
++        sigma_e: 0.07,
++        rho,
++        a_lo: 2.0,
++        a_hi: 2.0 + width,
++        keys: 0,
++        seed,
++        orbits: 1.0,
++    };
++    let belt = make_belt(&spec);
++    let t0 = Instant::now();
++    let cp = cone_pairs(&belt, rho);
++    println!(
++        "# bodies {} candidate pairs {} (scan {}) [{:.2}s] seed {} width {}",
++        belt.len(),
++        cp.pairs.len(),
++        cp.scanned,
++        t0.elapsed().as_secs_f64(),
++        seed,
++        width
++    );
++
++    let stride = (cp.pairs.len() / 300_000).max(1);
++    let sample: Vec<(u32, u32)> = cp.pairs.iter().step_by(stride).copied().collect();
++    println!("# sample {} pairs (stride {})", sample.len(), stride);
++
++    if mode == "all" || mode == "anchors" {
++        let m = sample.len().min(50_000);
++        let mut wsv = Vec::new();
++        let mut dsv = Vec::new();
++        let mut pisv = Vec::new();
++        let mut kf = Vec::new();
++        let mut kinds = [0usize; 3];
++        let mut nsec = 0usize;
++        let mut dd23: Vec<f64> = Vec::new();
++        let mut ddpi23: Vec<f64> = Vec::new();
++        let mut dw23: Vec<f64> = Vec::new();
++        let mut dd17: Vec<f64> = Vec::new();
++        let mut dd14: Vec<f64> = Vec::new();
++        let mut rng = Rng(99);
++        for &(i, j) in sample.iter().take(m) {
++            let bi = &belt[i as usize];
++            let bj = &belt[j as usize];
++            let rs = rots(bi, bj, rho, safety);
++            nsec += rs.len();
++            for r in &rs {
++                kinds[r.kind as usize] += 1;
++                wsv.push(r.w as f64);
++                dsv.push(r.d as f64);
++                pisv.push(r.pi as f64);
++                match first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut 0) {
++                    Some(k) => kf.push(k as f64),
++                    None => kf.push(f64::INFINITY),
++                }
++            }
++            if dd23.len() < 20_000 {
++                let vi = vmax(bi);
++                let mut best = [0f64; 5];
++                let b23 = kick(bi, 0.0, 2f64.powi(-23) * vi, TAU * rng.f64());
++                let b17 = kick(bi, 0.0, 2f64.powi(-17) * vi, TAU * rng.f64());
++                let b14 = kick(bi, 0.0, 2f64.powi(-14) * vi, TAU * rng.f64());
++                let r2 = rots(&b23, bj, rho, safety);
++                let r3 = rots(&b17, bj, rho, safety);
++                let r4 = rots(&b14, bj, rho, safety);
++                if rs.len() == r2.len() && rs.len() == r3.len() && rs.len() == r4.len() {
++                    for (a, b) in rs.iter().zip(r2.iter()) {
++                        let dd = (a.d as f64 - b.d as f64).abs();
++                        if dd > best[0] {
++                            best[0] = dd;
++                            best[1] = (a.pi as f64 - b.pi as f64).abs();
++                            best[2] = (a.w as f64 - b.w as f64).abs();
++                        }
++                    }
++                    for (a, b) in rs.iter().zip(r3.iter()) {
++                        best[3] = best[3].max((a.d as f64 - b.d as f64).abs());
++                    }
++                    for (a, b) in rs.iter().zip(r4.iter()) {
++                        best[4] = best[4].max((a.d as f64 - b.d as f64).abs());
++                    }
++                    dd23.push(best[0]);
++                    ddpi23.push(best[1]);
++                    dw23.push(best[2]);
++                    dd17.push(best[3]);
++                    dd14.push(best[4]);
++                }
++            }
++        }
++        let fin = kf.iter().filter(|x| x.is_finite()).count();
++        println!(
++            "ANCHORS nsec/pair {:.3} kinds cross={} wide={} full={}",
++            nsec as f64 / m as f64,
++            kinds[0],
++            kinds[1],
++            kinds[2]
++        );
++        println!(
++            "ANCHORS w p50 {:.1} max {:.1} | d p50 {:.3e} | pi p50 {:.3e} (ticks)",
++            median(&mut wsv),
++            vmax_of(&wsv),
++            median(&mut dsv),
++            median(&mut pisv)
++        );
++        let mut kff: Vec<f64> = kf.iter().copied().filter(|x| x.is_finite()).collect();
++        println!(
++            "ANCHORS k_first finite {}/{} p50 {:.3e} max {:.3e}",
++            fin,
++            kf.len(),
++            median(&mut kff),
++            vmax_of(&kff)
++        );
++        let w50 = median(&mut wsv.clone());
++        println!(
++            "KICKDELTA q23: delta_d p50 {:.3e} max {:.3e} | delta_pi p50 {:.3e} | delta_w p50 {:.3e}",
++            median(&mut dd23),
++            vmax_of(&dd23),
++            median(&mut ddpi23),
++            median(&mut dw23)
++        );
++        println!(
++            "KICKDELTA q17: delta_d p50 {:.3e} | q14: delta_d p50 {:.3e}",
++            median(&mut dd17),
++            median(&mut dd14)
++        );
++        println!(
++            "IDENTITY delta_d/w at q23: p50 {:.1} max {:.1} (w p50 {:.1} ticks)",
++            median(&mut dd23) / w50,
++            vmax_of(&dd23) / w50,
++            w50
++        );
++    }
++
++    if mode == "all" || mode == "control" {
++        let kh: u128 = 1_000_000;
++        let m = sample.len().min(240_000);
++        let mut rng = Rng(7);
++        for (name, q) in [
++            ("dv0", 0.0),
++            ("q23", 2f64.powi(-23)),
++            ("q17", 2f64.powi(-17)),
++            ("q14", 2f64.powi(-14)),
++        ] {
++            let mut flips_on = 0u64;
++            let mut flips_off = 0u64;
++            let mut armed0 = 0u64;
++            let mut pairs = 0u64;
++            let mut secs = 0u64;
++            let mut shape_changes = 0u64;
++            for &(i, j) in sample.iter().take(m) {
++                let bi = &belt[i as usize];
++                let bj = &belt[j as usize];
++                let a0: Vec<Option<u128>> = rots(bi, bj, rho, safety)
++                    .iter()
++                    .map(|r| first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut 0))
++                    .collect();
++                let bk = if q == 0.0 {
++                    *bi
++                } else {
++                    kick(bi, 0.0, q * vmax(bi), TAU * rng.f64())
++                };
++                let r1 = rots(&bk, bj, rho, safety);
++                if r1.len() != a0.len() {
++                    shape_changes += 1;
++                    continue;
++                }
++                pairs += 1;
++                let a1: Vec<Option<u128>> = r1
++                    .iter()
++                    .map(|r| first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut 0))
++                    .collect();
++                secs += a0.len() as u64;
++                let on0 = a0.iter().any(|k| k.map(|x| x <= kh).unwrap_or(false));
++                let on1 = a1.iter().any(|k| k.map(|x| x <= kh).unwrap_or(false));
++                if on0 {
++                    armed0 += 1;
++                }
++                if !on0 && on1 {
++                    flips_on += 1;
++                }
++                if on0 && !on1 {
++                    flips_off += 1;
++                }
++            }
++            println!(
++                "CONTROL {} pairs {} secs {} shapechg {}: armed0 {} flips_on {} flips_off {} rate_on {:.3e}/cand/kick rate_secs {:.3e}",
++                name,
++                pairs,
++                secs,
++                shape_changes,
++                armed0,
++                flips_on,
++                flips_off,
++                flips_on as f64 / pairs as f64,
++                flips_on as f64 / secs as f64
++            );
++        }
++    }
++
++    if mode == "all" || mode == "slack" {
++        let m = sample.len().min(3_000);
++        let mut rng = Rng(11);
++        for &lmax in &[15_000u64, 100_000] {
++            let mut slack0: Vec<f64> = Vec::new();
++            let mut drift: Vec<f64> = Vec::new();
++            let mut hit0 = 0u64;
++            let mut hit1 = 0u64;
++            let mut leak = 0u64;
++            let mut n = 0u64;
++            for &(i, j) in sample.iter().take(m) {
++                let bi = &belt[i as usize];
++                let bj = &belt[j as usize];
++                let r0 = rots(bi, bj, rho, safety);
++                if r0.is_empty() {
++                    continue;
++                }
++                let bk = kick(bi, 0.0, 2f64.powi(-23) * vmax(bi), TAU * rng.f64());
++                let r1 = rots(&bk, bj, rho, safety);
++                if r0.len() != r1.len() {
++                    continue;
++                }
++                n += 1;
++                let mut s0 = u64::MAX;
++                let mut s1 = u64::MAX;
++                let mut h0 = false;
++                let mut h1 = false;
++                for (a, b) in r0.iter().zip(r1.iter()) {
++                    let (f0, sk0) = scan(a, lmax);
++                    let (f1, sk1) = scan(b, lmax);
++                    if f0.is_some() {
++                        h0 = true;
++                    }
++                    if f1.is_some() {
++                        h1 = true;
++                    }
++                    s0 = s0.min(sk0);
++                    s1 = s1.min(sk1);
++                }
++                if h0 {
++                    hit0 += 1;
++                }
++                if h1 {
++                    hit1 += 1;
++                }
++                if !h0 && h1 {
++                    leak += 1;
++                }
++                if !h0 {
++                    slack0.push(s0 as f64);
++                    drift.push((s0 as f64 - s1 as f64).abs());
++                }
++            }
++            let med_s = median(&mut slack0);
++            let med_d = median(&mut drift);
++            println!(
++                "SLACK L={} pairs {}: hit0 {} hit1 {} leak(hitless->hit) {:.3e} | slack p50 {:.1} ticks | drift p50 {:.1} | drift/slack p50 {:.1}",
++                lmax,
++                n,
++                hit0,
++                hit1,
++                leak as f64 / n as f64,
++                med_s,
++                med_d,
++                med_d / med_s
++            );
++        }
++    }
++
++    if mode == "all" || mode == "timing" {
++        let m = sample.len().min(120_000);
++        let t = Instant::now();
++        let mut st = ArmStats::default();
++        let mut armed = 0u64;
++        for &(i, j) in sample.iter().take(m) {
++            let (on, _) = arm_pair(&belt[i as usize], &belt[j as usize], rho, safety, 0.0, 1e9, &mut st);
++            if on {
++                armed += 1;
++            }
++        }
++        let t_ship = t.elapsed().as_secs_f64() / m as f64;
++        // Cached-rotation integer decision: build rots ONCE (the float section setup is
++        // what the per-kick path would cache), then time first_hit alone per pair.
++        let cached: Vec<Vec<Rot>> = sample
++            .iter()
++            .take(m)
++            .map(|&(i, j)| rots(&belt[i as usize], &belt[j as usize], rho, safety))
++            .collect();
++        let t = Instant::now();
++        let mut st2 = ArmStats::default();
++        let mut hits = 0u64;
++        for rs in &cached {
++            for r in rs {
++                if first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut st2.qsteps).is_some() {
++                    hits += 1;
++                }
++            }
++        }
++        let t_int = t.elapsed().as_secs_f64() / m as f64;
++        // The incremental form: exact integer delta update + first_hit, per kick.
++        let t = Instant::now();
++        let mut upd = 0u64;
++        for rs in &cached {
++            for r in rs {
++                let (c, d, p, w) = (r.c0 as u128, r.d as u128, r.pi as u128, r.w as u128);
++                let dd = 24_000u128; // one quantum kick's measured median delta_d
++                let c = (c + dd).rem_euclid(p);
++                let d = (d + dd).rem_euclid(p);
++                upd += first_hit(c, d, p, 0, w, &mut 0).map(|k| k as u64).unwrap_or(1);
++            }
++        }
++        let t_upd = t.elapsed().as_secs_f64() / m as f64;
++        let t = Instant::now();
++        for &(i, j) in sample.iter().take(m) {
++            let _ = is_candidate(&belt[i as usize], &belt[j as usize], rho);
++        }
++        let t_cand = t.elapsed().as_secs_f64() / m as f64;
++        println!(
++            "TIMING arm_pair {:.0} ns/pair | cached-rots first_hit {:.0} ns/pair | update+first_hit {:.0} ns/pair | is_candidate {:.0} ns | first_hits {}",
++            t_ship * 1e9,
++            t_int * 1e9,
++            t_upd * 1e9,
++            t_cand * 1e9,
++            hits
++        );
++        println!("TIMING wholesale-vs-integer cut {:.1}x", t_ship / t_int);
++    }
++
++    if mode == "all" || mode == "stale" {
++        let m = sample.len().min(1_500);
++        let lmax = 1_000u64;
++        for k_kicks in [1u32, 8, 64] {
++            let mut rng = Rng(17);
++            let mut cert = 0u64;
++            let mut leak = 0u64;
++            for &(i, j) in sample.iter().take(m) {
++                let bi0 = belt[i as usize];
++                let bj0 = belt[j as usize];
++                let r0 = rots(&bi0, &bj0, rho, safety);
++                if r0.is_empty() {
++                    continue;
++                }
++                let safe0 = r0.iter().all(|r| scan(r, lmax).0.is_none());
++                if !safe0 {
++                    continue;
++                }
++                let mut bi = bi0;
++                let mut bj = bj0;
++                for _ in 0..k_kicks {
++                    bi = kick(&bi, 0.0, 2f64.powi(-23) * vmax(&bi), TAU * rng.f64());
++                    bj = kick(&bj, 0.0, 2f64.powi(-23) * vmax(&bj), TAU * rng.f64());
++                }
++                let r1 = rots(&bi, &bj, rho, safety);
++                if r1.len() != r0.len() {
++                    continue;
++                }
++                cert += 1;
++                if r1.iter().any(|r| scan(r, lmax).0.is_some()) {
++                    leak += 1;
++                }
++            }
++            println!(
++                "STALE kicks {} certified-safe pairs {}: leak {:.3e}/pair/kickset",
++                k_kicks,
++                cert,
++                leak as f64 / cert.max(1) as f64
++            );
++        }
++    }
++
++    if mode == "all" || mode == "sweep" {
++        // Horizon sweep of the re-roll law: flips(kh) vs armed(kh)*(1-armed(kh)).
++        let m = sample.len().min(200_000);
++        let mut rng = Rng(23);
++        let khs = [1_000u128, 10_000, 100_000, 1_000_000];
++        let mut armed0 = vec![0u64; 4];
++        let mut flips_on = vec![0u64; 4];
++        let mut pairs = 0u64;
++        for &(i, j) in sample.iter().take(m) {
++            let bi = &belt[i as usize];
++            let bj = &belt[j as usize];
++            let a0: Vec<Option<u128>> = rots(bi, bj, rho, safety)
++                .iter()
++                .map(|r| first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut 0))
++                .collect();
++            let bk = kick(bi, 0.0, 2f64.powi(-23) * vmax(bi), TAU * rng.f64());
++            let r1 = rots(&bk, bj, rho, safety);
++            if r1.len() != a0.len() {
++                continue;
++            }
++            let a1: Vec<Option<u128>> = r1
++                .iter()
++                .map(|r| first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut 0))
++                .collect();
++            pairs += 1;
++            for (q, kh) in khs.iter().enumerate() {
++                let on0 = a0.iter().any(|k| k.map(|x| x <= *kh).unwrap_or(false));
++                let on1 = a1.iter().any(|k| k.map(|x| x <= *kh).unwrap_or(false));
++                if on0 {
++                    armed0[q] += 1;
++                }
++                if !on0 && on1 {
++                    flips_on[q] += 1;
++                }
++            }
++        }
++        for (q, kh) in khs.iter().enumerate() {
++            let a = armed0[q] as f64 / pairs as f64;
++            let f = flips_on[q] as f64 / pairs as f64;
++            println!(
++                "SWEEP kh {:e}: armed {:.3e} flips_on {:.3e} armed*(1-armed) {:.3e} ratio {:.2}",
++                *kh as f64,
++                a,
++                f,
++                a * (1.0 - a),
++                f / (a * (1.0 - a))
++            );
++        }
++    }
++}
