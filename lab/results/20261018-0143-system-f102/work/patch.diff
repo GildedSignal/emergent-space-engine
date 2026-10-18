@@ -1,0 +1,434 @@
+diff --git a/crates/universe/examples/scan_memo.rs b/crates/universe/examples/scan_memo.rs
+new file mode 100644
+index 00000000..20ef896c
+--- /dev/null
++++ b/crates/universe/examples/scan_memo.rs
+@@ -0,0 +1,84 @@
++//! Print-only probe: the scan memo's duplicate class, priced on the shipped flight. The scan's
++//! memo proves "nothing changed" by rebuilding the candidate list and comparing it
++//! (`encounter.rs`: the reuse walk); with `ES_MEMO_FIRST` the engine's own change versions answer
++//! first, and `ES_MEMO_FIRST=verify` proves the cheap key against the shipped comparison on every
++//! capture. No answer depends on the probe: a flight's digest must be the same in every mode.
++//!
++//! cargo run --release -p emergent-universe --example scan_memo [-- <N> <coast|burn> [<seconds> [<rtf>]]]
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    println!(
++        "scene N={n} ({bodies} bodies) {flight} rtf {rtf} {seconds}s; build {build:.2}s",
++        bodies = p.u.n_bodies(),
++        build = t0.elapsed().as_secs_f64()
++    );
++    let mut held_max = 0usize;
++    let mut events = 0u64;
++    let mut engine_ms = Vec::new();
++    for f in 0..frames {
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) },
++            i64::MAX,
++        );
++        engine_ms.push(start.elapsed().as_secs_f64() * 1e3);
++        events += frame.events;
++        held_max = held_max.max(p.u.held_scans());
++        let _ = p.u.now;
++    }
++    engine_ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let digest = p.u.digest();
++    p.u.flush_scans();
++    let settled = p.u.digest();
++    let s = p.u.stats;
++    let m = emergent_universe::encounter::memo_stats();
++    let mode = std::env::var("ES_MEMO_FIRST").unwrap_or_default();
++    println!(
++        "flight: digest={digest} settled={settled} encounters={} contacts={} events={events} held_max={held_max}",
++        s.encounters, p.u.contacts
++    );
++    println!(
++        "engine_ms: p50={:.3} p99={:.3} max={:.3}",
++        pct(&engine_ms, 0.5),
++        pct(&engine_ms, 0.99),
++        engine_ms[engine_ms.len() - 1]
++    );
++    println!(
++        "memo_stats[{mode}]: captures={} both_hit={} cheap_only_soundness={} rebuild_only_lost={} fresh={} walk_repaid_ms={:.2} walk_repaid_per_dup_us={:.1} cheap_hits_total={}",
++        m[0],
++        m[1],
++        m[2],
++        m[3],
++        m[4],
++        m[5] as f64 / 1e6,
++        if m[3] > 0 { m[5] as f64 / m[3] as f64 / 1e3 } else { 0.0 },
++        m[7]
++    );
++    let _ = TICK_SECONDS;
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..32540a5b 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -114,12 +114,33 @@ pub trait BodyStore: Send + Sync {
+     fn droppable_until(&self, i: usize) -> Option<Tick>;
+     /// Body `i`'s current binding and every retained one, oldest first (what a reader can still ask for).
+     fn bindings_of(&self, i: usize) -> Vec<Binding>;
++    /// Everything a reader could read changed since it last looked: moved by every mutation
++    /// ([`BodyStore::put`], [`BodyStore::push`], [`BodyStore::retire`], [`BodyStore::prune`]). A reader asks
++    /// this instead of re-deriving its answer to prove it unchanged.
++    fn version(&self) -> u64;
++    /// The same count for one doll's bodies alone (what a scan of that doll reads); a membership
++    /// change ([`BodyStore::push`]) moves every doll's count.
++    fn doll_version(&self, d: u16) -> u64;
+ }
+ 
+ #[derive(Default)]
+ pub struct PlainBodies {
+     recs: Vec<BodyRec>,
+     history: Vec<VecDeque<Segment>>,
++    /// Moved by every mutation a reader could see: the cheap answer to "could anything I read have changed?".
++    version: u64,
++    /// Per doll: moved only by mutations of bodies in that doll.
++    doll_versions: Vec<u64>,
++}
++
++impl PlainBodies {
++    fn bump(&mut self, d: u16) {
++        self.version += 1;
++        if self.doll_versions.len() <= d as usize {
++            self.doll_versions.resize(d as usize + 1, 0);
++        }
++        self.doll_versions[d as usize] += 1;
++    }
+ }
+ 
+ impl BodyStore for PlainBodies {
+@@ -130,17 +151,29 @@ impl BodyStore for PlainBodies {
+         self.recs[i].clone()
+     }
+     fn put(&mut self, i: usize, r: BodyRec) {
++        // A re-timed plan (the pending kick a frame moves) changes nothing any reader at a tick can
++        // see: the count moves only when what can be read moved, and only in the dolls it moved in.
++        if !crate::encounter::same(&self.recs[i].b, &r.b) || self.recs[i].alive != r.alive {
++            let (od, nd) = (self.recs[i].b.doll, r.b.doll);
++            self.bump(od);
++            if nd != od {
++                self.bump(nd);
++            }
++        }
+         self.recs[i] = r;
+     }
+     fn push(&mut self, r: BodyRec) -> usize {
++        self.bump(r.b.doll); // a new body joins a doll's every scan (the fallback walk grows)
+         self.recs.push(r);
+         self.history.push(VecDeque::new());
+         self.recs.len() - 1
+     }
+     fn retire(&mut self, i: usize, seg: Segment) {
++        self.bump(self.recs[i].b.doll);
+         self.history[i].push_back(seg);
+     }
+     fn prune(&mut self, i: usize, before: Tick) -> usize {
++        self.bump(self.recs[i].b.doll);
+         let h = &mut self.history[i];
+         let mut gone = 0;
+         while h.len() > 1 && h[0].until < before {
+@@ -186,6 +219,12 @@ impl BodyStore for PlainBodies {
+     fn bindings_of(&self, i: usize) -> Vec<Binding> {
+         self.history[i].iter().map(|s| s.b.clone()).chain(std::iter::once(self.recs[i].b.clone())).collect()
+     }
++    fn version(&self) -> u64 {
++        self.version
++    }
++    fn doll_version(&self, d: u16) -> u64 {
++        self.doll_versions.get(d as usize).copied().unwrap_or(0)
++    }
+     fn bytes_of(&self, i: usize) -> usize {
+         let r = &self.recs[i];
+         let shape = match &r.b.entry.trajectory {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..c3650f18 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -13,7 +13,9 @@ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+-use std::sync::{Arc, Mutex, OnceLock};
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::{Arc, LazyLock, Mutex, OnceLock};
++use std::time::Instant;
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+@@ -74,6 +76,11 @@ struct Scan {
+     /// Every body that passed the cheap tests (alive, born, in the player's doll, with a reach), with its binding.
+     candidates: Vec<(usize, Binding, Scalar)>,
+     found: OnceLock<Vec<Encounter>>,
++    /// What the world said when this scan was taken: a reader re-derives nothing if these match
++    /// ([`BodyStore::doll_version`], [`crate::radial::Radial::doll_version`] — the scan's own doll,
++    /// whose bodies are all it reads).
++    store_version: u64,
++    radial_version: u64,
+ }
+ 
+ impl Scan {
+@@ -89,7 +96,7 @@ impl Scan {
+ 
+ /// The same binding, in every part a reading of it depends on (the compiled trajectory by identity: an entry is
+ /// immutable, and the scan holds a reference, so its address cannot be another's).
+-fn same(a: &Binding, b: &Binding) -> bool {
++pub(crate) fn same(a: &Binding, b: &Binding) -> bool {
+     Arc::ptr_eq(&a.entry, &b.entry)
+         && a.tube == b.tube
+         && a.residual == b.residual
+@@ -119,6 +126,45 @@ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+     Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+ }
+ 
++/// The memo-first probe's counters (print-only; no answer depends on them).
++static N_CAPTURES: AtomicU64 = AtomicU64::new(0);
++static N_BOTH: AtomicU64 = AtomicU64::new(0);
++/// The cheap key said "unchanged" and the shipped comparison disagreed: must stay 0 (soundness).
++static N_CHEAP_ONLY: AtomicU64 = AtomicU64::new(0);
++/// The shipped comparison would reuse where the cheap key misses (work another doll's change cost us).
++static N_REBUILD_ONLY: AtomicU64 = AtomicU64::new(0);
++static N_FRESH: AtomicU64 = AtomicU64::new(0);
++/// Nanoseconds spent building candidates the cheap key had already made needless (verify mode).
++static WALK_DELETED_NS: AtomicU64 = AtomicU64::new(0);
++/// Nanoseconds the shipped memo re-paid to prove a duplicate unchanged (verify mode).
++static WALK_REPAID_NS: AtomicU64 = AtomicU64::new(0);
++
++/// (captures, both-hit, cheap-only [must stay 0], rebuild-only, fresh, ns the shipped memo re-paid
++/// on duplicates; the last two: ns the cheap key would delete, and the cheap key's own hits).
++pub fn memo_stats() -> [u64; 8] {
++    [
++        N_CAPTURES.load(Ordering::Relaxed),
++        N_BOTH.load(Ordering::Relaxed),
++        N_CHEAP_ONLY.load(Ordering::Relaxed),
++        N_REBUILD_ONLY.load(Ordering::Relaxed),
++        N_FRESH.load(Ordering::Relaxed),
++        WALK_REPAID_NS.load(Ordering::Relaxed),
++        WALK_DELETED_NS.load(Ordering::Relaxed),
++        N_CHEAP_ONLY.load(Ordering::Relaxed) + N_BOTH.load(Ordering::Relaxed),
++    ]
++}
++
++/// `ES_MEMO_FIRST` (set: ask the world's versions before re-deriving the candidates; `verify`:
++/// also build and compare, proving the cheap key capture by capture).
++fn memo_first() -> (bool, bool) {
++    static ON: LazyLock<(bool, bool)> = LazyLock::new(|| match std::env::var("ES_MEMO_FIRST").as_deref() {
++        Ok("verify") => (true, true),
++        Ok(v) if !v.is_empty() => (true, false),
++        _ => (false, false),
++    });
++    *ON
++}
++
+ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+@@ -161,9 +207,61 @@ impl Encounters for PlayerNeighbourhood {
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
+         let me = ctx.bodies.binding_at(body, t)?;
+-        // The cheap tests, in body order: who is there to be read.
+-        // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+-        // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        let (on, verify) = memo_first();
++        // ES_MEMO_FIRST: the engine already knows whether anything the candidates read could have
++        // changed (the store's and the radial index's versions); ask it instead of re-deriving the
++        // candidate list to prove it unchanged. The reader itself is still checked, by identity.
++        let cheap = |l: &Scan| {
++            on
++                && l.body == body
++                && l.t == t
++                && l.interval == interval
++                && l.store_version == ctx.bodies.doll_version(me.doll)
++                && l.radial_version == ctx.radial.doll_version(me.doll)
++                && same(&l.me, &me)
++        };
++        if on {
++            N_CAPTURES.fetch_add(1, Ordering::Relaxed);
++            let last_arc = {
++                let last = self.last.lock().expect("the finder's last scan");
++                let hit = last.as_ref().map(|l| cheap(l)).unwrap_or(false);
++                if hit && !verify {
++                    return Some(last.clone().unwrap() as Arc<dyn Held>);
++                }
++                last.clone()
++            };
++            if verify {
++                // Prove the cheap key against the shipped comparison, capture by capture.
++                let cheap_hit = last_arc.as_ref().map(|l| cheap(l)).unwrap_or(false);
++                let walk = Instant::now();
++                let mut candidates = walk_candidates(ctx, body, t, &me, interval);
++                let walk_ns = walk.elapsed().as_nanos() as u64;
++                let rebuild_hit = last_arc
++                    .as_ref()
++                    .map(|l| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) })
++                    .unwrap_or(false);
++                match (cheap_hit, rebuild_hit) {
++                    (true, true) => {
++                        N_BOTH.fetch_add(1, Ordering::Relaxed);
++                        WALK_DELETED_NS.fetch_add(walk_ns, Ordering::Relaxed);
++                        return Some(last_arc.unwrap() as Arc<dyn Held>);
++                    }
++                    (true, false) => {
++                        N_CHEAP_ONLY.fetch_add(1, Ordering::Relaxed);
++                    }
++                    (false, true) => {
++                        N_REBUILD_ONLY.fetch_add(1, Ordering::Relaxed);
++                        WALK_REPAID_NS.fetch_add(walk_ns, Ordering::Relaxed);
++                        return Some(last_arc.unwrap() as Arc<dyn Held>);
++                    }
++                    (false, false) => {
++                        N_FRESH.fetch_add(1, Ordering::Relaxed);
++                    }
++                }
++                candidates.clear();
++            }
++        }
++        // The shipped path, verbatim: the cheap tests, in body order — who is there to be read.
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+@@ -192,8 +290,44 @@ impl Encounters for PlayerNeighbourhood {
+         if let Some(l) = last.as_ref().filter(reusable) {
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+-        let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
++        let (store_version, radial_version) = (ctx.bodies.doll_version(me.doll), ctx.radial.doll_version(me.doll));
++        let scan = Arc::new(Scan {
++            body,
++            t,
++            interval,
++            me,
++            candidates,
++            found: OnceLock::new(),
++            store_version,
++            radial_version,
++        });
+         *last = Some(scan.clone());
+         Some(scan)
+     }
+ }
++
++fn walk_candidates(ctx: &Ctx, body: usize, t: Tick, me: &Binding, interval: Tick) -> Vec<(usize, Binding, Scalar)> {
++    let near = (|| -> Option<Vec<usize>> {
++        let (x, v) = me.cartesian(t).ok()?;
++        let h = time_of(interval, me.clock_exp).ok()?;
++        let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
++        let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
++        ctx.radial.candidates(me.doll, &w)
++    })();
++    let mut candidates = Vec::new();
++    for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++        if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
++            continue;
++        }
++        let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++        if other.doll != me.doll {
++            continue;
++        }
++        let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
++        if reach.is_zero() {
++            continue;
++        }
++        candidates.push((j, other, reach));
++    }
++    candidates
++}
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..9e252687 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -49,6 +49,8 @@ struct DollIndex {
+     /// The largest radius (as the scan reads it) and the speed bound of any body registered with a range.
+     radius_cap: f64,
+     speed_cap: f64,
++    /// Bumped by every registration change in THIS doll: a scan of doll `d` asks it, not the whole world.
++    version: u64,
+ }
+ 
+ #[derive(Default)]
+@@ -59,6 +61,9 @@ pub struct Radial {
+     extra: HashMap<(u32, u16), Reg>,
+     /// Bodies registered (with or without a range).
+     pub bodies: usize,
++    /// Bumped by every registration change (`note`, `rebuild`): a reader asks it instead of
++    /// re-deriving its answer to prove it unchanged.
++    version: u64,
+ }
+ 
+ /// The radial range `[lo, hi]` a binding's readout can have (doll units) and a bound on its speed (c = 1): None where the tube is no
+@@ -100,6 +105,10 @@ impl Radial {
+         &mut self.dolls[d as usize]
+     }
+ 
++    fn bump(&mut self, d: u16) {
++        self.version += 1;
++        self.doll_mut(d).version += 1;
++    }
+     fn reg(&self, i: usize, d: u16) -> Reg {
+         let f = self.first.get(i).copied().unwrap_or(NONE);
+         if f.doll == d {
+@@ -184,6 +193,7 @@ impl Radial {
+     /// Only a ship is given a range (`radius` is its radius as the finder reads it); everything else is unbounded in its doll.
+     pub fn note(&mut self, i: usize, kind: Kind, radius: f64, b: &Binding) {
+         let d = b.doll;
++        self.bump(d);
+         let range = if kind == Kind::Ship { range_of(b) } else { None };
+         let old = self.reg(i, d);
+         let want = match range {
+@@ -209,8 +219,10 @@ impl Radial {
+ 
+     /// Body `i`'s retained bindings are `bindings` now (the history was pruned): register the hull of what remains, per doll.
+     pub fn rebuild<'a>(&mut self, i: usize, kind: Kind, radius: f64, bindings: impl Iterator<Item = &'a Binding>) {
++        self.version += 1;
+         let mut hulls: Vec<(u16, Option<(i32, i32)>)> = Vec::new();
+         for b in bindings {
++            self.doll_mut(b.doll).version += 1;
+             let range = if kind == Kind::Ship { range_of(b) } else { None };
+             let at = match hulls.iter().position(|h| h.0 == b.doll) {
+                 Some(at) => at,
+@@ -240,6 +252,16 @@ impl Radial {
+         }
+     }
+ 
++    /// The cheap answer to "could anything registered have changed since a reader last looked?".
++    pub fn version(&self) -> u64 {
++        self.version
++    }
++
++    /// The per-doll change count a scan of doll `d` asks instead of re-deriving its candidates.
++    pub fn doll_version(&self, d: u16) -> u64 {
++        self.dolls.get(d as usize).map_or(0, |x| x.version)
++    }
++
+     /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+     /// in the doll (the caller then reads every body, as it did before there was an index).
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
