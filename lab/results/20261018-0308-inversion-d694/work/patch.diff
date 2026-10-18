@@ -1,0 +1,79 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..99163f8b 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -12,14 +12,17 @@ use emergent_universe::scenario::plane_extra;
+ use emergent_universe::thrust::word;
+ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
++use std::io::Write;
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +33,24 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux port of the same instrument (RSS now, high-water mark peak): the lab machines are Linux, where
++/// `proc_pid_rusage` does not link. Order of magnitude only, as the macOS one.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        let kb = |l: &str| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()).map(|v| v * 1024).unwrap_or(0);
++        for line in s.lines() {
++            if line.starts_with("VmRSS:") {
++                now = kb(line);
++            } else if line.starts_with("VmHWM:") {
++                peak = kb(line);
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -45,6 +66,12 @@ fn main() {
+     let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    // The lab's long flights (one full cadence period of the root doll) lift the shipped 60-s guard from outside.
++    let max_s: f64 = std::env::var("LADDER_MAX_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
++    let mut csv = std::env::var("LADDER_CSV").ok().map(|path| std::io::BufWriter::new(std::fs::File::create(path).expect("LADDER_CSV path")));
++    if let Some(w) = csv.as_mut() {
++        writeln!(w, "frame,ms,events,lag_s,presented_game_s").unwrap();
++    }
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+@@ -64,7 +91,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(max_s) {
+             truncated = true;
+             break;
+         }
+@@ -87,6 +114,9 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if let Some(w) = csv.as_mut() {
++            writeln!(w, "{},{:.4},{},{:.4},{:.2}", f, rows.last().unwrap().1, rows.last().unwrap().2, rows.last().unwrap().3, frame.presented as f64 * TICK_SECONDS).unwrap();
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
