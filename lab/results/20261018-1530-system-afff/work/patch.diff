@@ -1,0 +1,183 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..3e9562b6 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,16 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux lab machines: the physical footprint is approximated by the resident peak (VmHWM); the census runs here do not read it.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let read = |k: &str| std::fs::read_to_string("/proc/self/status").ok().and_then(|s| {
++        s.lines().find(|l| l.starts_with(k)).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++    });
++    (read("VmRSS").map(|k| k * 1024).unwrap_or(0), read("VmHWM").map(|k| k * 1024).unwrap_or(0))
++
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -49,7 +61,8 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let members: u64 = std::env::var("MEMBERS").ok().and_then(|s| s.parse().ok()).unwrap_or(48);
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, members, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -160,4 +173,5 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    println!("{}", emergent_universe::encounter::census::report());
+ }
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..41cc2431 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -15,6 +15,48 @@ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+ use std::sync::{Arc, Mutex, OnceLock};
+ 
++/// A print-only census of the player-neighbourhood scan (the system-lens run 20261018-1530): what the walk walks, and what the
++/// answer yields. No canonical state reads or writes; the floats never touch a law outcome.
++pub mod census {
++    use std::sync::atomic::{AtomicU64, Ordering};
++
++    pub static SCANS: AtomicU64 = AtomicU64::new(0);
++    /// Scans whose radial filter bailed (the walk then reads every body).
++    pub static BAIL: AtomicU64 = AtomicU64::new(0);
++    pub static CAND: AtomicU64 = AtomicU64::new(0);
++    /// Distinct scans whose answer was computed at least once.
++    pub static ANSWERED: AtomicU64 = AtomicU64::new(0);
++    pub static EMPTY: AtomicU64 = AtomicU64::new(0);
++    pub static HITS: AtomicU64 = AtomicU64::new(0);
++    /// The rank histogram of found encounters among the walked candidates: bucket r is "rank r" (r < 16), bucket 16 is "rank > 15".
++    pub static RANK_ALONG: [AtomicU64; 17] = [const { AtomicU64::new(0) }; 17];
++    pub static RANK_NEAR: [AtomicU64; 17] = [const { AtomicU64::new(0) }; 17];
++
++    pub fn bucket(rank: usize) -> usize {
++        rank.min(16)
++    }
++
++    pub fn report() -> String {
++        let (scans, bail, cand, answered, empty, hits) = (
++            SCANS.load(Ordering::Relaxed),
++            BAIL.load(Ordering::Relaxed),
++            CAND.load(Ordering::Relaxed),
++            ANSWERED.load(Ordering::Relaxed),
++            EMPTY.load(Ordering::Relaxed),
++            HITS.load(Ordering::Relaxed),
++        );
++        let hist = |h: &[AtomicU64]| {
++            h.iter().map(|a| a.load(Ordering::Relaxed).to_string()).collect::<Vec<_>>().join(",")
++        };
++        format!(
++            "scan_census: scans={scans} bail={bail} cand_total={cand} cand_mean={:.1} answered={answered} empty={empty} hits={hits} rank_along={} rank_near={}",
++            if scans > 0 { cand as f64 / scans as f64 } else { 0.0 },
++            hist(&RANK_ALONG),
++            hist(&RANK_NEAR)
++        )
++    }
++}
++
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+@@ -128,14 +170,31 @@ impl Held for Scan {
+ impl Scan {
+     /// The expensive half: read the player and each candidate at `t` and apply the predicate.
+     fn compute(&self) -> Vec<Encounter> {
++        use std::sync::atomic::Ordering;
+         let mut out = Vec::new();
+         let (t, body) = (self.t, self.body);
+-        let Ok((x, v)) = self.me.cartesian(t) else { return out };
+-        let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
++        census::ANSWERED.fetch_add(1, Ordering::Relaxed);
++        let Ok((x, v)) = self.me.cartesian(t) else {
++            census::EMPTY.fetch_add(1, Ordering::Relaxed);
++            return out;
++        };
++        let Ok(h) = time_of(self.interval, self.me.clock_exp) else {
++            census::EMPTY.fetch_add(1, Ordering::Relaxed);
++            return out;
++        };
++        // Census only: the player's along-track direction in floats (never a law outcome).
++        let (vx, vy) = (to_f64(v[0]), to_f64(v[1]));
++        let vlen = vx.hypot(vy);
++        let u = if vlen > 0.0 { (vx / vlen, vy / vlen) } else { (1.0, 0.0) };
++        let mut d2s: Vec<f64> = Vec::with_capacity(self.candidates.len());
++        let mut alongs: Vec<f64> = Vec::with_capacity(self.candidates.len());
+         for (j, other, reach) in &self.candidates {
+             let found = (|| -> Res<Option<bool>> {
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
++                let (dx, dy) = (to_f64(d[0]), to_f64(d[1]));
++                d2s.push(dx * dx + dy * dy);
++                alongs.push((dx * u.0 + dy * u.1).abs());
+                 let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
+                 // Integers in units of reach/2^20: the lattice predicate is exact on i128 (until it wraps: see above).
+                 let q_exp = reach.exponent() as i32 - 20;
+@@ -147,9 +206,19 @@ impl Scan {
+                 Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
+             })();
+             if let Ok(Some(contact)) = found {
++                // Census: this hit's rank among the walked candidates (by distance, and by along-track phase).
++                let (mine_d2, mine_along) = (d2s[d2s.len() - 1], alongs[alongs.len() - 1]);
++                let rank_near = d2s.iter().filter(|&&d2| d2 < mine_d2).count();
++                let rank_along = alongs.iter().filter(|&&a| a < mine_along).count();
++                census::RANK_NEAR[census::bucket(rank_near)].fetch_add(1, Ordering::Relaxed);
++                census::RANK_ALONG[census::bucket(rank_along)].fetch_add(1, Ordering::Relaxed);
++                census::HITS.fetch_add(1, Ordering::Relaxed);
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
++        if out.is_empty() {
++            census::EMPTY.fetch_add(1, Ordering::Relaxed);
++        }
+         out
+     }
+ }
+@@ -172,6 +241,7 @@ impl Encounters for PlayerNeighbourhood {
+             ctx.radial.candidates(me.doll, &w)
+         })();
+         let mut candidates = Vec::new();
++        let bail = near.is_none();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+@@ -187,6 +257,15 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        // Census: the walk's shape (print-only).
++        {
++            use std::sync::atomic::Ordering;
++            census::SCANS.fetch_add(1, Ordering::Relaxed);
++            census::CAND.fetch_add(candidates.len() as u64, Ordering::Relaxed);
++            if bail {
++                census::BAIL.fetch_add(1, Ordering::Relaxed);
++            }
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
