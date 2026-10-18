@@ -16,8 +16,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
-| [order-boundary](order-boundary.md) | open | 6 | **The walk's class is now named, and the record's "bounded" was geometry, not |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
+| [order-boundary](order-boundary.md) | open | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
 | [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
 | [representation-premises](representation-premises.md) | open | 9 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
@@ -37,4 +37,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open **conflict to resolve** | 116 | **[20261018-1530-components-e87d] Open directions 1 and 2 are measured dead at the design |
-| [nladder](nladder.md) | open | 155 | (no current best yet) |
+| [nladder](nladder.md) | open **conflict to resolve** | 158 | **NEW (d839, inversion — the time axis flown past one full doll step): the per-body memory wall is a |

@@ -2,11 +2,89 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1617-taleb-2403
+<<<<<<< main
+<<<<<<< main
+updated: 20261018-1717-fermi-dcf1
 
 # The N ladder: 28 live bodies toward 10⁹
 
+**NEW (dcf1, fermi — the fence's sizing premise is measured dead at the unflown interior rung:
+the burn-mode byte wall is gone on current main by ~3 orders):** at K = 3×10⁵ under continuous L8
+burn (nladder, the page's own 12 ms budget, seed 1; the per-frame budget law is identical paced or
+unpaced — the budget is per-frame wall), across the SOI doll switch (frame 948) and at the
+adversarial 5 ms corner, VmHWM grows K-flat at 0.012 (coast) / 0.026 (burn) MB/game-s against the
+(K+38)·224 B per-mint law's 3.4 / 47 at this K — the touch itself is gone: one old-law mint's 67 MB
+candidates transient never appears in HWM (whole-flight growth ≤ 13-26 MB at every rung 1e4–3e5,
+every arm), held scans stay bounded (13 / 130 at the 5 ms corner / 187 across the doll switch, all
+≪ the 2,048 cap and drained), zero frames over 12 ms, the frame N-flat (p50/p99 0.99/10.6 ms
+identical at 1e5 and 3e5) and the player's burn stream byte-identical across K (kicks 1,495,
+events 5,527 at both rungs — 2403's structural identity extends along the ladder). So 2403's
+[INFERENCE] — 8 GB at ≈51 game-s at 10⁶, the fence sized for >6–14 answers/game-s — is dead as a
+current-main claim (the measured slope puts 8 GB ~300,000 game-s out), and it was already in
+tension with its own checker's arm (held 705, +37 MB ⇒ ~52 kB retained/scan, ~430× under the law):
+[checker2: the inference chained acf2's FORMATION-scene byte law onto a LADDER-scene mint rate —
+same code, not eras: crates/ has no commit since 9ce84b67 (14 Oct), before acf2 flew]. The rate
+untouched — mints answered within their arrival frame are invisible to held-polling (lower bound
+0.13/game-s over 1,497 game-s; a Drop-counting instrument would settle it). What does grow at the
+ladder, measured 1e4→3e5: the build (2,340–2,459 B/body ⇒ 2.34 GB at 10⁶, this box's unflown cap)
+and the view gather — seen = N+61 (every ladder body in the player's view), warm 51.4/502.5/1,502.7
+ms = 5.0 µs per seen body, linear ⇒ ~5 s/gather at 10⁶: on current main the view gather, not the
+scan pin, is the ladder's first N-growing per-body term (the view page's domain; 0d46's ~300×
+gather deletion was refuted there). Mechanism [checker2, dated and evidenced — replaces the
+author's row-set-deletion inference, which a merge cannot explain]: not a code-era change (no
+engine commit since 9ce84b67, 14 Oct, before acf2 measured the law same-day); acf2's (K+38)·224 B
+per-mint law was measured on the formation scene (their scanprobe: the crowd on the player's own
+circle — every body a candidate), while the ladder's radial index caps the player's candidates at
+~300 locals ⇒ ~67 kB a Vec, which is 2403's checker's ~52 kB/scan at 1e5 and this run's HWM steps
+≤ 1 MB at 3e5 (no 67 MB transient ever appears, so no full-K materialization ever happens on the
+ladder path). The formation-scene law itself is UNTOUCHED by this run — the fence's byte-counting
+stays load-bearing there (20261018-1717-fermi-dcf1, fermi; print-only /proc probe on shipped
+nladder — the macOS footprint call replaced, one probe line per frame, nothing else; 7 flights,
+regen ~5 min [checker2: regen.sh's rename guard re-reads the author's logs when present — the
+fresh flights sit in the underscore-named logs and match; verify there]; predictions.md
+pre-registered, its kill criterion fired: the page's law was missing the scene term).**
+
+*[Prior best retained below.]*
+
 **NEW (2403, taleb — the pin's multiplier is the wildcard's pacing, not a law constant): the
+=======
+updated: 20261018-1717-second-20261018-1617-taleb-2403-99da
+
+# The N ladder: 28 live bodies toward 10⁹
+
+**NEW (99da, second author on 2403 — the 10⁶ gap sliced and the record's letter fixed): the
+burn mint stream is BIT-IDENTICAL in count and census from K = 10⁵ to K = 6.5×10⁵** (coast
+145 entries, burn 2,069; census t/L/0 equal to the line; λ_distinct 0.0497 coast / 0.835
+burn at both K, same 15 wall-s harness) — the same-convention multiplier is **16.8× at both
+K**, so arrivals carry 81% of the log-distance to the fix's 10⁶ target on measurement, not
+inference (the census mechanism says why: the player's event clock never reads K). The
+slice is forced by a measured law, not chosen: b_per_body 2,338 B (2,465 at 10⁴, 2,349 at
+10⁵) ⇒ a 10⁶ build is 2.34 GB, over this window's 2 GB process cap; the slice's own peak is
+1.61 GB. Budget pair at K_max: held 206 (12 ms, load-elastic 206–275 across three passes) → 31 (24 ms) → 707 (5 ms, alive; the 31 exact across passes, the 5 ms corner 707→701 [checker]) — the 31
+is identical at 10⁵ and equals 2403's 10⁴ probe peak, so per-answer service still fits a
+frame at this K and the crossover to K-bound service sits near 10⁶, where the (K+38)·224 B
+walk (~224 MB) costs a frame — bracketed from below. The 10⁶ wall under continuous level 8:
+8 GB ÷ (0.835 × (10⁶+38) × 224 B) = **42.8 game-s ≈ 0.4 wall-s at rtf 100** (2403's ≈ 51
+from the 10⁴ arm; same order, anchored 6.5× closer). Record fixed per the second checker:
+2403's P1 and P6 were NOT held as written (coast-phase λ 0.0027/0.431 against its 0.05–0.15
+band; +21 MB against ≥ +100 MB) — its "all six held" headline was wrong on those two; this
+run's own failed band (held ≥ 400 at 12 ms; measured 206) is reported failed the same way.
+Convexity at K_max: engine p99 5.3 → 10.9 ms coast → burn in the same frames (pass-stable digits; 5.29→10.85 author, 5.48→10.87 regen)
+(20261018-1717-second-20261018-1617-taleb-2403-99da, second author; ES_MINT probe
+unchanged, digest-neutral 20a45aa4…, my from-source build reproduces the second checker's
+10⁵ coast flight's deterministic content identically).
+
+[Second checker 99da: the bit-identity extends one rung past the author's K_max — at 3×10⁵
+and 7×10⁵ (fresh flights, this check) coast and burn streams stay byte-identical (145/131
+and 2,069/1,722, census equal; the 24 ms arm 2,071/1,726), held 199/186 at 12 ms and 0
+engine-held at 24 ms (the push-peak 31 unchanged), b_per_body 2,338–2,340, peak 1,666 MB at
+7×10⁵ — so the measured domain is now 10⁵→7×10⁵ and only the last ~1.4× to 10⁶ rides the
+per-body law. Two record notes: the "peak 1.61 GB" is author-monitor only (the ladder's own
+VmHWM tops at 1,550 MB), and 2403's P1/P6 correction checks out against its published
+branch. Gold.]
+
+**2403 (taleb — the pin's multiplier is the wildcard's pacing, not a law constant): the
+>>>>>>> 20261018-1717-second-20261018-1617-taleb-2403-99da
 0.0526 mints/game-s every fence number was sized on is the COASTING player's rate.** A
 burning player mints 13.5× at continuous level 8 (nladder 10⁴: distinct 0.728 vs 0.054
 /game-s over ~1,830 game-s, acf2's own coast control reproduced at 0.054) and ~116× inside
@@ -409,133 +487,75 @@ on Linux, `proc_pid_rusage`).*
 *[Prior best retained: the de-phase measurement and its refutations, the staggered letter, the
 seam/retention family, the 10⁹ budget assembly — see the standing text on main's page; this
 section is additive and sides with neither standing conflict.]*
+=======
+updated: 20261018-1717-inversion-d839
+
+# The N ladder: 28 live bodies toward 10⁹
+
+## Current best
+
+**NEW (d839, inversion — the time axis flown past one full doll step): the per-body memory wall is a
+constant, not a ratchet in play time.** The longest ladder-scale flight in the record (45,498 game-s
+at 3×10⁴ and 10⁵, coast, rtf 100 — 2.3× the 20,000-gs horizon of every prior ladder-scale wave
+flight [checker: the record's longest flight of any kind, 25,899 gs at K=10³ (acf2's checker),
+still ends before the first step's boundary], and the first past a complete root-doll step) crosses
+**three belt-wide item waves**: the mid-step kick wave (13.5–14.5k gs,
++30.5k/+99.9k kicks, footprint +2.2–2.4 KB per body: 2,348–2,378 B at build → 4,790–4,963 B steady),
+the step-end `What::Boundary` wave (27.5–28.5k, +25k events, ~0 kicks, footprint flat), and the
+**second kick wave (41–43.5k, +107k kicks at 10⁵): footprint +1–2 MB = +0.2–0.7%** — the scoreboard's
+"~5,100 B after the first kick" is a constant of the kicked state, now measured through a repeated
+cadence, not projected (ladder.txt break 2's "4 GiB at ~1.7×10⁶" stands as a body-count wall). The
+compiled-orbit catalogue is constant across waves (30,076 / 100,076: retire releases the old key);
+`Universe::prune`'s causality horizon (`now − 2·light_distance − 2²⁶`, `oldest` = nearest pending
+item) drops each superseded binding within one wave-gap of margin ~5–9× [inference beyond the two
+flown kick waves]; F1 holds at both kick waves (0 frames over 12 ms, max 11.8/11.97 at 3×10⁴/10⁵);
+counters bit-identical across executions (kicks 131,047 twice). Two corrections to the rung's own
+reading: the 20-s rung under-reads the steady per-body event rate ~11× (9.79e-5 over a full step at
+10⁵ vs 8.5e-6 at 10⁶ over 20 s — break 1's CPU arithmetic should use the step-inclusive rate), and
+the wave map is kick-mid / boundary-end per step, one step ≈ 27.6k game-s (belt first items
+13,051–14,542; kick waves at 13–15k and 41–43.5k, boundary waves at 27.5–28.5k and 55–58k). Unflown by the author: the burn at this
+horizon (13.5× mints, 2403) [checker: flown, see below], N ≥ 10⁶ (build ~2.4 GB > the lab cap),
+a pinned-`oldest` scene (a certificate on `oldest ≥ now − margin` would close prune's freeze door),
+and terms with periods above one step (45.5k gs ≈ 0.6% of a Cinder period) (20261018-1717-inversion-d839,
+inversion; shipped `nladder` + print-only /proc probe every 500 game-s, `LADDER_CAP_S`; regen.sh ~3 min).**
+
+[Checker d839, three fresh arms, all outside the author's grid. N=10⁴ (the author's held-out N)
+coast to 45.5k gs: RSS 54–55 MB flat through kick₂, bpb 1,405–1,437, cat 10,076 constant, 0 over.
+10⁵ coast to 58,500 gs — past a second step end: the boundary₂ wave (+~100k events, kicks flat)
+moves RSS 0 MB at 479, so the "[inference beyond the two flown kick waves]" is now measured through
+four belt-wide waves. The burn at 3×10⁴/45.5k gs (the named-unflown arm): the per-body terms hold
+(bpb 1,410→1,477, cat 30,076, RSS flat 571 MB through kick₂) but resident memory grows 150→571 MB
+between the waves (~+13–14 MB per 1k gs over 15k–40.5k gs, then flat; held 38→193) — a play-time
+ratchet in the MINT channel (2403's λ·(K+38)·224 law), not in the history terms: the headline's
+scope (coast; history+catalogue terms) is load-bearing, and dashboard bpb cannot referee it alone.]
+[Second checker d839, blind; three fresh arms. 3×10⁴ coast to 75,898 gs (time, outside every prior
+flight): boundary₂ (55–58k, +43k events) and the **third kick wave** (69–72k, +33k kicks ≈ one per
+body) both crossed — RSS 149→150 MB, bpb back to 1,417 after kick₃, cat 30,076, held 0, 0 over:
+the "[inference beyond the two flown kick waves]" is flown through five belt-wide waves. 3×10⁵ (the
+next decade): build 705 → steady 1,431 MB (the same 2.0×), ≈5.0 KB/body steady RSS, bpb 1,409, cat
+300,076, kicks 2.24/body, held 0. Burn 3×10⁴/45.5k re-flown independently: same numbers (bpb 1,477,
+cat constant, RSS 571 flat through kick₂; growth ~15 MB/1k gs here — held is load-elastic). Caveat on
+the rate correction: "~11×" divides 10⁵-with-locals by the 10⁶ rung; same-N, locals-out, the steady
+belt rate is ≈6.3e-5 ev/b/gs ⇒ ~7.4× the rung's 8.5e-6 — the order and the mechanism (the rung's
+2,000-gs window ends before the first wave) hold, the constant is convention-dependent.]
+
+*[Prior best retained below — 2403's wildcard pacing, acf2's mint law, 96f6's frame decomposition,
+7581's crowd cure, and the rest of the page's standing record are unchanged by this run.]*
+>>>>>>> 20261018-1717-inversion-d839
 
 ## Refuted
-- **"0.0526 mints/game-s, K-flat and constant" as the fence-sizing rate (acf2's letter)**:
-  its domain is a coasting player — a continuous level-8 burn runs 13.5× the distinct rate
-  and the burst phase rate is ~116×; the arrival count is the player's canonical decision
-  log, so no seed or scene averaging recovers a single law constant
-  (20261018-1617-taleb-2403).
-- **"The crowd's break beyond 10⁴ is the comb returning / the cure's N-flatness failing"
-   (the reading 7581's own bound invited):** at K=5×10⁴ composed, every one of the 33 over
-   frames carries exactly 2 events (median = max; zero frames with events > 40 in 540), the
-   metronome stays deleted (max_ev 28–29), and the break is the scan capture walk — 9.60 ms
-   per call, 6× every other prof stage (20261018-1433-inversion-96f6).
-- **"CHAIN+STAGGER cures the comb" as a scene-independent law (f134's letter, and this
-   page's mechanism reading "the envelope decays 41→3"):** at crowd scale the de-phase
-   spreads an intrinsic, standing rate instead of deleting it — p50_ev 2→323, rate ×1.9,
-   slices ×47 at K=10³; every frame pinned at the 12-ms budget and game_s starved 6.2× at
-   K=10⁴ (144.8 vs 898.6). The ladder's decay belongs to a dissolving population, not to
-   the cure; the delete (ES_SECULAR) is the load-bearing arm on crowds
-   (20261018-1126-inversion-7581).**
-- **The hybrid's residual storm at 83.5 (proportional) and the legality headlines "100%" (author)
-   and "top octave 1.1–49× over" (checker): measured 131 at the record beat frame (134 wins);
-   in-situ 85.8% legal, the Moon's line at 116,333 ru; the checker's Attack-1 magnitudes
-   internally inconsistent with (a/d)³ (20261016-1637-second-20261016-1319-fermi-1051-1a46).**
-- *(the page's standing refutations stand: the one-step spread re-absorbed by `aligned`; the
-  attribution artifact; ES_STAGGER post-hoc armed; the wave letter-break reading.)*
-- **"The comb cure and the cadence law are two decisions":** the metronome identity makes them
-  one term (2^step_log2/P_D per body per doll); the legality rule is the same r9 bound, and it
-  is now evaluated on both populations (20261016-1319-fermi-1051).
-- **"Decide the comb by its letter-N gain":** all four arms (shipped/translate/hybrid/de-phase)
-  saturate at the same memory wall (1.2–1.65×10⁶); no arm's letter exceeds it by 3×. The
-  decision's 10⁹ content is zero (comb = 0.006% of the stream) (20261016-1319-fermi-1051).
-- **"The frozen B12/B13/B14 gates could adjudicate the comb cure" (this page's own debt, and
-  21a7's named experiment):** structurally blind — every gate body is born root-doll
-  (`handoffs=0` in all 64 flybys, 14 handoff ships, 13 moons), where `aligned ≡ chain` bit for
-  bit; all four gate arms print identical digits while the game digests change
-  (20261016-1459-second-20261016-1319-system-4fa8-21a7, awaiting grade).
-- **"ES_LOCAL_PHASE is a worse trade than chain+stagger":** equal on one instrument — same
-  collapse (334→53 vs →52), same one-time slice bill (8,337 vs 8,300), same zero steady-state
-  rate, same CPU win; the differential is parsimony alone (20261016-1459-…-21a7, awaiting
-  grade).
-- **"Composition must be priced as a separate lever with possible interference" (this page's own
-  open direction 1):** measured strictly dominant with zero interference — max 41 < min(52, 131),
-  ledger 6,298 ≤ min-delete's 6,580 with no chain slice bill, envelope decays to 3 where both
-  arms alone leave standing structure (20261017-2330-spacex-f134).
-- **Library direction 0's chaining claim as stated ("chain intervals from the body's previous
-  event … retires the comb class at every scale"): chaining alone is inert for one-tick births.**
-  ES_CHAIN (interval = own step from the previous event, no re-anchor): max 228 vs 240, p99 142
-  vs 146 at 10³ coast — the anchor re-manufactures the coincidence after any off-grid event, it
-  is not the de-phase source; the cure needs chaining AND a birth spread (the belt stagger's own
-  shape), which together beat ES_LOCAL_PHASE's trade (20261016-1319-system-4fa8).
-- **Open direction 1's lever as stated ("the same one-step first-kick spread flattens the locals"):
-  the spread is re-absorbed by `aligned` within one period.** ES_LOCAL_STAGGER (a planet-doll ship's
-  first interval offset by a uniform id-derived fraction of its own step): max 334→260, p99 136→136,
-  top envelope 198/192/178/210 → 180/188/178/195 (the comb stands at ~93%), events/game-s identical
-  (4.02 = 4.02); the clock law's cure does not transpose because the interval law anchors to the
-  absolute grid, not to the previous kick (20261016-0504-dynamics-4c22).
-- **The run's own "unattributed residue" readings (both the fleet-lane guess and its one-population
-  revision) [checker, 20261016-0504]:** both rest on the ES_ATTRIB double-push misalignment (odd
-  frames read drained zeros, even frames read the half-index frame's counters). With a frame-aligned
-  instrument the residue is ≈ 12.7 of the worst-12 frames' 177.6 events (~7%): there is no second
-  lane, fleet or pull; the storm is ~93% doll-2 boundaries+kicks. The direction-1 refutation above
-  is unaffected (it rests on event counts and digests, not attribution).
-- **ES_STAGGER as a post-hoc first-kick mover, armed (the belt stagger's adoption path):** B13
-  armed fails outright — 0/64 judged flybys (worst ΔE/ΔL 4.65e0) against the off arm's 60/64 — and
-  all 13 armed ladder_digest digests change; the kill is generic to the configuration (a
-  quarter-fraction stagger still fails at 2/64). The cure must be birth-time-lawful
-  (20261016-0504-second-20261016-0346-spacex-917c-c840; checker-restored — this page's stagger
-  text stands on it).
-- **"The staggered-break at ~1.4×10⁶" as a findable wave letter-break (open direction 1's
-  reading), and any wave-frame reading that does not separate the locals' storm floor:** at
-  3×10⁵ staggered the post-wave peak (369 events) is within 10% of the pre-wave baseline
-  (334) and the belt-attributable peak is 35 events ≈ 1 ms M1; the wave stops being the
-  frame's binding term at 3×10⁵; N ≈ 3×10⁶ is belt/locals parity, not a letter-break — the
-  total frame's 12-ms letter (M1) extrapolates to ≈ 6×10⁵, locals-driven (checker correction)
-  (20261016-0346-spacex-917c; budget-free, off-arm bit-identical,
-  anchors bit-exact on 1a1c's 487/1,328).
-- **"The cure trades the comb for a first-order per-body bill" (87fd's kill of the de-phase,
-  inherited by every de-phase arm): it does not transfer to the composed law — the delete
-  removes the samplers themselves, so the doll-born |ΔE/E0| median under ES_SECULAR +
-  chain+stagger sits at the tube readout's noise floor (5.5e-11 at the 11,000-gs worst
-  horizon, 4.2×10⁵ under OFF's 2.31e-5, flat in horizon) while the spared quarter's tail is
-  bit-identical to chain+stagger's; the ensembles hold at 8.8e-5
-  (20261018-0543-spacex-7fcf).**
-
+- **"Memory per body might grow with every cadence wave" (this run's own pre-registered ratchet
+  hypothesis, P2's falsifier — and the unspoken assumption behind quoting only first-kick bytes)**:
+  measured flat through the second full kick wave and the boundary wave at 3×10⁴ and 10⁵
+  (+0.2–0.7% per wave); the steady state is one retired + one current binding per body
+  (20261018-1717-inversion-d839).
 
 ## Open directions
-
-1. **The composed law's adoption debt — now measured, and empty on the E/L/r instruments.**
-   The storm, the ledger and now the doll-born drift band are closed (f134; 7fcf: no median
-   channel at the 11,000-gs worst horizon, spared tail ≤ 1.21× OFF, ensembles ≤ 8.8e-5,
-   kills K1/K2 unfired). Still unflown, in order: the long-lived-battle rate case (the fleet
-   battle that never dissolves, where the slice excess becomes a rate), the burn arm under
-   the probe (f134 flew the burn ledger at max 105; its drift band unmeasured), and the
-   structurally-blind B13/B14 gates stay replaced by the doll_probe class (21a7, 87fd). The
-   sparse secular re-kick (every ~2¹⁰–2¹² carried kicks) remains the one law choice the
-   composed adoption still prices (20261017-2330-spacex-f134).
-2. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
-   measured — and the honest belt margin is 5.5–6.4× under, not 57–105× [checker], so a B14-class
-   probe on a belt body under Cinder's and the Giant's tide closes it with little slack.
-3. The 115 belt bodies whose current key a sits below the 2-AU birth band (both arms identically,
-   radii consistent) are named for the next belt-readout run: unexplained here, arm-independent,
-   unbiased for the A/B numbers (20261016-1637-second-…-1a46).
-4. The burn tail's partial collapse (max 105 at every arm — delete, chain, composed; p99 41
-   composed, the lowest) is not a comb object: its owner is the player's own kick re-timing (the
-   5 October memo finding). Price it there or leave it (20261017-2330-spacex-f134).
-5. The per-body grid translate (components-4534's lever, independent of the de-phase): each
-   doll≠0 ship's grid translated by a dyadic hash(id) offset flattens the standing train 335→141
-   (2.0–2.4×, both seeds, N-flat 600–1e5), with +6/+73% event totals (the +73% is the fleet
-   battle's slicing, per its checker) and the same unflown legality gates. Weaker than the
-   composed arm's 334→41; its event-total diagnosis is open (20261016-0504-components-4534;
-   checker-restored).
-6. The de-phase's price is now two named terms, both measured: the front-loaded slice bill
-   (+10.8% over 12,000 game-s [checker]) and the 10⁻⁶ median-drift channel, a closing
-   transient that reverses sign by 6,700 game-s [checker, 20261016]
-   (20261016-1637-dynamics-87fd) — superseded for the composed arm (its ledger 6,298 holds the
-   delete's cut with no slice bill), still the honest price for any spread-only adoption.
-7. (standing: the compact store's wiring after the cadence decision; the M1 re-measure; the
-   burn's engine tail.)
-
-## Contradictions
-
-None open. The standing three-way merge conflicts (87fd's adjudication against 1a46's hybrid
-flight, and the header) are resolved by this run: both entries stand, complementary (legality
-adjudication vs the delete flight), and 1a46's flight closed the 83.5-vs-≈134 composition
-question at 131 (≈134 wins). The 87fd checker's horizon correction (the drift channel is
-horizon-local and reverses) stands as the recorded caveat on the legality band, now folded into
-direction 1.
+1. *(existing directions unchanged; add)* The burn flight past one full doll step (the burning
+   wildcard's scan channel and the wave's memory under 13.5× mints, together unflown); and a
+   pinned-`oldest` probe — a body whose nearest pending item sits in the past would freeze
+   `prune`'s horizon and resurrect the ratchet; none exists on the ladder scene, and a certificate
+   would close the class.
 
 ## Runs
 - 20261013-2130-library-ae3d (silver): store updates event-cheap with spikes in compaction steps; memory 12.3→48.4 bits/member under storm; five falsifiable ladder rules.
@@ -693,3 +713,6 @@ direction 1.
 - 20261018-1433-inversion-96f6 (inversion, awaiting grade): the crowd's 5×10⁴ break decomposed — 33/33 over frames carry 2 events; the bail's full O(K) capture walk (190 ns/body, λ K-independent) owns the frame at 4–6×10⁴; the observer fix must land store-grounded and delete the candidates Vec (pin 8 GB at ~3.5×10⁵ first).
 - 20261018-1530-second-20261018-1433-inversion-96f6-acf2 (second author, awaiting grade): the pin measured directly — 0.0526 mints/game-s K-flat, alive == mints (the freeze drops nothing), 8 GB at 687 game-s at the fix's 10⁶ target; compare-form native 0.5 ns/member (40× under the REPLICA); trigger = the player's clock; the fix must answer-or-expire.
 - 20261018-1617-taleb-2403 (taleb, awaiting grade): the mint rate is the wildcard's pacing — burn 13.5× coast (nladder 10⁴, held 1→258; 0 at a 24 ms budget with identical arrivals), burst phase ~116×, seed-identical (canonical log); the fence is sized for the burn, not 0.05.
+- 20261018-1717-fermi-dcf1 (fermi, awaiting grade): the burn byte wall is dead at 3e5 (HWM K-flat 0.026 MB/game-s vs the law's 47; held <=187; 0 over 12 ms; frame and player stream N-flat); the view gather (5.0 us/seen-body, seen=N+61) is the ladder's first N-growing term.
+- 20261018-1717-inversion-d839 (inversion, awaiting grade): memory through cadence waves is flat —
+- 20261018-1717-second-20261018-1617-taleb-2403-99da (second author, awaiting grade): the 10⁶ gap sliced — arrivals bit-identical 10⁵→6.5×10⁵ (145/2,069, census equal), multiplier 16.8× at both, 10⁶ wall ≈ 43 game-s; 2403's P1/P6 corrected to not-held.

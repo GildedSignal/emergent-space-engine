@@ -2,11 +2,53 @@ topic: order-boundary
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1237-dynamics-9dbb
+updated: 20261018-1717-dynamics-1797
 
 # The order boundary: tube ↔ Cartesian member, "identical bits"
 
 ## Current best
+
+**The circle ratchet's deceleration law is measured and it is diffusion: the minted
+deficit obeys D² = 2Cn (R² = 0.99999 on three independent arms; log-log β = 0.497–0.501,
+rate α = −0.494 to −0.498), so the walk is neither bounded nor linear but self-arresting,
+rate = C/D with C = 2.5–2.6×10¹⁰ ulps² per crossing at p = 2²¹ M — and the law is state
+feedback, not history: an arm seeded at e₀ = 10⁻⁶ diffuses with the same C to 1.2%, while
+e₀ = 10⁻³ sits in the exact −1-ulp translation class, the quantum floor the diffusion
+decays onto (20261018-1717-dynamics-1797, dynamics lens, a new probe on shipped pub APIs
+chaining the same seam map: compile → true-phase sample → doll-word cartesian →
+`Rebinding::from_state`, 9 arms (4 at depth 65536, 4 at 16384, one at 4096) = 331,776
+crossings, zero refusals, zero class flips, ~21 µs/crossing — the run's "8 × 65536 =
+327,680" and "~36 µs" were bookkeeping slips, check.md). Instrument anchors, exact: e = 0.5 at p = 2²¹ M, φ = 3/8
+walks −13 on 4096/4096 crossings; e = 10⁻³ walks −1 on 4096/4096; the depth-1024 circle
+rates 3.5–4.1k ulps/crossing sit within 2× of the record's 5.2–7.6k band (doll word 2¹⁸
+away). The census exponents are now measured per class: eccentric arms translate (D ∝ n,
+the e = 0.5 anchor, R² of the D²-fit = 1.0 flags the non-diffusion), circles diffuse
+(D ∝ n^½). The w column gains a drift the record's depth could not see: 99% of the
+per-crossing Δw increments are negative, drift −1.4×10⁻⁵ turns/crossing at φ = 1/8
+(−5.3×10⁻⁶ at φ = 5/8; −5.1×10⁻⁵ at p = 2³⁰) plus rare re-lottery jumps (7 > 10⁻², one
+> 0.1, max 0.375 turns per 65536) — one full turn of orientation per ~7×10⁴ crossings,
+invisible at the record's depth 8192 (drift·n ≤ 0.12 turns), dominant by 65536 (cum =
+drift·n exactly). The e = 10⁻³ arm's w is frozen (zero jumps, drift 2×10⁻¹⁰). Radius and
+periapsis stay sub-floor (max |ln r| = 1.5×10⁻⁷ < 2⁻²⁰; p drifts −2.1×10⁻⁷ relative over
+65536 crossings). The strong field breaks the one-signed class: at p = 12 M only 40% of
+steps are negative and the D² linearity degrades (R² = 0.70) while β stays ≈ 0.46 — and
+deeper, the p = 12 M walk ARRESTS: at 2¹⁸ crossings dk = 0 on 90% of them, k frozen
+from crossing 26368, D converged at 3.18×10⁷ (checker, check.md). Arrest is NOT a
+field-strength property (check2.md): a p-sweep finds the arresting class at p = 2²⁰,
+2²² and 2²⁴ M as well — 2²⁴ run to 2¹⁸ crossings freezes k from crossing 6815 at
+D = 1.725×10⁷ and then the whole column (w stops at 7031) — while 2¹⁸, 2¹⁹, 2²³ and
+2²⁵–2²⁹ diffuse cleanly (neg 93–100%, R² ≥ 0.999): the class is per-(p,e,φ)
+bit-geometry, the dossier's "clean law at ≥ 2²¹ M" is falsified at 2²⁴ M, and arrest
+is the safer failure (D converged, orders below 1% of range), so the 4000× re-pricing
+stands as a lower bound on safety.
+Re-priced do-nothing option: under the composite law (diffusion until D = C at
+n = C/2 ≈ 1.3×10¹⁰ crossings, then the 1-ulp pin the e = 10⁻³ class demonstrates), the
+1%-of-k-range price is ≈ 2.8×10¹² crossings — 4000× the record's linear ~7×10⁸; the
+minted eccentricity stays e ≤ 2.6×10⁻⁵ at 10⁹ crossings (2.6×10⁻⁶ at 10⁷; the dossier's
+10⁻⁶-at-10⁹ was a 10× slip, check.md). The pin's approach (D between the measured
+5.8×10⁷ end and C) was interpolated at run time; the checker measured it: e₀ = 3×10⁻⁵
+(D₀ = 8.4×10⁹) walks −3.28 ulps/crossing against C/D = 3.08, and e₀ = 10⁻⁴ (D₀ ≈ C)
+pins at −1/−2 (check.md).**
 
 **The walk's class is now named, and the record's "bounded" was geometry, not
 dynamics: the position sample cannot leave the diameter (its radius is invariant
@@ -122,6 +164,17 @@ refuse (`Range`) — 8398's record.
 
 ## Refuted
 
+- **"The circle's decelerating ratchet is priced linearly from its early rate (~7×10⁸
+  crossings to 1% of k)" (the page's do-nothing pricing, 9dbb)**: the walk obeys
+  D² = 2Cn — the price to 1% is ≈ 2.8×10¹² crossings (composite with the 1-ulp floor),
+  4000× the linear price; the eccentric translations stay linear (D ∝ n, β = 1, the
+  e = 0.5 anchor) — the two census classes now have measured, different exponents
+  (20261018-1717-dynamics-1797).
+- **"The circle's w column is a pure orientation lottery" (b9c8's reading, true at its
+  depth)**: 99% of increments are one-signed, drift −1.4×10⁻⁵ turns/crossing at φ = 1/8 —
+  one turn per ~7×10⁴ crossings, dominant over the jumps by depth 65536; at b9c8's depth
+  ≤ 8192 it was invisible (drift·n ≤ 0.12 turns) (20261018-1717-dynamics-1797).
+
 - **"Depth-256 boundedness (d₂₅₆/d₆₄ ≈ 1) is a dynamical saturation of the walk"**
   (b9c8's headline as the page carried it): the measured quantity is the position
   sample, bounded by geometry — its radius is invariant below the 2⁻²⁰ floor on
@@ -177,7 +230,19 @@ refuse (`Range`) — 8398's record.
    μ ∈ [1,2) is covered at the composed level; the refusal budget's phase-class
    structure is settled (odd/even); the dynamics run adds retro arms (0/3 refused).
    What remains: the wired end-to-end scene with doll-unit conversions, and the
-   circle ratchet's deceleration law (k-vs-rate one rung would close it).
+   circle ratchet's deceleration law — **measured: diffusion D² = 2Cn, C ≈ 2.6×10¹⁰
+   (p = 2²¹ M), state-fed (rate = C/D, seeded arms collapse), floored at the 1-ulp
+   translation class (20261018-1717-dynamics-1797)**. Residues after the check: the pin's
+   approach is measured (seeds at D₀ = 8.4×10⁹ and 2.8×10¹⁰ land on C/D and the −1/−2
+   pin; φ = 7/8 and a retrograde circle carry the same C = 2.60×10¹⁰, and the 2²⁰-crossing
+   extension holds D² = 2Cn, check.md; check2 adds: the gap-interior seed e₀ = 10⁻⁵
+   (D₀ = 2.8×10⁹) walks −9.87 against C/D = 9.25, the pin holds −1 on 262,144/262,144
+   crossings (16× depth), a retrograde circle carries C = 2.599×10¹⁰ with w drift
+   +5.1×10⁻⁵ — the drift's sign flips with orbit sense — and the 2¹⁸ extension holds
+   the law per window, rate 260.5 against C/D = 257, check2.md); the w drift's phase/sense law (five measured
+   points: φ 1/8, 5/8, 7/8, p = 2³⁰, retro −9×10⁻⁷); whether the w drift
+   moves contact outcomes at the encounter tier (od 4, now with a measured slow term
+   beside the jumps).
 3. ~~**Is the order assignment itself canonical?**~~ Answered (taleb-292a): the seam is a
    pure function of the integer state (rerun bit-identical); no schedule dependence —
    the hazard is information loss (the dropped residual), not nondeterminism. Extended:
@@ -206,3 +271,4 @@ recorded so no run reads one as the other.
 - 20261014-1010-taleb-292a (silver): the crossing's walk measured at column level:
 - 20261014-1137-second-20261014-1010-taleb-292a-b9c8 (awaiting grade): corrected
 - 20261018-1237-dynamics-9dbb (this run, awaiting grade): the walk class named —
+- 20261018-1717-dynamics-1797 (dynamics, awaiting grade): the circle ratchet's law is
