@@ -1,0 +1,649 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..8963a4a5 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -479,3 +479,535 @@ pub fn clock_text(s: f64) -> String {
+         format!("{} d {} h", (s / 86_400.0).floor(), ((s % 86_400.0) / 3600.0).floor())
+     }
+ }
++
++// ---- the sky-record server (lab run 20261018-2155-second-20261018-2040-system-cc75-e6c9) --------------
++// The checker's named experiment, flown: the view's rows served from a window-membership record over
++// the sky circle at an instrument floor θ_f (cc75's census said the far sky is FULL there). The near
++// tier (light-seconds ≤ split) is walked fresh every frame, exactly as the shipped gather walks it;
++// the fleet and the star are walked fresh (the hot set, O(1) rows); every far body is held in a
++// record keyed by its sky cell and revisited only at its predicted next cell crossing (margin early),
++// so per-frame readouts are O(near + due) instead of O(K). Multi-member cells serve one aggregate
++// (count, Σ luminosity, luminosity-weighted colour/shift/light-seconds); singleton cells serve the
++// stored exact row. Everything here is read-only on the Universe — the same contract as `gather` —
++// and audits itself against the oracle `View` the caller already gathered.
++
++/// One served row: an exact row (`count = 1`) or a sky-cell aggregate.
++pub struct SkyRow {
++    pub seen: Seen,
++    pub count: u32,
++}
++
++/// The server's per-frame report. Plain data; the driver prints it.
++#[derive(Default)]
++pub struct SkyFrame {
++    pub frame: u64,
++    pub cold: bool,
++    pub near_rows: usize,
++    pub fleet_rows: usize,
++    pub due: usize,
++    pub churn: usize,
++    pub tier_moves: usize,
++    pub cells: usize,
++    pub served_rows: usize,
++    pub singletons: usize,
++    pub near_ms: f64,
++    pub due_ms: f64,
++    pub serve_ms: f64,
++    pub total_ms: f64,
++    pub wrong_cell: usize,
++    pub cells_wrong: usize,
++    pub missing: usize,
++    pub extra: usize,
++    pub tier_err: usize,
++    pub px_max: f64,
++    pub dlum_p50: f64,
++    pub dlum_max: f64,
++    pub near_dmax: f64,
++    pub near_dls: f64,
++    pub near_dshift: f64,
++}
++
++struct FarRec {
++    body: usize,
++    cell: i64,
++    ang: f64,
++    omega: f64,
++    last: u64,
++    row: Seen,
++}
++
++/// The sky-record server. Create one per observer per floor and call [`SkyServer::serve`] every
++/// frame, passing the oracle view the audit instrument gathered.
++pub struct SkyServer {
++    floor: f64,
++    split: f64,
++    margin: f64,
++    rec: std::collections::HashMap<usize, FarRec>,
++    cells: std::collections::BTreeMap<i64, Vec<usize>>,
++    due: std::collections::BinaryHeap<std::cmp::Reverse<(u64, usize)>>,
++    near: std::collections::BTreeSet<usize>,
++    cache: ViewCache,
++    bodies_seen: usize,
++    frame: u64,
++}
++
++/// A server at sky-cell floor `floor` radians (capacity 2π/floor), near/far split at `split`
++/// light-seconds, revisit at `margin` × the predicted time to the next cell crossing.
++pub fn sky_server(floor: f64, split: f64, margin: f64) -> SkyServer {
++    SkyServer {
++        floor,
++        split,
++        margin,
++        rec: Default::default(),
++        cells: Default::default(),
++        due: Default::default(),
++        near: Default::default(),
++        cache: ViewCache::default(),
++        bodies_seen: 0,
++        frame: 0,
++    }
++}
++
++fn sky_angle(s: &Seen) -> f64 {
++    s.direction[1].atan2(s.direction[0])
++}
++
++fn sky_wrap(a: f64) -> f64 {
++    let mut x = a;
++    while x > std::f64::consts::PI {
++        x -= std::f64::consts::TAU;
++    }
++    while x < -std::f64::consts::PI {
++        x += std::f64::consts::TAU;
++    }
++    x
++}
++
++struct Obs {
++    t_now: Tick,
++    xo: [f64; 2],
++    vo: [f64; 2],
++    rate_obs: f64,
++}
++
++/// The observer prologue of `gather_with`, unchanged (the player's read position, velocity and rate).
++fn sky_obs(u: &Universe) -> Option<Obs> {
++    let ctx = u.ctx();
++    let p = u.player()?;
++    let t_now = u.now;
++    let rec = u.rec(p);
++    let mut t_read = if rec.alive {
++        t_now
++    } else {
++        let doll = &u.dolls[rec.b.doll as usize];
++        crate::step::next_impact(&rec.b, doll.surface, rec.b.event_time).ok().flatten().unwrap_or(rec.b.event_time)
++    };
++    let (xo, vo) = match root_state(&ctx, p, t_read) {
++        Ok(x) => x,
++        Err(_) => {
++            t_read = rec.b.event_time;
++            root_state(&ctx, p, t_read).or_else(|_| crate::observe::root_state_raw(&ctx, p, t_read)).ok()?
++        }
++    };
++    let owed = if rec.alive { crate::observe::held_thrust(&ctx, &rec, t_now).ok().flatten() } else { None };
++    let dv = owed.map_or([0.0, 0.0], |o| o.1);
++    let vo = [vo[0] + dv[0], vo[1] + dv[1]];
++    let rate_obs = match clocks_with(&ctx, p, t_read, dv) {
++        Ok(c) => c.root,
++        Err(_) => 1.0,
++    };
++    Some(Obs { t_now, xo, vo, rate_obs })
++}
++
++/// The `push` closure of `gather_with`, factored for one row.
++fn sky_make(id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64, obs: &Obs) -> Seen {
++    let d = [pos[0] - obs.xo[0], pos[1] - obs.xo[1]];
++    let dist = dot(d, d).sqrt().max(1e-9);
++    let toward = [d[0] / dist, d[1] / dist];
++    let n_prop = [-toward[0], -toward[1]];
++    let shift = ((1. - dot(n_prop, obs.vo)) / obs.rate_obs) / ((1. - dot(n_prop, vel)) / rate);
++    let (dir, _) = aberration(toward, obs.vo);
++    Seen {
++        id,
++        name: name.to_string(),
++        kind,
++        direction: dir,
++        light_seconds: dist * TICK_SECONDS,
++        offset: [d[0] * TICK_SECONDS, d[1] * TICK_SECONDS],
++        closing: dot(toward, obs.vo) - dot(toward, vel),
++        color: blackbody(temp * shift),
++        luminosity: lum * shift.powi(4),
++        shift,
++        age: (obs.t_now as f64 - t_e) * TICK_SECONDS,
++        lag,
++        angular_radius: (radius_root / dist).atan(),
++    }
++}
++
++/// One body's exact row, the loop body of `gather_with` for body `i` alone (crossing, cache memo,
++/// rest colour, row math). Read-only.
++fn sky_body_row(u: &Universe, names: &[String], i: usize, obs: &Obs, cache: &mut ViewCache) -> Option<Seen> {
++    let ctx = u.ctx();
++    if !u.bodies().alive(i) {
++        return None;
++    }
++    let kind = u.info[i].kind;
++    let guess = cache.guess(i, obs.t_now).unwrap_or(obs.t_now);
++    let mut reads = 0u64;
++    let (t_e, at, root) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), obs.t_now, obs.xo, guess)?;
++    let d = [at.x[0] - obs.xo[0], at.x[1] - obs.xo[1]];
++    let dist = dot(d, d).sqrt();
++    let inst = if dist > 0.0 { (1.0 + dot(d, obs.vo) / dist) / (1.0 + dot(d, at.v) / dist) } else { 1.0 };
++    cache.put(i, obs.t_now, root, inst);
++    let doll = &u.dolls[u.bodies().doll(i) as usize];
++    let host_name = match kind {
++        Kind::Planet => u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| d.name).unwrap_or("planet"),
++        _ => doll.name,
++    };
++    let (temp, lum) = rest(kind, i, host_name);
++    let radius = to_f64(u.info[i].radius) * 2f64.powi(-(doll.shift as i32));
++    let radius = if kind == Kind::Planet { u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| to_f64(d.surface) * 2f64.powi(-(d.shift as i32))).unwrap_or(radius) } else { radius };
++    let k = match kind {
++        Kind::Planet => 1,
++        Kind::Moon => 2,
++        _ => 3,
++    };
++    Some(match u.info[i].from {
++        Some((fi, m)) => sky_make(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64, obs),
++        None => sky_make(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64, obs),
++    })
++}
++
++/// The fleet rows of `gather_with`'s fleet loop, fresh (the hot set: a battle is walked, not recorded).
++fn sky_fleet_rows(u: &Universe, obs: &Obs) -> Vec<Seen> {
++    let ctx = u.ctx();
++    let mut out = Vec::new();
++    let mut motions = Vec::new();
++    for (fi, f) in u.fleets.iter().enumerate() {
++        let tc = f.tick();
++        let (Some((o, ov)), Ok((cp, cv))) = (f.origin(tc), root_state(&ctx, f.centre, tc.max(u.bodies().event_time(f.centre)).min(obs.t_now))) else { continue };
++        let k = 2f64.powi(-20);
++        let q = crate::fleet::Q as f64;
++        let origin = [cp[0] + o[0] * k, cp[1] + o[1] * k];
++        let rate0 = clock_rate(&ctx, f.centre, tc.max(0).min(obs.t_now)).unwrap_or(1.0);
++        motions.clear();
++        f.motions(&mut motions);
++        let shift = u.dolls[f.doll as usize].shift as i32;
++        for (m, mo) in motions.iter().enumerate() {
++            if !f.is_member(m) {
++                continue;
++            }
++            let x = [origin[0] + mo.x[0] as f64 * k, origin[1] + mo.x[1] as f64 * k];
++            let v = [cv[0] + ov[0] / q + mo.k[0] as f64 / q, cv[1] + ov[1] / q + mo.k[1] as f64 / q];
++            let d = [x[0] - obs.xo[0], x[1] - obs.xo[1]];
++            let dist = dot(d, d).sqrt();
++            let want = obs.t_now as f64 - dist;
++            let dt = want - tc as f64;
++            let xe = [x[0] + v[0] * dt, x[1] + v[1] * dt];
++            let rel = [origin[0] - cp[0] + mo.x[0] as f64 * k, origin[1] - cp[1] + mo.x[1] as f64 * k];
++            let r_doll = dot(rel, rel).sqrt() * 2f64.powi(shift);
++            let rate = rate0 * (1.0 - 2.0 * u.dolls[f.doll as usize].mu_f64() / r_doll.max(3.0)).sqrt();
++            let rad = f.radii.get(m).copied().unwrap_or(0) as f64 * k;
++            out.push(sky_make(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want, obs));
++        }
++    }
++    out
++}
++
++/// The star's row, fresh (one readout; `gather_with` walks it too).
++fn sky_star_row(obs: &Obs) -> Seen {
++    let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
++    sky_make(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, obs.t_now as f64, obs)
++}
++
++impl SkyServer {
++    fn cell_of(&self, ang: f64) -> i64 {
++        (ang / self.floor).floor() as i64
++    }
++
++    fn schedule(&mut self, id: usize, ang: f64, cell: i64, omega: f64) {
++        let hor = if omega.abs() > 1e-15 {
++            let dth = if omega > 0.0 { (cell as f64 + 1.0) * self.floor - ang } else { ang - cell as f64 * self.floor };
++            (dth / omega.abs()) * self.margin
++        } else {
++            1e9
++        };
++        self.due.push(std::cmp::Reverse((self.frame + hor.max(1.0) as u64, id)));
++    }
++
++    fn enter_far(&mut self, body: usize, row: Seen, frame: u64) {
++        let id = row.id;
++        let ang = sky_angle(&row);
++        let cell = self.cell_of(ang);
++        self.rec.insert(id, FarRec { body, cell, ang, omega: 0.0, last: frame, row });
++        self.cells.entry(cell).or_default().push(id);
++        self.due.push(std::cmp::Reverse((frame + 2, id))); // one touch measures ω, then it schedules itself
++    }
++
++    fn leave_cells(&mut self, cell: i64, id: usize) {
++        if let Some(v) = self.cells.get_mut(&cell) {
++            v.retain(|&x| x != id);
++            if v.is_empty() {
++                self.cells.remove(&cell);
++            }
++        }
++    }
++
++    /// Serve one frame. `oracle` is this frame's full `gather_cached` view (the audit reference; the
++    /// instrument the production path would not run). Returns the served rows and the report.
++    pub fn serve(&mut self, u: &Universe, names: &[String], oracle: &View) -> (Vec<SkyRow>, SkyFrame) {
++        let t_all = std::time::Instant::now();
++        let mut f = SkyFrame::default();
++        let Some(obs) = sky_obs(u) else { return (Vec::new(), f) };
++        // ---- the cold start: one walk over the oracle's rows seeds the record (production: one gather walk once).
++        // Handed-out fleet members carry fleet-style row ids; their body indices come from one scan of `from`.
++        if self.frame == 0 {
++            let mut fs: std::collections::HashMap<usize, usize> = Default::default();
++            for i in 0..u.n_bodies() {
++                if let Some((fi, m)) = u.info[i].from {
++                    fs.insert(1_000_000 + fi as usize * 1000 + m as usize, i);
++                }
++            }
++            for s in &oracle.seen {
++                if s.id == usize::MAX {
++                    continue; // the star is walked fresh every frame
++                }
++                let body = if s.id < 1_000_000 { s.id } else { match fs.get(&s.id) { Some(&b) => b, None => continue } };
++                if s.light_seconds > self.split {
++                    let id = s.id;
++                    let ang = sky_angle(s);
++                    let cell = self.cell_of(ang);
++                    self.rec.insert(id, FarRec { body, cell, ang, omega: 0.0, last: 0, row: s.clone() });
++                    self.cells.entry(cell).or_default().push(id);
++                    self.due.push(std::cmp::Reverse((2, id)));
++                } else {
++                    self.near.insert(body);
++                }
++            }
++            self.bodies_seen = u.n_bodies();
++            self.frame = 1;
++            f.frame = 1;
++            f.cold = true;
++            f.cells = self.cells.len();
++            f.total_ms = t_all.elapsed().as_secs_f64() * 1e3;
++            return (Vec::new(), f);
++        }
++        self.frame += 1;
++        f.frame = self.frame;
++        // Handed-out fleet members became bodies since last frame: walk them fresh (the handout is the event).
++        let n = u.n_bodies();
++        for i in self.bodies_seen..n {
++            self.near.insert(i);
++        }
++        self.bodies_seen = n;
++        // ---- the near tier: fresh exact rows ----
++        let t_near = std::time::Instant::now();
++        let mut served: Vec<SkyRow> = Vec::new();
++        let mut to_far: Vec<(usize, Seen)> = Vec::new();
++        let mut near_dead: Vec<usize> = Vec::new();
++        for &i in &self.near {
++            match sky_body_row(u, names, i, &obs, &mut self.cache) {
++                Some(s) => {
++                    if s.light_seconds > self.split {
++                        to_far.push((i, s));
++                    } else {
++                        served.push(SkyRow { seen: s, count: 1 });
++                        f.near_rows += 1;
++                    }
++                }
++                None => near_dead.push(i),
++            }
++        }
++        for i in near_dead {
++            self.near.remove(&i);
++        }
++        let fleet = sky_fleet_rows(u, &obs);
++        f.fleet_rows = fleet.len();
++        for s in fleet {
++            served.push(SkyRow { seen: s, count: 1 });
++        }
++        served.push(SkyRow { seen: sky_star_row(&obs), count: 1 });
++        f.near_ms = t_near.elapsed().as_secs_f64() * 1e3;
++        // ---- the due tier: revisit far bodies at their predicted cell crossings ----
++        let t_due = std::time::Instant::now();
++        let mut to_near: Vec<(usize, usize)> = Vec::new();
++        let mut hz: Vec<u64> = Vec::new();
++        loop {
++            let Some(&std::cmp::Reverse((d, id))) = self.due.peek() else { break };
++            if d > self.frame {
++                break;
++            }
++            self.due.pop();
++            let Some(body) = self.rec.get(&id).map(|r| r.body) else { continue };
++            let Some(s) = sky_body_row(u, names, body, &obs, &mut self.cache) else {
++                if let Some(r) = self.rec.remove(&id) {
++                    self.leave_cells(r.cell, id);
++                }
++                continue;
++            };
++            f.due += 1;
++            let ang = sky_angle(&s);
++            let cell = self.cell_of(ang);
++            let Some(r) = self.rec.get_mut(&id) else { continue };
++            let (old_cell, old_ang, last) = (r.cell, r.ang, r.last);
++            let goes_near = s.light_seconds <= self.split;
++            let omega = sky_wrap(ang - old_ang) / ((self.frame - last).max(1) as f64);
++            if self.frame == 2 {
++                let dth = if omega > 0.0 { (cell as f64 + 1.0) * self.floor - ang } else { ang - cell as f64 * self.floor };
++                hz.push((self.frame as f64 + dth.abs() / omega.abs().max(1e-15) * self.margin) as u64);
++            }
++            r.cell = cell;
++            r.ang = ang;
++            r.omega = omega;
++            r.last = self.frame;
++            r.row = s;
++            drop(r);
++            if cell != old_cell {
++                self.leave_cells(old_cell, id);
++                self.cells.entry(cell).or_default().push(id);
++                f.churn += 1;
++            }
++            if goes_near {
++                to_near.push((id, body));
++            } else {
++                self.schedule(id, ang, cell, omega);
++            }
++        }
++        for (id, body) in to_near {
++            if let Some(r) = self.rec.remove(&id) {
++                self.leave_cells(r.cell, id);
++                self.near.insert(body);
++                f.tier_moves += 1;
++            }
++        }
++        if self.frame == 2 && !hz.is_empty() {
++            hz.sort_unstable();
++            let mean = hz.iter().map(|&x| x as f64).sum::<f64>() / hz.len() as f64;
++            eprintln!(
++                "SKYSERV-HZ k_far={} hz_p10={} hz_p50={} hz_p90={} hz_min={} mean={:.0} exp_due_per_frame={:.3}",
++                hz.len(), hz[hz.len() / 10], hz[hz.len() / 2], hz[hz.len() * 9 / 10], hz[0], mean,
++                hz.len() as f64 / mean
++            );
++        }
++        for (i, s) in to_far {
++            self.near.remove(&i);
++            self.enter_far(i, s, self.frame);
++            f.tier_moves += 1;
++        }
++        f.due_ms = t_due.elapsed().as_secs_f64() * 1e3;
++        // ---- the serve tier: one row per occupied cell ----
++        let t_serve = std::time::Instant::now();
++        for (cell, members) in &self.cells {
++            if members.len() == 1 {
++                let r = &self.rec[&members[0]];
++                served.push(SkyRow { seen: r.row.clone(), count: 1 });
++                f.singletons += 1;
++            } else {
++                let (mut lum, mut lc, mut ls, mut sh) = (0.0f64, [0.0f64; 3], 0.0f64, 0.0f64);
++                let mut kind = 3u8;
++                for &id in members {
++                    let r = &self.rec[&id];
++                    lum += r.row.luminosity;
++                    lc[0] += r.row.color[0] * r.row.luminosity;
++                    lc[1] += r.row.color[1] * r.row.luminosity;
++                    lc[2] += r.row.color[2] * r.row.luminosity;
++                    ls += r.row.light_seconds * r.row.luminosity;
++                    sh += r.row.shift * r.row.luminosity;
++                    kind = kind.min(r.row.kind);
++                }
++                let centre = (*cell as f64 + 0.5) * self.floor;
++                let mut agg = Seen {
++                    id: usize::MAX - 1 - (cell.unsigned_abs() as usize),
++                    name: format!("cell{}", cell),
++                    kind,
++                    direction: [centre.cos(), centre.sin()],
++                    light_seconds: if lum > 0.0 { ls / lum } else { 0.0 },
++                    offset: [0.0, 0.0],
++                    closing: 0.0,
++                    color: if lum > 0.0 { [lc[0] / lum, lc[1] / lum, lc[2] / lum] } else { [0.0, 0.0, 0.0] },
++                    luminosity: lum,
++                    shift: if lum > 0.0 { sh / lum } else { 1.0 },
++                    age: 0.0,
++                    lag: 0.0,
++                    angular_radius: 0.0,
++                };
++                agg.closing = lum;
++                served.push(SkyRow { seen: agg, count: members.len() as u32 });
++            }
++        }
++        f.cells = self.cells.len();
++        f.serve_ms = t_serve.elapsed().as_secs_f64() * 1e3;
++        // ---- the audit, against this frame's oracle ----
++        let fresh_n = f.near_rows + f.fleet_rows;
++        let mut oracle_far: std::collections::HashMap<usize, (f64, f64)> = Default::default();
++        let mut oracle_near: std::collections::HashMap<usize, &Seen> = Default::default();
++        let mut oracle_census: std::collections::HashMap<i64, (u32, f64)> = Default::default();
++        let mut fleet_ids: std::collections::HashSet<usize> = Default::default();
++        for r in served.iter().take(fresh_n).skip(f.near_rows) {
++            fleet_ids.insert(r.seen.id);
++        }
++        for s in &oracle.seen {
++            if s.id == usize::MAX {
++                continue;
++            }
++            let ang = sky_angle(s);
++            if s.light_seconds > self.split {
++                oracle_far.insert(s.id, (ang, s.luminosity));
++                let e = oracle_census.entry(self.cell_of(ang)).or_insert((0, 0.0));
++                e.0 += 1;
++                e.1 += s.luminosity;
++            } else {
++                oracle_near.insert(s.id, s);
++            }
++        }
++        for (&id, &(ang, _)) in &oracle_far {
++            if let Some(r) = self.rec.get(&id) {
++                if r.cell != self.cell_of(ang) {
++                    f.wrong_cell += 1;
++                }
++                f.px_max = f.px_max.max(sky_wrap(sky_angle(&r.row) - ang).abs());
++            } else if !fleet_ids.contains(&id) {
++                f.missing += 1;
++            }
++        }
++        for &id in self.rec.keys() {
++            if !oracle_far.contains_key(&id) {
++                f.extra += 1;
++            }
++        }
++        let served_fresh_ids: std::collections::HashSet<usize> = served.iter().take(fresh_n).map(|r| r.seen.id).collect();
++        for &id in oracle_near.keys() {
++            if !served_fresh_ids.contains(&id) {
++                f.tier_err += 1;
++            }
++        }
++        for r in served.iter().take(fresh_n) {
++            if let Some(o) = oracle_near.get(&r.seen.id) {
++                f.near_dmax = f.near_dmax.max((r.seen.direction[0] - o.direction[0]).hypot(r.seen.direction[1] - o.direction[1]));
++                f.near_dls = f.near_dls.max((r.seen.light_seconds - o.light_seconds).abs() / o.light_seconds.max(1e-9));
++                f.near_dshift = f.near_dshift.max((r.seen.shift - o.shift).abs());
++            }
++        }
++        let mut rels = Vec::new();
++        for (cell, members) in &self.cells {
++            let (oc, ol) = oracle_census.get(cell).copied().unwrap_or((0, 0.0));
++            if oc != members.len() as u32 {
++                f.cells_wrong += 1;
++            }
++            if members.len() > 1 && oc > 1 {
++                let sl: f64 = members.iter().map(|&id| self.rec[&id].row.luminosity).sum();
++                if ol > 0.0 {
++                    rels.push((sl - ol).abs() / ol);
++                }
++            }
++        }
++        if !rels.is_empty() {
++            rels.sort_by(|x, y| x.partial_cmp(y).unwrap());
++            f.dlum_p50 = rels[rels.len() / 2];
++            f.dlum_max = *rels.last().unwrap();
++        }
++        f.served_rows = served.len();
++        f.total_ms = t_all.elapsed().as_secs_f64() * 1e3;
++        (served, f)
++    }
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..6e928e61 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -16,9 +16,9 @@ mod flight;
+ mod flight_tests;
+ mod http;
+ mod kick_bench;
++mod skyserv;
+ mod replay;
+ mod session;
+-
+ use serde_json::json;
+ use session::Session;
+ use std::time::{Duration, Instant};
+@@ -51,6 +51,15 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
++            "--skyserv" => {
++                let k = val("--skyserv")?.parse::<usize>()?;
++                let frames = it.next().and_then(|s| s.parse().ok()).unwrap_or(90);
++                let seed = it.next().and_then(|s| s.parse().ok()).unwrap_or(1);
++                let floor = it.next().and_then(|s| s.parse().ok()).unwrap_or(8e-3);
++                let serve = it.next().and_then(|s| s.parse::<u8>().ok()).unwrap_or(1) == 1;
++                let margin = it.next().and_then(|s| s.parse().ok()).unwrap_or(0.5);
++                return skyserv::run(k, frames, seed, floor, serve, margin);
++            }
+             "--describe" => describe = true,
+             "--help" => {
+                 println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe\nuniverse --replay <file> [--seconds S]\nuniverse --replay-all [--flights DIR]\nuniverse [...] [--flights DIR | --no-record]");
+diff --git a/xtask/src/universe/skyserv.rs b/xtask/src/universe/skyserv.rs
+new file mode 100644
+index 00000000..c267ee28
+--- /dev/null
++++ b/xtask/src/universe/skyserv.rs
+@@ -0,0 +1,72 @@
++//! The sky-record flight (lab run 20261018-2155-second-20261018-2040-system-cc75-e6c9): the checker's
++//! named experiment for cc75. Flies the N ladder (`plane_extra`, the original run's scene) with the
++//! shipped oracle gather (`gather_cached`) beside the sky-record server (`view::sky_server`): the
++//! near tier walked fresh, far rows served from cell membership maintained at predicted crossings.
++//! Every frame prints one SKYSERV line (costs, wire, audit); every 10th frame the engine digest is
++//! taken before and after the server ran (it must not move). `--serve 0` is the control flight: the
++//! same engine frames and oracle gathers, no server — the end digests must match `--serve 1`.
++use crate::Result;
++use emergent_universe::scenario::{plane_extra, Plane};
++use emergent_universe::view::{gather_cached, sky_server, SkyRow, ViewCache};
++use emergent_universe::{Budget, Config};
++use serde_json::json;
++use std::time::Instant;
++
++fn row_json(s: &emergent_universe::view::Seen, count: u32) -> serde_json::Value {
++    let mut v = json!({
++        "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
++        "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift,
++    });
++    if count > 1 {
++        v["count"] = json!(count);
++    }
++    v
++}
++
++fn wire_len(rows: &[SkyRow]) -> usize {
++    serde_json::to_string(&rows.iter().map(|r| row_json(&r.seen, r.count)).collect::<Vec<_>>()).map(|t| t.len()).unwrap_or(0)
++}
++
++fn oracle_wire_len(seen: &[emergent_universe::view::Seen]) -> usize {
++    serde_json::to_string(&seen.iter().map(|s| row_json(s, 1)).collect::<Vec<_>>()).map(|t| t.len()).unwrap_or(0)
++}
++
++pub(crate) fn run(k: usize, frames: usize, seed: u64, floor: f64, serve: bool, margin: f64) -> Result<u8> {
++    let Plane { mut u, names, .. } = plane_extra(Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48, k)
++        .map_err(|e| format!("the plane: {e:?}"))?;
++    let mut names = names;
++    names.resize(u.n_bodies(), String::new());
++    u.start().map_err(|e| format!("start: {e:?}"))?;
++    let mut ocache = ViewCache::default();
++    let mut srv = serve.then(|| sky_server(floor, 100.0, margin));
++    let t0 = Instant::now();
++    for n in 0..frames {
++        u.frame_to(1.0 / 60.0, 100.0, Budget { events: u64::MAX, until: None }, i64::MAX);
++        let tg = Instant::now();
++        let view = gather_cached(&u, &names, &mut ocache).expect("the view");
++        let oracle_ms = tg.elapsed().as_secs_f64() * 1e3;
++        let full_b = oracle_wire_len(&view.seen);
++        if let Some(srv) = srv.as_mut() {
++            let digest_probe = n % 10 == 0;
++            let d0 = digest_probe.then(|| u.digest());
++            let (rows, f) = srv.serve(&u, &names, &view);
++            let d1 = digest_probe.then(|| u.digest());
++            let digest_ok = match (d0, d1) {
++                (Some(a), Some(b)) => a == b,
++                _ => true,
++            };
++            let served_b = wire_len(&rows);
++            println!(
++                "SKYSERV k={k} f={} cold={} near={} fleet={} due={} churn={} tier={} cells={} served={} sing={} full_B={full_b} served_B={served_b} oracle_ms={oracle_ms:.2} near_ms={:.2} due_ms={:.2} serve_ms={:.2} total_ms={:.2} wrong_cell={} cells_wrong={} missing={} extra={} tier_err={} px_max={:.3e} dlum_p50={:.3e} dlum_max={:.3e} near_dmax={:.3e} near_dls={:.3e} near_dsh={:.3e} digest={}",
++                f.frame, f.cold as u8, f.near_rows, f.fleet_rows, f.due, f.churn, f.tier_moves, f.cells, f.served_rows, f.singletons,
++                f.near_ms, f.due_ms, f.serve_ms, f.total_ms, f.wrong_cell, f.cells_wrong, f.missing, f.extra, f.tier_err,
++                f.px_max, f.dlum_p50, f.dlum_max, f.near_dmax, f.near_dls, f.near_dshift, digest_ok as u8
++            );
++        } else {
++            println!("SKYSERV k={k} f={} control near=0 due=0 full_B={full_b} oracle_ms={oracle_ms:.2} digest=1", n + 1);
++        }
++    }
++    let d = u.digest();
++    println!("SKYSERV-END k={k} frames={frames} seed={seed} floor={floor} serve={} margin={margin} wall_s={:.2} digest={d}", serve as u8, t0.elapsed().as_secs_f64());
++    Ok(0)
++}

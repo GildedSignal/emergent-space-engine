@@ -1,0 +1,11 @@
+Working...
+Check complete. **Grade: gold** — written to `check.md`, with the author's page corrected in place and the tree restored clean.
+
+**What I did**
+
+- **Reproduced**: applied `work/patch.diff` to the clean tree at `e4f3b7ed` (additive-only, reverse-check clean), rebuilt, and confirmed every dossier number against the runner's regen and my own re-analysis: oracle gather 19.3/230.7/2,350/7,040 ms vs serving path 2.7/3.7/13.4/36.0 ms (177×/198×), wire falls 89×/268×, audits zero at 10³–10⁵, serve==control digests at all rungs, patched-tree bench digest equals cc75's unpatched one, horizon law K-independent (p50 ~6.9×10⁴).
+- **Four adversarial arms**, one beyond the author's range: (1) margin 1.0 breaks exactness gracefully (wrong_cell p50 2 of 9,717, self-healing, digest unchanged) — the 0.5 margin is load-bearing; (2) a 1200-frame flight shows audit-zero is a ≤120-frame fact: a bounded standing wrong-cell population (max 0.8% of far rows, under K1's 1%) that does not compound; (3) seed 7 at 10⁵ clean; (4) **K = 10⁶**: the flat law holds one decade up (786 cells FULL, 1,146 rows, ~302 KB, walk fall 162×, digest 1 at every probe) but `serve_ms` hits 142 ms — running sums become mandatory, not optional — and a new probe-side census artifact appears (cells_wrong 27/786, likely the body-id ≥ 10⁶ collision with the fleet id range).
+- **Found one reporting defect**: P1's literal thresholds (≤ 10 ms every rung; ≥ 300× at 3×10⁵) failed (36 ms, 198×) while the dossier reports P1 as held — the numbers were in its own table, nothing hidden, but the clause misses went unreported. Also corrected two due-rate overstatements on the page (observed 6/frame at 3×10⁵, and 15/frame in the ratchet transient vs the priced 1.9).
+- **Novelty verified**: the published view page itself bracketed cc75's record as "a design claim, not a measurement"; 2df1 is the canvas side and 687c the scan side — this is the seen-stream/gather side, the exact flight the previous checker held the rung for.
+
+Gold stands on: full reproduction, the scoped claim flown exactly as stated (flat readouts/wire at fitted zoom, exact audit, triple digest neutrality, the O(K) rebuild disclosed), the board's #1 live question moved ~10²×, and adoptability within one step. My attacks bound the domain without killing any claim the run makes.

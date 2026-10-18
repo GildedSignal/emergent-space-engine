@@ -1,0 +1,142 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+   --> crates/universe/src/view.rs:864:13
+    |
+864 |             drop(r);
+    |             ^^^^^-^
+    |                  |
+    |                  argument has type `&mut FarRec`
+    |
+    = note: `#[warn(dropping_references)]` on by default
+help: use `let _ = ...` to ignore the expression or result
+    |
+864 -             drop(r);
+864 +             let _ = r;
+    |
+
+warning: `emergent-universe` (lib) generated 1 warning
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.90s
+{
+ "serve1000": {
+  "file": "serve1000.log",
+  "frames": 120,
+  "end": {
+   "k": "1000",
+   "frames": "120",
+   "seed": "1",
+   "floor": "0.008",
+   "serve": "1",
+   "margin": "0.5",
+   "wall_s": "3.16",
+   "digest": "5dc903e67c14912e69e13f8111b75b4259c5e51dc4e842d21d2c5460a695e75a"
+  },
+  "horizons": {
+   "hz_p10": 12692.0,
+   "hz_p50": 71392.0,
+   "hz_p90": 274101.0,
+   "hz_min": 113.0,
+   "mean": 155229.0,
+   "exp_due_per_frame": 0.005,
+   "k_far": 717.0
+  },
+  "k": 1000,
+  "steady_frames": 111,
+  "steady": {
+   "near": {
+    "p50": 344.0,
+    "max": 346.0
+   },
+   "fleet": {
+    "p50": 6.0,
+    "max": 46.0
+   },
+   "due": {
+    "p50": 0.0,
+    "max": 1.0
+   },
+   "churn": {
+    "p50": 0.0,
+    "max": 1.0
+   },
+   "tier": {
+    "p50": 0.0,
+    "max": 0.0
+   },
+   "cells": {
+    "p50": 470.0,
+    "max": 470.0
+   },
+   "served": {
+    "p50": 823.0,
+    "max": 829.0
+   },
+   "sing": {
+    "p50": 302.0,
+    "max": 302.0
+   },
+   "wrong_cell": {
+    "p50": 0.0,
+    "max": 0.0
+   },
+   "cells_wrong": {
+    "p50": 0.0,
+    "max": 0.0
+   },
+   "missing": {
+    "p50": 0.0,
+    "max": 0.0
+   },
+   "extra": {
+    "p50": 0.0,
+    "max": 0.0
+   },
+   "tier_err": {
+    "p50": 0.0,
+    "max": 0.0
+   },
+   "digest": {
+    "p50": 1.0,
+    "max": 1.0
+   },
+   "full_B": {
+    "p50": 290419.0,
+    "max": 292359.0,
+    "min": 289499.0,
+    "mean": 290864.6846846847
+   },
+   "served_B": {
+    "p50": 221416.0,
+    "max": 223296.0,
+    "min": 220187.0,
+    "mean": 221805.7207207207
+   },
+   "oracle_ms": {
+    "p50": 19.33,
+    "max": 19.67,
+    "min": 19.06,
+    "mean": 19.264054054054053
+   },
+   "near_ms": {
+    "p50": 2.7,
+    "max": 3.06,
+    "min": 2.42,
+    "mean": 2.7111711711711712
+   },
+   "due_ms": {
+    "p50": 0.0,
+    "max": 0.03,
+    "min": 0.0,
+    "mean": 0.0013513513513513512
+   },
+   "serve_ms": {
+    "p50": 0.04,
+    "max": 0.09,
+    "min": 0.04,
+    "mean": 0.044684684684684686
+   },
+   "total_ms": {
+    "p50": 3.0,
+    "max": 3.35,
+    "min": 2.7,
+    "mean": 2.99909
