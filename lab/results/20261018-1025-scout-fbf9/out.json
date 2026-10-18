@@ -1,0 +1,126 @@
+{
+ "dilute": [
+  {
+   "n": 100,
+   "width_AU": 1e-07,
+   "dv_2e23": {
+    "kicks": 100,
+    "candidates_per_kick": 99,
+    "armed_per_body": 0.0,
+    "flips_on_per_kick": 0.0,
+    "flips_off_per_kick": 0.0,
+    "near_band_per_body": 0.0,
+    "due_move_median_intervals": 4435399.947066744,
+    "due_move_inhorizon_intervals": null
+   },
+   "dv_2e20": {
+    "kicks": 100,
+    "candidates_per_kick": 99,
+    "armed_per_body": 0.0,
+    "flips_on_per_kick": 0.0,
+    "flips_off_per_kick": 0.0,
+    "near_band_per_body": 0.0,
+    "due_move_median_intervals": 3472182.3527902644,
+    "due_move_inhorizon_intervals": null
+   }
+  },
+  {
+   "n": 1000,
+   "width_AU": 1e-06,
+   "dv_2e23": {
+    "kicks": 200,
+    "candidates_per_kick": 999,
+    "armed_per_body": 0.0,
+    "flips_on_per_kick": 0.0,
+    "flips_off_per_kick": 0.0,
+    "near_band_per_body": 0.0,
+    "due_move_median_intervals": 2459857.9697295222,
+    "due_move_inhorizon_intervals": null
+   },
+   "dv_2e20": {
+    "kicks": 200,
+    "candidates_per_kick": 999,
+    "armed_per_body": 0.0,
+    "flips_on_per_kick": 0.0,
+    "flips_off_per_kick": 0.0,
+    "near_band_per_body": 0.0,
+    "due_move_median_intervals": 3850019.2111566546,
+    "due_move_inhorizon_intervals": null
+   }
+  },
+  {
+   "n": 10000,
+   "width_AU": 1e-05,
+   "dv_2e23": {
+    "kicks": 200,
+    "candidates_per_kick": 9999,
+    "armed_per_body": 0.0,
+    "flips_on_per_kick": 0.0,
+    "flips_off_per_kick": 0.0,
+    "near_band_per_body": 0.03,
+    "due_move_median_intervals": 108142.59610354752,
+    "due_move_inhorizon_intervals": 0.6985922833319791
+   },
+   "dv_2e20": {
+    "kicks": 200,
+    "candidates_per_kick": 9999,
+    "armed_per_body": 0.0,
+    "flips_on_per_kick": 0.0,
+    "flips_off_per_kick": 0.0,
+    "near_band_per_body": 0.035,
+    "due_move_median_intervals": 665271.9025172758,
+    "due_move_inhorizon_intervals": 1.6137034794112177
+   }
+  }
+ ],
+ "live_anchor": {
+  "seed": 5150,
+  "bodies": 40,
+  "partners_each": 100000,
+  "arms": {
+   "dv_2e23": {
+    "armed_per_body": 1050.0,
+    "flips_on_per_kick": 525.0,
+    "flips_off_per_kick": 175.0,
+    "due_move_inhorizon_intervals": 1.4876342628105874e-05,
+    "due_move_median_intervals": 4.8812054897229753e-05
+   },
+   "dv_2e20": {
+    "armed_per_body": 875.0,
+    "flips_on_per_kick": 700.0,
+    "flips_off_per_kick": 875.0,
+    "due_move_inhorizon_intervals": 9.107268681947453e-05,
+    "due_move_median_intervals": 0.00029037387702736124
+   },
+   "dv_2e17": {
+    "armed_per_body": 525.0,
+    "flips_on_per_kick": 525.0,
+    "flips_off_per_kick": 525.0,
+    "due_move_inhorizon_intervals": 0.0008981507618194232,
+    "due_move_median_intervals": 0.0029982334588589407
+   }
+  }
+ },
+ "validation": {
+  "events": 11,
+  "closed_form_armed_pairs": 30,
+  "missed_by_closed_form": 0,
+  "note": "reach amplified to 0.02 AU so events exist at N=80"
+ },
+ "negative": {
+  "kicks": 100,
+  "events_lost_no_margin": {
+   "dv_2e17": 2,
+   "dv_2e14": 5
+  }
+ },
+ "concentration": {
+  "n": 2000,
+  "dv": 1.1920928955078125e-07,
+  "kicks": 50,
+  "standing_per_body": 543.2,
+  "flips_on_per_kick": 33.2,
+  "flips_off_per_kick": 344.4,
+  "caveat": "binary armed model, no dwell: dissolution flips are an upper bound"
+ }
+}

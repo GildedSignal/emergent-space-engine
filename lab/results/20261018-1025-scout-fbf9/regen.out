@@ -1,0 +1,62 @@
+== A: dilute cells at 1e9 density (wholesale vs slack-aware) ==
+n=   100 W=1.0e-07AU dv_2e23: cand/kick=99 armed/body=0 flips/kick=0 nearband/body=0 dmed=4.44e+06 dinh=none
+n=   100 W=1.0e-07AU dv_2e20: cand/kick=99 armed/body=0 flips/kick=0 nearband/body=0 dmed=3.47e+06 dinh=none
+n=  1000 W=1.0e-06AU dv_2e23: cand/kick=999 armed/body=0 flips/kick=0 nearband/body=0 dmed=2.46e+06 dinh=none
+n=  1000 W=1.0e-06AU dv_2e20: cand/kick=999 armed/body=0 flips/kick=0 nearband/body=0 dmed=3.85e+06 dinh=none
+n= 10000 W=1.0e-05AU dv_2e23: cand/kick=9999 armed/body=0 flips/kick=0 nearband/body=0.03 dmed=1.08e+05 dinh=0.699
+n= 10000 W=1.0e-05AU dv_2e20: cand/kick=9999 armed/body=0 flips/kick=0 nearband/body=0.035 dmed=6.65e+05 dinh=1.61
+== A2: live anchor (wide-band partners at true density) ==
+{
+ "seed": 5150,
+ "bodies": 40,
+ "partners_each": 100000,
+ "arms": {
+  "dv_2e23": {
+   "armed_per_body": 1050.0,
+   "flips_on_per_kick": 525.0,
+   "flips_off_per_kick": 175.0,
+   "due_move_inhorizon_intervals": 1.4876342628105874e-05,
+   "due_move_median_intervals": 4.8812054897229753e-05
+  },
+  "dv_2e20": {
+   "armed_per_body": 875.0,
+   "flips_on_per_kick": 700.0,
+   "flips_off_per_kick": 875.0,
+   "due_move_inhorizon_intervals": 9.107268681947453e-05,
+   "due_move_median_intervals": 0.00029037387702736124
+  },
+  "dv_2e17": {
+   "armed_per_body": 525.0,
+   "flips_on_per_kick": 525.0,
+   "flips_off_per_kick": 525.0,
+   "due_move_inhorizon_intervals": 0.0008981507618194232,
+   "due_move_median_intervals": 0.0029982334588589407
+  }
+ }
+}
+== B: brute-force soundness control ==
+{
+ "events": 11,
+ "closed_form_armed_pairs": 30,
+ "missed_by_closed_form": 0,
+ "note": "reach amplified to 0.02 AU so events exist at N=80"
+}
+== C: no-margin negative control ==
+{
+ "kicks": 100,
+ "events_lost_no_margin": {
+  "dv_2e17": 2,
+  "dv_2e14": 5
+ }
+}
+== D: concentration (fleet-class) control ==
+{
+ "n": 2000,
+ "dv": 1.1920928955078125e-07,
+ "kicks": 50,
+ "standing_per_body": 543.2,
+ "flips_on_per_kick": 33.2,
+ "flips_off_per_kick": 344.4,
+ "caveat": "binary armed model, no dwell: dissolution flips are an upper bound"
+}
+wrote out.json
