@@ -1,0 +1,952 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..8cc70ea1 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,40 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On Linux (the lab's boxes): the resident set and its high-water mark, from /proc/self/status.
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        let kb = |key: &str| {
++            std::fs::read_to_string("/proc/self/status")
++                .ok()
++                .and_then(|s| {
++                    s.lines()
++                        .find(|l| l.starts_with(key))
++                        .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++                })
++                .unwrap_or(0)
++                * 1024
++        };
++        (kb("VmRSS:"), kb("VmHWM:"))
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -87,6 +107,12 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if let Ok(path) = std::env::var("ES_DUMP") {
++            use std::io::Write;
++            if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
++                let _ = writeln!(out, "{f} {} {}", took.as_secs_f64() * 1e3, frame.events);
++            }
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -94,11 +120,60 @@ fn main() {
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+         }
++
+         if !rec.alive {
+             alive = false;
+             break;
+         }
+     }
++
++    // ES_STATES: every body's end state (doll, kind, fleet origin, plan length, key a, position
++    // angle), with the dolls' units and each source's pull — enough to recompute ES_SECULAR's
++    // legality decision independently of the engine's own.
++    if let Ok(path) = std::env::var("ES_STATES") {
++        use std::io::Write;
++        let mut out = std::fs::OpenOptions::new().create(true).truncate(true).write(true).open(&path).unwrap();
++        let kf = |k: &emergent_space::orbit::OrbitKey| -> (f64, f64) {
++            let kk = k.k as f64 * 2f64.powi(k.k_exponent as i32 - 48);
++            let a = if kk > 0.5 { emergent_universe::num::to_f64(k.periapsis) * kk / (2.0 * kk - 1.0) } else { f64::NAN };
++            (a, if kk > 0.0 { 1.0 / kk - 1.0 } else { f64::NAN })
++        };
++        let now = p.u.now;
++        writeln!(out, "# dolls: idx name parent shift unit_mu centre mass_log2").unwrap();
++        for (i, d) in p.u.dolls.iter().enumerate() {
++            writeln!(out, "D {i} {} {:?} {} {:.6} {:?} {}", d.name, d.parent, d.shift, emergent_universe::num::to_f64(d.unit.mu), d.centre, d.mass_log2).unwrap();
++        }
++        writeln!(out, "# sources of each doll").unwrap();
++        for (i, s) in p.u.sources.iter().enumerate() {
++            for &j in s {
++                writeln!(out, "S {i} {j} {:.9e}", emergent_universe::num::to_f64(p.u.info[j].gm)).unwrap();
++            }
++        }
++        writeln!(out, "# bodies: i doll kind plan_len alive a e angle_deg radius; then fleet members").unwrap();
++        for i in 0..bodies {
++            let r = p.u.rec(i);
++            let kind = match r.kind { emergent_universe::body::Kind::Planet => "P", emergent_universe::body::Kind::Moon => "M", emergent_universe::body::Kind::Ship => "s", emergent_universe::body::Kind::Player => "Y" };
++            let key = r.b.entry.trajectory.key();
++            let (a, e) = key.as_ref().map(|k| kf(k)).unwrap_or((f64::NAN, f64::NAN));
++            let st = r.b.readout(now).ok();
++            let (angle, radius) = st
++                .map(|st| {
++                    let sx = emergent_space::orbit::Scalar::raw(st.position[0] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                    let sy = emergent_space::orbit::Scalar::raw(st.position[1] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                    match (sx, sy) {
++                        (Some(x), Some(y)) => (y.atan2(x).to_degrees(), (x * x + y * y).sqrt()),
++                        _ => (f64::NAN, f64::NAN),
++                    }
++                })
++                .unwrap_or((f64::NAN, f64::NAN));
++            writeln!(out, "B {i} {} {kind} {} {} {a:.9e} {e:.9e} {angle:.6} {radius:.9e}", r.b.doll, r.plan.len(), u8::from(r.alive)).unwrap();
++        }
++        for (i, inf) in p.u.info.iter().enumerate() {
++            if let Some((f0, m0)) = inf.from {
++                writeln!(out, "F {i} {f0} {m0}").unwrap();
++            }
++        }
++    }
+     let (now2, rss2) = footprint();
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+diff --git a/crates/universe/examples/scanprobe.rs b/crates/universe/examples/scanprobe.rs
+new file mode 100644
+index 00000000..df4a9f56
+--- /dev/null
++++ b/crates/universe/examples/scanprobe.rs
+@@ -0,0 +1,266 @@
++//! The formation probe: what the player's neighbourhood scan costs when the crowd around the player is
++//! a fleet formation on the player's own circle (the game's own scene: factions fly in fleets), instead
++//! of the N ladder's spread population (locals capped at 300, none on the player's low orbit, the rest a
++//! belt the radial filter cuts). Coasting only, flown the way the page flies it; every number a
++//! key=value on one `probe:` line. The scan census (`radial::scanstat`) is counters only.
++//!
++//! cargo run --release --features prof -p emergent-universe --example scanprobe [-- <form> [<extra> [<wall seconds> [<rtf>]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::radial::scanstat;
++use emergent_universe::scenario::plane_formation;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident, peak) from /proc on Linux, zeros elsewhere: the lab's machines are Linux.
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut rss = 0;
++    let mut hwm = 0;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            rss = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0);
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            hwm = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0);
++        }
++    }
++    (rss * 1024, hwm * 1024)
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let form: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let extra: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms = 12.0;
++    let wall_cap = std::env::var("ES_WALL").ok().and_then(|w| w.parse::<u64>().ok()).unwrap_or(55);
++    let pin_log = std::env::var("ES_PIN").ok();
++    let frames = (seconds * 60.0) as usize;
++    let (_, rss0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_formation(Config::default(), 1, Order::Sparse, 1, 48, extra, form).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (_, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    println!(
++        "probe form={form} extra={extra} ({bodies} bodies), coast, rtf {rtf}, {seconds} s; build {build:.2} s, peak {rss0}..{rss1} bytes; cand_bytes {}",
++        scanstat::candidate_bytes()
++    );
++    let mut rows: Vec<(usize, f64, u64)> = Vec::new(); // frame, engine ms, events
++    let mut stage_ns = [0u64; emergent_universe::prof::N];
++    let mut stage_calls = [0u64; emergent_universe::prof::N];
++    let mut held_max = 0usize;
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    let mut last_stats = p.u.stats;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(wall_cap) {
++            break;
++        }
++        if f == 60 {
++            late_stats = Some((p.u.stats, p.u.now));
++            scanstat::reset();
++            emergent_universe::encounter::pinstat::reset();
++            let _ = emergent_universe::prof::take();
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let took = start.elapsed();
++        let (ns, calls) = emergent_universe::prof::take();
++        if f >= 60 {
++            for k in 0..emergent_universe::prof::N {
++                stage_ns[k] += ns[k];
++                stage_calls[k] += calls[k];
++            }
++        }
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events));
++        if let Ok(path) = std::env::var("ES_DUMP") {
++            use std::io::Write;
++            if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
++                let _ = writeln!(out, "{f} {} {}", took.as_secs_f64() * 1e3, frame.events);
++            }
++        }
++        if let Some(path) = &pin_log {
++            use std::io::Write;
++            use std::sync::atomic::Ordering::Relaxed;
++            use emergent_universe::encounter::pinstat as ps;
++            if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
++                let _ = writeln!(
++                    out,
++                    "{f} {} {} {} {}",
++                    p.u.held_scans(),
++                    ps::ALIVE.load(Relaxed) as u64,
++                    ps::MINTS.load(Relaxed),
++                    ps::ALIVE_BYTES.load(Relaxed).max(0) as u64
++                );
++            }
++        }
++        held_max = held_max.max(p.u.held_scans());
++        last_stats = p.u.stats;
++    }
++    let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let pct = |p: f64| if ms.is_empty() { 0.0 } else { ms[(((ms.len() - 1) as f64) * p).round() as usize] };
++    let mut evq: Vec<u64> = late.iter().map(|r| r.2).collect();
++    evq.sort_unstable();
++    let evp = |p: f64| if evq.is_empty() { 0 } else { evq[(((evq.len() - 1) as f64) * p).round() as usize] };
++    let over = late.iter().filter(|r| r.1 > budget_ms).count();
++    let worst = late.iter().max_by_key(|r| r.2);
++    let (_, rss2) = footprint();
++    let g = |c: &std::sync::atomic::AtomicU64| c.load(std::sync::atomic::Ordering::Relaxed);
++    let f64bits = |c: &std::sync::atomic::AtomicU64| f64::from_bits(c.load(std::sync::atomic::Ordering::Relaxed));
++    println!(
++        "window: r={:.3e} v={:.3e} h={:.3e} near={:.3e} reach={:.3e} speed_cap={:.3e} radius_cap={:.3e} bins={:.1}",
++        f64bits(&scanstat::W_R), f64bits(&scanstat::W_V), f64bits(&scanstat::W_H), f64bits(&scanstat::W_NEAR), f64bits(&scanstat::W_REACH), f64bits(&scanstat::W_VCAP), f64bits(&scanstat::W_RCAP), g(&scanstat::BINS_SUM) as f64 / (g(&scanstat::CALLS) as f64).max(1.0)
++    );
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    let (kicks, evs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events());
++    println!(
++        "ledger: kicks={} opens={} boundaries={} handoffs={} encounters={} decisions={} slices={} lost={} refused={} leavers={} dissolved={}",
++        last_stats.kicks - s0.kicks,
++        last_stats.opens - s0.opens,
++        last_stats.boundaries - s0.boundaries,
++        last_stats.handoffs - s0.handoffs,
++        last_stats.encounters - s0.encounters,
++        last_stats.decisions - s0.decisions,
++        last_stats.slices - s0.slices,
++        last_stats.lost - s0.lost,
++        last_stats.refused - s0.refused,
++        last_stats.leavers - s0.leavers,
++        last_stats.dissolved - s0.dissolved
++    );
++    use std::sync::atomic::Ordering::Relaxed;
++    let g = |c: &std::sync::atomic::AtomicU64| c.load(Relaxed);
++    let (calls, walks) = (g(&scanstat::CALLS), g(&scanstat::WALKS));
++    let captures = g(&scanstat::CAPTURES).max(1);
++    println!(
++        "scan: bodies={} scans={} kept={} bailed_count={} bailed_range={} no_doll={} | hit/scan mean {:.1} max {} | near/scan mean {:.1} max {} | full-walk scans {} mean {:.1} bodies | binding_at/scan mean {:.1} max {} | candidates/scan mean {:.1} max {} | unbounded/scan mean {:.1} | bins/scan mean {:.1}",
++        g(&scanstat::BODIES),
++        calls,
++        calls - g(&scanstat::BAIL_COUNT) - g(&scanstat::BAIL_RANGE),
++        g(&scanstat::BAIL_COUNT),
++        g(&scanstat::BAIL_RANGE),
++        g(&scanstat::NO_DOLL),
++        g(&scanstat::HIT_SUM) as f64 / calls.max(1) as f64,
++        g(&scanstat::HIT_MAX),
++        g(&scanstat::NEAR_SUM) as f64 / captures as f64,
++        g(&scanstat::NEAR_MAX),
++        walks,
++        g(&scanstat::WALK_SUM) as f64 / walks.max(1) as f64,
++        g(&scanstat::BIND_SUM) as f64 / captures as f64,
++        g(&scanstat::BIND_MAX),
++        g(&scanstat::CAND_SUM) as f64 / captures as f64,
++        g(&scanstat::CAND_MAX),
++        g(&scanstat::UNB_SUM) as f64 / calls.max(1) as f64,
++        g(&scanstat::BINS_SUM) as f64 / calls.max(1) as f64,
++    );
++    if emergent_universe::prof::ENABLED {
++        let n = late.len().max(1);
++        for k in 0..emergent_universe::prof::N {
++            if stage_calls[k] > 0 {
++                println!("  {:<38} {:>9.1} us/frame {:>8.2} calls/frame {:>10.0} ns/call", emergent_universe::prof::NAMES[k], stage_ns[k] as f64 / 1e3 / n as f64, stage_calls[k] as f64 / n as f64, stage_ns[k] as f64 / stage_calls[k] as f64);
++            }
++        }
++    }
++    println!(
++        "comb: p50_ev={} p99_ev={} max_ev={} worst_frame={} worst_ms={:.2}",
++        evp(0.5),
++        evp(0.99),
++        evp(1.0),
++        worst.map_or(-1, |r| r.0 as i64),
++        worst.map_or(0.0, |r| r.1)
++    );
++    println!(
++        "probe: form={form} extra={extra} bodies={bodies} frames={} build_s={build:.2} hwm_mb={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} held_max={held_max} kicks={kicks} events={evs} game_s={game_s:.1} digest={}",
++        rows.len(),
++        rss2 as f64 / 1e6,
++        pct(0.5),
++        pct(0.99),
++        pct(1.0),
++        p.u.digest()
++    );
++
++    // The pin, directly measured (96f6's missing experiment): distinct `Arc<Scan>` allocations
++    // alive (Drop-counted), the bytes they pin by capacity (allocation) and by len (touched), and
++    // the trigger census — which FIRST failing clause of `same_inputs` minted each scan.
++    {
++        use std::sync::atomic::Ordering::Relaxed;
++        use emergent_universe::encounter::pinstat as ps;
++        let (mints, reuses) = (ps::MINTS.load(Relaxed), ps::REUSES.load(Relaxed));
++        let alive = ps::ALIVE.load(Relaxed);
++        let bytes = ps::ALIVE_BYTES.load(Relaxed);
++        let len_bytes = ps::ALIVE_LEN_BYTES.load(Relaxed);
++        println!(
++            "pin: mints={} reuses={} captures(mints+reuses)={} alive_end={} alive_alloc_mb={:.1} alive_touched_mb={:.1} max_alive={} max_alloc_mb={:.1} max_touched_mb={:.1} tuple_bytes={} | trigger census (first failing clause per mint): body={} t={} interval={} me={} len={} content={}",
++            mints,
++            reuses,
++            mints + reuses,
++            alive,
++            bytes as f64 / 1e6,
++            len_bytes as f64 / 1e6,
++            ps::MAX_ALIVE.load(Relaxed),
++            ps::MAX_ALIVE_BYTES.load(Relaxed) as f64 / 1e6,
++            ps::MAX_ALIVE_LEN_BYTES.load(Relaxed) as f64 / 1e6,
++            std::mem::size_of::<(usize, emergent_universe::bind::Binding, emergent_space::orbit::Scalar)>(),
++            ps::TRIG_BODY.load(Relaxed),
++            ps::TRIG_T.load(Relaxed),
++            ps::TRIG_INTERVAL.load(Relaxed),
++            ps::TRIG_ME.load(Relaxed),
++            ps::TRIG_LEN.load(Relaxed),
++            ps::TRIG_CONTENT.load(Relaxed)
++        );
++    }
++
++    // The fix's compare-form, natively (96f6's wall 3 re-flown): one stored phase offset per crowd
++    // member, one wrapping-diff compare against a precomputed window threshold — b083's
++    // 19.2 ns/member was a numpy REPLICA on another scene; the phases here are the formation's own
++    // distribution (uniform u32 Q32, `formation_ship`'s d(3)) and the timing is data-independent.
++    {
++        use std::time::Instant;
++        let bench = |k: usize| -> f64 {
++            // splitmix64 phases (the formation's uniform d(3)); window ~32.6/1e6 members wide.
++            let mut z = 0x243F6A8885A308D3u64;
++            let phases: Vec<u32> = (0..k)
++                .map(|i| {
++                    z = (i as u64).wrapping_add(0x9E3779B97F4A7C15);
++                    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++                    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++                    (z ^ (z >> 31)) as u32
++                })
++                .collect();
++            let player = 0x6A09E667u32;
++            // The window threshold, precomputed once per scan: delta_phi <= 2·asin(near/2r) in Q32
++            // (b083's P2: 32.6 members of 1e6 at rho=1e-6 -> half-width ~2.6e5 Q32 turns).
++            let half_width = 260_000u32;
++            let mut hits = 0u64;
++            let t = Instant::now();
++            for reps in 0..64u32 {
++                let mine = player.wrapping_add(reps);
++                for &ph in &phases {
++                    let d = ph.wrapping_sub(mine);
++                    let d = if d >= 0x8000_0000 { d.wrapping_neg() } else { d };
++                    if d <= half_width {
++                        hits += 1;
++                    }
++                }
++            }
++            let ns = t.elapsed().as_nanos() as f64 / 64.0 / k as f64;
++            std::hint::black_box(hits);
++            ns
++        };
++        let kcrowd = bodies;
++        println!(
++            "bench: phase compare-form native ns/member: k={} {:.2} | k=1e5 {:.2} | k=1e6 {:.2} (12 ms at K = {:.2e}, {:.2e}, {:.2e})",
++            kcrowd,
++            bench(kcrowd),
++            bench(100_000),
++            bench(1_000_000),
++            12e6 / bench(kcrowd).max(1e-3),
++            12e6 / bench(100_000).max(1e-3),
++            12e6 / bench(1_000_000).max(1e-3)
++        );
++    }
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..a7926d80 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -65,6 +65,60 @@ pub struct PlayerNeighbourhood {
+     sloppy: bool,
+ }
+ 
++/// A print-only census of the held scans' PIN (the lab's second-author probe on 96f6): distinct
++/// `Arc<Scan>` allocations alive (deque entries are NOT distinct objects — a reuse clones the same
++/// Arc), the candidate bytes they pin, and which clause of `same_inputs` mints a new scan (the
++/// capture's trigger). Counters only; no read of them changes anything.
++pub mod pinstat {
++    use crate::bind::Binding;
++    use emergent_space::orbit::Scalar;
++    use std::sync::atomic::{AtomicI64, AtomicU64, Ordering::Relaxed};
++    pub static MINTS: AtomicU64 = AtomicU64::new(0);
++    /// Captures that reused the last scan's Arc (`same_inputs` held).
++    pub static REUSES: AtomicU64 = AtomicU64::new(0);
++    /// Distinct scans alive right now (minted and not yet dropped: the deque's entries plus `last`).
++    pub static ALIVE: AtomicI64 = AtomicI64::new(0);
++    /// Candidate bytes the alive scans pin, by CAPACITY (the allocation) and by LEN (the touched,
++    /// resident floor): resident memory lies between the two.
++    pub static ALIVE_BYTES: AtomicI64 = AtomicI64::new(0);
++    pub static ALIVE_LEN_BYTES: AtomicI64 = AtomicI64::new(0);
++    /// The high-water marks of the three above.
++    pub static MAX_ALIVE: AtomicU64 = AtomicU64::new(0);
++    pub static MAX_ALIVE_BYTES: AtomicU64 = AtomicU64::new(0);
++    pub static MAX_ALIVE_LEN_BYTES: AtomicU64 = AtomicU64::new(0);
++    /// The trigger census: which FIRST failing clause of `same_inputs` minted the scan.
++    pub static TRIG_BODY: AtomicU64 = AtomicU64::new(0);
++    pub static TRIG_T: AtomicU64 = AtomicU64::new(0);
++    pub static TRIG_INTERVAL: AtomicU64 = AtomicU64::new(0);
++    pub static TRIG_ME: AtomicU64 = AtomicU64::new(0);
++    pub static TRIG_LEN: AtomicU64 = AtomicU64::new(0);
++    pub static TRIG_CONTENT: AtomicU64 = AtomicU64::new(0);
++
++    /// Zero every counter (the probe's own reset, before its measured window).
++    pub fn reset() {
++        for c in [&MINTS, &REUSES, &MAX_ALIVE, &MAX_ALIVE_BYTES, &MAX_ALIVE_LEN_BYTES, &TRIG_BODY, &TRIG_T, &TRIG_INTERVAL, &TRIG_ME, &TRIG_LEN, &TRIG_CONTENT] {
++            c.store(0, Relaxed);
++        }
++        ALIVE.store(0, Relaxed);
++        ALIVE_BYTES.store(0, Relaxed);
++        ALIVE_LEN_BYTES.store(0, Relaxed);
++    }
++
++    /// One mint: `len` candidates touched, `cap` the Vec's capacity (its allocation).
++    pub fn mint(len: usize, cap: usize) {
++        let tuple = std::mem::size_of::<(usize, Binding, Scalar)>() as i64;
++        let bytes = cap as i64 * tuple;
++        let len_bytes = len as i64 * tuple;
++        MINTS.fetch_add(1, Relaxed);
++        let a = ALIVE.fetch_add(1, Relaxed) + 1;
++        let b = ALIVE_BYTES.fetch_add(bytes, Relaxed) + bytes;
++        let lb = ALIVE_LEN_BYTES.fetch_add(len_bytes, Relaxed) + len_bytes;
++        MAX_ALIVE.fetch_max(a as u64, Relaxed);
++        MAX_ALIVE_BYTES.fetch_max(b as u64, Relaxed);
++        MAX_ALIVE_LEN_BYTES.fetch_max(lb as u64, Relaxed);
++    }
++}
++
+ /// Everything one scan reads.
+ struct Scan {
+     body: usize,
+@@ -76,14 +130,43 @@ struct Scan {
+     found: OnceLock<Vec<Encounter>>,
+ }
+ 
++impl Drop for Scan {
++    fn drop(&mut self) {
++        use std::sync::atomic::Ordering::Relaxed;
++        let tuple = std::mem::size_of::<(usize, Binding, Scalar)>() as i64;
++        pinstat::ALIVE.fetch_sub(1, Relaxed);
++        pinstat::ALIVE_BYTES.fetch_sub(self.candidates.capacity() as i64 * tuple, Relaxed);
++        pinstat::ALIVE_LEN_BYTES.fetch_sub(self.candidates.len() as i64 * tuple, Relaxed);
++    }
++}
++
+ impl Scan {
+     fn same_inputs(&self, body: usize, t: Tick, interval: Tick, me: &Binding, candidates: &[(usize, Binding, Scalar)]) -> bool {
+-        self.body == body
++        // The trigger census (print-only): the FIRST failing clause names what changed.
++        use std::sync::atomic::Ordering::Relaxed;
++        let held = self.body == body
+             && self.t == t
+             && self.interval == interval
+             && same(&self.me, me)
+             && self.candidates.len() == candidates.len()
+-            && self.candidates.iter().zip(candidates).all(|(a, b)| a.0 == b.0 && a.2 == b.2 && same(&a.1, &b.1))
++            && self.candidates.iter().zip(candidates).all(|(a, b)| a.0 == b.0 && a.2 == b.2 && same(&a.1, &b.1));
++        if !held {
++            let trig = if self.body != body {
++                &pinstat::TRIG_BODY
++            } else if self.t != t {
++                &pinstat::TRIG_T
++            } else if self.interval != interval {
++                &pinstat::TRIG_INTERVAL
++            } else if !same(&self.me, me) {
++                &pinstat::TRIG_ME
++            } else if self.candidates.len() != candidates.len() {
++                &pinstat::TRIG_LEN
++            } else {
++                &pinstat::TRIG_CONTENT
++            };
++            trig.fetch_add(1, Relaxed);
++        }
++        held
+     }
+ }
+ 
+@@ -171,13 +254,31 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        {
++            use std::sync::atomic::Ordering::Relaxed;
++            use crate::radial::scanstat as S;
++            S::CAPTURES.fetch_add(1, Relaxed);
++            match &near {
++                Some(ids) => {
++                    S::NEAR_SUM.fetch_add(ids.len() as u64, Relaxed);
++                    S::NEAR_MAX.fetch_max(ids.len() as u64, Relaxed);
++                }
++                None => {
++                    S::WALKS.fetch_add(1, Relaxed);
++                    S::WALK_SUM.fetch_add(ctx.bodies.len() as u64, Relaxed);
++                }
++            }
++        }
+         let mut candidates = Vec::new();
++        let (mut binds, mut bind_max) = (0u64, 0u64);
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+             }
++            binds += 1;
+             let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++            bind_max = bind_max.max(binds);
+             if other.doll != me.doll {
+                 continue;
+             }
+@@ -187,11 +288,21 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        {
++            use std::sync::atomic::Ordering::Relaxed;
++            use crate::radial::scanstat as S;
++            S::BIND_SUM.fetch_add(binds, Relaxed);
++            S::BIND_MAX.fetch_max(bind_max, Relaxed);
++            S::CAND_SUM.fetch_add(candidates.len() as u64, Relaxed);
++            S::CAND_MAX.fetch_max(candidates.len() as u64, Relaxed);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
++            crate::encounter::pinstat::REUSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             return Some(l.clone() as Arc<dyn Held>);
+         }
++        crate::encounter::pinstat::mint(candidates.len(), candidates.capacity());
+         let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
+         *last = Some(scan.clone());
+         Some(scan)
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..585be3cc 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -20,6 +20,64 @@ use crate::body::Kind;
+ use crate::num::to_f64;
+ use emergent_space::{binding::Trajectory, orbit::Scalar};
+ use std::collections::HashMap;
++/// A print-only census of the scan's radial filter (the lab's formation probe): what the filter keeps,
++/// what it bails on, and what the caller then walks. Counters only; no read of them changes anything.
++pub mod scanstat {
++    /// The last window asked, and the doll's caps when it was (f64 bits; the probe's diagnosis).
++    pub static W_R: AtomicU64 = AtomicU64::new(0);
++    pub static W_V: AtomicU64 = AtomicU64::new(0);
++    pub static W_H: AtomicU64 = AtomicU64::new(0);
++    pub static W_REACH: AtomicU64 = AtomicU64::new(0);
++    pub static W_VCAP: AtomicU64 = AtomicU64::new(0);
++    pub static W_RCAP: AtomicU64 = AtomicU64::new(0);
++    pub static W_NEAR: AtomicU64 = AtomicU64::new(0);
++    use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++    /// Scans that reached the index (the doll is registered).
++    pub static CALLS: AtomicU64 = AtomicU64::new(0);
++    /// Scans of a doll the index does not know: the caller walks every body.
++    pub static NO_DOLL: AtomicU64 = AtomicU64::new(0);
++    /// Bails: the window spanned more than 4096 bins.
++    pub static BAIL_RANGE: AtomicU64 = AtomicU64::new(0);
++    /// Bails: the kept set exceeded `bodies/4 + 64`.
++    pub static BAIL_COUNT: AtomicU64 = AtomicU64::new(0);
++    /// Bodies in the window's bins, summed and worst over those scans.
++    pub static HIT_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static HIT_MAX: AtomicU64 = AtomicU64::new(0);
++    /// Unbounded bodies (planets, moons, the player) added to every kept set.
++    pub static UNB_SUM: AtomicU64 = AtomicU64::new(0);
++    /// Bins a window spans, summed.
++    pub static BINS_SUM: AtomicU64 = AtomicU64::new(0);
++    /// Bodies registered when last asked.
++    pub static BODIES: AtomicU64 = AtomicU64::new(0);
++    /// The capture half (encounter.rs): scans taken, their near sets, and the walks the bails became.
++    pub static CAPTURES: AtomicU64 = AtomicU64::new(0);
++    pub static NEAR_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static NEAR_MAX: AtomicU64 = AtomicU64::new(0);
++    pub static WALKS: AtomicU64 = AtomicU64::new(0);
++    pub static WALK_SUM: AtomicU64 = AtomicU64::new(0);
++    /// `binding_at` calls of the candidate loop (the cheap half's reads), summed and worst a scan.
++    pub static BIND_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static BIND_MAX: AtomicU64 = AtomicU64::new(0);
++    /// Candidates a scan holds (its read set, and its memory), summed and worst.
++    pub static CAND_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static CAND_MAX: AtomicU64 = AtomicU64::new(0);
++
++    /// Zero every counter (the probe's own reset, before its measured window).
++    pub fn reset() {
++        for c in [&CALLS, &NO_DOLL, &BAIL_RANGE, &BAIL_COUNT, &HIT_SUM, &HIT_MAX, &UNB_SUM, &BINS_SUM, &CAPTURES, &NEAR_SUM, &NEAR_MAX, &WALKS, &WALK_SUM, &BIND_SUM, &BIND_MAX, &CAND_SUM, &CAND_MAX] {
++            c.store(0, Relaxed);
++        }
++        for c in [&W_R, &W_V, &W_H, &W_REACH, &W_VCAP, &W_RCAP, &W_NEAR] {
++            c.store(0, Relaxed);
++        }
++        BODIES.store(0, Relaxed);
++    }
++
++    /// The bytes one held candidate pins (a `Binding` and its key), for the held-scan memory.
++    pub fn candidate_bytes() -> usize {
++        std::mem::size_of::<crate::bind::Binding>() + std::mem::size_of::<usize>() + std::mem::size_of::<emergent_space::orbit::Scalar>()
++    }
++}
+ 
+ /// Bins per octave of radius.
+ const PER_OCTAVE: f64 = 16.0;
+@@ -243,15 +301,34 @@ impl Radial {
+     /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+     /// in the doll (the caller then reads every body, as it did before there was an index).
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
+-        let idx = self.dolls.get(d as usize)?;
++        use std::sync::atomic::Ordering::Relaxed;
++        let Some(idx) = self.dolls.get(d as usize) else {
++            scanstat::NO_DOLL.fetch_add(1, Relaxed);
++            return None;
++        };
++        scanstat::CALLS.fetch_add(1, Relaxed);
+         let near = (w.reach_p + idx.radius_cap) * 2f64.powi(w.near_log2);
+         let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
++            scanstat::BAIL_RANGE.fetch_add(1, Relaxed);
+             return None;
+         }
+         let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
++        scanstat::HIT_SUM.fetch_add(hit as u64, Relaxed);
++        scanstat::HIT_MAX.fetch_max(hit as u64, Relaxed);
++        scanstat::UNB_SUM.fetch_add(idx.unbounded.len() as u64, Relaxed);
++        scanstat::BINS_SUM.fetch_add((hi - lo + 1) as u64, Relaxed);
++        scanstat::W_R.store(w.r.to_bits(), Relaxed);
++        scanstat::W_V.store(w.v.to_bits(), Relaxed);
++        scanstat::W_H.store(w.h.to_bits(), Relaxed);
++        scanstat::W_REACH.store(reach.to_bits(), Relaxed);
++        scanstat::W_VCAP.store(idx.speed_cap.to_bits(), Relaxed);
++        scanstat::W_RCAP.store(idx.radius_cap.to_bits(), Relaxed);
++        scanstat::W_NEAR.store(near.to_bits(), Relaxed);
++        scanstat::BODIES.store(self.bodies as u64, Relaxed);
+         if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
++            scanstat::BAIL_COUNT.fetch_add(1, Relaxed);
+             return None;
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..d7e5940b 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,19 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_built(cfg, seed, order, threads, world, extra, 0)
++}
++
++/// [`plane_extra`] with `form` of the bodies a fleet formation on the player's own circle about Home
++/// (see [`formation_ship`]): the game's fleet scene, the ladder's population beside it. `form = 0` is
++/// [`plane_extra`], bit for bit.
++pub fn plane_formation(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, form: usize) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_built(cfg, seed, order, threads, world, extra, form)
++}
++
++/// The plane's own construction (everything above, plus the ladder's and the formation's ships).
++pub fn plane_built(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, form: usize) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -257,6 +270,13 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         names.push(format!("Skimmer {}", k + 1));
+     }
+     // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
++    // The formation: real ships on the player's own circle (the fleet scene's crowd, each on its own
++    // exact orbit beside the player's, ids with the ladder's).
++    for k in 0..form {
++        let (spec, radius) = formation_ship(seed, k as u64, home_doll)?;
++        ships.push(u.add_body(Kind::Ship, spec, radius)?);
++        names.push(String::new());
++    }
+     for k in 0..extra {
+         let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+@@ -279,6 +299,36 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
+ 
++/// One ship of the formation scene: co-orbital with the player on Home's low orbit (the fleet's
++/// circle, 4,740 root units — the player's own periapsis), within ±2 % in size (inside one
++/// sixteenth-octave bin of the scan's index, so the radial filter cannot cut it), e Rayleigh of
++/// scale 0.005, uniform angle and phase. A fleet formation: the game's own crowd, drawn from
++/// integers and the seed like [`ladder_ship`], with `k` offset so its draws never collide with the
++/// ladder's.
++pub fn formation_ship(seed: u64, k: u64, home_doll: u16) -> Res<(OrbitSpec, Scalar)> {
++    let d = |lane: u64| draw(seed, k.wrapping_add(1 << 40), lane);
++    let jit = |lane: u64| (d(lane) >> 32) as i128 - (1i128 << 31); // [-1/2, 1/2) turn of 2^32
++    let base = 4_740i128 << 16; // the fleet's circle in root units, Q16 (the ladder locals' shape)
++    let peri_q16 = base + base * jit(1) / (50 * (1i128 << 32)); // ±2 %
++    let mut e = rayleigh_q48((d(2) & 0xFFFF_FFFF) as u32, 5);
++    for lane in 16.. {
++        if e <= (1u64 << 48) / 20 {
++            break;
++        }
++        e = rayleigh_q48((d(lane) & 0xFFFF_FFFF) as u32, 5);
++    }
++    let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
++    let spec = OrbitSpec {
++        doll: home_doll,
++        periapsis: Scalar::raw(peri_q16, 18 - 16)?,
++        e_q48: e,
++        clockwise: false,
++        angle,
++        phase,
++    };
++    Ok((spec, Scalar::raw(34, -10 + 18)?))
++}
++
+ // ---- the N ladder's population -------------------------------------------------------------------
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..1606f852 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -97,6 +97,66 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
+ }
+ 
++// ---- ES_SECULAR (lab probe, default off): step 5's delete arm --------------------------------------
++//
++// docs/law.md's step 5 deletes the metronome's events for stable bodies instead of spreading them.
++// This probe implements the delete half behind a flag: a ship (not a fleet member, not the player)
++// whose orbit is secular-legal against EVERY perturber of its doll is deleted from the metronome —
++// r9's bound applied per perturber, `tau_p = 3 (m_p/m_host) (a/a_p)^3` under r9's `tau0 = 3.6e-3`
++// for the parent star and for every secondary source of the doll — and free of resonances with the
++// doll's secondaries (a small-integer period commensurability within 2%, co-orbital within 5% in a;
++// `ES_SECULAR_RES=1` disables the exclusion, the adversarial control). The body is then a pure tube,
++// the `has_forces == false` state: no kicks, no boundaries. The secular residual r9 bounded (the
++// apsidal precession the freeze no longer applies) is carried by nothing — the flight measures both
++// the deleted event ledger and that residual, which prices the sparse re-kick cadence the real
++// generator needs. With the flag off the shipped law is untouched, bit for bit.
++
++fn es_flag(name: &str) -> bool {
++    std::env::var(name).is_ok_and(|v| v != "0")
++}
++
++const SECULAR_TAU0: f64 = 3.6e-3;
++
++/// The semimajor axis of a bound turning key, as f64 in the doll's units. `None`: passage, plunge
++/// or unbound — never secular. The key holds `k`, the mantissa of `1/(1+e)`, so `a = p·k/(2k−1)`.
++fn es_a(periapsis: Scalar, k: u64, k_exponent: i16) -> Option<f64> {
++    let k = k as f64 * 2f64.powi(k_exponent as i32 - 48);
++    if k <= 0.5 {
++        return None; // e >= 1
++    }
++    Some(crate::num::to_f64(periapsis) * k / (2.0 * k - 1.0))
++}
++
++/// Lab probes (default off, so the shipped law is bit for bit): `ES_CHAIN` and `ES_LOCAL_STAGGER`.
++fn flag(name: &str) -> bool {
++    std::env::var(name).is_ok_and(|v| v != "0")
++}
++
++/// `ES_CHAIN` (default off): chain every interval from the body's previous event — the clock law's
++/// own shape — instead of re-anchoring to the absolute power-of-two grid. Inert while a body's
++/// boundaries are on the grid (a one-tick birth); after any off-grid event (a birth spread, a
++/// handoff) the offset persists instead of being re-absorbed within one interval, so no population
++/// can lock its boundaries onto one shared grid again. Gives up "every pair shares boundaries"
++/// (docs/law.md) exactly as a per-body phase does.
++fn chain_on() -> bool {
++    flag("ES_CHAIN")
++}
++
++/// `ES_LOCAL_STAGGER` (default off): a planet-doll body's *first* interval is shorter by a uniform
++/// id-derived fraction of its own step, de-phasing a one-tick-born population at birth. Under the
++/// shipped anchor the grid re-absorbs the offset within one period; under `ES_CHAIN` it is permanent.
++fn stagger_on() -> bool {
++    flag("ES_LOCAL_STAGGER")
++}
++
++/// A uniform id-derived offset in `[0, step)` (splitmix64 of the body's index).
++fn stagger_off(i: usize, step: i64) -> i64 {
++    let mut z = (i as u64).wrapping_add(0x9E3779B97F4A7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++    ((z ^ (z >> 31)) % step.max(1) as u64) as i64
++}
++
+ /// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
+ /// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
+ /// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
+@@ -105,6 +165,11 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+ /// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
+ /// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
+ pub fn aligned(step: i64, t: Tick) -> i64 {
++    if chain_on() {
++        // ES_CHAIN: the interval is the body's own step from wherever it stands. There are no
++        // stubs at all (a step change costs no extra interval), and an off-grid offset persists.
++        return step;
++    }
+     let off = t.rem_euclid(step);
+     if off == 0 {
+         return step;
+@@ -336,6 +401,8 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// Whether this is the body's first plan (its creation): where `ES_LOCAL_STAGGER` applies.
++    first: bool,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -537,6 +604,60 @@ impl Work<'_, '_> {
+         Ok(())
+     }
+ 
++    /// ES_SECULAR's per-body decision (the module note above): secular-legal against every
++    /// perturber of the doll (r9's `tau_p` under `tau0`), and free of resonances with its
++    /// secondaries. Masses come from the ctx's own units (both sides of each ratio in the same
++    /// doll's units); distances from the keys, converted by the doll-pair shift.
++    fn secular(&self) -> bool {
++        if !matches!(self.rec.kind, Kind::Ship) || self.ctx.info[self.i].from.is_some() {
++            return false; // never the player or a fleet member: the battle and the hand own them
++        }
++        let Some(key) = self.rec.b.entry.trajectory.key() else { return false };
++        let Some(a) = es_a(key.periapsis, key.k, key.k_exponent) else { return false };
++        let d = self.rec.b.doll as usize;
++        let doll = &self.ctx.dolls[d];
++        let host = crate::num::to_f64(doll.unit.mu);
++        let t = self.rec.anchor;
++        // The parent star's tide: its mass in this doll's units (Ctx::tide's own conversion), the
++        // host's semimajor axis from its key in the parent's units, shifted into this doll's.
++        if let Some(p) = doll.parent {
++            let centre = doll.centre.expect("a child doll has a centre");
++            let Some((pm, _)) = self.ctx.tide(self.rec.b.doll, t).ok().flatten() else { return false };
++            let Some(ck) = self.ctx.bodies.binding_at(centre, t).and_then(|b| b.entry.trajectory.key()) else { return false };
++            let Some(a_p) = es_a(ck.periapsis, ck.k, ck.k_exponent) else { return false };
++            let shift = 2f64.powi(doll.shift as i32 - self.ctx.dolls[p as usize].shift as i32);
++            let a_host = a_p * shift;
++            if 3.0 * (crate::num::to_f64(pm) / host) * (a / a_host).powi(3) >= SECULAR_TAU0 {
++                return false;
++            }
++        }
++        // The secondaries: r9's tide per source, then the resonance exclusion.
++        let res_on = es_flag("ES_SECULAR_RES");
++        for &j in &self.ctx.sources[d] {
++            if j == self.i {
++                continue;
++            }
++            let Some(jk) = self.ctx.bodies.binding_at(j, t).and_then(|b| b.entry.trajectory.key()) else { continue };
++            let Some(a_j) = es_a(jk.periapsis, jk.k, jk.k_exponent) else { continue }; // a passing source has no resonance
++            let m_j = crate::num::to_f64(self.ctx.info[j].gm);
++            if 3.0 * (m_j / host) * (a / a_j).powi(3) >= SECULAR_TAU0 {
++                return false;
++            }
++            if !res_on
++                && ((a / a_j - 1.0).abs() < 0.05
++                    || (1..=8u32).any(|q| {
++                        (1..=8u32).any(|r| {
++                            let qr = q as f64 / r as f64;
++                            (((a / a_j).powf(1.5) * (host / (host + m_j)).sqrt()) / qr - 1.0).abs() < 0.02
++                        })
++                    }))
++            {
++                return false;
++            }
++        }
++        true
++    }
++
+     /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
+     /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
+     fn plan_interval(&mut self, t: Tick) -> Res<()> {
+@@ -551,6 +672,11 @@ impl Work<'_, '_> {
+             self.rec.plan.clear();
+             return Ok(());
+         }
++        if es_flag("ES_SECULAR") && self.secular() {
++            // ES_SECULAR: deleted from the metronome (a pure tube; the module note above).
++            self.rec.plan.clear();
++            return Ok(());
++        }
+         if self.on_clock() {
+             return self.plan_clock(t);
+         }
+@@ -567,6 +693,17 @@ impl Work<'_, '_> {
+         }
+         self.rec.anchor = t;
+         let mut h = aligned(self.rec.step, t);
++        if self.first && stagger_on() && d != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player) {
++            // ES_LOCAL_STAGGER: de-phase a one-tick-born population at birth — the first interval is
++            // shorter by a uniform id-derived fraction of the step (no less accurate: it is shorter).
++            // Under the shipped anchor the grid re-absorbs this within one period; under ES_CHAIN
++            // every later interval starts where this one ends, so the offset is permanent.
++            let off = stagger_off(self.i, self.rec.step);
++            h = self.rec.step - off;
++            if h < MIN_STEP {
++                h += self.rec.step;
++            }
++        }
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+@@ -826,7 +963,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -866,7 +1003,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: true };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +1015,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {

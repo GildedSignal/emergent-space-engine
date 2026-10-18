@@ -1,0 +1,42 @@
+patch already applied; skipping
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.18s
+== Table 1: the K-trend, pin columns (600 frames, composed arm, coast seed 1)
+K        mints reuses held_max alive(=mints) touchedMB allocMB hwmMB  B/mint  (K+38)*224  digest[:8]
+10028       51     36       97           51     114.7   187.2   159 2.25e+06   2.25e+06  1b5461b0
+20028       50     37       97           50     224.4   367.0   302 4.49e+06   4.49e+06  ac9d2e1a
+30028       48     39       97           48     323.0   352.3   441 6.73e+06   6.73e+06  f8573d2a
+50028       40     33       81           40     448.3   587.2   637 1.12e+07   1.12e+07  58bcbb0c
+
+== Table 2: the time wall at fixed K (alive == mints in every flight: the freeze drops nothing)
+flight              frames game_s   mints alive held_max touchedMB allocMB hwmMB  mints/game_s
+comp-10000-long       2400  3898.5   201   201       387     451.7   737.7   503  0.0516
+comp-30000-long       1200  1899.2   100   100       194     672.8   734.0   793  0.0527
+comp-50000-long       1200  1578.7    83    83       161     930.3  1218.4  1121  0.0526
+
+== The law: bytes_touched(t) = mints(t) * (K+38) * 224 B, mints(t) = 0.052 * game_s (K-flat)
+comp-10000             identity=0.9974  mint_rate=0.0526/game_s  mints_per_capture=0.586
+comp-20000             identity=0.9985  mint_rate=0.0526/game_s  mints_per_capture=0.575
+comp-30000             identity=0.9992  mint_rate=0.0526/game_s  mints_per_capture=0.552
+comp-50000             identity=0.9994  mint_rate=0.0526/game_s  mints_per_capture=0.548
+comp-10000-long        identity=0.9967  mint_rate=0.0526/game_s  mints_per_capture=0.533
+comp-30000-long        identity=0.9990  mint_rate=0.0526/game_s  mints_per_capture=0.543
+comp-50000-long        identity=0.9994  mint_rate=0.0526/game_s  mints_per_capture=0.542
+
+== The 8 GB extrapolation (touched law) and the SCAN_BACKLOG=2048 cap (entries ~= 1.95x mints)
+K=     10,028: 8 GB after    3548 mints =     68,231 game-s; backlog cap at 2.37 GB (cap first)
+K=     50,028: 8 GB after     713 mints =     13,718 game-s; backlog cap at 11.78 GB (8 GB first)
+K=    100,028: 8 GB after     357 mints =      6,864 game-s; backlog cap at 23.54 GB (8 GB first)
+K=  1,000,000: 8 GB after      36 mints =        687 game-s; backlog cap at 235.27 GB (8 GB first)
+K=1,000,000,000: 8 GB after       0 mints =          1 game-s; backlog cap at 235257.44 GB (8 GB first)
+
+== Trigger census (first failing clause per mint; aggregate over all 7 flights)
+{'body': 0, 't': 521, 'interval': 0, 'me': 0, 'len': 52, 'content': 0}
+
+== The compare-form, native (b083's REPLICA said 19.2 ns/member => 12 ms at 6.25e5)
+bench: phase compare-form native ns/member: k=10028 0.48 | k=1e5 0.49 | k=1e6 0.50 (12 ms at K = 2.49e7, 2.46e7, 2.36e7)
+bench: phase compare-form native ns/member: k=20028 0.52 | k=1e5 0.49 | k=1e6 0.49 (12 ms at K = 2.49e7, 2.46e7, 2.44e7)
+bench: phase compare-form native ns/member: k=30028 0.48 | k=1e5 0.49 | k=1e6 0.49 (12 ms at K = 2.48e7, 2.46e7, 2.44e7)
+bench: phase compare-form native ns/member: k=50028 0.52 | k=1e5 0.49 | k=1e6 0.52 (12 ms at K = 2.33e7, 2.45e7, 2.35e7)
+bench: phase compare-form native ns/member: k=10028 0.52 | k=1e5 0.53 | k=1e6 0.52 (12 ms at K = 2.33e7, 2.31e7, 2.29e7)
+regen done: deterministic columns must equal 96f6's record; 5e4 rows deadline-coupled through game_s (disclosed)
