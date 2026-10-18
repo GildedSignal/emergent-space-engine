@@ -1,0 +1,13 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..8568dc4b 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, std::env::var("ES_MEMBERS_CAP").ok().and_then(|s| s.parse::<u64>().ok()).unwrap_or(400)),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
