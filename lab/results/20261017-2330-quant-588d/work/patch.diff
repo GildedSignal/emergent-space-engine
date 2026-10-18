@@ -1,0 +1,179 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..82d89fb0 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -6,7 +6,97 @@ use crate::{
+     tables::PI,
+     Error, Result,
+ };
++/// Print-only fit-key census (env `FIT_CENSUS=1`): the sharing of `from_state`'s compile
++/// keys on flown inputs, at three levels — the exact `ShapeKey`, the 44-bit `MemoCode`,
++/// and the memo's actual shape-class key (`MemoCode::shape_bits`: 17 bits on the weak
++/// branch). Counts only; it never touches a decision, a value or the digest.
++mod fit_census {
++    use crate::orbit::{MemoCode, OrbitKey, ShapeKey};
++    use std::cell::RefCell;
++    use std::collections::HashMap;
+ 
++    #[derive(Default)]
++    struct State {
++        cycles: u64,
++        passages: u64,
++        quant_err: u64,
++        exact: HashMap<ShapeKey, u32>,
++        quant: HashMap<u64, u32>,
++        shape: HashMap<u64, u32>,
++    }
++    thread_local! {
++        static GUARD: Print = Print;
++        static STATE: RefCell<State> = RefCell::new(State::default());
++    }
++
++    pub fn on() -> bool {
++        static ON: std::sync::LazyLock<bool> =
++            std::sync::LazyLock::new(|| std::env::var_os("FIT_CENSUS").is_some());
++        *ON
++    }
++
++    struct Print;
++    impl Drop for Print {
++        fn drop(&mut self) {
++            let _ = STATE.try_with(|s| {
++                let s = s.borrow();
++                let hit = |d: usize| 1.0 - d as f64 / s.cycles.max(1) as f64;
++                eprintln!(
++                    "FITCENSUS end cycles={} passages={} quant_err={} distinct exact={} (hit {:.4}) quant={} (hit {:.4}) shape={} (hit {:.4}) shape_bytes={}",
++                    s.cycles, s.passages, s.quant_err,
++                    s.exact.len(), hit(s.exact.len()),
++                    s.quant.len(), hit(s.quant.len()),
++                    s.shape.len(), hit(s.shape.len()),
++                    std::mem::size_of::<crate::orbit::OrbitShape>(),
++                );
++                let mut top: Vec<u32> = s.shape.values().copied().collect();
++                top.sort_unstable_by(|a, b| b.cmp(a));
++                top.truncate(10);
++                eprintln!("FITCENSUS shape top10 multiplicities {top:?}");
++            });
++        }
++    }
++
++    pub fn record(key: OrbitKey) {
++        let _ = GUARD.try_with(|_| {});
++        let _ = STATE.try_with(|s| {
++            let mut s = s.borrow_mut();
++            if !key.periodic() {
++                s.passages += 1;
++                return;
++            }
++            s.cycles += 1;
++            if let Ok(sk) = ShapeKey::for_orbit(key) {
++                *s.exact.entry(sk).or_default() += 1;
++            }
++            match MemoCode::encode(key) {
++                Ok(code) => {
++                    *s.quant.entry(code.bits()).or_default() += 1;
++                    if let Ok(sb) = code.shape_bits() {
++                        *s.shape.entry(sb).or_default() += 1;
++                    }
++                }
++                Err(_) => s.quant_err += 1,
++            }
++            if s.cycles.is_power_of_two() || s.cycles % 32768 == 0 {
++                eprintln!(
++                    "FITCENSUS at {} cycles: distinct exact={} quant={} shape={}",
++                    s.cycles, s.exact.len(), s.quant.len(), s.shape.len()
++                );
++            }
++        });
++    }
++
++    /// Totals on this thread, for the instrumented example to print at its own end.
++    pub fn totals() -> Option<(u64, u64, u64, usize, usize, usize)> {
++        STATE.try_with(|s| {
++            let s = s.borrow();
++            (s.cycles, s.passages, s.quant_err, s.exact.len(), s.quant.len(), s.shape.len())
++        })
++        .ok()
++    }
++}
++pub use fit_census::totals as fit_census_totals;
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct IntegerState {
+     pub position: [i64; 2],
+@@ -418,6 +508,9 @@ impl Rebinding {
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        if fit_census::on() {
++            fit_census::record(key);
++        }
+         let trajectory = if key.periodic() {
+             Trajectory::Cycle(Orbit::compile(key)?)
+         } else {
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..c591acb8 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -957,7 +957,7 @@ impl MemoCode {
+         )?;
+         OrbitKey::new(radius, (UNIT + gap.fixed(48)? as u64) / 2)
+     }
+-    fn shape_bits(self) -> Result<u64> {
++    pub(crate) fn shape_bits(self) -> Result<u64> {
+         if self.decode()?.compactness()? <= Scalar::power_of_two(WEAK_EXPONENT) {
+             Ok((1 << 44) | (self.0 & ((1 << 17) - 1)))
+         } else {
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..884a9b09 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stand-in: resident bytes now and the high-water mark from /proc (no compressed pages on this box).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        let kb = || line.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()).map(|v| v * 1024);
++        if line.starts_with("VmRSS:") {
++            now = kb().unwrap_or(0);
++        } else if line.starts_with("VmHWM:") {
++            peak = kb().unwrap_or(0);
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -156,6 +175,10 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    if let Some((cycles, passages, qerr, ex, qu, sh)) = emergent_space::binding::fit_census_totals() {
++        let hit = |d: usize| if cycles > 0 { 1.0 - d as f64 / cycles as f64 } else { 0.0 };
++        println!("FITCENSUS totals cycles={cycles} passages={passages} quant_err={qerr} exact={ex} (hit {:.4}) quant={qu} (hit {:.4}) shape={sh} (hit {:.4})", hit(ex), hit(qu), hit(sh));
++    }
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
