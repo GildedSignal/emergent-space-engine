@@ -1,0 +1,21 @@
+no tree edits (work/patch.diff absent or empty)
+cache: 770 books, 4590 highlights
+[PASS] L1 Feynman, Surely You're Joking (box of tools)
+       byte-identical in: "Surely You're Joking, Mr. Feynman!" | Richard P. Feynman, Ralph Leig
+[PASS] L2 Naval, The Almanack of Naval Ravikant (inputs vs outputs)
+       byte-identical in: The Almanack of Naval Ravikant | Eric Jorgenson, Jack Butcher, 
+[PASS] L3 Musk via Isaacson, Elon Musk (the machine that builds the machine)
+       byte-identical in: Elon Musk | Walter Isaacson
+[PASS] L4 Confucius via Bevelin, Seeking Wisdom (uncorrected mistake)
+       byte-identical in: Seeking Wisdom: From Darwin to Munger | Peter Bevelin
+[PASS] L5 Asimov, Foundation's Edge (appearance vs essence)
+       byte-identical in: Foundation's Edge | Isaac Asimov
+5/5 byte-identical
+P2  wiring CPU, belt/10^9      : save 1.55-5.55 us of 50.4 us = 3.1-11.0%
+P2  wiring CPU, plane          : compile 52.8-65.3 us of 62.6-75.4 us rebind = 86% share
+P2  compile term               : 52.8-65.3 -> <=2.9 us = 18-23x; whole rebind -> 8-19 us = 3.3-9.4x
+P3  belt kick composed (compile-only): 50.4*0.830*0.900-1.55 = 36.1 us vs req 23 -> 1.57x over
+P3  belt kick composed (compile+read): 50.4*0.830*0.900-5.55 = 32.1 us vs req 23 -> 1.40x over
+P4  knot table 3784 B of 5060 B plateau = 75%; wall per GB: 0.20M -> 0.78M live = 3.97x (6793: 3.9x)
+P4  wall 6-8 GB         : 1.19-1.58M -> 4.70-6.27M live
+FLOORS: plane rebind 62.6-75.4 -> 8-19 us vs 6.0 us arithmetic floor; write floor 42-56 ns never binds (e7ef: at the floor even shipped cadence fits, 0.17 cores)

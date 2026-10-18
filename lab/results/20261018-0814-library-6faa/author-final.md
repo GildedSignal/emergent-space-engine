@@ -1,0 +1,5 @@
+The kick boRun complete. The claim, in one sentence:
+
+**The kick bottleneck's decision table, composed from measured constants, splits by population — the Carlson wiring is a 3.3–9.4× lever on the plane rebind and a 3.97× memory lever (the knot table is 75% of the live plateau) but only 3.1–11.0% at 10⁹, where the composed belt kick (32.1–36.1 µs after every landed deletion) still misses the 23 µs requirement — so the plane and memory close on the wiring, the 10⁹ row on the cadence split, an ordering five verbatim library lessons (5/5 byte-identical against a fresh 4,590-highlight export: Feynman's box of tools, Naval's inputs/outputs, Musk's machine-that-builds-the-machine, Confucius via Bevelin's uncorrected mistake, Asimov's appearance-vs-essence) each hold.**
+
+Deliverables in `lab/results/20261018-0814-library-6faa/`: `dossier.md`, `predictions.md` (P1/P3/P4 held, P2 half-held, P5 missed on "exactly three" — five unadopted wins exist), `regen.sh` (proven idempotent, regenerates every number offline), `wiki/library-directions.md`, and the cached export with `quotes.py`/`ledger.py`.
