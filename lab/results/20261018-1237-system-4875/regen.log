@@ -1,0 +1,9 @@
+arm            bodies frame p50    engine p50/p99 gather p50 json p50 wire p50  share view+wire
+control e0         71      1.02      0.06/2.12         0.78     0.10     0.04  0.711
+e1000            1071     22.30      0.09/4.69        19.57     1.93     0.60  0.972
+e10000          10071    264.48      0.10/4.69       234.94    24.34     4.74  0.997
+e10000 s2       10070    258.21      0.09/4.55       234.56    18.41     4.78  0.997
+e10000 rtf1     10028    264.54      0.05/0.08       235.37    24.06     4.92  1.000
+
+per-body slope 0->1e3: 21.3 us/body; 1e3->1e4: 26.9 us/body
+flyable frame crosses 16.7 ms at ~785 bodies (view-bound); engine p99 stays under its 5 ms budget in every arm

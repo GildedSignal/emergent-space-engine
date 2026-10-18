@@ -1,0 +1,4 @@
+Working...
+The run is complete: predictions written before the flights, five flights flown (control + two held-out arms), dossier, regen script (verified: applies cleanly to a restored tree, ~5 min), and the topic page `flyable-frame`.
+
+**Claim:** the flyable frame — the loop the player actually runs (engine + view gather + JSON + wire, `xtask universe`) — is view-owned from ~8×10² bodies (at 10⁴ ladder bodies: 262 ms p50 per frame, 99.7% of it in the view's three Θ(N) channels, while the engine holds 0.11 ms p50 / 4.6 ms p99 inside its budget on the same flights), so the scoreboard's "10⁶ smooth" is an engine-only instrument reading a plane the player cannot fly past ~800 bodies, and the adoption order for the furthest-behind gap inverts: the view's already-built row-set deletion lands before any engine cure can matter.
