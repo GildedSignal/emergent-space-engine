@@ -1,0 +1,36 @@
+(patch already applied — skipped)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.92s
+g4352_s11: haz=233 pre=298 rb=2 fires=0 nonfatal_m0=2 nonfatal_m<0=0 out_open=0 armed_pubs=72 preD>0=1
+g4352_s12: haz=109 pre=153 rb=11 fires=0 nonfatal_m0=9 nonfatal_m<0=2 out_open=0 armed_pubs=40 preD>0=1
+g4352_s13: haz=209 pre=247 rb=2 fires=0 nonfatal_m0=0 nonfatal_m<0=2 out_open=0 armed_pubs=59 preD>0=0
+g4352_s14: haz=118 pre=157 rb=8 fires=0 nonfatal_m0=8 nonfatal_m<0=0 out_open=0 armed_pubs=54 preD>0=4
+g4352_s15: haz=364 pre=462 rb=2 fires=0 nonfatal_m0=0 nonfatal_m<0=2 out_open=0 armed_pubs=65 preD>0=0
+g4352_s16: haz=235 pre=338 rb=8 fires=0 nonfatal_m0=8 nonfatal_m<0=0 out_open=0 armed_pubs=48 preD>0=1
+g8704_s11: haz=187 pre=298 rb=8 fires=1 nonfatal_m0=5 nonfatal_m<0=2 out_open=0 armed_pubs=103 preD>0=1
+g8704_s19: haz=210 pre=300 rb=13 fires=0 nonfatal_m0=7 nonfatal_m<0=6 out_open=0 armed_pubs=108 preD>0=1
+g8704_s21: haz=171 pre=256 rb=11 fires=1 nonfatal_m0=4 nonfatal_m<0=6 out_open=0 armed_pubs=92 preD>0=3
+g8704_s23: haz=167 pre=246 rb=13 fires=1 nonfatal_m0=4 nonfatal_m<0=8 out_open=0 armed_pubs=107 preD>0=1
+g8704_s25: haz=155 pre=235 rb=10 fires=1 nonfatal_m0=5 nonfatal_m<0=4 out_open=0 armed_pubs=92 preD>0=2
+g8704_s27: haz=194 pre=304 rb=6 fires=0 nonfatal_m0=4 nonfatal_m<0=2 out_open=0 armed_pubs=62 preD>0=2
+g8704_s29: haz=172 pre=265 rb=6 fires=0 nonfatal_m0=2 nonfatal_m<0=4 out_open=0 armed_pubs=88 preD>0=0
+g8704_s31: haz=298 pre=402 rb=2 fires=0 nonfatal_m0=0 nonfatal_m<0=2 out_open=0 armed_pubs=124 preD>0=0
+neg8704_s11: haz=193 pre=274 rb=0 fires=0 nonfatal_m0=0 nonfatal_m<0=0 out_open=0 armed_pubs=119 preD>0=0
+neg8704_s19: haz=191 pre=280 rb=0 fires=0 nonfatal_m0=0 nonfatal_m<0=0 out_open=0 armed_pubs=101 preD>0=0
+rep_s11: haz=195 pre=294 rb=11 fires=1 nonfatal_m0=8 nonfatal_m<0=2 out_open=0 armed_pubs=121 preD>0=2
+rep_s19: haz=216 pre=292 rb=14 fires=0 nonfatal_m0=8 nonfatal_m<0=6 out_open=0 armed_pubs=93 preD>0=1
+
+-- fire-by-fire --
+g8704_s11: FIRE id=47 s0=1024 fin_hi=1040 viol=16 box c=[69, 95] s=[2386, 2548]
+    PRE id=42 D=(16,46,1024) -> D==viol,s0: True; armed class: exact (last armed: A=16 b42 t46 s1024); fatal RB lid=46 s0=1024 out_open=no
+g8704_s21: FIRE id=45 s0=512 fin_hi=672 viol=160 box c=[-178, -439] s=[1018, 2001]
+    PRE id=46 D=(160,10,512) -> D==viol,s0: True; armed class: publish-blind (last armed: A=96 b42 t8 s512); fatal RB lid=10 s0=512 out_open=no
+g8704_s23: FIRE id=46 s0=768 fin_hi=928 viol=160 box c=[366, 282] s=[2997, 2539]
+    PRE id=49 D=(160,6,768) -> D==viol,s0: True; armed class: publish-blind (last armed: A=144 b44 t11 s512); fatal RB lid=6 s0=768 out_open=no
+g8704_s25: FIRE id=45 s0=512 fin_hi=608 viol=96 box c=[-129, -80] s=[1840, 1479]
+    PRE id=44 D=(96,27,512) -> D==viol,s0: True; armed class: publish-blind (last armed: A=96 b38 t15 s512); fatal RB lid=27 s0=512 out_open=no
+rep_s11: FIRE id=55 s0=1024 fin_hi=1072 viol=48 box c=[-673, -85] s=[2154, 3384]
+    PRE id=54 D=(48,44,1024) -> D==viol,s0: True; armed class: exact (last armed: A=48 b54 t44 s1024); fatal RB lid=44 s0=1024 out_open=no
+
+TOTALS: rb=127 nonfatal_m0=74 nonfatal_m<0=48 out_open=0 armed_pubs_without_fire=1543 preD>0=20 armed_exact=2 armed_lineage=0 publish_blind=3
+CERTIFY LAW HOLDS on every fire: PRE D = violation (s0 exact), out= shut
+ 09:54:45 up 52 days, 57 min,  0 user,  load average: 1.79, 1.33, 0.93

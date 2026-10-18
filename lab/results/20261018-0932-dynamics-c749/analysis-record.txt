@@ -1,0 +1,30 @@
+g4352_s11: haz=229 pre=301 rb=2 fires=0 nonfatal_m0=2 nonfatal_m<0=0 out_open=0 armed_pubs=86 preD>0=1
+g4352_s12: haz=104 pre=149 rb=11 fires=0 nonfatal_m0=9 nonfatal_m<0=2 out_open=0 armed_pubs=23 preD>0=1
+g4352_s13: haz=182 pre=241 rb=2 fires=0 nonfatal_m0=0 nonfatal_m<0=2 out_open=0 armed_pubs=35 preD>0=0
+g4352_s14: haz=116 pre=152 rb=8 fires=0 nonfatal_m0=7 nonfatal_m<0=1 out_open=0 armed_pubs=64 preD>0=3
+g4352_s15: haz=372 pre=452 rb=2 fires=0 nonfatal_m0=0 nonfatal_m<0=2 out_open=0 armed_pubs=75 preD>0=0
+g4352_s16: haz=238 pre=346 rb=8 fires=0 nonfatal_m0=8 nonfatal_m<0=0 out_open=0 armed_pubs=39 preD>0=2
+g8704_s11: haz=203 pre=317 rb=8 fires=1 nonfatal_m0=5 nonfatal_m<0=2 out_open=0 armed_pubs=142 preD>0=1
+g8704_s19: haz=194 pre=263 rb=14 fires=1 nonfatal_m0=7 nonfatal_m<0=6 out_open=0 armed_pubs=123 preD>0=2
+g8704_s21: haz=161 pre=242 rb=11 fires=1 nonfatal_m0=6 nonfatal_m<0=4 out_open=0 armed_pubs=51 preD>0=2
+g8704_s23: haz=178 pre=243 rb=14 fires=0 nonfatal_m0=10 nonfatal_m<0=4 out_open=0 armed_pubs=92 preD>0=0
+g8704_s25: haz=170 pre=259 rb=9 fires=0 nonfatal_m0=3 nonfatal_m<0=6 out_open=0 armed_pubs=94 preD>0=1
+g8704_s27: haz=198 pre=306 rb=6 fires=0 nonfatal_m0=4 nonfatal_m<0=2 out_open=0 armed_pubs=75 preD>0=1
+g8704_s29: haz=166 pre=253 rb=6 fires=0 nonfatal_m0=2 nonfatal_m<0=4 out_open=0 armed_pubs=84 preD>0=0
+g8704_s31: haz=287 pre=423 rb=2 fires=0 nonfatal_m0=0 nonfatal_m<0=2 out_open=0 armed_pubs=127 preD>0=0
+neg8704_s11: haz=194 pre=274 rb=0 fires=0 nonfatal_m0=0 nonfatal_m<0=0 out_open=0 armed_pubs=120 preD>0=0
+neg8704_s19: haz=181 pre=281 rb=0 fires=0 nonfatal_m0=0 nonfatal_m<0=0 out_open=0 armed_pubs=97 preD>0=0
+pilot: haz=224 pre=300 rb=2 fires=0 nonfatal_m0=2 nonfatal_m<0=0 out_open=0 armed_pubs=65 preD>0=1
+rep_s11: haz=219 pre=329 rb=12 fires=0 nonfatal_m0=8 nonfatal_m<0=4 out_open=0 armed_pubs=133 preD>0=1
+rep_s19: haz=219 pre=301 rb=14 fires=0 nonfatal_m0=8 nonfatal_m<0=6 out_open=0 armed_pubs=130 preD>0=1
+
+-- fire-by-fire --
+g8704_s11: FIRE id=45 s0=1024 fin_hi=1072 viol=48 box c=[66, 89] s=[2384, 2553]
+    PRE id=43 D=(48,44,1024) -> D==viol,s0: True; armed class: exact (last armed: A=48 b43 t44 s1024); fatal RB lid=44 s0=1024 out_open=no
+g8704_s19: FIRE id=48 s0=768 fin_hi=784 viol=16 box c=[267, 57] s=[1811, 1656]
+    PRE id=44 D=(16,12,768) -> D==viol,s0: True; armed class: exact (last armed: A=16 b44 t12 s768); fatal RB lid=12 s0=768 out_open=no
+g8704_s21: FIRE id=44 s0=512 fin_hi=592 viol=80 box c=[-117, -111] s=[619, 636]
+    PRE id=43 D=(80,41,512) -> D==viol,s0: True; armed class: lineage (last armed: A=80 b41 t26 s512); fatal RB lid=41 s0=512 out_open=no
+
+TOTALS: rb=131 nonfatal_m0=81 nonfatal_m<0=47 out_open=0 armed_pubs_without_fire=1652 preD>0=17 armed_exact=2 armed_lineage=1 publish_blind=0
+CERTIFY LAW HOLDS on every fire: PRE D = violation (s0 exact), out= shut
