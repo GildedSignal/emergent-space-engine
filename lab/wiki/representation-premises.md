@@ -2,7 +2,7 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0035-redteam-22d1
+updated: 20261018-0143-second-20261018-0035-redteam-22d1-9ffc
 
 # The premises of docs/representation.md: a census against the record
 
@@ -60,8 +60,20 @@ distance γd, so its occluded arc is the true arc shrunk by exactly 1/γ — cen
 (sprite direction atan(βγ) = true centre asin β) — arc Jaccard 0.855–0.875 at β0.5 and
 0.42–0.45 at β0.9 (the 1/γ = 0.866/0.436 row deficit, plus edge asymmetry at close
 approach), while its timing error is bounded O(R/β): onset +0.24…+0.62 s, rim +0.28…+0.44 s
-across 2–100R (checker-corrected, bisection-solved retarded time; the run's
-+1.25…+125.13 s onset column was an instrument artifact — see Runs). The naive per-row
+across 2–100R. **The record now regenerates and the corrected physics is exact
+(9ffc, second author): the onset instrument is fixed in the run's own script
+(retarded-time quadratic on the worldline, not the current distance), every corrected
+number reproduces, and each wiring is certified per row by closed forms — 0 mismatched
+rows of 10⁴ in all 11 cells; onsets to ≤ 3.6e-12 s of W1 = −R/β, W3 = d − R√(1+β²)/β,
+W2 = √(d²+R²) − R/β (error → (R/β)(√(1+β²)−1) ≈ Rβ/2), W2p = d − R/β; the true arc is
+the static arc translated to −asin β (roots sinψ = [−β(d²−R²) ± R√(d²−β²(d²−R²))]/d²),
+the sprite's is |sin(ψ+asin β)| < R/(γd) — Jaccard → √(1−β²) exactly; the run's
++1.25…+125.13 s onset column is confirmed dead as an instrument artifact (the tell —
+two wirings converging — resolves: fixed +0.3855/+0.3809 s), P2 re-graded held-in-form;
+W2p is killed under either reading of its letter (arc Jaccard 0.000 at 100R, or onsets
++15/+125 s if the offset uses the current distance); oblique W2 now measured
+(Jaccard 0.9971/0.9341 at 45°, d 10R) and the oblique W3 predicate anchors at the
+frame-time distance, not the perpendicular foot.** The naive per-row
 offset (d·cosψ) is worse at speed: the
 encounter retarded time carries the sweep factor (1+β²)⁻¹ (at β0.5: 0.784 vs the
 sprite's 0.855 at 2R, 0.307 vs 0.865 at 10R, 0.000 at 100R). Only the exact per-row
@@ -234,12 +246,19 @@ The census, ranked by player visibility (the rest of this page's standing record
    present via their true deflected images; negative control = the shipped straight
    gather (must fabricate at e59e's measured rates). The wiring decision (keep-straight
    vs drop-on-None at b ≤ b_c) must be frozen before lensing lands: both fail parity.**
-   **22d1's frozen form: the occlusion predicate is the per-row worldtube test (the
-   snapshot and sprite wirings are the negative controls — the snapshot must mis-time by
-   d/c and the sprite by a bounded O(R/β) while missing the 1/γ arc-width share of rows,
-   at the checker-corrected rates); judged in the observer's frame at player
-   β (arc sizes 17.6°/49.8°, not 30°), plus onset/egress times within one frame at
-   β·d/R ≤ 1 and a duration-distortion bar ≤ 5% at the strong-field scene.**
+   **22d1's frozen form, bars now exact (9ffc): the occlusion predicate is the per-row
+   worldtube test (the snapshot and sprite wirings are the negative controls — the
+   snapshot must mis-time by d/c − (R/β)(√(1+β²)−1) and go arc-disjoint at β·d/R ≳ 2;
+   the sprite must show onset error exactly (√(d²+R²) − d) + (R/β)(√(1+β²)−1) and arc
+   Jaccard √(1−β²) at d ≥ 10R — transverse cells only, checker2's sweep: the per-row
+   predicates stay exact over 20–135° at β 0.5–0.9 (0 mismatches), while oblique
+   Jaccards run higher away from transverse (0.46–0.99, meeting the transverse
+   √(1−β²) at 90°) and are judged
+   by the per-row predicate; the per-row offset must fail on the arc, Jaccard ≤ 0.31
+   at 10R β0.5 → 0 at 100R, whichever distance its letter uses); judged in the
+   observer's frame at player β (arc sizes 17.6°/49.8°, not 30°), plus onset/egress
+   times within one frame at β·d/R ≤ 1 and a duration-distortion bar ≤ 5% at the
+   strong-field scene.**
    ("no lensing yet") — freeze the absence half now, the rim-presence half with the
    lensing memo.
 3. **Adopt r5 and r5-starve into `lab/rungs/`** (`lab/results/20261017-1330-redteam-68e7/r5-dense-order.md`
@@ -276,3 +295,4 @@ falsehood; the nuance is recorded here, the entry stands.
 - 20261017-1447-second-20261017-1330-redteam-68e7-506c (awaiting grade): r5-starve frozen and executed — dense≡sparse holds under starvation and load, 11/11 + 27 allocator cells, allocator arm first for EventCore
 - 20261017-2142-redteam-e59e (awaiting grade): opacity missing from the view's premises — stars through planets (16.7% of sky at 2R) and black holes (25% at r_o 6M); no rung sees it
 - 20261018-0035-redteam-22d1 (silver, checker-corrected): the occlusion cure measured —
+- 20261018-0143-second-20261018-0035-redteam-22d1-9ffc (awaiting grade): instrument fixed in the run's own script; every corrected number regenerates, closed-form certified per row (0 mismatches, onsets to 1e-12 s); the W2 deficit is the 1/γ arc exactly

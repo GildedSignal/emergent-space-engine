@@ -2,7 +2,7 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2038-components-3570
+updated: 20261018-0143-components-16ec
 
 # Kick cadence: how often a body is kicked, and by what rule
 
@@ -28,6 +28,34 @@ violations, never fewer). The surface margin is NOT safe (41.3% of boundaries at
 surface in doll units — the exact test is load-bearing; the edge side is deep: 96.9% under
 1/16 of the doll edge) (20261017-2038-components-3570, components; predictions P1/P3/P4/P5
 held, P2's surface half failed as pre-registered).**
+
+**The key-range test is flown, as a digest-neutral deletion of the readout (the event keeps its
+tick and anchor), and it is exact on the coasting belt — 100.0% skip at 202 ns against 4,077 ns
+shipped (20.3×), digests bit-identical at a pinned canonical cut on both coast seeds; the burn
+arm's apparent divergence is the checker's artifact finding, not a kill (20261018-0143-components-16ec,
+components).** The decision is O(1) off the binding: a bound cycle's radius never leaves
+[periapsis, apoapsis] (x = k + (1−k)cosψ spans exactly [2k−1, 1]; the same expression `word_for`
+sizes the word with), so the widened range — ⊕ (|residual|₁ + 4 position quanta for rounding and
+the turn) — strictly inside (surface, leave) decides every certificate at once for the tube's
+whole lifetime; probe-verified on 1,200 swept cycles (e to 0.99, residuals to 2²⁰ quanta, mantissa
+units 1 and 1.5): zero excursions, passages refused. Flights (`nladder 10000 … 60 1800`, cut
+pinned at 1.2×10¹⁰ ticks via `ES_LIMIT` — unpinned cuts drift with load and their digests are
+incomparable, measured): coast ctl = ctl-rerun = fast (a725217f1dcd9f2a, 19,423/19,423 skipped);
+**burn: the checker found the instrument itself is schedule-coupled — two flag-off burn controls
+flown back to back differ (d9d0a2aa… vs bbd72d20…; the author's 08b6399c… and the regen's d12096fd…
+are two more), because the harness injects the thrust at `p.u.now` at frame 60 and the presented
+tick drifts with the 12 ms budget, so a pinned cut cannot adjudicate the burn arm (the fast arm
+skips only the belt's 19,423 there; all 338–340 player passages are read out in both arms) — the
+"kill fired" reading is an artifact, and the next probe is a pinned-input harness first, then the
+bisect if a real difference survives (20261018-0143-components-16ec, checker).** Two scope
+corrections to 3570's record: (a) the clock path is the minority of boundary mass at N=10⁴ — the
+census's 19,423 clock-path calls against ~1.03–1.08×10⁵ boundary events of both paths in the flight
+window give **≤18% clock / ≥82% WH-split `boundary()`** (WH ≥4.4× clock; the dossier's
+10.2%/84.6%/190,000-item denominator is not regenerable from the shipped evidence), so the shared-box
+p50 25.2 µs mixed paths, and the clock-path boundary — the 10⁹ term — measures **4.1–5.2 µs mean,
+not 25**; (b) the deletion form needs no re-freeze on the coasting belt (digest cannot move), unlike
+the unscheduling form (od 1's, still stronger: −1 event per body per interval). Ledger, this box:
+10⁹ belt boundaries ≈ 0.15 cores continuous shipped → ≈ 0.007 with the fast path.
 
 
 **Open direction 1 is decided: the boundary comb is welded to the kick comb's own step and
@@ -393,3 +421,4 @@ attribution.]
 - 20261017-1149-fermi-de7b (fermi, this run): the boundary comb rides the step lever (3 octaves, per-body identities exact, 100% of bodies); the 10⁹ pinned-boundary floor is dead; riding stands — 9.96 M1 cores at split 8, S* ≈ 19.9×.
 - 20261017-1240-second-20261017-1149-fermi-de7b-f790 (second author): the named misses closed — BELT_SPLIT flown directly (8× both combs, identities exact, 9,700/9,700), seeds 2–3 identical, record byte-reproduced; gold stands.
 - 20261017-2038-components-3570 (components, silver): the boundary comb census — 99.88% no-op, 27.8% of belt resolver CPU for 0 bits; key-range design priced; checker: no-op holds at N=3×10⁴ (99.96%) and on the burn arm (99.91%), news class = Passage bodies (~25 fixed, 269/275), coverage headline corrected; gold awaits the kick-time key-range test flown.
+- 20261018-0143-components-16ec (components, gold): the key-range test flown as a

@@ -15,12 +15,12 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
-| [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
-| [representation-premises](representation-premises.md) | open | 6 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
+| [representation-premises](representation-premises.md) | open | 7 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
+| [chaos-shadowing](chaos-shadowing.md) | open | 8 | (no current best yet) |
 | [library-directions](library-directions.md) | open | 8 | **The 10⁹ memory wall is composed from measured constants and its decision structure is |
 | [read-stream](read-stream.md) | open | 9 | **[20261017-2330-quant-588d] Direction 2's gate is measured: the fit-compile memo's sharing |
-| [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
+| [scan-queue](scan-queue.md) | open | 10 | **The reuse walk is the memo's proof, not its overhead, and no change-signal coarser than the |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
 | [allocator-ratchet](allocator-ratchet.md) | open | 17 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
@@ -30,7 +30,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [kick-cadence](kick-cadence.md) | open | 56 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
+| [kick-cadence](kick-cadence.md) | open | 57 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |

@@ -2,11 +2,52 @@ topic: scan-queue
 status: open
 closed-by:
 valid-while:
-updated: 20261016-2327-second-20261016-2229-scout-ab3d-1d54
+updated: 20261018-0143-system-f102
 
 # The player's scan queue: birth, service latch, and the ruin band
 
 ## Current best
+
+**The reuse walk is the memo's proof, not its overhead, and no change-signal coarser than the
+candidate set certifies a duplicate [checker2: measured at world, binding and doll grain; the
+radial-bin grain is unmeasured — the one finer key that could fire in the kept regime ≥ 10⁴,
+where the payoff is ≤ ~0.3% of wall]: scan-queue direction (d) is dead as stated, and the walk cannot be memoized
+("two pages, one mechanism" holds only for the code both circle — `encounter.rs`'s capture; the
+memory page's byte fence bounds bytes at capture and is untouched by this run)
+(20261018-0143-system-f102, system; print-only probe on the shipped flight — version counters
+on the store and the radial index, a cheap key checked before the candidate build, and a verify
+mode that classifies every capture against the shipped comparison; `ES_MEMO_FIRST`
+off/on/verify, digests identical in every mode).** The duplicate class is real and measured
+with the shipped memo's own verdict: 220/460 captures (47.8%) at N=10³ burn re-pay the full
+candidate walk (44 µs each, 9.7 ms per 2-s flight, ~0.5% of wall [checker: the author's 0.24%
+does not close against any wall reading — 9.71 ms / 2 s = 0.49%; 16.2 ms on the loaded regen = 0.8%;
+non-bottleneck either way]; coast: 0/19 — the memo is
+inert there); the interleaved mutations are the 5 October class (same-t recaptures around the
+re-timed pending kick). The cheap-key family is dead at every natural granularity: a global
+store+radial version hits 0/209; guarding `put` so only binding-visible changes count still
+hits 0/217; per-doll versions on store and radial still hit 0/220 — between two same-t
+captures the frame always kicks the scan's OWN doll outside its candidate window (belt ships,
+far radial bins — one instance, not the mechanism: the checker's bare 28-body world, no belt
+ships, still misses 0/213), which no doll-level counter excludes. The cheap key never fired
+in any arm (`cheap_hits_total=0` everywhere, so `cheap_only_soundness=0` is vacuous — checker2:
+the measured fact is zero hits at every granularity, not sound hits; the identical mode
+digests prove the probe's own innocence, not the key's soundness).
+Held-out N=10⁴ burn: the fraction holds (220/460, the re-timer is the player's
+own) and the per-duplicate price FALLS 2.5× (17.5 µs: at 10³ the capture is in cdf0's fallback
+regime, at 10⁴ the apsidal filter holds — this page's own threshold finding, which the run's
+prediction ignored). Consequence: direction (d) below is unsound or empty as stated — an
+UNvalidated (body,t,interval) key returns stale answers whenever a kick rebinds the player at
+the same t (why the shipped comparison exists), and a validated key is the walk itself. The
+lever is upstream: delete the duplicates (the re-timed pending kick — already the burn tail's
+owner on the nladder page), or at belt scale delete the whole capture (the population-level
+answer / phase-neighbour rank, where the walk dies as a side effect). At the flown N the
+duplicate class is a non-bottleneck (~0.5% of wall). [Checker: the per-duplicate price is
+roughly half fixed cost — 21.5 µs/dup at 28 bodies (N=0 arm) — so the dossier's "~43 ns/body"
+gloss overstates the per-body scaling; the µs-at-N cell is the measured one. The 10⁵ arm
+(one decade past the author's range) holds the whole structure: 112/237 = 47.3% duplicates,
+both_hit=0, soundness=0, 18.2 µs/dup; seeds 7 and 23 give 48.3%/47.6%.]**
+
+*[Prior best retained below.]*
 
 **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own
 arithmetic (`entry.trajectory.state`) carries 85–90% of an in-belt fallback read (3.3 µs of
@@ -119,6 +160,13 @@ criterion is **S < b/2 at the player's own N**.
 
 ## Refuted
 
+- **Direction (d) as stated ("memo the candidate list per (body, t, interval) … an
+  outcome-free scheduler-side fix"):** an unvalidated key is unsound (a kick that rebinds the
+  player at the same tick changes the candidates the key cannot see; the shipped comparison
+  exists for that case) and a validated key is the candidate build itself — measured, every
+  coarse validation at world, binding and doll grain misses every duplicate (0 hits; the
+  duplicates are 47.8% of burn captures at ~44 µs each, ~0.5% of wall at the plane's N)
+  (20261018-0143-system-f102).
 - **"Reads get ~50× cheaper" (3999's first named way out, as a deletion on the shipped
   readout): killed — the tube solve is 85–90% of a fallback read (74% in the cheapest kept
   arm), warm≈cold (tables 7 knots), every candidate a distinct compiled Entry, one Scalar
@@ -175,8 +223,9 @@ criterion is **S < b/2 at the player's own N**.
    clones every body; and now **(d)** the reuse walk — the memo hit re-walks N bodies per
    duplicate mint (30–34 ms at 10⁵, 0.24–0.5 s/s under burn, duplicates-only to all-mints):
    memo the candidate list per (body, t, interval) instead, an
-   outcome-free scheduler-side fix for the integrator to judge. Then re-measure the latch's
-   worst answer.
+   outcome-free scheduler-side fix for the integrator to judge" — KILLED as stated; see Refuted
+   and the current best above (20261018-0143-system-f102): the lever is upstream, the re-timed
+   pending kick. Then re-measure the latch's
 2. **The λ-index at 10⁶ and the index's own maintenance:** the marginal 6.9 ms composition
    assumes the standing λ-bin index is free and a 0.5-µs closed-form readout; neither is
    built (the silver priced the index by arithmetic only). One experiment decides 10⁶.
@@ -210,3 +259,4 @@ so no run reads the band as a cliff.
 - 20261016-2229-quant-7343 (this run, awaiting grade): the in-belt read decomposed — 85–90%
 - 20261016-2229-scout-ab3d (silver, checker): the two-stage angular certificate measured — sound in its domain (0 misses; checker: 27 all-seed scenes), the tight-axis pre-read cut exists at 35–50 ns; S(10⁵) 1.6–1.8 ms at the code-derived near (49-m ships; the run's 12,850-km "shipped radii" are a 2¹⁸ misread), 10⁶ marginal at ≈6.4 ms with the λ-index; querents e > 0.4 unsounded as coded.
 - 20261016-2327-second-20261016-2229-scout-ab3d-1d54 (this run, awaiting grade): the certificate re-derived at the true shipped point (49-m ships, near 6.71×10⁻⁷ AU) — 0 misses in 32 all-seed scenes on a regenerating record, the closed-form margin fixes e > 0.4 querents (the clamped table provably missed), S(10⁵) 2.1 ms under the bar, 10⁶ marginal 6.9 ms, the bar holds to querent e ≈ 0.6.
+- 20261018-0143-system-f102 (system, this run): the reuse walk is the memo's proof — 47.8% of burn captures are duplicates at ~44 µs (~0.5% wall), and global/binding-guarded/per-doll change-signals all miss every duplicate (0 hits at every measured grain); direction (d) unsound-or-empty; the lever is the re-timed pending kick. [checker2: clean reproduction — the author's exact digests (d976e91f/be73e0a8/81e5739a) and counts 460/220/240; seeds 3/11 → 48.6%/48.5%; 10⁵ seed 3 → 220/453, 0 hits, 28.4 µs/dup, 233 MB; the global-version arm reconstructed → 0/220; coast 10⁴ all fresh; sustained re-timing keeps the class at ~48% of captures over 4 s — it tracks burn duration, not input count.]
