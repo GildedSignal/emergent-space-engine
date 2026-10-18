@@ -1,0 +1,578 @@
+diff --git a/crates/universe/examples/belt_scan_probe.rs b/crates/universe/examples/belt_scan_probe.rs
+new file mode 100644
+index 00000000..25aeb708
+--- /dev/null
++++ b/crates/universe/examples/belt_scan_probe.rs
+@@ -0,0 +1,232 @@
++//! The belt-bin regime of the player's neighbourhood scan, measured on the shipped index
++//! (scan-queue's named unmeasured case: the scan's window inside the belt's radial bins, root doll).
++//! Print-only: no engine state is changed, no frame is stepped. Builds the plane with the N ladder's
++//! population (`plane_with_extra`), then asks the shipped `Radial::candidates` for real bodies'
++//! windows: the player's own (Home's doll, the control), the haulers' (root doll, in and out of the
++//! belt band), and one belt body's own window (root doll, in the belt: "the player standing in the
++//! belt"). For the belt window it prices the two halves the engine splits (`Encounters::capture`
++//! here, `Scan::compute` in idle time): the capture walk (alive/born/binding_at/doll/reach) and the
++//! answer (one cartesian readout + the exact lattice predicate per candidate), counts true
++//! encounters, and measures the certificate slack (miss distance and angular separation, in reach
++//! units). A radius sweep maps where the fallback trips. Output: `key=value` lines, `#` sections.
++use emergent_lattice::law::hit;
++use emergent_space::orbit::Scalar;
++use emergent_universe::encounter::ENCOUNTER_LOG2;
++use emergent_universe::fleet::Order;
++use emergent_universe::num::{sub2, time_of, to_f64};
++use emergent_universe::radial::Window;
++use emergent_universe::scenario::{ladder_locals, plane_with_extra, AU};
++use emergent_universe::{bind::Binding, ctx::Ctx, Config};
++use std::time::Instant;
++
++fn norm2(a: [Scalar; 2]) -> f64 {
++    to_f64(a[0]).hypot(to_f64(a[1]))
++}
++
++fn integers(a: [Scalar; 2], q_exp: i32) -> Result<[i128; 2], emergent_space::Error> {
++    Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
++}
++
++fn r1(x: f64) -> f64 {
++    (x * 10.0).round() / 10.0
++}
++fn r3(x: f64) -> f64 {
++    (x * 1000.0).round() / 1000.0
++}
++
++struct Asked {
++    name: String,
++    doll: u16,
++    r_au: f64,
++    h: f64,
++    fallback: bool,
++    kept: Option<usize>,
++    walked: usize,
++    pass: usize,
++    capture_us: f64,
++}
++
++/// One window asked of the shipped index. `None` from `candidates` is the fallback (the caller then
++/// walks and reads every body of the universe). The capture walk is timed over exactly the ids the
++/// engine would walk, with the same tests `PlayerNeighbourhood::capture` applies, for the scanning
++/// body `p` (its radius makes the reach).
++fn ask(ctx: &Ctx, doll: u16, name: &str, p: usize, w: &Window, t: i64) -> Asked {
++    let verdict = ctx.radial.candidates(doll, w);
++    let kept = verdict.as_ref().map(|v| v.len());
++    let ids: Vec<usize> = verdict.clone().unwrap_or_else(|| (0..ctx.bodies.len()).collect());
++    let t0 = Instant::now();
++    let mut pass = 0usize;
++    for &j in &ids {
++        if j == p || t <= ctx.info[j].born || !ctx.bodies.alive(j) {
++            continue;
++        }
++        let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++        if other.doll != doll {
++            continue;
++        }
++        match ctx.info[p].radius.add(ctx.info[j].radius) {
++            Ok(reach) if !reach.is_zero() => pass += 1,
++            _ => {}
++        }
++    }
++    let capture_us = t0.elapsed().as_secs_f64() * 1e6;
++    Asked { name: name.into(), doll, r_au: w.r / AU as f64, h: w.h, fallback: kept.is_none(), kept, walked: ids.len(), pass, capture_us }
++}
++
++fn show(a: &Asked) {
++    println!("window.{}: doll={} r_au={} h={:e} fallback={} kept={} walked={} pass={} capture_us={} capture_us_per_walked={}",
++        a.name.replace(' ', "_"), a.doll, r3(a.r_au), a.h, a.fallback,
++        a.kept.map(|k| k.to_string()).unwrap_or_else(|| "none".into()), a.walked, a.pass,
++        r1(a.capture_us), r3(a.capture_us / a.walked.max(1) as f64));
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let extra: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let (world, _) = emergent_engine::scenes::battle(48, emergent_universe::fleet::Q, seed, 1 << 15, false);
++    let t_build = Instant::now();
++    let plane = plane_with_extra(Config::default(), seed, Order::Sparse, 1, world, extra).expect("the plane");
++    let build_s = t_build.elapsed().as_secs_f64();
++    let u = &plane.u;
++    let ctx = u.ctx();
++    let n = ctx.bodies.len();
++    let player = plane.player;
++    let prec = ctx.bodies.rec(player);
++    // One tick after birth (at rest every body's event is tick 0; a scan in flight reads t > born).
++    let t = ctx.bodies.event_time(player).max(1);
++    let (px, pv) = prec.b.cartesian(t).expect("the player's readout");
++    let h_p = to_f64(time_of(prec.step.max(2), prec.b.clock_exp).expect("h"));
++    println!("extra={} seed={} bodies={} radial_bodies={} scan_t={} build_s={}", extra, seed, n, ctx.radial.bodies, t, r1(build_s));
++
++    // P4a: the player's own window, Home's doll (the flown control).
++    let home = Window { r: norm2(px), v: norm2(pv), reach_p: to_f64(ctx.info[player].radius), near_log2: ENCOUNTER_LOG2, h: h_p };
++    show(&ask(&ctx, prec.b.doll, "player_home", player, &home, t));
++
++    // P4b: the haulers' windows, root doll (0.5–8 AU: in and out of the belt band).
++    for (k, &j) in plane.ships.iter().take(12).enumerate() {
++        let r = ctx.bodies.rec(j);
++        let (x, v) = r.b.cartesian(t).expect("hauler");
++        let h = to_f64(time_of(r.step.max(2), r.b.clock_exp).expect("h"));
++        let w = Window { r: norm2(x), v: norm2(v), reach_p: to_f64(ctx.info[j].radius), near_log2: ENCOUNTER_LOG2, h };
++        show(&ask(&ctx, r.b.doll, &format!("hauler_{k}"), j, &w, t));
++    }
++
++    // The belt stand-in: the ladder's belt body nearest 2.5 AU (the first `ladder_locals(extra)`
++    // ladder ships are locals about Home and the Moon; the rest are the belt, root doll). With no
++    // belt, the hauler nearest 2.5 AU stands in (same band, empty bins).
++    let locals = ladder_locals(extra as u64) as usize;
++    let belt_ids: Vec<usize> = plane.ships.iter().skip(12 + locals).copied().collect();
++    let pool: Vec<usize> = if belt_ids.is_empty() { plane.ships.iter().take(12).copied().collect() } else { belt_ids };
++    let mut standin = pool[0];
++    let mut best = f64::MAX;
++    for &j in &pool {
++        let Ok((x, _)) = ctx.bodies.rec(j).b.cartesian(t) else { continue };
++        let d = (norm2(x) / AU as f64 - 2.5).abs();
++        if d < best {
++            best = d;
++            standin = j;
++        }
++    }
++    let srec = ctx.bodies.rec(standin);
++    let (sx, sv) = srec.b.cartesian(t).expect("the stand-in's readout");
++    let h_s = time_of(srec.step.max(2), srec.b.clock_exp).expect("h");
++    let (r_s, v_s) = (norm2(sx), norm2(sv));
++    let belt = Window { r: r_s, v: v_s, reach_p: to_f64(ctx.info[standin].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h_s) };
++    let belt_asked = ask(&ctx, srec.b.doll, "belt_standin_root", standin, &belt, t);
++    show(&belt_asked);
++
++    // C-: the same window with h → ∞ must fall back (the negative control: the rule fires when it should).
++    let inf = Window { r: r_s, v: v_s, reach_p: to_f64(ctx.info[standin].radius), near_log2: ENCOUNTER_LOG2, h: 1e9 };
++    show(&ask(&ctx, srec.b.doll, "huge_h_root", standin, &inf, t));
++
++    // Where does the fallback trip? The stand-in's window swept over radius (v, h, reach held).
++    println!("# fallback sweep (the stand-in's v, h and reach, r swept)");
++    for k in 0..=14 {
++        let r = (1.0 + 0.25 * k as f64) * AU as f64;
++        let w = Window { r, v: v_s, reach_p: to_f64(ctx.info[standin].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h_s) };
++        let a = ask(&ctx, srec.b.doll, &format!("sweep_{k}"), standin, &w, t);
++        println!("sweep: r_au={} fallback={} kept={}", r3(a.r_au), a.fallback, a.kept.map(|k| k.to_string()).unwrap_or_else(|| "none".into()));
++    }
++
++    // The answer half on the belt window's candidates: `Scan::compute`'s loop, timed (on fallback
++    // the engine reads every body: the ids are all of them, the candidate list is the doll's).
++    let ids: Vec<usize> = ctx.radial.candidates(srec.b.doll, &belt).unwrap_or_else(|| (0..n).collect());
++    let mut cands: Vec<(usize, Binding, Scalar)> = Vec::new();
++    for &j in &ids {
++        if j == standin || t <= ctx.info[j].born || !ctx.bodies.alive(j) {
++            continue;
++        }
++        let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++        if other.doll != srec.b.doll {
++            continue;
++        }
++        let Ok(reach) = ctx.info[standin].radius.add(ctx.info[j].radius) else { continue };
++        if reach.is_zero() {
++            continue;
++        }
++        cands.push((j, other, reach));
++    }
++    let t0 = Instant::now();
++    let mut encounters = 0usize;
++    let mut misses: Vec<f64> = Vec::new();
++    let mut arcs: Vec<f64> = Vec::new();
++    let hf = to_f64(h_s);
++    let (sxf, syf) = (to_f64(sx[0]), to_f64(sx[1]));
++    let (svxf, svyf) = (to_f64(sv[0]), to_f64(sv[1]));
++    let lam_s = syf.atan2(sxf);
++    for (_j, other, reach) in &cands {
++        let (xj, vj) = match other.cartesian(t) {
++            Ok(v) => v,
++            Err(_) => continue,
++        };
++        let w = match (|| -> Result<_, emergent_space::Error> {
++            Ok([vj[0].sub(sv[0])?.mul(h_s)?, vj[1].sub(sv[1])?.mul(h_s)?])
++        })() {
++            Ok(w) => w,
++            Err(_) => continue,
++        };
++        let d = match sub2(xj, sx) {
++            Ok(d) => d,
++            Err(_) => continue,
++        };
++        let q_exp = reach.exponent() as i32 - 20;
++        let (di, wi) = match (integers(d, q_exp), integers(w, q_exp)) {
++            (Ok(a), Ok(b)) => (a, b),
++            _ => continue,
++        };
++        let near = match reach.scale(ENCOUNTER_LOG2).and_then(|n| n.fixed(-q_exp)) {
++            Ok(n) => n,
++            Err(_) => continue,
++        };
++        if hit(di, wi, near) {
++            encounters += 1;
++        }
++        // Float replica of the predicate's linear model, for the slack metrics only.
++        let (dx, dy) = (to_f64(xj[0]) - sxf, to_f64(xj[1]) - syf);
++        let (wx, wy) = ((to_f64(vj[0]) - svxf) * hf, (to_f64(vj[1]) - svyf) * hf);
++        let s_star = (-(dx * wx + dy * wy) / (wx * wx + wy * wy)).clamp(0.0, 1.0);
++        misses.push((dx + s_star * wx).hypot(dy + s_star * wy) / to_f64(*reach));
++        let (xjf, yjf) = (to_f64(xj[0]), to_f64(xj[1]));
++        let rj = xjf.hypot(yjf);
++        let mut ang = (yjf.atan2(xjf) - lam_s).rem_euclid(std::f64::consts::TAU);
++        ang = ang.min(std::f64::consts::TAU - ang);
++        arcs.push(ang * rj / to_f64(*reach));
++    }
++    let answer_us = t0.elapsed().as_secs_f64() * 1e6;
++    misses.sort_by(|a, b| a.total_cmp(b));
++    arcs.sort_by(|a, b| a.total_cmp(b));
++    let at = |v: &Vec<f64>, f: f64| v.get(((v.len() as f64 * f) as usize).min(v.len().saturating_sub(1))).copied().unwrap_or(f64::NAN);
++    println!("# belt answer half (Scan::compute's loop, timed)");
++    println!("belt_answer: candidates={} encounters={} answer_us={} answer_us_per_read={} reads_per_hit={} miss_over_reach_min={} miss_over_reach_p50={} arc_over_reach_min={} arc_over_reach_p50={} standin_r_au={} standin_step={}",
++        cands.len(), encounters, r1(answer_us), r3(answer_us / cands.len().max(1) as f64),
++        if encounters > 0 { r1(cands.len() as f64 / encounters as f64).to_string() } else { "inf".into() },
++        r3(at(&misses, 0.0)), (at(&misses, 0.5) * 10.0).round() / 10.0,
++        r3(at(&arcs, 0.0)), (at(&arcs, 0.5) * 10.0).round() / 10.0,
++        r3(r_s / AU as f64), srec.step);
++    println!("# latch arithmetic (b = 5 ms, drain bar S >= b/2 = 2.5 ms)");
++    let per_read = answer_us / cands.len().max(1) as f64;
++    println!("latch: S_answer_us={} S_capture_us={} bar_us=2500 latch_answer={} latch_capture={}",
++        r1(belt_asked.pass as f64 * per_read), r1(belt_asked.capture_us),
++        belt_asked.pass as f64 * per_read >= 2500.0, belt_asked.capture_us >= 2500.0);
++}
+diff --git a/crates/universe/examples/formprobe.rs b/crates/universe/examples/formprobe.rs
+new file mode 100644
+index 00000000..92acf2a8
+--- /dev/null
++++ b/crates/universe/examples/formprobe.rs
+@@ -0,0 +1,43 @@
++//! The formation crowd beside a belt (604c's pair): what the player's scan costs when the universe
++//! holds a 10⁴ belt in another doll and `form` fleet ships on the player's own circle in the
++//! player's doll. Flies real frames and prints one `probe:` line (build, frames, engine ms p50/p99,
++//! the digest at the canonical cut, kicks/encounters/contacts) so arms are comparable bit for bit;
++//! the scan census (`SCAN_CENSUS`, print-only in `encounter.rs`) reports bails/walks when set.
++//!
++//! cargo run --release -p emergent-universe --example formprobe [-- <form> [<extra> [<game seconds> [<rtf>]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_formation;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let form: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(200);
++    let extra: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(6.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    let t0 = std::time::Instant::now();
++    let mut p = plane_formation(Config::default(), 1, Order::Sparse, 1, 48, extra, form).expect("the plane");
++    let build_s = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let mut ms: Vec<f64> = Vec::new();
++    let t_all = std::time::Instant::now();
++    while p.u.now < cut && ms.len() < 400_000 {
++        let start = std::time::Instant::now();
++        p.u.frame_to(1.0 / 60.0, rtf, Budget::events(25), cut);
++        ms.push(start.elapsed().as_secs_f64() * 1e3);
++    }
++    let wall_s = t_all.elapsed().as_secs_f64();
++    p.u.settle(cut);
++    ms.sort_by(|a, b| a.total_cmp(b));
++    println!(
++        "probe: form={form} extra={extra} bodies={bodies} game_s={:.1} rtf={rtf} build_s={:.2} wall_s={:.2} frames={} p50_ms={:.2} p99_ms={:.2} digest={} kicks={} encounters={} contacts={}",
++        seconds, build_s, wall_s, ms.len(), pct(&ms, 0.5), pct(&ms, 0.99),
++        p.u.digest(), p.u.stats.kicks, p.u.stats.encounters, p.u.contacts
++    );
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..911b5c4c 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: VmRSS now and VmHWM (the peak) from /proc/self/status, in bytes.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut kv = (0u64, 0u64);
++    for line in status.lines() {
++        let Some((k, v)) = line.split_once(':') else { continue };
++        let to_kb = || v.trim().split_whitespace().next().and_then(|n| n.parse::<u64>().ok()).map(|kb| kb * 1024);
++        match k {
++            "VmRSS" => kv.0 = to_kb().unwrap_or(0),
++            "VmHWM" => kv.1 = to_kb().unwrap_or(0),
++            _ => {}
++        }
++    }
++    kv
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..4f3b8b65 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -115,6 +115,54 @@ impl PlayerNeighbourhood {
+     }
+ }
+ 
++/// `SCAN_CENSUS` (print-only): who the scan's candidate walk reads and keeps. Cumulative counters, printed every 64
++/// captures; the last line before exit holds the totals.
++mod census {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static CAPTURES: AtomicU64 = AtomicU64::new(0);
++    pub static BAILS: AtomicU64 = AtomicU64::new(0);
++    /// Bodies the fallback walk visits on bails (`0..bodies.len()`).
++    pub static FB_WALK: AtomicU64 = AtomicU64::new(0);
++    /// Reads thrown away by the doll test (`other.doll != me.doll`, after the `binding_at` read).
++    pub static DOLL_DISCARD: AtomicU64 = AtomicU64::new(0);
++    pub static FB_CAND: AtomicU64 = AtomicU64::new(0);
++    pub static FILT: AtomicU64 = AtomicU64::new(0);
++    pub static FILT_WALK: AtomicU64 = AtomicU64::new(0);
++    pub static FILT_CAND: AtomicU64 = AtomicU64::new(0);
++    pub static NS: AtomicU64 = AtomicU64::new(0);
++
++    pub fn on() -> bool {
++        static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("SCAN_CENSUS").is_ok());
++        *V
++    }
++
++    fn line() {
++        let g = |c: &AtomicU64| c.load(Ordering::Relaxed);
++        println!(
++            "scan_census: captures={} bails={} fb_walk={} doll_discard={} fb_cand={} filt={} filt_walk={} filt_cand={} capture_ms={:.1}",
++            g(&CAPTURES), g(&BAILS), g(&FB_WALK), g(&DOLL_DISCARD), g(&FB_CAND), g(&FILT), g(&FILT_WALK), g(&FILT_CAND),
++            g(&NS) as f64 / 1e6
++        );
++    }
++
++    pub fn note(capture_ns: u64, bail: bool, walk: u64, doll_discards: u64, cand: u64) {
++        let n = CAPTURES.fetch_add(1, Ordering::Relaxed) + 1;
++        NS.fetch_add(capture_ns, Ordering::Relaxed);
++        if bail {
++            BAILS.fetch_add(1, Ordering::Relaxed);
++            FB_WALK.fetch_add(walk, Ordering::Relaxed);
++            FB_CAND.fetch_add(cand, Ordering::Relaxed);
++        } else {
++            FILT.fetch_add(1, Ordering::Relaxed);
++            FILT_WALK.fetch_add(walk, Ordering::Relaxed);
++            FILT_CAND.fetch_add(cand, Ordering::Relaxed);
++        }
++        DOLL_DISCARD.fetch_add(doll_discards, Ordering::Relaxed);
++        if n % 64 == 0 {
++            line();
++        }
++    }
++}
+ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+     Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+ }
+@@ -160,10 +208,12 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let t_census = census::on().then(std::time::Instant::now);
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+-        // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        // that the rest cannot be a hit); when that is most of the doll, every body is read, as it was before there was an index (with
++        // `ES_LOCAL_BAIL`, the index answers the doll's own population instead, and nothing else is read).
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+@@ -171,6 +221,9 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let bail = near.is_none();
++        let walk_len = near.as_ref().map_or(0, |v| v.len());
++        let mut discards = 0u64;
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+@@ -179,6 +232,9 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
+             if other.doll != me.doll {
++                if t_census.is_some() {
++                    discards += 1;
++                }
+                 continue;
+             }
+             let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
+@@ -187,6 +243,10 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if let Some(t0) = t_census {
++            let walk = if bail { ctx.bodies.len() as u64 } else { walk_len as u64 };
++            census::note(t0.elapsed().as_nanos() as u64, bail, walk, discards, candidates.len() as u64);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..e0609153 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -240,6 +240,28 @@ impl Radial {
+         }
+     }
+ 
++    /// The doll's whole registered population (unbounded + every bin), ascending, deduped: what a scan walks when its
++    /// window covers most of the doll. The index holds exactly the bodies with a retained binding in the doll, so this
++    /// is the doll-local form of the fallback walk (`encounter.rs` read every body of the universe and discarded each
++    /// one whose binding lived in another doll — after paying the read).
++    fn all_of(idx: &DollIndex) -> Vec<usize> {
++        let mut ids = idx.unbounded.clone();
++        for l in idx.bins.values() {
++            ids.extend_from_slice(l);
++        }
++        ids.sort_unstable();
++        ids.dedup();
++        ids.into_iter().map(|i| i as usize).collect()
++    }
++
++    /// The doll's registered population (distinct ids, unbounded and binned): what the local threshold compares the
++    /// window against, and what a doll-local bail walks. Counting it here walks the index (`all_of`); a shipped
++    /// version maintains the count in `note`/`rebuild` (the experiment pays O(entries) a scan, never more than the
++    /// walk it decides on).
++    fn population(idx: &DollIndex) -> usize {
++        Self::all_of(idx).len()
++    }
++
+     /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+     /// in the doll (the caller then reads every body, as it did before there was an index).
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
+@@ -248,11 +270,12 @@ impl Radial {
+         let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
+-            return None;
++            return if local_bail() { Some(Self::all_of(idx)) } else { None };
+         }
+         let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
+-        if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
+-            return None;
++        let threshold = if local_threshold() { Self::population(idx) / 4 + 64 } else { self.bodies / 4 + 64 };
++        if hit + idx.unbounded.len() > threshold {
++            return if local_bail() { Some(Self::all_of(idx)) } else { None };
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+         for b in lo..=hi {
+@@ -265,3 +288,19 @@ impl Radial {
+         Some(ids.into_iter().map(|i| i as usize).collect())
+     }
+ }
++
++/// `ES_LOCAL_BAIL`: a bail walks the doll's own registered population instead of telling the caller to read the whole
++/// universe. Both cost O(doll); the outcome cannot move (the caller's cheap tests already discard other dolls' bodies).
++fn local_bail() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_LOCAL_BAIL").is_ok());
++    *V
++}
++
++/// `ES_LOCAL_THRESHOLD`: the bail's threshold is the doll's own registered population, not the universe's
++/// (`self.bodies / 4 + 64`, whose denominator other dolls inflate — 604c's nonlocal coupling: a belt in another doll
++/// decides this doll's scan). The rule keeps its shape (bail when the window is a quarter of what walking costs);
++/// with [`local_bail`] both outcomes are doll-local, so no scan reads bodies it will discard.
++fn local_threshold() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_LOCAL_THRESHOLD").is_ok());
++    *V
++}
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..d7e5940b 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,19 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_built(cfg, seed, order, threads, world, extra, 0)
++}
++
++/// [`plane_extra`] with `form` of the bodies a fleet formation on the player's own circle about Home
++/// (see [`formation_ship`]): the game's fleet scene, the ladder's population beside it. `form = 0` is
++/// [`plane_extra`], bit for bit.
++pub fn plane_formation(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, form: usize) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_built(cfg, seed, order, threads, world, extra, form)
++}
++
++/// The plane's own construction (everything above, plus the ladder's and the formation's ships).
++pub fn plane_built(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, form: usize) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -257,6 +270,13 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         names.push(format!("Skimmer {}", k + 1));
+     }
+     // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
++    // The formation: real ships on the player's own circle (the fleet scene's crowd, each on its own
++    // exact orbit beside the player's, ids with the ladder's).
++    for k in 0..form {
++        let (spec, radius) = formation_ship(seed, k as u64, home_doll)?;
++        ships.push(u.add_body(Kind::Ship, spec, radius)?);
++        names.push(String::new());
++    }
+     for k in 0..extra {
+         let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+@@ -279,6 +299,36 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
+ 
++/// One ship of the formation scene: co-orbital with the player on Home's low orbit (the fleet's
++/// circle, 4,740 root units — the player's own periapsis), within ±2 % in size (inside one
++/// sixteenth-octave bin of the scan's index, so the radial filter cannot cut it), e Rayleigh of
++/// scale 0.005, uniform angle and phase. A fleet formation: the game's own crowd, drawn from
++/// integers and the seed like [`ladder_ship`], with `k` offset so its draws never collide with the
++/// ladder's.
++pub fn formation_ship(seed: u64, k: u64, home_doll: u16) -> Res<(OrbitSpec, Scalar)> {
++    let d = |lane: u64| draw(seed, k.wrapping_add(1 << 40), lane);
++    let jit = |lane: u64| (d(lane) >> 32) as i128 - (1i128 << 31); // [-1/2, 1/2) turn of 2^32
++    let base = 4_740i128 << 16; // the fleet's circle in root units, Q16 (the ladder locals' shape)
++    let peri_q16 = base + base * jit(1) / (50 * (1i128 << 32)); // ±2 %
++    let mut e = rayleigh_q48((d(2) & 0xFFFF_FFFF) as u32, 5);
++    for lane in 16.. {
++        if e <= (1u64 << 48) / 20 {
++            break;
++        }
++        e = rayleigh_q48((d(lane) & 0xFFFF_FFFF) as u32, 5);
++    }
++    let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
++    let spec = OrbitSpec {
++        doll: home_doll,
++        periapsis: Scalar::raw(peri_q16, 18 - 16)?,
++        e_q48: e,
++        clockwise: false,
++        angle,
++        phase,
++    };
++    Ok((spec, Scalar::raw(34, -10 + 18)?))
++}
++
+ // ---- the N ladder's population -------------------------------------------------------------------
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.

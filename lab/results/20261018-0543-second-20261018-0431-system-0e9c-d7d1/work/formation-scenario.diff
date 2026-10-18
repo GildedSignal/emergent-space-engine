@@ -1,0 +1,75 @@
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..d7e5940b 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,19 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_built(cfg, seed, order, threads, world, extra, 0)
++}
++
++/// [`plane_extra`] with `form` of the bodies a fleet formation on the player's own circle about Home
++/// (see [`formation_ship`]): the game's fleet scene, the ladder's population beside it. `form = 0` is
++/// [`plane_extra`], bit for bit.
++pub fn plane_formation(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, form: usize) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_built(cfg, seed, order, threads, world, extra, form)
++}
++
++/// The plane's own construction (everything above, plus the ladder's and the formation's ships).
++pub fn plane_built(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, form: usize) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -257,6 +270,13 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         names.push(format!("Skimmer {}", k + 1));
+     }
+     // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
++    // The formation: real ships on the player's own circle (the fleet scene's crowd, each on its own
++    // exact orbit beside the player's, ids with the ladder's).
++    for k in 0..form {
++        let (spec, radius) = formation_ship(seed, k as u64, home_doll)?;
++        ships.push(u.add_body(Kind::Ship, spec, radius)?);
++        names.push(String::new());
++    }
+     for k in 0..extra {
+         let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+@@ -279,6 +299,36 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
+ 
++/// One ship of the formation scene: co-orbital with the player on Home's low orbit (the fleet's
++/// circle, 4,740 root units — the player's own periapsis), within ±2 % in size (inside one
++/// sixteenth-octave bin of the scan's index, so the radial filter cannot cut it), e Rayleigh of
++/// scale 0.005, uniform angle and phase. A fleet formation: the game's own crowd, drawn from
++/// integers and the seed like [`ladder_ship`], with `k` offset so its draws never collide with the
++/// ladder's.
++pub fn formation_ship(seed: u64, k: u64, home_doll: u16) -> Res<(OrbitSpec, Scalar)> {
++    let d = |lane: u64| draw(seed, k.wrapping_add(1 << 40), lane);
++    let jit = |lane: u64| (d(lane) >> 32) as i128 - (1i128 << 31); // [-1/2, 1/2) turn of 2^32
++    let base = 4_740i128 << 16; // the fleet's circle in root units, Q16 (the ladder locals' shape)
++    let peri_q16 = base + base * jit(1) / (50 * (1i128 << 32)); // ±2 %
++    let mut e = rayleigh_q48((d(2) & 0xFFFF_FFFF) as u32, 5);
++    for lane in 16.. {
++        if e <= (1u64 << 48) / 20 {
++            break;
++        }
++        e = rayleigh_q48((d(lane) & 0xFFFF_FFFF) as u32, 5);
++    }
++    let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
++    let spec = OrbitSpec {
++        doll: home_doll,
++        periapsis: Scalar::raw(peri_q16, 18 - 16)?,
++        e_q48: e,
++        clockwise: false,
++        angle,
++        phase,
++    };
++    Ok((spec, Scalar::raw(34, -10 + 18)?))
++}
++
+ // ---- the N ladder's population -------------------------------------------------------------------
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.

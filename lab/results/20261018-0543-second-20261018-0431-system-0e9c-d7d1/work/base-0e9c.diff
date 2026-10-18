@@ -1,0 +1,197 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..911b5c4c 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: VmRSS now and VmHWM (the peak) from /proc/self/status, in bytes.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut kv = (0u64, 0u64);
++    for line in status.lines() {
++        let Some((k, v)) = line.split_once(':') else { continue };
++        let to_kb = || v.trim().split_whitespace().next().and_then(|n| n.parse::<u64>().ok()).map(|kb| kb * 1024);
++        match k {
++            "VmRSS" => kv.0 = to_kb().unwrap_or(0),
++            "VmHWM" => kv.1 = to_kb().unwrap_or(0),
++            _ => {}
++        }
++    }
++    kv
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..4f3b8b65 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -115,6 +115,54 @@ impl PlayerNeighbourhood {
+     }
+ }
+ 
++/// `SCAN_CENSUS` (print-only): who the scan's candidate walk reads and keeps. Cumulative counters, printed every 64
++/// captures; the last line before exit holds the totals.
++mod census {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static CAPTURES: AtomicU64 = AtomicU64::new(0);
++    pub static BAILS: AtomicU64 = AtomicU64::new(0);
++    /// Bodies the fallback walk visits on bails (`0..bodies.len()`).
++    pub static FB_WALK: AtomicU64 = AtomicU64::new(0);
++    /// Reads thrown away by the doll test (`other.doll != me.doll`, after the `binding_at` read).
++    pub static DOLL_DISCARD: AtomicU64 = AtomicU64::new(0);
++    pub static FB_CAND: AtomicU64 = AtomicU64::new(0);
++    pub static FILT: AtomicU64 = AtomicU64::new(0);
++    pub static FILT_WALK: AtomicU64 = AtomicU64::new(0);
++    pub static FILT_CAND: AtomicU64 = AtomicU64::new(0);
++    pub static NS: AtomicU64 = AtomicU64::new(0);
++
++    pub fn on() -> bool {
++        static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("SCAN_CENSUS").is_ok());
++        *V
++    }
++
++    fn line() {
++        let g = |c: &AtomicU64| c.load(Ordering::Relaxed);
++        println!(
++            "scan_census: captures={} bails={} fb_walk={} doll_discard={} fb_cand={} filt={} filt_walk={} filt_cand={} capture_ms={:.1}",
++            g(&CAPTURES), g(&BAILS), g(&FB_WALK), g(&DOLL_DISCARD), g(&FB_CAND), g(&FILT), g(&FILT_WALK), g(&FILT_CAND),
++            g(&NS) as f64 / 1e6
++        );
++    }
++
++    pub fn note(capture_ns: u64, bail: bool, walk: u64, doll_discards: u64, cand: u64) {
++        let n = CAPTURES.fetch_add(1, Ordering::Relaxed) + 1;
++        NS.fetch_add(capture_ns, Ordering::Relaxed);
++        if bail {
++            BAILS.fetch_add(1, Ordering::Relaxed);
++            FB_WALK.fetch_add(walk, Ordering::Relaxed);
++            FB_CAND.fetch_add(cand, Ordering::Relaxed);
++        } else {
++            FILT.fetch_add(1, Ordering::Relaxed);
++            FILT_WALK.fetch_add(walk, Ordering::Relaxed);
++            FILT_CAND.fetch_add(cand, Ordering::Relaxed);
++        }
++        DOLL_DISCARD.fetch_add(doll_discards, Ordering::Relaxed);
++        if n % 64 == 0 {
++            line();
++        }
++    }
++}
+ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+     Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+ }
+@@ -160,10 +208,12 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let t_census = census::on().then(std::time::Instant::now);
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+-        // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        // that the rest cannot be a hit); when that is most of the doll, every body is read, as it was before there was an index (with
++        // `ES_LOCAL_BAIL`, the index answers the doll's own population instead, and nothing else is read).
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+@@ -171,6 +221,9 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let bail = near.is_none();
++        let walk_len = near.as_ref().map_or(0, |v| v.len());
++        let mut discards = 0u64;
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+@@ -179,6 +232,9 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
+             if other.doll != me.doll {
++                if t_census.is_some() {
++                    discards += 1;
++                }
+                 continue;
+             }
+             let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
+@@ -187,6 +243,10 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if let Some(t0) = t_census {
++            let walk = if bail { ctx.bodies.len() as u64 } else { walk_len as u64 };
++            census::note(t0.elapsed().as_nanos() as u64, bail, walk, discards, candidates.len() as u64);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..f5e343ef 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -240,6 +240,20 @@ impl Radial {
+         }
+     }
+ 
++    /// The doll's whole registered population (unbounded + every bin), ascending, deduped: what a scan walks when its
++    /// window covers most of the doll. The index holds exactly the bodies with a retained binding in the doll, so this
++    /// is the doll-local form of the fallback walk (`encounter.rs` read every body of the universe and discarded each
++    /// one whose binding lived in another doll — after paying the read).
++    fn all_of(idx: &DollIndex) -> Vec<usize> {
++        let mut ids = idx.unbounded.clone();
++        for l in idx.bins.values() {
++            ids.extend_from_slice(l);
++        }
++        ids.sort_unstable();
++        ids.dedup();
++        ids.into_iter().map(|i| i as usize).collect()
++    }
++
+     /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+     /// in the doll (the caller then reads every body, as it did before there was an index).
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
+@@ -248,11 +262,11 @@ impl Radial {
+         let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
+-            return None;
++            return if local_bail() { Some(Self::all_of(idx)) } else { None };
+         }
+         let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
+         if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
+-            return None;
++            return if local_bail() { Some(Self::all_of(idx)) } else { None };
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+         for b in lo..=hi {
+@@ -265,3 +279,10 @@ impl Radial {
+         Some(ids.into_iter().map(|i| i as usize).collect())
+     }
+ }
++
++/// `ES_LOCAL_BAIL`: a bail walks the doll's own registered population instead of telling the caller to read the whole
++/// universe. Both cost O(doll); the outcome cannot move (the caller's cheap tests already discard other dolls' bodies).
++fn local_bail() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_LOCAL_BAIL").is_ok());
++    *V
++}
