@@ -1,0 +1,149 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..a3622c4c 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -18,16 +18,21 @@ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// (physical footprint now, its peak over the process's life) in bytes. Linux lab shim: the resident size now
++/// and its high-water mark (`VmRSS`/`VmHWM`; the macOS build reads the same two through `proc_pid_rusage`).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let kb = |v: &str| v.split_whitespace().next().and_then(|x| x.parse::<u64>().ok()).unwrap_or(0) * 1024;
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = kb(v);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = kb(v);
++            }
++        }
+     }
+-    (buf[9], buf[30])
++    (now, peak)
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..eae4b297 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -203,10 +203,12 @@ pub struct Universe {
+     lanes: Lanes,
+     target: Tick,
+     encounters: Box<dyn Encounters>,
+-    /// Scans the player's items took and the allocator has not answered yet, in the order taken
++    /// Scans the player's items took that idle time has not answered yet, in the order taken
+     /// ([`Universe::drain_scans`]); the log, the count and the hash below are as if each had been answered at once once
+     /// this is empty, and [`Universe::digest`] answers what is held.
+     scans: VecDeque<Arc<dyn Held>>,
++    /// Print-only probe counters for the held-scan mint, gated by `ES_MINT` (nothing canonical reads them).
++    pub mint: MintStats,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+     /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+@@ -229,6 +231,28 @@ struct Lanes {
+     moons: Vec<usize>,
+ }
+ 
++/// Counters for the held-scan mint probe (`ES_MINT`): how many scans the player's items took, what pushed each
++/// one (the event clock moved, the head count flipped, or neither — a repeat of the scan before it), how many
++/// were answered and the most held at once. Print-only; no canonical outcome reads them.
++#[derive(Default)]
++pub struct MintStats {
++    pub taken: u64,
++    pub entries: u64,
++    pub answers: u64,
++    pub held_max: usize,
++    pub cls_t: u64,
++    pub cls_len: u64,
++    pub cls_same: u64,
++    last_t: Tick,
++    last_len: usize,
++}
++
++/// Whether the mint probe is on (one env read, cached).
++fn mint_probe() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_MINT").is_ok());
++    *ON
++}
++
+ /// The heading a player's nose starts at: along its velocity at tick 0 in its doll's axes (prograde, so that "forward" burns
+ /// the orbit up and not down into the planet).
+ fn prograde(b: &Binding) -> Res<u32> {
+@@ -269,6 +293,7 @@ impl Universe {
+             target: 0,
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
++            mint: MintStats::default(),
+             scan_ns: 0,
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+@@ -1160,9 +1185,33 @@ impl Universe {
+         let Some(p) = self.player else { return };
+         let t = self.bodies.event_time(p);
+         let interval = self.bodies.rec(p).step.max(2);
+-        match self.encounters.capture(&self.ctx(), p, t, interval) {
++        let held = self.encounters.capture(&self.ctx(), p, t, interval);
++        if mint_probe() {
++            self.mint.taken += 1;
++        }
++        match held {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            Some(held) => {
++                self.scans.push_back(held);
++                if mint_probe() {
++                    let len = self.bodies.len();
++                    self.mint.entries += 1;
++                    let cls = if t != self.mint.last_t {
++                        self.mint.cls_t += 1;
++                        't'
++                    } else if len != self.mint.last_len {
++                        self.mint.cls_len += 1;
++                        'L'
++                    } else {
++                        self.mint.cls_same += 1;
++                        '0'
++                    };
++                    self.mint.last_t = t;
++                    self.mint.last_len = len;
++                    self.mint.held_max = self.mint.held_max.max(self.scans.len());
++                    eprintln!("MINT t={t} cls={cls} held={}", self.scans.len());
++                }
++            }
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1197,6 +1246,9 @@ impl Universe {
+ 
+     /// Answer the oldest held scan: into the count, the log and the hash.
+     fn answer_front(&mut self) {
++        if mint_probe() {
++            self.mint.answers += 1;
++        }
+         let (t0, t_scan) = (Instant::now(), crate::prof::t());
+         let found = self.scans.front().map(|held| held.answer()).unwrap_or_default();
+         let ns = t0.elapsed().as_nanos() as u64;
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..ada94d46 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -165,6 +165,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "rtf": {"median": d.rtf_median, "lowest_1pct": d.rtf_low1, "overflow_frames": d.overflow_frames},
+         "events_per_second": d.events_per_second,
+         "player_alive": player_alive, "lost_bodies": lost,
++        "mint": {"taken": s.p.u.mint.taken, "entries": s.p.u.mint.entries, "answers": s.p.u.mint.answers,
++                 "held_max": s.p.u.mint.held_max, "cls_t": s.p.u.mint.cls_t, "cls_len": s.p.u.mint.cls_len,
++                 "cls_same": s.p.u.mint.cls_same, "note": "ES_MINT print-only probe: held-scan arrivals by trigger class"},
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
