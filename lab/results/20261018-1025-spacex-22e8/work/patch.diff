@@ -1,0 +1,427 @@
+diff --git a/crates/universe/examples/orbitbytes.rs b/crates/universe/examples/orbitbytes.rs
+new file mode 100644
+index 00000000..d366874d
+--- /dev/null
++++ b/crates/universe/examples/orbitbytes.rs
+@@ -0,0 +1,262 @@
++//! The live body's byte anatomy and its read demand (lab run 20261018-1025-spacex-22e8).
++//! The ladder's next break is memory (2.4 KB a body at birth, ~5.1 after the first kick,
++//! 4 GiB at ~1.7e6 bodies) and the ladder names the compiled orbit "the representation's
++//! lever, not a prune rule" without pricing it. This probe decomposes every byte the
++//! shipped store holds per body (record, plan, compiled knots, entry, retired history),
++//! censuses the reads (which bodies' knots the engine ever evaluates, current vs retired
++//! bindings) over a real flight, then does the same for one view gather, and prices the
++//! recompile (`Orbit::compile` from the key) the lazy alternative would pay.
++//!
++//! cargo run --release -p emergent-universe --example orbitbytes [-- <N> <coast|burn> [seconds [rtf [budget_ms]]]]]
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::{Knot, Orbit};
++use emergent_universe::body::{Item, Segment};
++use emergent_universe::census;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache};
++use emergent_universe::{Budget, Config, Universe};
++use std::hint::black_box;
++use std::time::{Duration, Instant};
++
++/// (rss, peak rss) from /proc on Linux.
++fn footprint() -> (u64, u64) {
++    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut rss = 0;
++    let mut hwm = 0;
++    for line in s.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            rss = v.trim().split_whitespace().next().and_then(|x| x.parse::<u64>().ok()).unwrap_or(0) * 1024;
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            hwm = v.trim().split_whitespace().next().and_then(|x| x.parse::<u64>().ok()).unwrap_or(0) * 1024;
++        }
++    }
++    (rss, hwm)
++}
++
++fn traj_bytes(t: &Trajectory) -> usize {
++    match t {
++        Trajectory::Cycle(o) => o.shape().knots().len() * std::mem::size_of::<Knot>()
++            + o.shape().crossings().len() * std::mem::size_of::<usize>(),
++        // The shipped `bytes_of` heuristic (no Passage bodies exist in the plane; counted to prove it).
++        Trajectory::Passage(_) => 4096,
++        Trajectory::Plunge(p) => p.retained_bytes(),
++    }
++}
++
++/// Deep bytes of one binding's heap share: the Arc header + Entry's fixed fields + the compiled knots.
++fn binding_deep(b: &emergent_universe::bind::Binding) -> usize {
++    16 + std::mem::size_of_val(&*b.entry) + traj_bytes(&b.entry.trajectory)
++}
++
++#[derive(Default)]
++struct Anatomy {
++    bodies: usize,
++    rec: usize,
++    plan: usize,
++    knots_cur: usize,
++    entry_cur: usize,
++    arc_cur: usize,
++    hist_shallow: usize,
++    hist_deep: usize,
++    hist_shared: usize,
++    histories: usize,
++    knots_hist: usize,
++    kinds: (usize, usize, usize), // cycle, passage, plunge
++    knot_count: usize,
++    crossings: usize,
++}
++
++fn anatomy(u: &Universe, ids: &[usize], decoded: &[bool]) -> Anatomy {
++    let mut a = Anatomy::default();
++    for &i in ids {
++        let r = u.rec(i);
++        a.bodies += 1;
++        a.rec += std::mem::size_of::<emergent_universe::body::BodyRec>();
++        a.plan += r.plan.capacity() * std::mem::size_of::<Item>();
++        match &r.b.entry.trajectory {
++            Trajectory::Cycle(_) => a.kinds.0 += 1,
++            Trajectory::Passage(_) => a.kinds.1 += 1,
++            Trajectory::Plunge(_) => a.kinds.2 += 1,
++        }
++        if let Trajectory::Cycle(o) = &r.b.entry.trajectory {
++            a.knot_count += o.shape().knots().len();
++            a.crossings += o.shape().crossings().len();
++        }
++        let d = binding_deep(&r.b);
++        a.knots_cur += traj_bytes(&r.b.entry.trajectory);
++        a.entry_cur += d - traj_bytes(&r.b.entry.trajectory);
++        a.arc_cur += 16;
++        let h = u.bodies().history_len(i);
++        a.histories += h;
++        a.hist_shallow += h * std::mem::size_of::<Segment>();
++        // Retired bindings: deep bytes unless the Arc is shared with the current one or another segment.
++        let cur_ptr = std::sync::Arc::as_ptr(&r.b.entry) as usize;
++        let retired = u.bodies().bindings_of(i);
++        let mut seen = vec![cur_ptr];
++        for b in retired.iter().take(h) {
++            let p = std::sync::Arc::as_ptr(&b.entry) as usize;
++            if seen.contains(&p) {
++                a.hist_shared += 1;
++            } else {
++                seen.push(p);
++                a.hist_deep += binding_deep(b);
++                a.knots_hist += traj_bytes(&b.entry.trajectory);
++            }
++        }
++    }
++    let _ = decoded;
++    a
++}
++
++fn line(tag: &str, a: &Anatomy, decoded: &[bool], ids: &[usize]) -> String {
++    let n = a.bodies.max(1) as f64;
++    let decoded_n = ids.iter().filter(|&&i| decoded.get(i).copied().unwrap_or(false)).count();
++    format!(
++        "{tag}: bodies {} per-body total {:.0} (rec {:.0} plan {:.0} knots_cur {:.0} entry_cur {:.0} arc {:.0} hist_shallow {:.0} hist_deep {:.0}) kinds c/p/pl {}/{}/{} knots mean {:.1} crossings mean {:.1} histories {} (shared {}) decoded_ever {}/{}",
++        a.bodies,
++        (a.rec + a.plan + a.knots_cur + a.entry_cur + a.arc_cur + a.hist_shallow + a.hist_deep) as f64 / n,
++        a.rec as f64 / n, a.plan as f64 / n, a.knots_cur as f64 / n, a.entry_cur as f64 / n, a.arc_cur as f64 / n,
++        a.hist_shallow as f64 / n, a.hist_deep as f64 / n,
++        a.kinds.0, a.kinds.1, a.kinds.2, a.knot_count as f64 / n, a.crossings as f64 / n, a.histories, a.hist_shared,
++        decoded_n, a.bodies
++    )
++}
++
++fn bodies_store_len(u: &Universe) -> usize {
++    u.bodies().len()
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let (_, rss0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let (rss1, hwm1) = footprint();
++
++    // Classes: the plane's own ids from the scenario, the ladder's extras, the player.
++    let player = p.player;
++    let planets: Vec<usize> = p.planets.clone();
++    let moon = p.moon;
++    let ships: Vec<usize> = p.ships.clone();
++    let fleet = p.fleet;
++    let root_doll = p.u.rec(planets[0]).b.doll;
++    let all: Vec<usize> = (0..bodies).collect();
++    let ladder: Vec<usize> = ships[ships.len().saturating_sub(n)..].to_vec();
++    let fleet_ids: Vec<usize> = ((player + 1)..bodies_store_len(&p.u)).collect();
++    let belt: Vec<usize> = ladder.iter().copied().filter(|&i| p.u.rec(i).b.doll == root_doll).collect();
++    let locals: Vec<usize> = ladder.iter().copied().filter(|&i| !belt.contains(&i)).collect();
++    println!("orbitbytes: n={n} bodies={bodies} flight={flight} rtf={rtf} seconds={seconds} budget_ms={budget_ms} build_s={build:.2} rss_mb={:.0} hwm_mb={:.0} ladder={} belt={} locals={} plane_ships={} planets={} [sizes] BodyRec={} Item={} Segment={} Binding={} Knot={} Entry={}",
++        rss1 as f64 / 1e6, hwm1 as f64 / 1e6, ladder.len(), belt.len(), locals.len(), ships.len(), planets.len(),
++        std::mem::size_of::<emergent_universe::body::BodyRec>(), std::mem::size_of::<Item>(), std::mem::size_of::<Segment>(),
++        std::mem::size_of::<emergent_universe::bind::Binding>(), std::mem::size_of::<Knot>(), std::mem::size_of_val(&*p.u.rec(player).b.entry));
++    println!("shipped bytes_of: mean {:.0} B/body over all; footprint at build {:.0} B/body (n={})", p.u.bytes_per_body(), (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, n);
++    println!("{}", census::dump("build"));
++    let dec_build = census::decoded_set();
++    census::reset_phase();
++
++    let dec = dec_build.clone();
++    println!("{}", line("anatomy@build ALL", &anatomy(&p.u, &all, &dec), &dec, &all));
++    println!("{}", line("anatomy@build BELT", &anatomy(&p.u, &belt, &dec), &dec, &belt));
++    println!("{}", line("anatomy@build LOCALS", &anatomy(&p.u, &locals, &dec), &dec, &locals));
++
++    // The flight, as the ladder flies it.
++    let mut late_ms: Vec<f64> = Vec::new();
++    let mut truncated = false;
++    let (t_first_stats, t_first) = (p.u.stats, p.u.now);
++    let mut ran = 0usize;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(55) {
++            truncated = true;
++            break;
++        }
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        if f >= 60 {
++            late_ms.push(start.elapsed().as_secs_f64() * 1e3);
++        }
++        ran += 1;
++    }
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    let s = p.u.stats;
++    let (evs, kicks) = (s.events() - t_first_stats.events(), s.kicks - t_first_stats.kicks);
++    late_ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let p99 = late_ms.get((late_ms.len() * 99) / 100).copied().unwrap_or(0.0);
++    println!("flight: frames {} (truncated {}) game_s {:.0} events {} kicks {} engine_ms p50 {:.3} p99 {:.3} max {:.3}", ran, truncated, game_s, evs, kicks, late_ms.get(late_ms.len() / 2).copied().unwrap_or(0.0), p99, late_ms.last().copied().unwrap_or(0.0));
++    {
++        let d = census::decoded_set();
++        for (tag, ids) in [("BELT", &belt), ("LOCALS", &locals), ("PLANETS", &planets)] {
++            let k = ids.iter().filter(|&&i| d.get(i).copied().unwrap_or(false)).count();
++            println!("engine_decoded {}: {}/{}", tag, k, ids.len());
++        }
++    }
++    println!("{}", census::dump("engine"));
++    let dec_flight = census::decoded_set();
++    println!("shipped bytes_of after flight: mean {:.0} B/body", p.u.bytes_per_body());
++
++    // The view: one cold and one warm gather, censused apart.
++    let mut cache = ViewCache::default();
++    census::reset_phase();
++    let tv = Instant::now();
++    let seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
++    let cold = tv.elapsed().as_secs_f64() * 1e3;
++    println!("{}", census::dump("view_cold"));
++    let dec_view = census::decoded_set();
++    census::reset_phase();
++    let tv = Instant::now();
++    let _ = gather_cached(&p.u, &p.names, &mut cache);
++    let warm = tv.elapsed().as_secs_f64() * 1e3;
++    println!("view: cold {cold:.1} ms ({seen} seen), warm {warm:.1} ms");
++    println!("{}", census::dump("view_warm"));
++
++    // Post-flight anatomy: the kicked against the never-kicked (flight-phase decode marks).
++    let dec = dec_flight;
++    let kicked: Vec<usize> = ladder.iter().copied().filter(|&i| p.u.rec(i).events > 0 || p.u.bodies().history_len(i) > 0).collect();
++    let unkicked: Vec<usize> = ladder.iter().copied().filter(|&i| p.u.rec(i).events == 0 && p.u.bodies().history_len(i) == 0).collect();
++    println!("{}", line("anatomy@end KICKED", &anatomy(&p.u, &kicked, &dec), &dec, &kicked));
++    println!("{}", line("anatomy@end UNKICKED", &anatomy(&p.u, &unkicked, &dec), &dec, &unkicked));
++    println!("{}", line("anatomy@end PLANETS+PLAYER", &anatomy(&p.u, &planets, &dec), &dec, &planets));
++
++    // The recompile price: `Orbit::compile` from the key, the lazy alternative's per-first-read bill.
++    let keys: Vec<_> = belt.iter().filter_map(|&i| match &p.u.rec(i).b.entry.trajectory {
++        Trajectory::Cycle(c) => Some(c.key()),
++        _ => None,
++    }).take(200).collect();
++    if !keys.is_empty() {
++        // warm
++        for k in &keys {
++            let _ = Orbit::compile(*k);
++        }
++        let rounds = 5;
++        let t0 = Instant::now();
++        let mut ok = 0usize;
++        for _ in 0..rounds {
++            for k in &keys {
++                if Orbit::compile(*k).is_ok() {
++                    ok += 1;
++                }
++            }
++        }
++        let ns = t0.elapsed().as_nanos() as f64 / (rounds * keys.len()) as f64;
++        println!("recompile: Orbit::compile from key {:.0} ns mean over {} keys x {} rounds (ok {}/{})", ns, keys.len(), rounds, ok, rounds * keys.len());
++        let _ = black_box(());
++    }
++    let (rss2, hwm2) = footprint();
++    println!("memory: rss {rss0} -> {rss1} -> {rss2} B, hwm {hwm2} B ({:.0} B/body peak over n)", hwm2 as f64 / n.max(1) as f64);
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..72fff1cb 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -115,6 +115,7 @@ pub struct Binding {
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    crate::census::note_decode();
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..1add090c 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -152,12 +152,16 @@ impl BodyStore for PlainBodies {
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
+         let r = &self.recs[i];
+         if t >= r.b.event_time {
++            crate::census::note_binding(i, false);
+             return Some(r.b.clone());
+         }
+         let h = &self.history[i];
+         // Segments are contiguous and ascending in `until`: the first with `until > t`.
+         let k = h.partition_point(|s| s.until <= t);
+-        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
++        h.get(k).filter(|s| s.b.event_time <= t).map(|s| {
++            crate::census::note_binding(i, true);
++            s.b.clone()
++        })
+     }
+     fn event_time(&self, i: usize) -> Tick {
+         self.recs[i].b.event_time
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..0673d919
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,107 @@
++//! Print-only census of the store's read paths (lab run 20261018-1025-spacex-22e8).
++//! Counters and bit slabs only: no behaviour change, digests unaffected.
++//! A decode is attributed to the last body `binding_at` served on this thread;
++//! flights are single-threaded (threads = 1), so the attribution is exact there.
++//! Decodes with no `binding_at` on the thread count as `direct` (the mint/refit path).
++use std::cell::Cell;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::{LazyLock, RwLock};
++
++pub struct Census {
++    pub bind_cur: AtomicU64,
++    pub bind_hist: AtomicU64,
++    pub decodes: AtomicU64,
++    pub decodes_direct: AtomicU64,
++    slab: RwLock<Vec<u8>>, // per body: bit0 cloned-current, bit1 cloned-history, bit2 decoded
++}
++
++static C: LazyLock<Census> = LazyLock::new(|| Census {
++    bind_cur: AtomicU64::new(0),
++    bind_hist: AtomicU64::new(0),
++    decodes: AtomicU64::new(0),
++    decodes_direct: AtomicU64::new(0),
++    slab: RwLock::new(Vec::new()),
++});
++
++fn c() -> &'static Census {
++    &C
++}
++
++thread_local! {
++    static LAST: Cell<i64> = const { Cell::new(-1) };
++}
++
++pub fn note_binding(i: usize, hist: bool) {
++    let c = c();
++    if hist {
++        c.bind_hist.fetch_add(1, Ordering::Relaxed);
++    } else {
++        c.bind_cur.fetch_add(1, Ordering::Relaxed);
++    }
++    LAST.with(|l| l.set(i as i64));
++    let mut s = c.slab.write().unwrap();
++    if s.len() <= i {
++        s.resize(i + 1, 0);
++    }
++    s[i] |= if hist { 2 } else { 1 };
++}
++
++pub fn note_decode() {
++    let c = c();
++    let last = LAST.with(|l| l.get());
++    if last < 0 {
++        c.decodes_direct.fetch_add(1, Ordering::Relaxed);
++        return;
++    }
++    c.decodes.fetch_add(1, Ordering::Relaxed);
++    let mut s = c.slab.write().unwrap();
++    let i = last as usize;
++    if s.len() <= i {
++        s.resize(i + 1, 0);
++    }
++    s[i] |= 4;
++}
++
++/// Reset the decode counters and decoded marks (to measure a second phase, e.g. the view
++/// gather, without the flight's reads). Clone/hist marks stay (they are per-phase too, so
++/// the caller dumps first).
++pub fn reset_phase() {
++    let c = c();
++    c.decodes.store(0, Ordering::Relaxed);
++    c.decodes_direct.store(0, Ordering::Relaxed);
++    c.bind_cur.store(0, Ordering::Relaxed);
++    c.bind_hist.store(0, Ordering::Relaxed);
++    let mut s = c.slab.write().unwrap();
++    for b in s.iter_mut() {
++        *b = *b & 1 | (*b & 2); // keep ever-cloned marks, drop decoded and phase counts below
++    }
++    LAST.with(|l| l.set(-1));
++}
++
++fn popcount(slab: &[u8], bit: u8) -> usize {
++    slab.iter().filter(|b| *b & bit != 0).count()
++}
++
++/// One census line: call counts, distinct-body marks. `ever` bits are over all phases;
++/// the counters are since the last `reset_phase`.
++pub fn dump(label: &str) -> String {
++    let c = c();
++    let s = c.slab.read().unwrap();
++    format!(
++        "census[{label}] bind_cur={} bind_hist={} decodes={} decodes_direct={} distinct_cloned_cur={} distinct_cloned_hist={} distinct_decoded_ever={} slab_bodies={}",
++        c.bind_cur.load(Ordering::Relaxed),
++        c.bind_hist.load(Ordering::Relaxed),
++        c.decodes.load(Ordering::Relaxed),
++        c.decodes_direct.load(Ordering::Relaxed),
++        popcount(&s, 1),
++        popcount(&s, 2),
++        popcount(&s, 4),
++        s.len()
++    )
++}
++
++/// Which bodies were ever decoded (bit4) — for per-class attribution by the probe.
++pub fn decoded_set() -> Vec<bool> {
++    let s = c().slab.read().unwrap();
++    s.iter().map(|b| b & 4 != 0).collect()
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..59d4d4b6 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,6 +1,7 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+ pub mod bind;
+ pub mod body;
++pub mod census;
+ pub mod ctx;
+ pub mod dash;
+ pub mod encounter;

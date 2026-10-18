@@ -1,0 +1,10 @@
+Working...
+Check complete. **Grade: lead** — written to `check.md`, with the author's page corrected in place.
+
+**What I did:**
+- **Reproduced** from the clean base (`487a05b8`): applied `work/patch.diff`, built, re-ran the coast-10⁴ arm solo — every census counter (63,546/2,846/116,462/267), anatomy line, and `engine_decoded BELT 0/9700` matches digit for digit. One recorded slip: the dossier's recompile range 4,711–4,758 ns is produced by no regen run (4,651–4,684 measured; inside P5's letter).
+- **Three adversarial arms**, all confirming: seed 2 → belt 0/9,700 decoded; N=3×10⁵ (outside the tested range) → 0/299,700, decode rate 66/game-s (O(1) in N), 777 MB peak; and the arm the author left unmeasured — past the wave (15,000 game-s at rtf 1,000, 33,614 kicks) → belt **9,700/9,700 read exactly once**, ≈1 decode per body, not per-frame. The dossier's own caveat ("read once, at the event that pays a compile") is the measured truth.
+- **Novelty killed the grade, not the execution.** The deletion this run prices is the page's own prior art, uncited: `0e37` (compiled orbits write-only in flight, retired 0 reads), `760f` (4.6 µs compile, 672 B knots, 120,083/120,083 bit-identical regens), `b9ae`/`8b89` (the lazy delete **already flown digest-identically, births included, floor 680 B/B** vs this run's predicted 478), `e0f9`, `0619` (gold). The frozen ladder artifact itself (ladder.txt:147, break 4) pre-states "a cache of the key… a lazy birth… is bit for bit". No experiment would make it gold — the missing one is already recorded as done. Genuinely new residue: the per-class decode census at the current commit, the byte anatomy, and the shipped `bytes_of` undercount (verified in source at body.rs:189–197).
+- **Page corrections:** fixed the knots arithmetic (672 = 7.3×88 + crossings×8), the double-counted 16 B Arc header (true deep ≈1,456 B, 67% share unchanged), anchored the 478 B/B prediction against 8b89's flown 680, added the prior-art checker note, and set the runs-line grade.
+
+Tree restored clean; only `check.md` and `wiki/nladder.md` in the run folder changed.

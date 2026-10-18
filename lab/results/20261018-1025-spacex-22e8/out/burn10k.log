@@ -1,0 +1,20 @@
+orbitbytes: n=10000 bodies=10028 flight=burn rtf=100 seconds=12 budget_ms=12 build_s=0.42 rss_mb=27 hwm_mb=27 ladder=10000 belt=9700 locals=300 plane_ships=10023 planets=3 [sizes] BodyRec=464 Item=16 Segment=208 Binding=192 Knot=88 Entry=288
+shipped bytes_of: mean 1196 B/body over all; footprint at build 2465 B/body (n=10000)
+census[build] bind_cur=68929 bind_hist=0 decodes=69868 decodes_direct=10029 distinct_cloned_cur=10028 distinct_cloned_hist=0 distinct_decoded_ever=10028 slab_bodies=10028
+anatomy@build ALL: bodies 10028 per-body total 1469 (rec 464 plan 17 knots_cur 668 entry_cur 304 arc 16 hist_shallow 0 hist_deep 0) kinds c/p/pl 10028/0/0 knots mean 7.3 crossings mean 3.5 histories 0 (shared 0) decoded_ever 10028/10028
+anatomy@build BELT: bodies 9700 per-body total 1472 (rec 464 plan 16 knots_cur 672 entry_cur 304 arc 16 hist_shallow 0 hist_deep 0) kinds c/p/pl 9700/0/0 knots mean 7.3 crossings mean 3.6 histories 0 (shared 0) decoded_ever 9700/9700
+anatomy@build LOCALS: bodies 300 per-body total 1376 (rec 464 plan 32 knots_cur 560 entry_cur 304 arc 16 hist_shallow 0 hist_deep 0) kinds c/p/pl 300/0/0 knots mean 6.2 crossings mean 1.5 histories 0 (shared 0) decoded_ever 300/300
+flight: frames 720 (truncated false) game_s 1198 events 11363 kicks 3597 engine_ms p50 0.896 p99 10.919 max 11.136
+engine_decoded BELT: 0/9700
+engine_decoded LOCALS: 178/300
+engine_decoded PLANETS: 2/3
+census[engine] bind_cur=174597 bind_hist=237 decodes=173920 decodes_direct=0 distinct_cloned_cur=10071 distinct_cloned_hist=71 distinct_decoded_ever=236 slab_bodies=10071
+shipped bytes_of after flight: mean 1250 B/body
+census[view_cold] bind_cur=64990 bind_hist=414 decodes=79616 decodes_direct=0 distinct_cloned_cur=10071 distinct_cloned_hist=201 distinct_decoded_ever=10052 slab_bodies=10071
+view: cold 313.9 ms (10057 seen), warm 116.8 ms
+census[view_warm] bind_cur=24022 bind_hist=214 decodes=28575 decodes_direct=0 distinct_cloned_cur=10071 distinct_cloned_hist=201 distinct_decoded_ever=10052 slab_bodies=10071
+anatomy@end KICKED: bodies 178 per-body total 4211 (rec 464 plan 22 knots_cur 552 entry_cur 304 arc 16 hist_shallow 555 hist_deep 2298) kinds c/p/pl 178/0/0 knots mean 6.2 crossings mean 1.3 histories 475 (shared 0) decoded_ever 178/178
+anatomy@end UNKICKED: bodies 9822 per-body total 1471 (rec 464 plan 16 knots_cur 670 entry_cur 304 arc 16 hist_shallow 0 hist_deep 0) kinds c/p/pl 9822/0/0 knots mean 7.3 crossings mean 3.5 histories 0 (shared 0) decoded_ever 0/9822
+anatomy@end PLANETS+PLAYER: bodies 3 per-body total 1389 (rec 464 plan 32 knots_cur 573 entry_cur 304 arc 16 hist_shallow 0 hist_deep 0) kinds c/p/pl 3/0/0 knots mean 6.3 crossings mean 2.0 histories 0 (shared 0) decoded_ever 2/3
+recompile: Orbit::compile from key 4670 ns mean over 200 keys x 5 rounds (ok 1000/1000)
+memory: rss 2629632 -> 27275264 -> 56147968 B, hwm 56229888 B (5623 B/body peak over n)

@@ -1,0 +1,4 @@
+Working...
+All deliverables in place (`dossier.md`, `predictions.md`, `regen.sh` verified end-to-end, `work/patch.diff`, `wiki/nladder.md`, four arm logs) — regen runs in ~15 s from the patch and reproduces every number.
+
+**Claim:** The memory wall's bytes are now priced on shipped code: a belt body holds 1,471 B deep at birth (67% of it the compiled orbit: 991 B of knots+Entry+Arc) which the engine decodes **zero times** in its whole quiet life (0/9,700 over 2,000 game-s at 10⁴, N-flat 0/99,700 at 10⁵), and the kick's 2.6→5.1 kB doubling is the retired segment (2,625 B/body, unshared) — two deletable caches at a measured 4.7 µs recompile that the engine's own read rate makes free until the wave, moving the ~1.7×10⁶-body wall ~1.7× on the birth term alone before the compact store is ever wired.
