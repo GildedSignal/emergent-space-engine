@@ -1,0 +1,45 @@
+N=1000000 bar=0.008 eps=0.05; PASS needs med AND p90 < bar
+case                                   med      p90  verdict
+smooth 64x256 geom                 0.03888  0.08251  fail  cells=16382
+smooth 64x256 COM                  0.03720  0.08031  fail  cells=16382 ratio=1.05x
+smooth 128x512 geom                0.01147  0.02509  fail  cells=64461
+smooth 128x512 COM                 0.00871  0.02084  fail  cells=64461 ratio=1.32x
+smooth 256x1024 geom               0.00279  0.00621  PASS  cells=221937
+smooth 256x1024 COM                0.00094  0.00303  PASS  cells=221937 ratio=2.98x
+smooth 256x1024 geom m<=0          0.01816  0.05047  fail  C4:fail
+smooth 256x1024 COM  m<=0          0.01851  0.05147  fail  
+smooth 256x1024 geom m<=4          0.00763  0.01475  med-pass  
+smooth 256x1024 COM  m<=4          0.00742  0.01396  med-pass  
+smooth 256x1024 geom m<=8          0.00722  0.01441  med-pass  
+smooth 256x1024 COM  m<=8          0.00720  0.01339  med-pass  
+smooth 512x2048 geom               0.00138  0.00297  PASS  cells=550790
+smooth 512x2048 COM                0.00012  0.00041  PASS  cells=550790 ratio=11.88x
+[smooth elapsed 126s]
+clusters 64x256 geom               0.01144  0.03621  fail  cells=16304
+clusters 64x256 COM                0.00949  0.02809  fail  cells=16304 ratio=1.21x
+clusters 128x512 geom              0.00412  0.01008  med-pass  cells=61516
+clusters 128x512 COM               0.00178  0.00679  PASS  cells=61516 ratio=2.31x
+clusters 256x1024 geom             0.00135  0.00314  PASS  cells=198318
+clusters 256x1024 COM              0.00020  0.00106  PASS  cells=198318 ratio=6.73x
+clusters 256x1024 geom m<=0        0.05884  0.17803  fail  C4:fail
+clusters 256x1024 COM  m<=0        0.05851  0.17799  fail  
+clusters 256x1024 geom m<=4        0.04817  0.16237  fail  
+clusters 256x1024 COM  m<=4        0.04663  0.16156  fail  
+clusters 256x1024 geom m<=8        0.03352  0.14899  fail  
+clusters 256x1024 COM  m<=8        0.03242  0.15324  fail  
+[clusters elapsed 196s]
+smooth seed=118 geom               0.00280  0.00699  PASS  cells=221972
+smooth seed=118 COM                0.00090  0.00324  PASS  
+smooth seed=219 geom               0.00264  0.00683  PASS  cells=221970
+smooth seed=219 COM                0.00096  0.00305  PASS  
+[seeds elapsed 262s]
+smooth inner 0.02-0.2 geom         0.00063  0.00807  med-pass  
+smooth inner 0.02-0.2 COM          0.00011  0.00100  PASS  
+smooth outer 4.8-5.0 geom          0.00381  0.00818  med-pass  
+smooth outer 4.8-5.0 COM           0.00070  0.00354  PASS  
+[annuli elapsed 327s]
+smooth 256x1024 geom eps=0.02      0.01793  0.04610  fail  
+smooth 256x1024 COM  eps=0.02      0.00902  0.03046  fail  
+smooth 256x1024 geom eps=0.01      0.04914  0.14088  fail  
+smooth 256x1024 COM  eps=0.01      0.02852  0.10990  fail  
+[done elapsed 392s]
