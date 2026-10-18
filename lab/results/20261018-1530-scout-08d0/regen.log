@@ -1,0 +1,51 @@
+== main arm (seed 1, n 2500) ==
+pairs 2500 uncensored 2232 censored 268
+k: mean 6.859e5 median 549204 (model C/w = 1.000e6) p05 48087 p95 1849334
+S scaling: median S/(3C/k^2) = 0.1598  median S/(C/k) = 8.5287e-7  P(j* < 0.2k) = 0.031
+kap 2^-26: keep(slack<S) 0.0681  recompute 0.9319  violations 0 (must be 0)  P(k'<k) 4.570e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/8.961e-4
+kap 2^-23: keep(slack<S) 0.0184  recompute 0.9816  violations 0 (must be 0)  P(k'<k) 4.642e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/4.480e-3
+kap 2^-20: keep(slack<S) 0.0076  recompute 0.9924  violations 0 (must be 0)  P(k'<k) 4.673e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/4.480e-3
+kap 2^-17: keep(slack<S) 0.0036  recompute 0.9964  violations 0 (must be 0)  P(k'<k) 4.543e-1  flips-on H=8/128/4096: 0.000e0/4.480e-4/2.240e-3
+kap 2^-14: keep(slack<S) 0.0018  recompute 0.9982  violations 0 (must be 0)  P(k'<k) 4.489e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/2.240e-3
+epoch E=   1: re-arms/pair/256k 256.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=   4: re-arms/pair/256k 64.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=  16: re-arms/pair/256k 16.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=  64: re-arms/pair/256k 4.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E= 256: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=1024: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.28750  pairs-with-miss 17/800  missed per re-arm 2.875e-1
+epoch E=4096: re-arms/pair/256k 1.00  missed-conj/pair/256k 1.07125  pairs-with-miss 80/800  missed per re-arm 1.071e0
+DONE seed 1 n 2500
+== held-out arm (seed 2, n 3000; cases the author did not tune on) ==
+pairs 3000 uncensored 2690 censored 310
+k: mean 6.933e5 median 539052 (model C/w = 1.000e6) p05 47680 p95 1918901
+S scaling: median S/(3C/k^2) = 0.1632  median S/(C/k) = 8.8083e-7  P(j* < 0.2k) = 0.033
+kap 2^-26: keep(slack<S) 0.0625  recompute 0.9375  violations 0 (must be 0)  P(k'<k) 4.435e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/3.717e-4
+kap 2^-23: keep(slack<S) 0.0219  recompute 0.9781  violations 0 (must be 0)  P(k'<k) 4.636e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/4.461e-3
+kap 2^-20: keep(slack<S) 0.0052  recompute 0.9948  violations 0 (must be 0)  P(k'<k) 4.665e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/3.717e-3
+kap 2^-17: keep(slack<S) 0.0022  recompute 0.9978  violations 0 (must be 0)  P(k'<k) 4.509e-1  flips-on H=8/128/4096: 0.000e0/3.717e-4/3.717e-3
+kap 2^-14: keep(slack<S) 0.0011  recompute 0.9989  violations 0 (must be 0)  P(k'<k) 4.669e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/5.576e-3
+epoch E=   1: re-arms/pair/256k 256.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=   4: re-arms/pair/256k 64.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=  16: re-arms/pair/256k 16.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=  64: re-arms/pair/256k 4.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E= 256: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.06750  pairs-with-miss 1/800  missed per re-arm 6.750e-2
+epoch E=1024: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.24000  pairs-with-miss 11/800  missed per re-arm 2.400e-1
+epoch E=4096: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.99500  pairs-with-miss 78/800  missed per re-arm 9.950e-1
+DONE seed 2 n 3000
+== held-out arm (seed 77, n 1500) ==
+pairs 1500 uncensored 1331 censored 169
+k: mean 7.115e5 median 558230 (model C/w = 1.000e6) p05 43705 p95 1953728
+S scaling: median S/(3C/k^2) = 0.1571  median S/(C/k) = 8.0272e-7  P(j* < 0.2k) = 0.033
+kap 2^-26: keep(slack<S) 0.0706  recompute 0.9294  violations 0 (must be 0)  P(k'<k) 4.651e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/0.000e0
+kap 2^-23: keep(slack<S) 0.0263  recompute 0.9737  violations 0 (must be 0)  P(k'<k) 4.853e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/7.513e-3
+kap 2^-20: keep(slack<S) 0.0083  recompute 0.9917  violations 0 (must be 0)  P(k'<k) 4.568e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/3.757e-3
+kap 2^-17: keep(slack<S) 0.0023  recompute 0.9977  violations 0 (must be 0)  P(k'<k) 4.591e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/4.508e-3
+kap 2^-14: keep(slack<S) 0.0015  recompute 0.9985  violations 0 (must be 0)  P(k'<k) 4.793e-1  flips-on H=8/128/4096: 0.000e0/0.000e0/3.757e-3
+epoch E=   1: re-arms/pair/256k 256.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=   4: re-arms/pair/256k 64.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=  16: re-arms/pair/256k 16.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E=  64: re-arms/pair/256k 4.00  missed-conj/pair/256k 0.00000  pairs-with-miss 0/800  missed per re-arm 0.000e0
+epoch E= 256: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.22875  pairs-with-miss 3/800  missed per re-arm 2.288e-1
+epoch E=1024: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.45750  pairs-with-miss 12/800  missed per re-arm 4.575e-1
+epoch E=4096: re-arms/pair/256k 1.00  missed-conj/pair/256k 0.94250  pairs-with-miss 53/800  missed per re-arm 9.425e-1
+DONE seed 77 n 1500
