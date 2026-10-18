@@ -1,0 +1,180 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..f8425d2d 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,40 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On Linux (the lab's boxes): the resident set and its high-water mark, from /proc/self/status.
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        let kb = |key: &str| {
++            std::fs::read_to_string("/proc/self/status")
++                .ok()
++                .and_then(|s| {
++                    s.lines()
++                        .find(|l| l.starts_with(key))
++                        .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++                })
++                .unwrap_or(0)
++                * 1024
++        };
++        (kb("VmRSS:"), kb("VmHWM:"))
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -87,6 +107,12 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if let Ok(path) = std::env::var("ES_DUMP") {
++            use std::io::Write;
++            if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
++                let _ = writeln!(out, "{f} {} {}", took.as_secs_f64() * 1e3, frame.events);
++            }
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..20a0b5e3 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -97,14 +97,49 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
+ }
+ 
+-/// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
+-/// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
+-/// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
+-/// so no less accurate), and every interval after it starts on the grid: every interval of a power of two starts on a
+-/// multiple of its own length, a body of a longer step has its boundaries on those of a shorter one's, and every pair
+-/// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
+-/// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
+-pub fn aligned(step: i64, t: Tick) -> i64 {
++/// Lab probes (default off, so the shipped law is bit for bit): `ES_CHAIN` and `ES_LOCAL_STAGGER`.
++fn flag(name: &str) -> bool {
++    std::env::var(name).is_ok_and(|v| v != "0")
++}
++
++/// `ES_CHAIN` (default off): chain every interval from the body's previous event — the clock law's
++/// own shape — instead of re-anchoring to the absolute power-of-two grid. Inert while a body's
++/// boundaries are on the grid (a one-tick birth); after any off-grid event (a birth spread, a
++/// handoff) the offset persists instead of being re-absorbed within one interval, so no population
++/// can lock its boundaries onto one shared grid again. Gives up "every pair shares boundaries"
++/// (docs/law.md) exactly as a per-body phase does.
++fn chain_on() -> bool {
++    flag("ES_CHAIN")
++}
++
++/// `ES_LOCAL_STAGGER` (default off): a planet-doll body's *first* interval is shorter by a uniform
++/// id-derived fraction of its own step, de-phasing a one-tick-born population at birth. Under the
++/// shipped anchor the grid re-absorbs the offset within one period; under `ES_CHAIN` it is permanent.
++fn stagger_on() -> bool {
++    flag("ES_LOCAL_STAGGER")
++}
++
++/// A uniform id-derived offset in `[0, step)` (splitmix64 of the body's index).
++fn stagger_off(i: usize, step: i64) -> i64 {
++    let mut z = (i as u64).wrapping_add(0x9E3779B97F4A7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++    ((z ^ (z >> 31)) % step.max(1) as u64) as i64
++}
++
++ /// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
++ /// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
++ /// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
++ /// so no less accurate), and every interval after it starts on the grid: every interval of a power of two starts on a
++ /// multiple of its own length, a body of a longer step has its boundaries on those of a shorter one's, and every pair
++ /// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
++ /// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
++ pub fn aligned(step: i64, t: Tick) -> i64 {
++    if chain_on() {
++        // ES_CHAIN: the interval is the body's own step from wherever it stands. There are no
++        // stubs at all (a step change costs no extra interval), and an off-grid offset persists.
++        return step;
++    }
+     let off = t.rem_euclid(step);
+     if off == 0 {
+         return step;
+@@ -336,6 +371,8 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// Whether this is the body's first plan (its creation): where `ES_LOCAL_STAGGER` applies.
++    first: bool,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -567,6 +604,17 @@ impl Work<'_, '_> {
+         }
+         self.rec.anchor = t;
+         let mut h = aligned(self.rec.step, t);
++        if self.first && stagger_on() && d != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player) {
++            // ES_LOCAL_STAGGER: de-phase a one-tick-born population at birth — the first interval is
++            // shorter by a uniform id-derived fraction of the step (no less accurate: it is shorter).
++            // Under the shipped anchor the grid re-absorbs this within one period; under ES_CHAIN
++            // every later interval starts where this one ends, so the offset is permanent.
++            let off = stagger_off(self.i, self.rec.step);
++            h = self.rec.step - off;
++            if h < MIN_STEP {
++                h += self.rec.step;
++            }
++        }
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+@@ -826,7 +874,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -866,7 +914,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: true };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +926,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {

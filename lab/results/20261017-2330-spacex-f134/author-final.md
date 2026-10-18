@@ -1,0 +1,4 @@
+Working...
+Run complete. Every deliverable is in place: `predictions.md` (all four pre-registered predictions held), `dossier.md`, `regen.sh` (end-to-end in ~5 min, regenerates every number including the bit-identity control), `work/patch.diff` (applies cleanly to pristine main, flags-off = pristine bits), and `wiki/nladder.md` with the page's standing three-way conflict resolved.
+
+**Claim:** Delete + chain compose with zero interference and the composed law (ES_SECULAR + ES_CHAIN + ES_LOCAL_STAGGER) is strictly dominant on every instrument — max events/frame 41 vs 52/131 for the arms alone, p99 12, ledger −72% of OFF with no slice bill, an envelope that decays 41→3 with no standing beat at any horizon, N-flat below the N=0 floor, 13/13 schedule-determinism, and patch-off bit-identity with the frozen record — closing the nladder comb question and leaving the legality gates as its single adoption debt.

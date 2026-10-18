@@ -1,0 +1,57 @@
+tree: d28f9352f81d3f6e59dc1df4a2a1fb350fd0feb4 (composed patch applied)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 30.29s
+=== n1000_5400_off: nladder 1000 coast 55 100 (budget-free)
+frames after 1 s: 3240  engine ms p50 0.029 p90 2.271 p99 6.221 max 16.576; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 0 p99 136 max 334
+game 5400.0 s after the first second: kicks 9217 (1.660e-3/body/game-s), events 22219 (4.003e-3/body/game-s)
+=== n1000_5400_secular: nladder 1000 coast 55 100 (budget-free)
+frames after 1 s: 3240  engine ms p50 0.019 p90 1.853 p99 3.140 max 15.633; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 0 p99 26 max 131
+game 5400.0 s after the first second: kicks 1382 (2.490e-4/body/game-s), events 6580 (1.185e-3/body/game-s)
+=== n1000_5400_chainstag: nladder 1000 coast 55 100 (budget-free)
+frames after 1 s: 3240  engine ms p50 0.300 p90 0.989 p99 2.519 max 17.681; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 7 p99 24 max 52
+game 5400.0 s after the first second: kicks 9270 (1.670e-3/body/game-s), events 26670 (4.804e-3/body/game-s)
+=== n1000_5400_both: nladder 1000 coast 55 100 (budget-free)
+frames after 1 s: 3240  engine ms p50 0.036 p90 0.728 p99 2.171 max 15.184; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 1 p99 12 max 41
+game 5400.0 s after the first second: kicks 1420 (2.558e-4/body/game-s), events 6298 (1.135e-3/body/game-s)
+=== both_n0: nladder 0 coast 55 100 (budget-free)
+frames after 1 s: 3240  engine ms p50 0.047 p90 0.449 p99 0.932 max 17.082; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 1 p99 11 max 43
+game 5400.0 s after the first second: kicks 1266 (8.373e-3/body/game-s), events 5974 (3.951e-2/body/game-s)
+=== both_n600: nladder 600 coast 55 100 (budget-free)
+frames after 1 s: 3240  engine ms p50 0.052 p90 1.066 p99 2.323 max 21.947; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 1 p99 12 max 40
+game 5400.0 s after the first second: kicks 1415 (4.173e-4/body/game-s), events 6229 (1.837e-3/body/game-s)
+=== both_n10000: nladder 10000 coast 55 100 (budget-free)
+frames after 1 s: 3240  engine ms p50 0.052 p90 0.790 p99 1.704 max 15.331; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 1 p99 13 max 40
+game 5400.0 s after the first second: kicks 1415 (2.613e-5/body/game-s), events 6282 (1.160e-4/body/game-s)
+=== both_10900: nladder 1000 coast 110 100 (budget-free)
+frames after 1 s: 6540  engine ms p50 0.010 p90 0.544 p99 1.967 max 15.033; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 0 p99 10 max 41
+game 10900.0 s after the first second: kicks 1895 (1.691e-4/body/game-s), events 7253 (6.473e-4/body/game-s)
+=== off_10900: nladder 1000 coast 110 100 (budget-free)
+frames after 1 s: 6540  engine ms p50 0.008 p90 1.782 p99 5.357 max 16.520; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 0 p99 135 max 334
+game 10900.0 s after the first second: kicks 17604 (1.571e-3/body/game-s), events 39071 (3.487e-3/body/game-s)
+=== secular_10900: nladder 1000 coast 110 100 (budget-free)
+frames after 1 s: 6540  engine ms p50 0.008 p90 1.490 p99 2.775 max 15.445; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 0 p99 19 max 131
+game 10900.0 s after the first second: kicks 1813 (1.618e-4/body/game-s), events 7516 (6.708e-4/body/game-s)
+=== burn_off: nladder 1000 burn 20 100 (budget-free)
+frames after 1 s: 1140  engine ms p50 0.682 p90 4.912 p99 14.975 max 20.492; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 4 p99 152 max 328
+game 1900.0 s after the first second: kicks 4860 (2.488e-3/body/game-s), events 16201 (8.295e-3/body/game-s)
+=== burn_chainstag: nladder 1000 burn 20 100 (budget-free)
+frames after 1 s: 1140  engine ms p50 0.667 p90 4.380 p99 13.819 max 18.247; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 14 p99 49 max 112
+game 1900.0 s after the first second: kicks 4948 (2.533e-3/body/game-s), events 18776 (9.613e-3/body/game-s)
+=== burn_secular: nladder 1000 burn 20 100 (budget-free)
+frames after 1 s: 1140  engine ms p50 0.551 p90 4.614 p99 15.918 max 19.370; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 4 p99 47 max 105
+game 1900.0 s after the first second: kicks 2097 (1.074e-3/body/game-s), events 9572 (4.901e-3/body/game-s)
+=== burn_both: nladder 1000 burn 20 100 (budget-free)
+frames after 1 s: 1140  engine ms p50 0.371 p90 3.791 p99 14.151 max 18.307; over 1000000 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 5 p99 41 max 105
+game 1900.0 s after the first second: kicks 2161 (1.106e-3/body/game-s), events 9495 (4.861e-3/body/game-s)
+--- envelope (max events per 500-frame slice, 5,400 game-s) ---
+off: 212 240 207 251 229 195 334 
+secular: 46 37 21 48 26 9 131 
+chainstag: 52 27 26 12 13 13 12 
+both: 41 11 10 4 4 3 3 
+--- beats >= 40 events (frame:events) ---
+off: 24:72 49:109 61:71 74:97 86:60 99:172 111:60 123:96 136:58 148:136 161:57 173:93 185:53 198:190 210:52 223:88 235:50 247:128 260:48 272:85 285:49 297:159 309:49 322:85 334:48 347:128 359:46 371:80 384:42 396:212 409:43 421:79 433:43 446:121 458:42 471:80 483:42 495:154 508:42 520:79 533:43 545:121 557:43 570:80 582:42 594:178 607:40 619:76 644:117 669:75 694:150 718:76 743:117 768:75 793:240 818:76 842:118 867:73 892:147 917:73 942:116 966:74 991:176 1016:73 1041:115 1066:76 1090:146 1115:71 1140:113 1165:72 1189:207 1214:65 1239:105 1264:65 1289:137 1313:65 1338:105 1363:65 1388:164 1413:65 1437:105 1462:65 1487:137 1512:65 1537:105 1561:65 1586:251 1611:65 1636:105 1660:65 1685:137 1710:65 1735:105 1760:65 1784:164 1809:65 1834:105 1859:65 1884:137 1908:65 1933:105 1958:65 1983:198 2008:65 2032:105 2057:65 2082:137 2107:65 2132:105 2156:65 2181:164 2206:65 2231:105 2255:65 2280:137 2305:65 2330:105 2355:64 2379:229 2404:64 2429:104 2454:64 2479:136 2503:64 2528:104 2553:64 2578:163 2603:64 2627:104 2652:64 2677:136 2702:64 2726:104 2751:64 2776:195 2801:64 2826:104 2850:64 2875:136 2900:64 2925:104 2950:64 2974:163 2999:64 3024:104 3049:64 3074:136 3098:64 3123:104 3148:64 3173:334 3198:64 3222:104 3247:64 3272:136 3297:64 
+secular: 61:46 99:40 1586:48 3173:131 
+chainstag: 61:52 
+both: 61:41 
+OFF == FROZEN RECORD: all 13 cases identical (digest, kicks, encounters, contacts)
+composed-arm schedule agreement: 13/13 cases
