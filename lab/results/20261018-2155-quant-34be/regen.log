@@ -1,0 +1,18 @@
+   Compiling emergent-encounters v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/encounters)
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.58s
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+brute_bad=0
+name=w1e-4 seed=20261018 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140227022632 max_w=83650
+census ge2^63=0 mism_naive=166 mism_sound=0 hits=99999/100000 steps p50=4 p90=6 p99=8 max=11
+timing u128 p50=213.2 p99=215.6 | u64naive p50=123.7 | u64sound p50=134.0 p99=139.3 | win(sound) p50=1.59x p99=1.55x (ns/call, 12 batches interleaved) sink=113
+name=w1e-4 seed=777 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140225953701 max_w=85308
+census ge2^63=0 mism_naive=180 mism_sound=0 hits=100000/100000 steps p50=4 p90=6 p99=8 max=11
+timing u128 p50=214.9 p99=215.6 | u64naive p50=125.4 | u64sound p50=135.8 p99=136.5 | win(sound) p50=1.58x p99=1.58x (ns/call, 12 batches interleaved) sink=444
+name=w1e-5 seed=20261018 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140224087267 max_w=88120
+census ge2^63=0 mism_naive=215 mism_sound=0 hits=100000/100000 steps p50=2 p90=4 p99=5 max=7
+timing u128 p50=120.6 p99=120.7 | u64naive p50=81.8 | u64sound p50=85.0 p99=85.4 | win(sound) p50=1.42x p99=1.41x (ns/call, 12 batches interleaved) sink=440
+name=w1e-5 seed=777 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140223980374 max_w=89388
+census ge2^63=0 mism_naive=206 mism_sound=0 hits=100000/100000 steps p50=2 p90=4 p99=5 max=7
+timing u128 p50=122.9 p99=123.7 | u64naive p50=83.6 | u64sound p50=86.9 p99=87.5 | win(sound) p50=1.41x p99=1.41x (ns/call, 12 batches interleaved) sink=334

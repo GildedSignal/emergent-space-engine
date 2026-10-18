@@ -1,0 +1,13 @@
+brute_bad=0
+name=w1e-4 seed=20261018 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140227022632 max_w=83650
+census ge2^63=0 mism_naive=166 mism_sound=0 hits=99999/100000 steps p50=4 p90=6 p99=8 max=11
+timing u128 p50=191.9 p99=197.7 | u64naive p50=112.0 | u64sound p50=119.9 p99=123.7 | win(sound) p50=1.60x p99=1.60x (ns/call, 12 batches interleaved) sink=113
+name=w1e-4 seed=777 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140225953701 max_w=85308
+census ge2^63=0 mism_naive=180 mism_sound=0 hits=100000/100000 steps p50=4 p90=6 p99=8 max=11
+timing u128 p50=193.3 p99=194.7 | u64naive p50=112.6 | u64sound p50=122.3 p99=124.1 | win(sound) p50=1.58x p99=1.57x (ns/call, 12 batches interleaved) sink=444
+name=w1e-5 seed=20261018 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140224087267 max_w=88120
+census ge2^63=0 mism_naive=215 mism_sound=0 hits=100000/100000 steps p50=2 p90=4 p99=5 max=7
+timing u128 p50=108.2 p99=108.9 | u64naive p50=73.6 | u64sound p50=76.1 p99=76.9 | win(sound) p50=1.42x p99=1.42x (ns/call, 12 batches interleaved) sink=440
+name=w1e-5 seed=777 pairs=50000 tuples=100000 sec/pair=2.000 max_m=140223980374 max_w=89388
+census ge2^63=0 mism_naive=206 mism_sound=0 hits=100000/100000 steps p50=2 p90=4 p99=5 max=7
+timing u128 p50=110.3 p99=111.3 | u64naive p50=75.1 | u64sound p50=77.8 p99=78.2 | win(sound) p50=1.42x p99=1.42x (ns/call, 12 batches interleaved) sink=334
