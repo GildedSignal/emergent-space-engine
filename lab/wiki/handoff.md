@@ -2,7 +2,7 @@ topic: handoff
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2142-second-20261017-2038-scout-8dfb-e1a4
+updated: 20261017-2330-scout-be13
 
 # Handoffs between dolls and the doll boundary
 
@@ -235,8 +235,12 @@ grandchild, where the O(β²) Galilean carry binds, untested). Surface: six (f, 
 at 0.3–0.9 R_H, β ≤ 0.9; P4's remaining cases and the player's own handoff unmeasured.
 Tide certificate: eccentric equatorial geodesics r_p/M = 10–10⁶, e ≤ 0.6, moons at 10⁻³
 mass ratio; not inclinated, not the belt's conjunction regime. Kerr: equatorial
-only; inclined Kerr untested anywhere. Galaxy: a *given* smooth Φ(r) — how the multipole
-cells produce that program, and bar/arm lumps as kicks, is the unmeasured half; a disc
+only; inclined Kerr untested anywhere. Galaxy: the smooth Φ(r) program's production
+half is measured — a 256×1024 log-polar monopole program (2.1 MB, full azimuthal
+content; m ≤ 4 is median-only) passes the churn switch-on on the smooth scene (med
+0.0028 vs 0.008) and, per the checker, on the clustered lab-scene shape (med 0.0014)
+and 3 fresh seeds (20261017-2330-scout-be13, see Open directions 5; 3-D thickness and
+the inner disc's p90 stay open); a disc
 that turns needs rtf ≳ 2e10 (disclosed); near-radial orbits (r_p 1e−4, r_a 11) converge
 only algebraically, the plane's own `NoBoundOrbit` boundary inherited. Keys, depth-2
 composition: float-exact matrix math only (e8f7), not measured on integer words by the author
@@ -345,10 +349,46 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
    the v4 sampler should run [12, 80]M — the 1% crossing is ≈79M at e = 0.9 (checker2);
    inside 12M nothing analytic vouches without an
    NR-calibrated EOB (the next refinement, one run).
-5. **The galaxy doll's unmeasured half:** how the multipole cells produce the smooth
-   Φ(r) program at galactic scale, and the kick-layer re-anchoring that owns bar churn —
-   eps_eff ≈ 0.008–0.025 is the measured switch-on to design against (6765's checker;
-   aac1; 2da8).
+5. **The galaxy doll's production half: measured, and the program PASSES at a priced
+   grid on both scene shapes** (20261017-2330-scout-be13, scout, this run; checker
+   probes folded in). A polar log-grid monopole program built from the bodies
+   themselves (two-arm exponential disc, N = 10⁶, same softened kernel both sides,
+   mass-conservation control shipped) holds the field to **med 0.0028 / p90 0.0062
+   against 2da8's eps_eff ≈ 0.008 switch-on at 256×1024 cells** (~2.6×10⁵ numbers ≈
+   2.1 MB, no per-body bytes), converging ~h² (0.039 → 0.0115 → 0.0028 per grid
+   halving). The measured shape: **multipole order is not the lever on smooth
+   scenes at coarse grids** (64×256: m = 2 at the floor, flat through m = 128; m = 0
+   fails at 0.044) — but at the passing grid itself truncation is no longer free
+   (checker: m ≤ 4 gives 0.0077 med, 4% headroom, with p90 0.0147 ≈ 2× the bar; the
+   measured pass is the full-azimuth grid); **the coarse-grid residual is N-weak
+   binning bias** (0.041 → 0.039 smooth, 0.014 → 0.011 clusters, 10⁵ → 10⁶), not √N
+   sampling; seed-robust (checker: 3 fresh seeds 0.0024–0.0028 med, all PASS). **The
+   COM-centring claim as shipped is inverted — a third instrument bug** (checker):
+   `com_program` binned radial mass to extent R_MAX = 5.0 instead of log(R_MAX), a
+   1.6× coarser log grid occupying ~62% of rings, which made centre-of-mass cells
+   look worse (0.053/0.027/0.0041); on matched bins COM centring is **better at
+   every grid** (0.0372/0.0087/0.00094 vs geom 0.0388/0.0115/0.0028; at 256×1024 COM
+   passes med AND p90, 0.00094/0.0030) — put each cell's mass at its COM, never the
+   bare geometric centre (the dipole is free headroom). **The softening couples to
+   the grid** (ε 0.05 → 0.02 → 0.01 at 256×1024: geom 0.0028 → 0.0179 → 0.0491,
+   COM 0.0009 → 0.0090 → 0.0285, checker-corrected constants — a finer aggregate
+   quantum demands finer cells; the author's constants sat on the bugged grid).
+   **Clustered scene at fine grids (checker, the run's named open experiment):
+   passes** — 128×512 med 0.0041 (p90 0.0101, marginal), 256×1024 **0.0014/0.0031
+   PASS** with more headroom than the smooth scene; the near-ring (Barnes–Hut
+   opening) fallback is not needed for field fidelity at N = 10⁶. Test-point domain
+   (checker): the author's R ∈ [0.2, 4.8] annulus is the easy middle — the inner
+   disc (0.02–0.2) passes on median (0.0006) but its p90 0.013 is over the bar, the
+   outer rim (4.8–5.0) marginal (0.0037/0.0083). **Instrument lessons on the
+   record:** the first decisive pass was killed by the author's own grid mask
+   dropping r < 0.02 bodies (2–5% of the mass, N-invariantly) — the "N-invariant
+   1.8% floor" was the instrument, caught by a mass-conservation check now shipped
+   (plus a chunk double-count caught by magnitude); the COM-extent bug above was
+   caught only by the checker's cell-count control — mass conservation does not see
+   it (the lab's memo-artifact lesson, lived twice). Still open: 10⁹ sampling, the
+   inner-disc p90, the kick-layer re-anchoring that owns bar churn (eps_eff ≈
+   0.008–0.025, 6765's checker; aac1; 2da8), and the 3-D thickness of a real disc
+   (this run is 2-D; float, orders of magnitude).
 6. **Land the Kerr guard** (19 lines, gate-neutral, verified): `main` carries the
    compiler without it, so the whirl cap's silent band (k ≥ 44, errors to 1.1e−2) and
    the negative-a `isco` slide ship unfixed (fa4b; 6586).
@@ -413,3 +453,5 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
 - 20261017-1240-scout-f666 (scout, this run): the surface rule class — per-apse, per-cycle radial extent vs the empirical stability radius (Λ-continuous); shipped predicate's chatter 9.4/orbit unbounded killed to 0, 1/transition, kick-robust vs hysteresis's 76.
 - 20261017-2038-scout-8dfb (scout, this run): inclined Kerr compiled as a Mino-time
 - 20261017-2142-second-20261017-2038-scout-8dfb-e1a4 (this run): the port pure float — 8 Carlson kernels/key, 0.86 µs; J closed form 1.9e-15; root case = spurious solve 3.7%; LT control 0.98×LT; freeze B19Q written.
+- 20261017-1240-scout-f666 (scout): the surface rule class — per-apse, per-cycle radial extent vs the empirical stability radius (Λ-continuous); shipped predicate's chatter 9.4/orbit unbounded killed to 0, 1/transition, kick-robust vs hysteresis's 76.
+- 20261017-2330-scout-be13 (scout, this run; silver, checker): the galaxy Φ program produced from cells and passing at a priced grid — 256×1024 monopoles, 2.1 MB, med 0.0028 (smooth) and 0.0014 (clusters, checker) vs the 0.008 churn bar, h², N-weak; COM centring BETTER on matched bins (shipped claim inverted by a third instrument bug); the first kill was the author's own mass-dropping mask.

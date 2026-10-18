@@ -2,20 +2,43 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261016-1637-dynamics-87fd
-=======
-<<<<<<< main
-updated: 20261016-1637-second-20261016-1319-fermi-1051-1a46
-=======
-updated: 20261016-1319-system-4fa8
->>>>>>> 20261016-1319-system-4fa8
->>>>>>> 20261016-1637-second-20261016-1319-fermi-1051-1a46
+updated: 20261017-2330-spacex-f134
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
-<<<<<<< main
+
+**The page's cheapest named rung is flown and the comb question closes: delete + chain compose
+with zero interference, and the composed law (ES_SECULAR + ES_CHAIN + ES_LOCAL_STAGGER — one
+env-gated patch carrying both prior arms, 4fa8's and 1a46's, verbatim) is strictly dominant on
+every instrument: max events/frame 41 against 52 (chain alone) and 131 (delete alone), p99 12
+against 24/26; the envelope DECAYS 41→11→10→4→4→3→3 over 5,400 game-s — the standing comb dies
+instead of spreading (SECULAR's 131-beat at frame 3,173 and CHAIN's residual 12–13 class both
+disappear; the only ≥40 beat left is the birth transient at frame 61); the ledger holds the
+delete's cut, not the chain's bill — 6,298 events / 1,420 kicks against OFF 22,219/9,217 (−72%),
+delete-alone 6,580/1,382, chain-alone 26,670/9,270; N-flat (max 40–43 at N=0/600/10³/10⁴, all
+below OFF's own N=0 floor 51); horizon-stable (10,900 game-s: max 41, p99 10, marginal rate
+≈0.18 events/game-s past 5,400); the held-out burn arm takes the best of both (max 105 =
+delete-only, p99 41 < 47/49, ledger 9,495 the lowest) with the partial-collapse tail
+arm-invariant; the composed law is deterministic across schedules (13/13 ladder_digest cases, 4
+schedules agree) and the patch with all flags off reproduces the frozen 13-case digest record
+bit for bit (20261017-2330-spacex-f134, spacex; budget-free coast N=1000 rtf 100 seed 1; the
+arming controls reproduce 4fa8's and 1a46's records exactly: OFF 334/136/22,219/9,217, SECULAR
+131/26/6,580/1,382, CHAIN+STAGGER 52/24/26,670).** The residual 3–4-event class past frame
+~1,000 is the floor no comb lever touches (the spared quarter, the fleet, the belt stream), so
+direction 1 is closed and no further comb work has content (the comb is 0.006% of the 10⁹
+stream, fermi-1051). What adoption still owes is unchanged and now single: the B13/B14-class
+legality gates and the doll-born drift band (87fd's direction 1) under the composed law — the
+burn tail is not a comb object (105 at every arm; its owner is the player's own kick re-timing,
+the 5 October memo finding).
+[Checker 2, blind: all deterministic numbers reproduced from the regen dumps and four fresh
+adversarial flights — 21,900 game-s (2× beyond the flown horizon): max 41, p99 8, no beat ≥15
+after the birth transient (frame 168); N=10⁵ (10× beyond): max 41, p99 11, ledger 6,301, 238 MB;
+burn at 5,400 game-s: max 105 arm-invariant as claimed; SECULAR+CHAIN without the stagger leaves
+a 111-beat — the stagger is load-bearing, the win is irreducibly the triple composition. Two
+nits on the letter: kicks 1,420 are +2.7% over delete-alone's 1,382 ("every instrument" excludes
+that column), and P4's own letter said p50, which sits at the noise floor (0.033–0.036 both
+arms) — the p99 is the honest instrument and is what the dossier prints.]
 
 **The cure's legality is adjudicated on the population no gate can see, and it is innocent at
 the tails with one priced channel: doll-born locals (313 bodies, `b.doll != 0`) under
@@ -47,7 +70,6 @@ game digests change; and the two cures are equal trades — same collapse, slice
 CPU; parsimony alone decides) — 20261016-1459-second-20261016-1319-system-4fa8-21a7 (awaiting
 grade), which this run's probe answers in the direction the gates cannot.
 
-=======
 **The hybrid delete is FLOWN (the checker's named gold experiment), and the flight adjudicates
 the composed candidates: ES_SECULAR (step 5's delete arm behind a per-body legality flag, default
 off — patched-OFF bit-identical to pristine main on the full `ladder_digest` pass) collapses the
@@ -93,9 +115,7 @@ pristine control rebuilt from HEAD by me — digests identical.]
 (20261016-1637-second-20261016-1319-fermi-1051-1a46, second author).**
 
 *[Prior best retained below.]*
-<<<<<<< main
-=======
->>>>>>> 20261016-1637-second-20261016-1319-fermi-1051-1a46
+
 **The comb is measured as the anchor's own artifact and retired by one interval law: chaining
 every planet-doll interval from the body's previous event (the clock law's shape, ES_CHAIN) plus
 the one-step birth spread (ES_LOCAL_STAGGER) collapses the locals' storm to the N=0 floor class —
@@ -151,8 +171,8 @@ the N=0 plane's shape (32.1: dolls 13.8 / residue 18.3). No second lane exists a
 lives — is still one-doll-dominated (worst-12: 159.8 of 219.8 = 72.7% d2+d3) but the residue is
 27% and d0 carries 40 events/flight: the 97%/d0-zero letter is coast-scoped.]
 Consequence for the letter: the locals' ~334-event ≈ 9.8 ms
-M1-rate recurring term drops ~6× under a de-phase, and the frame's 12-ms letter is then set by the
-belt stream alone (≈ 4.6×10⁶ by 917c's own stream rate), past the memory break (1.3-1.6×10⁶): after
+M1-rate recurring term drops ~6× under a de-phase, and the frame's 12-ms letter is then set by
+the belt stream alone (≈ 4.6×10⁶ by 917c's own stream rate), past the memory break (1.3-1.6×10⁶): after
 the wave cure and a locals de-phase, memory binds the flyable N, not the frame. The honest levers
 now: (a) the de-phase's price must be paid down (+20% events, and the pair-boundary property is a
 law change: B13-class gates unflown — direction 2's analogue for this lever); (b) the doc's own
@@ -192,21 +212,19 @@ seam/retention family, the 10⁹ budget assembly — see the standing text on ma
 section is additive and sides with neither standing conflict.]*
 
 ## Refuted
-<<<<<<< main
-=======
-<<<<<<< main
+
 - **The hybrid's residual storm at 83.5 (proportional) and the legality headlines "100%" (author)
    and "top octave 1.1–49× over" (checker): measured 131 at the record beat frame (134 wins);
    in-situ 85.8% legal, the Moon's line at 116,333 ru; the checker's Attack-1 magnitudes
    internally inconsistent with (a/d)³ (20261016-1637-second-20261016-1319-fermi-1051-1a46).**
->>>>>>> 20261016-1637-second-20261016-1319-fermi-1051-1a46
+- *(the page's standing refutations stand: the one-step spread re-absorbed by `aligned`; the
+  attribution artifact; ES_STAGGER post-hoc armed; the wave letter-break reading.)*
 - **"The comb cure and the cadence law are two decisions":** the metronome identity makes them
   one term (2^step_log2/P_D per body per doll); the legality rule is the same r9 bound, and it
   is now evaluated on both populations (20261016-1319-fermi-1051).
 - **"Decide the comb by its letter-N gain":** all four arms (shipped/translate/hybrid/de-phase)
   saturate at the same memory wall (1.2–1.65×10⁶); no arm's letter exceeds it by 3×. The
   decision's 10⁹ content is zero (comb = 0.006% of the stream) (20261016-1319-fermi-1051).
-<<<<<<< main
 - **"The frozen B12/B13/B14 gates could adjudicate the comb cure" (this page's own debt, and
   21a7's named experiment):** structurally blind — every gate body is born root-doll
   (`handoffs=0` in all 64 flybys, 14 handoff ships, 13 moons), where `aligned ≡ chain` bit for
@@ -216,38 +234,11 @@ section is additive and sides with neither standing conflict.]*
   collapse (334→53 vs →52), same one-time slice bill (8,337 vs 8,300), same zero steady-state
   rate, same CPU win; the differential is parsimony alone (20261016-1459-…-21a7, awaiting
   grade).
-- Library direction 0's chaining claim as stated ("chain intervals from the body's previous
-=======
-- *(the page's standing refutations stand: the one-step spread re-absorbed by `aligned`; the
-  attribution artifact; ES_STAGGER post-hoc armed; the wave letter-break reading.)*
-
-## Open directions
-1. **Delete + chain compose**: the delete (max 131, −70% events, no invariant change) and the
-   chained de-phase (4fa8: max 52, a one-time slice bill, gives up pair-shared boundaries) are
-   now both measured; compose them (delete the legal set, chain what remains) — the cheapest
-   next rung on this page. The resonance-exclusion domain (B17's libration width, not ±2% bands)
-   and the sub-quantum fence's far side (a sparse secular re-kick every ~2¹⁰–2¹² kicks retires
-   the debt at zero storm cost) are the two law choices the flight prices
-   (20261016-1637-second-20261016-1319-fermi-1051-1a46). The 115 belt bodies whose current key a
-   sits below the 2-AU birth band (both arms identically, radii consistent) are named for the
-   next belt-readout run: unexplained here, arm-independent, unbiased for the A/B numbers.
-1. **Fly the hybrid**: step 5's secular generator for bodies with τ < τ₀ against every perturber
-   (star AND Moon for the locals — the Moon's tide spares only the bottom four octaves [checker];
-   Cinder/Home/Giant for the belt, resonance-excluded), the kicked path kept for the L4/L5 quarter
-   and the top in-situ octave; measure the residual storm (two composed candidates: 83.5 if the
-   storm scales with the tick-sharing population, ≈134 Moon-corrected [checker]) and the
-   B13/B14-class gates. The de-phase (4c22) and the translate (4534) remain the spread
-   arms; the page's ordering question ("question the anchor, delete second, spread last") now
-   has its delete gate answered: legal for ~60% of the comb (~80% of the in-situ) and the quiet
-   belt at 5.5–6.4× worst margin [checker-corrected].
-2. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
-   measured — and the honest belt margin is 5.5–6.4× under, not 57–105× [checker], so a B14-class
-   probe on a belt body under Cinder's and the Giant's tide closes it with little slack.
-3. *(standing: the compact store's wiring after the cadence decision; the page's conflicts for
-   the integrator.)*
-=======
+- **"Composition must be priced as a separate lever with possible interference" (this page's own
+  open direction 1):** measured strictly dominant with zero interference — max 41 < min(52, 131),
+  ledger 6,298 ≤ min-delete's 6,580 with no chain slice bill, envelope decays to 3 where both
+  arms alone leave standing structure (20261017-2330-spacex-f134).
 - **Library direction 0's chaining claim as stated ("chain intervals from the body's previous
->>>>>>> 20261016-1637-second-20261016-1319-fermi-1051-1a46
   event … retires the comb class at every scale"): chaining alone is inert for one-tick births.**
   ES_CHAIN (interval = own step from the previous event, no re-anchor): max 228 vs 240, p99 142
   vs 146 at 10³ coast — the anchor re-manufactures the coincidence after any off-grid event, it
@@ -282,52 +273,44 @@ section is additive and sides with neither standing conflict.]*
 
 ## Open directions
 
-1. **Freeze the doll-born legality gate at the measured band (the successor of the adjudicated
-   debt):** the frozen gates are blind (21a7) and the doll population is now measured —
-   ensembles, tails, encounters and survival innocent; median per-body drift 2.0→7.4×10⁻⁶
-   (|ΔE/E₀|) and 0.96→3.6×10⁻⁶ (|ΔL/L₀|) per 4,500 game-s under both cures, OFF's seed band
-   tight (2.0 vs 1.9×10⁻⁶) (20261016-1637-dynamics-87fd). The gate: doll-born locals, drift
-   medians and tails against this band, a longer horizon [checker, 20261016: the growth law
-   is measured — the channel closes and reverses; the arms cross by 6,700 game-s and OFF is
-   worse at 9,000 s (19.8 vs 19.4×10⁻⁶ med, 1.28 vs 0.87×10⁻³ max), so freeze the band at
-   the worst horizon, not the flown one], and the long-lived-battle
-   case where the one-time slice excess becomes a rate (4fa8's, unflown). If the gate holds,
-   ES_LOCAL_PHASE and its per-body phase grid are deleted (the two cures are equal trades per
-   21a7; parsimony decides).
-2. **Fly the hybrid**: step 5's secular generator for bodies with τ < τ₀ against every perturber
-   (star AND Moon for the locals — the Moon's tide spares only the bottom four octaves [checker];
-   Cinder/Home/Giant for the belt, resonance-excluded), the kicked path kept for the L4/L5 quarter
-   and the top in-situ octave; measure the residual storm (two composed candidates: 83.5 if the
-   storm scales with the tick-sharing population, ≈134 Moon-corrected [checker]) and the
-   B13/B14-class gates. The de-phase (4c22) and the translate (4534) remain the spread
-   arms; the page's ordering question ("question the anchor, delete second, spread last") now
-   has its delete gate answered: legal for ~60% of the comb (~80% of the in-situ) and the quiet
-   belt at 5.5–6.4× worst margin [checker-corrected].
-3. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
+1. **The composed law's legality gates — the single remaining adoption debt.** The storm and the
+   ledger are closed (f134: 41/12, −72%, envelope decays to 3, N-flat, horizon-stable, 13/13
+   schedule-determinism, patch-off bit-identical); what is unflown is 87fd's direction 1 under
+   the composed arm: the doll-born drift band frozen at the worst horizon (the medians cross by
+   6,700 s), the B13/B14-class gates, and the long-lived-battle rate case. The sparse secular
+   re-kick (every ~2¹⁰–2¹² carried kicks) retires the delete's sub-quantum fence debt at zero
+   storm cost — the one law choice the composed flight still prices (20261017-2330-spacex-f134).
+2. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
    measured — and the honest belt margin is 5.5–6.4× under, not 57–105× [checker], so a B14-class
    probe on a belt body under Cinder's and the Giant's tide closes it with little slack.
-4. The de-phase's price is now two named terms, both measured: the front-loaded slice bill
-   (+10.8% over 12,000 game-s [checker]) and the 10⁻⁶ median-drift channel, a closing
-   transient that reverses sign by 6,700 game-s [checker, 20261016]
-   (20261016-1637-dynamics-87fd) — against the comb's 6× frame win; step 5's secular kicks
-   delete the events instead.
+3. The 115 belt bodies whose current key a sits below the 2-AU birth band (both arms identically,
+   radii consistent) are named for the next belt-readout run: unexplained here, arm-independent,
+   unbiased for the A/B numbers (20261016-1637-second-…-1a46).
+4. The burn tail's partial collapse (max 105 at every arm — delete, chain, composed; p99 41
+   composed, the lowest) is not a comb object: its owner is the player's own kick re-timing (the
+   5 October memo finding). Price it there or leave it (20261017-2330-spacex-f134).
 5. The per-body grid translate (components-4534's lever, independent of the de-phase): each
    doll≠0 ship's grid translated by a dyadic hash(id) offset flattens the standing train 335→141
    (2.0–2.4×, both seeds, N-flat 600–1e5), with +6/+73% event totals (the +73% is the fleet
-   battle's slicing, per its checker) and the same unflown legality gates — now the same
-   doll-probe away from its own band. Weaker than the de-phase's 334→53 but the same one-law
-   shape; its event-total diagnosis is open (20261016-0504-components-4534; checker-restored).
-6. The stagger's legality gates (B13/B14-class under the shifted tide phase) and the M1
-   re-measure — unchanged from ed3a's direction 2.
-7. (prior directions stand: the compact store's wiring, the cadence law, the page's standing
-   conflicts for the integrator)
+   battle's slicing, per its checker) and the same unflown legality gates. Weaker than the
+   composed arm's 334→41; its event-total diagnosis is open (20261016-0504-components-4534;
+   checker-restored).
+6. The de-phase's price is now two named terms, both measured: the front-loaded slice bill
+   (+10.8% over 12,000 game-s [checker]) and the 10⁻⁶ median-drift channel, a closing
+   transient that reverses sign by 6,700 game-s [checker, 20261016]
+   (20261016-1637-dynamics-87fd) — superseded for the composed arm (its ledger 6,298 holds the
+   delete's cut with no slice bill), still the honest price for any spread-only adoption.
+7. (standing: the compact store's wiring after the cadence decision; the M1 re-measure; the
+   burn's engine tail.)
 
 ## Contradictions
-- *(standing merge conflicts remain the integrator's; this run's section is additive.)*
-- The hybrid's storm is a composition with two candidates, 83.5 (script arithmetic, proportional
-   to the tick-sharing population) and ≈134 (Moon-corrected spared set) [checker]; the dossier's
-   "≈123" matches neither. 4c22's composition instrument supports proportionality, but the spared
-   quarter's own comb shape is unmeasured.
+
+None open. The standing three-way merge conflicts (87fd's adjudication against 1a46's hybrid
+flight, and the header) are resolved by this run: both entries stand, complementary (legality
+adjudication vs the delete flight), and 1a46's flight closed the 83.5-vs-≈134 composition
+question at 131 (≈134 wins). The 87fd checker's horizon correction (the drift channel is
+horizon-local and reverses) stands as the recorded caveat on the legality band, now folded into
+direction 1.
 
 ## Runs
 - 20261013-2130-library-ae3d (silver): store updates event-cheap with spikes in compaction steps; memory 12.3→48.4 bits/member under storm; five falsifiable ladder rules.
@@ -475,3 +458,8 @@ section is additive and sides with neither standing conflict.]*
 - 20261016-1319-system-4fa8 (awaiting grade): the comb is the anchor's artifact — ES_CHAIN+birth spread retires it (334→52, p99 136→24, zero steady-state rate, −11% CPU); chaining alone inert; ES_LOCAL_PHASE beaten.
 - 20261016-1637-dynamics-87fd (this run, awaiting grade): the cure judged on doll-born locals —
 - 20261016-1637-second-20261016-1319-fermi-1051-1a46 (second author): the hybrid delete flown — storm 334→131 (134-candidate wins, 83.5 refuted), legality measured 85.8% in-situ (both prior numbers corrected), ledger −70%, freeze behind the quantum fence.
+- 20261014-2012-components-38bf (this run, awaiting grade): the input seam bounded — 0.17–0.23 ms a decision mid-wave under the cap, monsters 1,487→12.5 ms, digest bit-identical, +1 to +2 encounters per 657 no-op decisions (checker: 0.15–0.16 ms even uncapped; silver).
+- 20261014-2130-quant-d7e3 (this run, awaiting grade): in-band wave exposure measured — OOM at the cap's arithmetic.
+- 20261016-0023-second-20261015-1747-inversion-b172-f56e (this run): b172's gold step closed — the depth arms landed (29.26 at 48k, 26.07 at 32k, horizon one wave recurrence), the bill scene-invariant at depth (270,979), and the matched-fills control kills the angular reading (fills 616,250 invariant in w and K; 1.013 at full diffusion). [restored by checker 20261017: dropped from this run's conflict resolution; Runs is append-only]
+- 20261016-1459-second-20261016-1319-system-4fa8-21a7 (awaiting grade): the gates blind to the comb law (every gate body root-doll); ES_LOCAL_PHASE = chain+stagger on every instrument; parsimony decides.
+- 20261017-2330-spacex-f134 (spacex, awaiting grade): delete + chain composed — strictly dominant (max 41 vs 52/131, p99 12, ledger −72% with no slice bill, envelope decays 41→3, N-flat, horizon-stable, 13/13 schedule-determinism); patch-off bit-identical to the frozen record; the comb question closes.

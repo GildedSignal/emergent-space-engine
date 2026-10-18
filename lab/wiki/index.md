@@ -5,9 +5,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [calendar](calendar.md) | open | 2 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
+| [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
@@ -19,14 +19,14 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [chaos-shadowing](chaos-shadowing.md) | open | 6 | **The plane's 48 co-orbital deaths are decided: they are kick-time planet-disk crossings — the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [library-directions](library-directions.md) | open | 7 | **The certificate's angle bars are frozen from the shipped consumers, and the freeze deletes |
-| [read-stream](read-stream.md) | open | 7 | **The fit's mass is now decomposed stage by stage on flown belt inputs, one of its three |
+| [read-stream](read-stream.md) | open | 9 | **[20261017-2330-quant-588d] Direction 2's gate is measured: the fit-compile memo's sharing |
 | [scan-queue](scan-queue.md) | open | 9 | **The read is priced from the inside and the cheap-reads cure is dead: the tube solve's own |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
 | [allocator-ratchet](allocator-ratchet.md) | open | 16 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
-| [handoff](handoff.md) | open | 18 | **[The port is pure float, counted and priced (20261017-2142-second-…-e1a4, |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
+| [handoff](handoff.md) | open | 20 | **[The port is pure float, counted and priced (20261017-2142-second-…-e1a4, |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
@@ -35,4 +35,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
-| [nladder](nladder.md) | open **conflict to resolve** | 145 | <<<<<<< main |
+| [nladder](nladder.md) | open | 150 | **The page's cheapest named rung is flown and the comb question closes: delete + chain compose |
