@@ -1,0 +1,175 @@
+error: crates/space/examples/isqrtbench.rs: already exists in working directory
+error: patch failed: crates/space/src/lib.rs:112
+error: crates/space/src/lib.rs: patch does not apply
+error: patch failed: crates/space/src/num.rs:41
+error: crates/space/src/num.rs: patch does not apply
+error: patch failed: crates/space/src/orbit.rs:234
+error: crates/space/src/orbit.rs: patch does not apply
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+warning: unused variable: `p`
+   --> crates/space/examples/isqrtbench.rs:100:17
+    |
+100 |     v.retain(|&(p, e, _)| e < 990_000);
+    |                 ^ help: if this is intentional, prefix it with an underscore: `_p`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused `Result` that must be used
+   --> crates/space/examples/isqrtbench.rs:195:17
+    |
+195 |                 std::hint::black_box(Orbit::compile(std::hint::black_box(key)));
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+    = note: `#[warn(unused_must_use)]` on by default
+help: use `let _ = ...` to ignore the resulting value
+    |
+195 |                 let _ = std::hint::black_box(Orbit::compile(std::hint::black_box(key)));
+    |                 +++++++
+
+warning: unused `Result` that must be used
+   --> crates/space/examples/isqrtbench.rs:201:17
+    |
+201 |                 std::hint::black_box(Orbit::compile(std::hint::black_box(key)));
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+201 |                 let _ = std::hint::black_box(Orbit::compile(std::hint::black_box(key)));
+    |                 +++++++
+
+warning: `emergent-space` (example "isqrtbench") generated 3 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.15s
+# load: 1.44 1.44 1.20 2/321 1580008
+== isolated (ns/call, 2e5 calls, black_box sum 410b2bd6cf7877b30d79e): wide 100.0 mul 77.3 | std u64 26.4 fast u64 7.2 ==
+== census (main): class, knots, nodes by path, wide isqrt calls/iters ==
+         p      e    fast    word  knots  xings   nodes  wi/wit
+   2000000  10000   false   false      6      0      20 5/10
+   2600000  70000   false   false      6      3      20 8/17
+   3000000 400000   false   false     21     19      80 24/49
+    100000  70000    true    true      6      3      20 8/16
+     10000 300000    true    true     16     14      60 19/40
+      1000 900000    true    true     69     67     272 72/148
+       175 500000    true    true     27     25     104 30/61
+       100 700000    true    true     42     40     164 45/95
+        30 300000    true    true     16     14      60 19/38
+        12 100000    true    true      8      4      28 19/38
+         8 600000    true   false     37     31     144 244/498
+         7 400000    true   false     26     19     100 164/350
+         9 480000    true   false     29     24     112 191/387
+== exactness fuzz (main): isqrt_mul mismatches 0, isqrt_u64_mul mismatches 0 of 1e6+1e6/2e6 ==
+p= 2000000 e=10000 hashes f0ad1a97c42c4420 f0ad1a97c42c4420 MATCH
+p= 2600000 e=70000 hashes 725ac9d3b1231e61 725ac9d3b1231e61 MATCH
+p= 3000000 e=400000 hashes 56d8b9d6af7fe36b 56d8b9d6af7fe36b MATCH
+p=  100000 e=70000 hashes 31081e9d72ff0afc 31081e9d72ff0afc MATCH
+p=   10000 e=300000 hashes 6c9a5e67d3949505 6c9a5e67d3949505 MATCH
+p=    1000 e=900000 hashes 4b0d5cef58111dc3 4b0d5cef58111dc3 MATCH
+p=     175 e=500000 hashes 4b85335a92cbd93d 4b85335a92cbd93d MATCH
+p=     100 e=700000 hashes ce6c8f223a10ee64 ce6c8f223a10ee64 MATCH
+p=      30 e=300000 hashes d5a21a000ea6e658 d5a21a000ea6e658 MATCH
+p=      12 e=100000 hashes 061e0dee226281a2 061e0dee226281a2 MATCH
+p=       8 e=600000 hashes 4d400bbab7e1cc5a 4d400bbab7e1cc5a MATCH
+p=       7 e=400000 hashes c8cdaa6a4be0ea9e c8cdaa6a4be0ea9e MATCH
+p=       9 e=480000 hashes 1ad78deaced8a1d0 1ad78deaced8a1d0 MATCH
+compile hashes: ALL MATCH
+== pairs (main): ns/compile, interleaved 9 rounds; load recorded ==
+         p      e   shipped      fast   delta%  ns/knot
+   2000000  10000      3348      3242    -3.15    558.0
+   2600000  70000      3888      3715    -4.45    648.1
+   3000000 400000     14101     13633    -3.32    671.5
+    100000  70000      5991      5453    -8.98    998.4
+     10000 300000     17237     15518    -9.97   1077.3
+      1000 900000     75315     67569   -10.28   1091.5
+       175 500000     29270     26386    -9.85   1084.1
+       100 700000     45873     41145   -10.31   1092.2
+        30 300000     17178     15520    -9.65   1073.6
+        12 100000      9200      8280    -9.99   1149.9
+         8 600000     55883     51323    -8.16   1510.3
+         7 400000     38396     34913    -9.07   1476.8
+         9 480000     43587     40018    -8.19   1503.0
+best improvement: -10.31%
+# load: 1.44 1.44 1.20 2/321 1580010
+== census (heldout): class, knots, nodes by path, wide isqrt calls/iters ==
+         p      e    fast    word  knots  xings   nodes  wi/wit
+         7 520000  refused: NoBoundOrbit
+         8 560000    true   false     35     29     136 230/467
+         9 600000    true   false     36     31     140 240/489
+        10 640000    true    true     40     35     156 112/296
+        11 680000    true    true     43     38     168 121/244
+        12 720000    true    true     46     41     180 130/304
+        13 760000    true    true     50     45     196 142/285
+        14 800000    true    true     55     50     216 157/314
+        15 840000    true    true     61     56     240 175/408
+        16 880000    true    true     68     63     268 196/394
+        17 920000    true    true     77     73     304 226/527
+        18 960000    true    true     93     89     368 274/640
+   1940000  20000   false   false      6      0      20 5/10
+   1980000  40000   false   false      6      1      20 6/13
+   2020000  60000   false   false      6      2      20 7/15
+   2060000  80000   false   false      7      3      24 8/16
+   2100000 100000   false   false      7      4      24 9/18
+   2140000 120000   false   false      8      5      28 10/20
+   2180000 140000   false   false      9      6      32 11/25
+   2220000 160000   false   false     10      7      36 12/24
+   2260000 180000   false   false     10      8      36 13/26
+   2300000 200000   false   false     11      9      40 14/28
+== exactness fuzz (heldout): isqrt_mul mismatches 0, isqrt_u64_mul mismatches 0 of 1e6+1e6/2e6 ==
+p=       8 e=560000 hashes ebe12f103f782403 ebe12f103f782403 MATCH
+p=       9 e=600000 hashes c650af3b24711239 c650af3b24711239 MATCH
+p=      10 e=640000 hashes ed7a354a77e77bd3 ed7a354a77e77bd3 MATCH
+p=      11 e=680000 hashes 1269072d8a362197 1269072d8a362197 MATCH
+p=      12 e=720000 hashes d023a20d5d89adfc d023a20d5d89adfc MATCH
+p=      13 e=760000 hashes 432b04978f90d91d 432b04978f90d91d MATCH
+p=      14 e=800000 hashes 5bc888dff684d8dc 5bc888dff684d8dc MATCH
+p=      15 e=840000 hashes 93a7670ed91a14d5 93a7670ed91a14d5 MATCH
+p=      16 e=880000 hashes adf06dd1fe9bf05d adf06dd1fe9bf05d MATCH
+p=      17 e=920000 hashes 3c2bb0dc5cc0ab23 3c2bb0dc5cc0ab23 MATCH
+p=      18 e=960000 hashes e416db9885686632 e416db9885686632 MATCH
+p= 1940000 e=20000 hashes 4004d3f855f11c8c 4004d3f855f11c8c MATCH
+p= 1980000 e=40000 hashes 27975aca418f175c 27975aca418f175c MATCH
+p= 2020000 e=60000 hashes 3dbfe86ff206f7b3 3dbfe86ff206f7b3 MATCH
+p= 2060000 e=80000 hashes fc5924e713ac3679 fc5924e713ac3679 MATCH
+p= 2100000 e=100000 hashes 2b5d26f407855731 2b5d26f407855731 MATCH
+p= 2140000 e=120000 hashes 8bd89a7b8910a31d 8bd89a7b8910a31d MATCH
+p= 2180000 e=140000 hashes 688b311e40a73fa6 688b311e40a73fa6 MATCH
+p= 2220000 e=160000 hashes 86416ec6c09e0672 86416ec6c09e0672 MATCH
+p= 2260000 e=180000 hashes d77a201ff39dbac2 d77a201ff39dbac2 MATCH
+p= 2300000 e=200000 hashes 028a15e1fe112476 028a15e1fe112476 MATCH
+compile hashes: ALL MATCH
+== pairs (heldout): ns/compile, interleaved 9 rounds; load recorded ==
+         p      e   shipped      fast   delta%  ns/knot
+         8 560000     52489     48328    -7.93   1499.7
+         9 600000     54626     50126    -8.24   1517.4
+        10 640000     53264     46150   -13.36   1331.6
+        11 680000     55648     49836   -10.45   1294.1
+        12 720000     60681     53294   -12.17   1319.2
+        13 760000     64862     58063   -10.48   1297.2
+        14 800000     71339     63783   -10.59   1297.1
+        15 840000     80882     70882   -12.36   1325.9
+        16 880000     88713     79265   -10.65   1304.6
+        17 920000    102781     90368   -12.08   1334.8
+        18 960000    124647    109173   -12.41   1340.3
+   1940000  20000      3314      3216    -2.97    552.4
+   1980000  40000      3470      3328    -4.09    578.3
+   2020000  60000      3673      3517    -4.26    612.2
+   2060000  80000      4286      4139    -3.44    612.3
+   2100000 100000      4490      4318    -3.82    641.4
+   2140000 120000      5258      5034    -4.26    657.3
+   2180000 140000      5972      5683    -4.84    663.6
+   2220000 160000      6553      6306    -3.78    655.3
+   2260000 180000      6763      6509    -3.76    676.3
+   2300000 200000      7474      7194    -3.75    679.5
+best improvement: -13.36%
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

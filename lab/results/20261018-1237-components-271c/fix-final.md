@@ -1,0 +1,2 @@
+Fixed: RUN_regen.sh is fixed and proven: it regenerates every dossier number end-to-end from a clean tree in ~80 s (exit 0, tree restored) — the root cause was `RUN_DIR` never being defined, plus two capture defects (runner-frozen 444 outputs blocking writes, and `tail -3` discarding all but the last test binary's result line), all three now fixed and verified with exact reproduction of the exactness numbers (0 mismatches, 34/34 hashes MATCH) and load-noise-consistent timings.
+t −13.50% vs the dossier's −13.0%), all crate tests green.

@@ -1,0 +1,72 @@
+# load: 1.44 1.44 1.20 2/321 1580010
+== census (heldout): class, knots, nodes by path, wide isqrt calls/iters ==
+         p      e    fast    word  knots  xings   nodes  wi/wit
+         7 520000  refused: NoBoundOrbit
+         8 560000    true   false     35     29     136 230/467
+         9 600000    true   false     36     31     140 240/489
+        10 640000    true    true     40     35     156 112/296
+        11 680000    true    true     43     38     168 121/244
+        12 720000    true    true     46     41     180 130/304
+        13 760000    true    true     50     45     196 142/285
+        14 800000    true    true     55     50     216 157/314
+        15 840000    true    true     61     56     240 175/408
+        16 880000    true    true     68     63     268 196/394
+        17 920000    true    true     77     73     304 226/527
+        18 960000    true    true     93     89     368 274/640
+   1940000  20000   false   false      6      0      20 5/10
+   1980000  40000   false   false      6      1      20 6/13
+   2020000  60000   false   false      6      2      20 7/15
+   2060000  80000   false   false      7      3      24 8/16
+   2100000 100000   false   false      7      4      24 9/18
+   2140000 120000   false   false      8      5      28 10/20
+   2180000 140000   false   false      9      6      32 11/25
+   2220000 160000   false   false     10      7      36 12/24
+   2260000 180000   false   false     10      8      36 13/26
+   2300000 200000   false   false     11      9      40 14/28
+== exactness fuzz (heldout): isqrt_mul mismatches 0, isqrt_u64_mul mismatches 0 of 1e6+1e6/2e6 ==
+p=       8 e=560000 hashes ebe12f103f782403 ebe12f103f782403 MATCH
+p=       9 e=600000 hashes c650af3b24711239 c650af3b24711239 MATCH
+p=      10 e=640000 hashes ed7a354a77e77bd3 ed7a354a77e77bd3 MATCH
+p=      11 e=680000 hashes 1269072d8a362197 1269072d8a362197 MATCH
+p=      12 e=720000 hashes d023a20d5d89adfc d023a20d5d89adfc MATCH
+p=      13 e=760000 hashes 432b04978f90d91d 432b04978f90d91d MATCH
+p=      14 e=800000 hashes 5bc888dff684d8dc 5bc888dff684d8dc MATCH
+p=      15 e=840000 hashes 93a7670ed91a14d5 93a7670ed91a14d5 MATCH
+p=      16 e=880000 hashes adf06dd1fe9bf05d adf06dd1fe9bf05d MATCH
+p=      17 e=920000 hashes 3c2bb0dc5cc0ab23 3c2bb0dc5cc0ab23 MATCH
+p=      18 e=960000 hashes e416db9885686632 e416db9885686632 MATCH
+p= 1940000 e=20000 hashes 4004d3f855f11c8c 4004d3f855f11c8c MATCH
+p= 1980000 e=40000 hashes 27975aca418f175c 27975aca418f175c MATCH
+p= 2020000 e=60000 hashes 3dbfe86ff206f7b3 3dbfe86ff206f7b3 MATCH
+p= 2060000 e=80000 hashes fc5924e713ac3679 fc5924e713ac3679 MATCH
+p= 2100000 e=100000 hashes 2b5d26f407855731 2b5d26f407855731 MATCH
+p= 2140000 e=120000 hashes 8bd89a7b8910a31d 8bd89a7b8910a31d MATCH
+p= 2180000 e=140000 hashes 688b311e40a73fa6 688b311e40a73fa6 MATCH
+p= 2220000 e=160000 hashes 86416ec6c09e0672 86416ec6c09e0672 MATCH
+p= 2260000 e=180000 hashes d77a201ff39dbac2 d77a201ff39dbac2 MATCH
+p= 2300000 e=200000 hashes 028a15e1fe112476 028a15e1fe112476 MATCH
+compile hashes: ALL MATCH
+== pairs (heldout): ns/compile, interleaved 9 rounds; load recorded ==
+         p      e   shipped      fast   delta%  ns/knot
+         8 560000     52489     48328    -7.93   1499.7
+         9 600000     54626     50126    -8.24   1517.4
+        10 640000     53264     46150   -13.36   1331.6
+        11 680000     55648     49836   -10.45   1294.1
+        12 720000     60681     53294   -12.17   1319.2
+        13 760000     64862     58063   -10.48   1297.2
+        14 800000     71339     63783   -10.59   1297.1
+        15 840000     80882     70882   -12.36   1325.9
+        16 880000     88713     79265   -10.65   1304.6
+        17 920000    102781     90368   -12.08   1334.8
+        18 960000    124647    109173   -12.41   1340.3
+   1940000  20000      3314      3216    -2.97    552.4
+   1980000  40000      3470      3328    -4.09    578.3
+   2020000  60000      3673      3517    -4.26    612.2
+   2060000  80000      4286      4139    -3.44    612.3
+   2100000 100000      4490      4318    -3.82    641.4
+   2140000 120000      5258      5034    -4.26    657.3
+   2180000 140000      5972      5683    -4.84    663.6
+   2220000 160000      6553      6306    -3.78    655.3
+   2260000 180000      6763      6509    -3.76    676.3
+   2300000 200000      7474      7194    -3.75    679.5
+best improvement: -13.36%

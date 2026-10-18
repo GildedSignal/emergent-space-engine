@@ -1,0 +1,48 @@
+# load: 1.44 1.44 1.20 2/321 1580008
+== isolated (ns/call, 2e5 calls, black_box sum 410b2bd6cf7877b30d79e): wide 100.0 mul 77.3 | std u64 26.4 fast u64 7.2 ==
+== census (main): class, knots, nodes by path, wide isqrt calls/iters ==
+         p      e    fast    word  knots  xings   nodes  wi/wit
+   2000000  10000   false   false      6      0      20 5/10
+   2600000  70000   false   false      6      3      20 8/17
+   3000000 400000   false   false     21     19      80 24/49
+    100000  70000    true    true      6      3      20 8/16
+     10000 300000    true    true     16     14      60 19/40
+      1000 900000    true    true     69     67     272 72/148
+       175 500000    true    true     27     25     104 30/61
+       100 700000    true    true     42     40     164 45/95
+        30 300000    true    true     16     14      60 19/38
+        12 100000    true    true      8      4      28 19/38
+         8 600000    true   false     37     31     144 244/498
+         7 400000    true   false     26     19     100 164/350
+         9 480000    true   false     29     24     112 191/387
+== exactness fuzz (main): isqrt_mul mismatches 0, isqrt_u64_mul mismatches 0 of 1e6+1e6/2e6 ==
+p= 2000000 e=10000 hashes f0ad1a97c42c4420 f0ad1a97c42c4420 MATCH
+p= 2600000 e=70000 hashes 725ac9d3b1231e61 725ac9d3b1231e61 MATCH
+p= 3000000 e=400000 hashes 56d8b9d6af7fe36b 56d8b9d6af7fe36b MATCH
+p=  100000 e=70000 hashes 31081e9d72ff0afc 31081e9d72ff0afc MATCH
+p=   10000 e=300000 hashes 6c9a5e67d3949505 6c9a5e67d3949505 MATCH
+p=    1000 e=900000 hashes 4b0d5cef58111dc3 4b0d5cef58111dc3 MATCH
+p=     175 e=500000 hashes 4b85335a92cbd93d 4b85335a92cbd93d MATCH
+p=     100 e=700000 hashes ce6c8f223a10ee64 ce6c8f223a10ee64 MATCH
+p=      30 e=300000 hashes d5a21a000ea6e658 d5a21a000ea6e658 MATCH
+p=      12 e=100000 hashes 061e0dee226281a2 061e0dee226281a2 MATCH
+p=       8 e=600000 hashes 4d400bbab7e1cc5a 4d400bbab7e1cc5a MATCH
+p=       7 e=400000 hashes c8cdaa6a4be0ea9e c8cdaa6a4be0ea9e MATCH
+p=       9 e=480000 hashes 1ad78deaced8a1d0 1ad78deaced8a1d0 MATCH
+compile hashes: ALL MATCH
+== pairs (main): ns/compile, interleaved 9 rounds; load recorded ==
+         p      e   shipped      fast   delta%  ns/knot
+   2000000  10000      3348      3242    -3.15    558.0
+   2600000  70000      3888      3715    -4.45    648.1
+   3000000 400000     14101     13633    -3.32    671.5
+    100000  70000      5991      5453    -8.98    998.4
+     10000 300000     17237     15518    -9.97   1077.3
+      1000 900000     75315     67569   -10.28   1091.5
+       175 500000     29270     26386    -9.85   1084.1
+       100 700000     45873     41145   -10.31   1092.2
+        30 300000     17178     15520    -9.65   1073.6
+        12 100000      9200      8280    -9.99   1149.9
+         8 600000     55883     51323    -8.16   1510.3
+         7 400000     38396     34913    -9.07   1476.8
+         9 480000     43587     40018    -8.19   1503.0
+best improvement: -10.31%

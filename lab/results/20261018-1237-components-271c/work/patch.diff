@@ -1,0 +1,467 @@
+diff --git a/crates/space/examples/isqrtbench.rs b/crates/space/examples/isqrtbench.rs
+new file mode 100644
+index 00000000..00f6d745
+--- /dev/null
++++ b/crates/space/examples/isqrtbench.rs
+@@ -0,0 +1,271 @@
++//! Lab instrument 20261018-1237-components-271c: price the compile node's two isqrt
++//! implementations (read-stream od 2, the slices d4ce left unpriced).
++//! Arms are switched in-process (set_isqrt_fast), interleaved A/B pairs, load recorded.
++//! Usage: isqrtbench [census|pairs|exact|heldout|all]
++use emergent_space::num;
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use std::hash::{DefaultHasher, Hash, Hasher};
++use std::time::{Duration, Instant};
++
++fn keys() -> Vec<(u64, u64, &'static str)> {
++    // (periapsis in M units as integer, eccentricity in millionths, class label)
++    // e in millionths of a unit: 500_000 = e 0.5. The word_root=false band is
++    // p in (6+2e, ~8+2.7e): delta = 1 - (1+e)/p * (4/(1+e)+2) in [2.3e-10, 1/4).
++    let out = vec![
++        (2_000_000, 10_000, "belt"),
++        (2_600_000, 70_000, "belt-e"),
++        (3_000_000, 400_000, "belt-cap"),
++        (100_000, 70_000, "planet"),
++        (10_000, 300_000, "inner"),
++        (1_000, 900_000, "strong"),
++        (175, 500_000, "bank"),
++        (100, 700_000, "strong-e"),
++        (30, 300_000, "deep"),
++        (12, 100_000, "sep-edge"),
++        (8, 600_000, "wideband"),
++        (7, 400_000, "wideband2"),
++        (9, 480_000, "wideband3"),
++    ];
++    out
++}
++
++fn make(p: u64, e: u64) -> OrbitKey {
++    // e in Q48: e_millionths -> u64 mantissa
++    let e48 = ((e as u128) << 48) / 1_000_000;
++    OrbitKey::bound(Scalar::integer(p as i64), e48 as u64).expect("key")
++}
++
++fn reset_counters() {
++    for c in [
++        &num::CENSUS_FAST_NODES,
++        &num::CENSUS_SLOW_NODES,
++        &num::CENSUS_WEAK_NODES,
++        &num::CENSUS_WORD_NODES,
++        &num::CENSUS_WIDE_NODES,
++        &num::CENSUS_WIDE_ISQRT,
++        &num::CENSUS_WIDE_ITERS,
++    ] {
++        c.store(0, std::sync::atomic::Ordering::Relaxed);
++    }
++}
++
++fn snapshot() -> [u64; 7] {
++    [
++        num::CENSUS_FAST_NODES.load(std::sync::atomic::Ordering::Relaxed),
++        num::CENSUS_SLOW_NODES.load(std::sync::atomic::Ordering::Relaxed),
++        num::CENSUS_WEAK_NODES.load(std::sync::atomic::Ordering::Relaxed),
++        num::CENSUS_WORD_NODES.load(std::sync::atomic::Ordering::Relaxed),
++        num::CENSUS_WIDE_NODES.load(std::sync::atomic::Ordering::Relaxed),
++        num::CENSUS_WIDE_ISQRT.load(std::sync::atomic::Ordering::Relaxed),
++        num::CENSUS_WIDE_ITERS.load(std::sync::atomic::Ordering::Relaxed),
++    ]
++}
++
++fn hash_orbit(o: &Orbit) -> u64 {
++    let mut h = DefaultHasher::new();
++    let shape = o.shape();
++    for k in shape.knots() {
++        k.psi.hash(&mut h);
++    }
++    o.period().unwrap().hash(&mut h);
++    o.advance().unwrap().hash(&mut h);
++    o.proper_period().unwrap().hash(&mut h);
++    let crossings = shape.crossings();
++    crossings.len().hash(&mut h);
++    for i in 0..crossings.len().min(8) {
++        o.crossing_time(i).unwrap().hash(&mut h);
++    }
++    let period = o.period().unwrap();
++    for i in 0..8u32 {
++        if let Ok(s) = o.state(period.scale(1).unwrap().mul(Scalar::power_of_two(-3)).unwrap()
++            .mul(Scalar::integer(i as i64 + 1)).unwrap()) {
++            s.radius.hash(&mut h);
++        }
++    }
++    h.finish()
++}
++
++fn ladder(kind: &str) -> Vec<(u64, u64, &'static str)> {
++    if kind != "heldout" {
++        return keys();
++    }
++    // Held-out: finer near-separatrix sweep + shifted belt band, not tuned on.
++    // Near-separatrix sweep: p just above 6+2e at growing eccentricity (the
++    // word_root=false band), plus a shifted belt band.
++    let mut v: Vec<(u64, u64, &'static str)> = (1..=12)
++        .map(|i| (6 + i as u64, 480_000 + 40_000 * i as u64, "sweep"))
++        .collect();
++    v.extend((1..=10).map(|i| (1_900_000 + 40_000 * i as u64, 20_000 * i as u64, "belt2")));
++    v.retain(|&(p, e, _)| e < 990_000);
++    v
++}
++
++fn census(kind: &str) {
++    num::set_isqrt_fast(false);
++    num::set_census(true);
++    println!("== census ({}): class, knots, nodes by path, wide isqrt calls/iters ==", kind);
++    println!("{:>10} {:>6} {:>7} {:>7} {:>6} {:>6} {:>7} {:>7}", "p", "e", "fast", "word", "knots", "xings", "nodes", "wi/wit");
++    for &(p, e, _) in &ladder(kind) {
++        reset_counters();
++        let key = make(p, e);
++        let o = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(err) => {
++                println!("{p:>10} {e:>6}  refused: {err:?}");
++                continue;
++            }
++        };
++        let (fast, word, knots, xings) = o.shape().shape_class();
++        let s = snapshot();
++        let nodes = s[3] + s[4] + s[1] + s[2];
++        println!("{p:>10} {e:>6} {fast:>7} {word:>7} {knots:>6} {xings:>6} {nodes:>7} {}/{}",
++            s[5], s[6]);
++    }
++    num::set_census(false);
++}
++
++fn exact(kind: &str) {
++    // P1: fuzz the pure functions, then hash whole compiles under both arms.
++    let mut x = 0x243F_6A88_85A3_08D3_u128;
++    let mut bad128 = 0u64;
++    let mut bad64 = 0u64;
++    for i in 0..1_000_000_u64 {
++        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407 + i as u128);
++        if num::isqrt_mul(x) != num::isqrt_pub(x) {
++            bad128 += 1;
++        }
++        if num::isqrt_u64_mul(x as u64) != (x as u64).isqrt() {
++            bad64 += 1;
++        }
++        // Gate-shaped operands: denominator in Q62 across the gate decades, shifted <<62.
++        let denom = (x >> 64) | (1u128 << 30);
++        let operand = denom << 62;
++        if num::isqrt_mul(operand) != num::isqrt_pub(operand) {
++            bad128 += 1;
++        }
++    }
++    println!("== exactness fuzz ({}): isqrt_mul mismatches {bad128}, isqrt_u64_mul mismatches {bad64} of 1e6+1e6/2e6 ==", kind);
++    assert_eq!(bad128, 0, "isqrt_mul is not exact");
++    assert_eq!(bad64, 0, "isqrt_u64_mul is not exact");
++    let mut all_match = true;
++    for &(p, e, _) in &ladder(kind) {
++        let key = make(p, e);
++        num::set_isqrt_fast(false);
++        let a = match Orbit::compile(key) {
++            Ok(o) => hash_orbit(&o),
++            Err(_) => continue,
++        };
++        num::set_isqrt_fast(true);
++        let b = match Orbit::compile(key) {
++            Ok(o) => hash_orbit(&o),
++            Err(_) => continue,
++        };
++        num::set_isqrt_fast(false);
++        let same = a == b;
++        all_match &= same;
++        println!("p={p:>8} e={e:>4} hashes {a:016x} {b:016x} {}", if same { "MATCH" } else { "DIFFER" });
++    }
++    println!("compile hashes: {}", if all_match { "ALL MATCH" } else { "MISMATCH" });
++    assert!(all_match);
++}
++
++fn pairs(kind: &str) {
++    // Interleaved A/B pairs: per key, alternate arms R times, K compiles a sample.
++    let rounds = 9;
++    println!("== pairs ({}): ns/compile, interleaved {} rounds; load recorded ==", kind, rounds);
++    println!("{:>10} {:>6} {:>9} {:>9} {:>8} {:>8}", "p", "e", "shipped", "fast", "delta%", "ns/knot");
++    let mut worst = f64::INFINITY;
++    for &(p, e, _) in &ladder(kind) {
++        let key = make(p, e);
++        if Orbit::compile(key).is_err() {
++            continue;
++        }
++        // Pick K so a sample is a few ms.
++        let probe = Instant::now();
++        let _ = Orbit::compile(key);
++        let one = probe.elapsed().max(Duration::from_nanos(500));
++        let k = ((Duration::from_millis(3).as_nanos() / one.as_nanos().max(1)) as usize).clamp(4, 20_000);
++        let mut a_med = vec![];
++        let mut b_med = vec![];
++        for _ in 0..rounds {
++            num::set_isqrt_fast(false);
++            let t = Instant::now();
++            for _ in 0..k {
++                std::hint::black_box(Orbit::compile(std::hint::black_box(key)));
++            }
++            a_med.push(t.elapsed().as_nanos() as f64 / k as f64);
++            num::set_isqrt_fast(true);
++            let t = Instant::now();
++            for _ in 0..k {
++                std::hint::black_box(Orbit::compile(std::hint::black_box(key)));
++            }
++            b_med.push(t.elapsed().as_nanos() as f64 / k as f64);
++        }
++        num::set_isqrt_fast(false);
++        a_med.sort_by(|x, y| x.partial_cmp(y).unwrap());
++        b_med.sort_by(|x, y| x.partial_cmp(y).unwrap());
++        let a = a_med[rounds / 2];
++        let b = b_med[rounds / 2];
++        let knots = Orbit::compile(key).unwrap().shape().shape_class().2.max(1);
++        let delta = 100.0 * (b - a) / a;
++        worst = worst.min(delta);
++        println!("{p:>10} {e:>6} {a:>9.0} {b:>9.0} {delta:>8.2} {:>8.1}", a / knots as f64);
++    }
++    println!("best improvement: {:.2}%", worst);
++}
++
++fn isolated() {
++    // Anchor the slice price in isolation (not in situ): shipped wide Newton vs mul-only.
++    let n = 200_000;
++    let mut xs = vec![];
++    let mut x = 0xdeadbeef_u128;
++    for i in 0..n {
++        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407 + i as u128);
++        xs.push(x | (1u128 << 100)); // denominator<<62-shaped magnitudes
++    }
++    let t = Instant::now();
++    let mut acc = 0u128;
++    for &v in &xs {
++        acc = acc.wrapping_add(num::isqrt_pub(v));
++    }
++    let wide = t.elapsed().as_nanos() as f64 / n as f64;
++    let t = Instant::now();
++    for &v in &xs {
++        acc = acc.wrapping_add(num::isqrt_mul(v));
++    }
++    let mul = t.elapsed().as_nanos() as f64 / n as f64;
++    let t = Instant::now();
++    for &v in &xs {
++        acc = acc.wrapping_add((v as u64).isqrt() as u128);
++    }
++    let std64 = t.elapsed().as_nanos() as f64 / n as f64;
++    let t = Instant::now();
++    for &v in &xs {
++        acc = acc.wrapping_add(num::isqrt_u64_mul(v as u64) as u128);
++    }
++    let fast64 = t.elapsed().as_nanos() as f64 / n as f64;
++    println!("== isolated (ns/call, 2e5 calls, black_box sum {acc:x}): wide {wide:.1} mul {mul:.1} | std u64 {std64:.1} fast u64 {fast64:.1} ==");
++}
++
++fn main() {
++    let arg = std::env::args().nth(1).unwrap_or_else(|| "all".into());
++    let load = std::fs::read_to_string("/proc/loadavg").unwrap_or_default();
++    print!("# load: {}", load);
++    match arg.as_str() {
++        "census" => census("main"),
++        "exact" => exact("main"),
++        "pairs" => pairs("main"),
++        "heldout" => {
++            census("heldout");
++            exact("heldout");
++            pairs("heldout");
++        }
++        _ => {
++            isolated();
++            census("main");
++            exact("main");
++            pairs("main");
++        }
++    }
++}
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..604e4917 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -112,7 +112,7 @@ pub mod binding;
+ mod inverse;
+ pub mod light;
+ pub mod kerr;
+-mod num;
++pub mod num;
+ pub mod orbit;
+ pub mod plunge;
+ pub mod scaled;
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..3d8150eb 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -41,8 +41,18 @@ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+     (q1 << 32) + q0
+ }
+ 
+-/// floor(sqrt(x)).
+ pub fn isqrt(x: u128) -> u128 {
++    if ISQRT_FAST.load(Ordering::Relaxed) {
++        return isqrt_mul(x);
++    }
++    isqrt_pub(x)
++}
++
++/// The shipped wide Newton, independent of the lab arm (fuzz reference and census site).
++pub fn isqrt_pub(x: u128) -> u128 {
++    if census() {
++        CENSUS_WIDE_ISQRT.fetch_add(1, Ordering::Relaxed);
++    }
+     if x < 2 {
+         return x;
+     }
+@@ -53,6 +63,9 @@ pub fn isqrt(x: u128) -> u128 {
+     y <<= shift / 2;
+     // Newton from above decreases monotonically to floor(sqrt(x)).
+     loop {
++        if census() {
++            CENSUS_WIDE_ITERS.fetch_add(1, Ordering::Relaxed);
++        }
+         let z = (y + x / y) >> 1;
+         if z >= y {
+             return y;
+@@ -60,6 +73,84 @@ pub fn isqrt(x: u128) -> u128 {
+         y = z;
+     }
+ }
++pub static CENSUS_WIDE_NODES: AtomicU64 = AtomicU64::new(0);
++pub fn census_on() -> bool {
++    census()
++}
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++// Lab instrument 20261018-1237-components-271c: a division-free exact isqrt arm
++// (bit-identical by construction: floor(sqrt) is unique) plus census counters,
++// both inert unless switched on. Shipped paths are untouched when the flag is off.
++static ISQRT_FAST: AtomicBool = AtomicBool::new(false);
++static CENSUS: AtomicBool = AtomicBool::new(false);
++pub static CENSUS_FAST_NODES: AtomicU64 = AtomicU64::new(0);
++pub static CENSUS_SLOW_NODES: AtomicU64 = AtomicU64::new(0);
++pub static CENSUS_WEAK_NODES: AtomicU64 = AtomicU64::new(0);
++pub static CENSUS_WORD_NODES: AtomicU64 = AtomicU64::new(0);
++pub static CENSUS_WIDE_ISQRT: AtomicU64 = AtomicU64::new(0);
++pub static CENSUS_WIDE_ITERS: AtomicU64 = AtomicU64::new(0);
++pub static CENSUS_U64_ISQRT: AtomicU64 = AtomicU64::new(0);
++
++pub fn set_isqrt_fast(on: bool) {
++    ISQRT_FAST.store(on, Ordering::Relaxed);
++}
++pub fn isqrt_fast_enabled() -> bool {
++    ISQRT_FAST.load(Ordering::Relaxed)
++}
++pub fn set_census(on: bool) {
++    CENSUS.store(on, Ordering::Relaxed);
++}
++fn census() -> bool {
++    CENSUS.load(Ordering::Relaxed)
++}
++
++/// floor(sqrt(x)) with one hardware division per Newton step instead of the
++/// shipped `u128/128` software division chain: f64 seed of the full operand,
++/// two steps (the seed's ~2^-52 squares away), then exact floor correction.
++/// Any implementation of floor is interchangeable: bit-identical by construction.
++pub fn isqrt_mul(x: u128) -> u128 {
++    if x < 2 {
++        return x;
++    }
++ // Past the largest u64 square the floor is u64::MAX itself.
++    if x >= (u64::MAX as u128) * (u64::MAX as u128) {
++        return u64::MAX as u128;
++    }
++    // Seed from above: f64 sqrt has ~2^-52 relative error, y <= 2^64 - 1 here.
++    let mut y = (x as f64).sqrt() as u128 + 2;
++    for _ in 0..2 {
++        // x/y fits u64: y ~ sqrt(x) > x >> 64 for every x < 2^128.
++        let q = div_word(x, y as u64) as u128;
++        y = (y + q) >> 1;
++    }
++    while y > 0 && y.checked_mul(y).map_or(true, |s| s > x) {
++        y -= 1;
++    }
++    while let Some(y1) = y.checked_add(1) {
++        match y1.checked_mul(y1) {
++            Some(s) if s <= x => y = y1,
++            _ => break,
++        }
++    }
++    y
++}
++
++/// floor(sqrt(x)) for u64 without std's Newton division: f64 seed (error < 1
++/// unit at 32 output bits) plus exact bounded floor correction.
++pub fn isqrt_u64_mul(x: u64) -> u64 {
++    if x < 2 {
++        return x;
++    }
++    let mut y = (x as f64).sqrt() as u64;
++    while y > 0 && (y as u128) * (y as u128) > x as u128 {
++        y -= 1;
++    }
++    while ((y + 1) as u128) * ((y + 1) as u128) <= x as u128 {
++        y += 1;
++    }
++    y
++}
+ 
+ /// floor(a * b / 2^s) for a, b >= 0, from the exact 256-bit product; Range if it exceeds u128.
+ pub fn mul_shr(a: u128, b: u128, s: u32) -> Result<u128> {
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..874272c2 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -234,6 +234,10 @@ impl OrbitShape {
+     pub fn crossings(&self) -> &[usize] {
+         &self.crossings
+     }
++    /// Lab instrument: (fast, word_root, knots, crossings) for census prints.
++    pub fn shape_class(&self) -> (bool, bool, usize, usize) {
++        (self.fast, self.word_root, self.knots.len(), self.crossings.len())
++    }
+     fn new(key: ShapeKey) -> Result<Self> {
+         if (key.k == 0 && !key.null) || key.k > UNIT || key.k_exponent > 0 {
+             return Err(Error::Range);
+@@ -359,6 +363,9 @@ impl OrbitShape {
+             let dx = (X[j] * h) >> 63;
+             let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
+             for psi in [mid - dx, mid + dx] {
++                if crate::num::census_on() {
++                    crate::num::CENSUS_SLOW_NODES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                }
+                 let node = self.node(psi)?;
+                 for i in 0..5 {
+                     sum.0[i] = sum.0[i].add(weight.mul(node.0[i])?)?;
+@@ -376,6 +383,9 @@ impl OrbitShape {
+             let dx = (X[j] * h) >> 63;
+             let w = (W[j] * h) >> 63;
+             for psi in [mid - dx, mid + dx] {
++                if crate::num::census_on() {
++                    crate::num::CENSUS_WEAK_NODES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                }
+                 let ac = product(ONE - self.k, cos(psi));
+                 let x = self.k + ac;
+                 let excess = 3 * self.k + ac;
+@@ -418,10 +428,21 @@ impl OrbitShape {
+                 // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
+                 // A single native u64 isqrt replaces the 126-bit square root.
+                 let root = if self.word_root {
+-                    ((denominator as u64).isqrt() as u128) << 31
++                    if crate::num::isqrt_fast_enabled() {
++                        (crate::num::isqrt_u64_mul(denominator as u64) as u128) << 31
++                    } else {
++                        ((denominator as u64).isqrt() as u128) << 31
++                    }
+                 } else {
+                     crate::num::isqrt((denominator as u128) << 62)
+                 };
++                if crate::num::census_on() {
++                    if self.word_root {
++                        crate::num::CENSUS_WORD_NODES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                    } else {
++                        crate::num::CENSUS_WIDE_NODES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                    }
++                }
+                 let horizon = ONE - product(2 * self.q, x);
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
