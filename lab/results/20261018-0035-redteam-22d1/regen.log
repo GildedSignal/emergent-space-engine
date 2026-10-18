@@ -1,0 +1,30 @@
+=== Arm A: moving occluder, no mass (transverse) ===
+d=     2R beta= 0.0001  nOcc(W3)= 1667 (16.67%)  Jac W1=1.000 W2=1.000 W2p=1.0000  dOnset W1=   -1.6012s W2=   +0.8006s W2p=   +0.0000s  (d/c=2s)
+d=     2R beta= 0.1000  nOcc(W3)= 1667 (16.67%)  Jac W1=0.847 W2=0.974 W2p=0.9874  dOnset W1=   -1.9499s W2=   +0.4126s W2p=   +0.1987s  (d/c=2s)
+d=     2R beta= 0.5000  nOcc(W3)= 1667 (16.67%)  Jac W1=0.401 W2=0.855 W2p=0.7840  dOnset W1=   -1.7634s W2=   +0.4758s W2p=   +0.2368s  (d/c=2s)
+d=     2R beta= 0.9000  nOcc(W3)= 1666 (16.66%)  Jac W1=0.079 W2=0.420 W2p=0.5217  dOnset W1=   -1.6167s W2=   +0.9960s W2p=   +0.6288s  (d/c=2s)
+d=    10R beta= 0.0001  nOcc(W3)=  319 ( 3.19%)  Jac W1=1.000 W2=1.000 W2p=1.0000  dOnset W1=   -9.6108s W2=   +0.0000s W2p=   +0.0000s  (d/c=10s)
+d=    10R beta= 0.1000  nOcc(W3)=  319 ( 3.19%)  Jac W1=0.335 W2=0.997 W2p=0.9843  dOnset W1=   -9.9501s W2=   +0.1003s W2p=   +0.0510s  (d/c=10s)
+d=    10R beta= 0.5000  nOcc(W3)=  319 ( 3.19%)  Jac W1=0.000 W2=0.865 W2p=0.3065  dOnset W1=   -9.7637s W2=   +1.2508s W2p=   +1.1936s  (d/c=10s)
+d=    10R beta= 0.9000  nOcc(W3)=  319 ( 3.19%)  Jac W1=0.000 W2=0.436 W2p=0.0000  dOnset W1=   -9.6160s W2=   +9.2965s W2p=   +9.1848s  (d/c=10s)
+d=   100R beta= 0.0001  nOcc(W3)=   32 ( 0.32%)  Jac W1=0.969 W2=1.000 W2p=1.0000  dOnset W1= -100.5625s W2=   +0.0000s W2p=   +0.0000s  (d/c=100s)
+d=   100R beta= 0.1000  nOcc(W3)=   32 ( 0.32%)  Jac W1=0.000 W2=1.000 W2p=0.9091  dOnset W1=  -99.9474s W2=   +0.4664s W2p=   +0.4611s  (d/c=100s)
+d=   100R beta= 0.5000  nOcc(W3)=   32 ( 0.32%)  Jac W1=0.000 W2=0.875 W2p=0.0000  dOnset W1=  -99.7659s W2=  +15.0518s W2p=  +15.0471s  (d/c=100s)
+d=   100R beta= 0.9000  nOcc(W3)=   31 ( 0.31%)  Jac W1=0.000 W2=0.452 W2p=0.0000  dOnset W1=  -99.6202s W2= +125.1344s W2p= +125.1206s  (d/c=100s)
+  d=  2R psi_rim=30.00deg  rim onset err: W1=  -1.5636s W2= +0.7457s W2p=+3.58e-01s   predicted W2 = d(1-cos psi) = 0.2679s
+  d= 10R psi_rim= 5.74deg  rim onset err: W1=  -9.7251s W2= +1.8220s W2p=+1.75e+00s   predicted W2 = d(1-cos psi) = 0.0501s
+-- oblique arm (45 deg, held out), d=10R --
+  beta=0.1: nOcc(W3)=341  Jac W1=0.493  W2p=0.9569
+  beta=0.5: nOcc(W3)=440  Jac W1=0.000  W2p=0.5216
+=== Arm O: observer beta_O = 0.5, d = 2R, occluder static ===
+  approach(+x toward occluder): half-arc observer-frame 17.58 deg, coordinate-frame 29.99 deg (static 30.00; arc-size error 41.4%); coordinate-arc row parity misclassifies 2 rows (0.020%)
+  recede: half-arc observer-frame 49.77 deg, coordinate-frame 29.99 deg (static 30.00; arc-size error 65.9%); coordinate-arc row parity misclassifies 2 rows (0.020%)
+=== Arm B: differential Shapiro delay across a strong-field transit ===
+  b_ray=10.26M: delay quad=8.5084s  log=8.6606s  exact=8.5084s  (log vs quad 1.79%)
+  beta= 0.0001: transit   20000.00s | sprite-consistent differential 0.7821s (0.004%) | W1 error d/c = 2.0s | naive no-cancel delay 8.66s (not the observable)
+  beta= 0.5000: transit       4.00s | sprite-consistent differential 0.7821s (19.551%) | W1 error d/c = 2.0s | naive no-cancel delay 8.66s (not the observable)
+=== Price: exact W3 per row (vectorised; order of magnitude, shared x86) ===
+  100k rows: 8.06 ms/pass -> 81 ns/row (numpy one-off overhead included)
+wrote /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261018-0035-redteam-22d1/eclipse_parity-out.json
+---
+Regen OK: compare eclipse_parity-out.json against the dossier's numbers.
