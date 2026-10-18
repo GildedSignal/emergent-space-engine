@@ -1,0 +1,4 @@
+Working...
+All deliverables complete and regen runs clean end-to-end (fresh Readwise fetch → 5/5 quotes byte-identical; full table + P1/P3/P4/P5; grounding greps hit `bind.rs:94` and `shelf.rs:9/372`).
+
+**The claim:** the 10⁹ memory wall, composed from measured constants only, is decided by two unsubstitutable dials — the scar quantum (q16 3.0 GB ↔ q24 5.2 GB ↔ the scoreboard's 126-bit driven worst, 15.75 GB, which busts the 8 GB machine at *zero* live bodies: not "~2× over" but nonexistence) and the live plateau (4,850–5,060 B/B ↔ ~1,300 B post-Carlson, worth 3.9× at every mix) — so the freeze must split: the reversible live ceiling now, the irreversible scar quantum late, after its consumer derivation (five verbatim library lessons, 5/5 byte-identical, drive exactly that split; P1/P3/P4 held, P5 half-held: fences 3% quiet, 16% in battle).
