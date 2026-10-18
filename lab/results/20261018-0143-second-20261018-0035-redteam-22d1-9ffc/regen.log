@@ -1,0 +1,67 @@
+=== Arm A: moving occluder, no mass (transverse) — FIXED onset instrument ===
+d=     2R beta= 0.0001  nOcc(W3)= 1667 (16.67%)  Jac W1=1.000 W2=1.000 W2p=1.0000  dOnset W1=   -1.6012s W2=   +0.0000s W2p=   +0.0000s  buggyW2=   +1.1576s  c1=5.3e-15
+d=     2R beta= 0.1000  nOcc(W3)= 1667 (16.67%)  Jac W1=0.847 W2=0.974 W2p=0.9874  dOnset W1=   -1.9499s W2=   +0.2857s W2p=   +0.0497s  buggyW2=   +0.4130s  c1=5.3e-15
+d=     2R beta= 0.5000  nOcc(W3)= 1667 (16.67%)  Jac W1=0.401 W2=0.855 W2p=0.7840  dOnset W1=   -1.7634s W2=   +0.4729s W2p=   +0.2368s  buggyW2=   +0.4758s  c1=4.3e-14
+d=     2R beta= 0.9000  nOcc(W3)= 1666 (16.66%)  Jac W1=0.079 W2=0.420 W2p=0.5217  dOnset W1=   -1.6167s W2=   +0.6194s W2p=   +0.3833s  buggyW2=   +0.9965s  c1=1.7e-12
+d=    10R beta= 0.0001  nOcc(W3)=  319 ( 3.19%)  Jac W1=1.000 W2=1.000 W2p=1.0000  dOnset W1=   -9.6108s W2=   +0.0000s W2p=   +0.0000s  buggyW2=   +0.3743s  c1=5.3e-15
+d=    10R beta= 0.1000  nOcc(W3)=  319 ( 3.19%)  Jac W1=0.335 W2=0.997 W2p=0.9843  dOnset W1=   -9.9501s W2=   +0.1003s W2p=   +0.0510s  buggyW2=   +0.1009s  c1=1.1e-14
+d=    10R beta= 0.5000  nOcc(W3)=  319 ( 3.19%)  Jac W1=0.000 W2=0.865 W2p=0.3065  dOnset W1=   -9.7637s W2=   +0.2862s W2p=   +0.2364s  buggyW2=   +1.2514s  c1=5.7e-14
+d=    10R beta= 0.9000  nOcc(W3)=  319 ( 3.19%)  Jac W1=0.000 W2=0.436 W2p=0.0000  dOnset W1=   -9.6160s W2=   +0.4341s W2p=   +0.3837s  buggyW2=   +9.2968s  c1=1.7e-12
+d=   100R beta= 0.0001  nOcc(W3)=   32 ( 0.32%)  Jac W1=0.969 W2=1.000 W2p=1.0000  dOnset W1= -100.5625s W2=   +0.0000s W2p=   +0.0000s  buggyW2=   +0.6276s  c1=4.3e-14
+d=   100R beta= 0.1000  nOcc(W3)=   32 ( 0.32%)  Jac W1=0.000 W2=1.000 W2p=0.9091  dOnset W1=  -99.9474s W2=   +0.0583s W2p=   +0.0530s  buggyW2=   +0.4679s  c1=4.3e-14
+d=   100R beta= 0.5000  nOcc(W3)=   32 ( 0.32%)  Jac W1=0.000 W2=0.875 W2p=0.0000  dOnset W1=  -99.7659s W2=   +0.2423s W2p=   +0.2377s  buggyW2=  +15.0547s  c1=2.3e-13
+d=   100R beta= 0.9000  nOcc(W3)=   31 ( 0.31%)  Jac W1=0.000 W2=0.452 W2p=0.0000  dOnset W1=  -99.6202s W2=   +0.3855s W2p=   +0.3809s  buggyW2= +125.1389s  c1=1.1e-11
+  d=  2R psi_rim=30.00deg  rim onset err: W1=  -1.5636s W2= +0.4363s W2p=+0.1682s   (W2 centre-row bound 0.236s)
+  d= 10R psi_rim= 5.74deg  rim onset err: W1=  -9.7251s W2= +0.2751s W2p=+0.2251s   (W2 centre-row bound 0.236s)
+-- oblique arm (45 deg, held out), d=10R, now with the FIXED W2 --
+  beta=0.1: nOcc(W3)=341  Jac W1=0.493  W2=0.9971  W2p=0.8420
+  beta=0.5: nOcc(W3)=440  Jac W1=0.000  W2=0.9341  W2p=0.6187
+=== Arm ARC: arc geometry vs closed form; the 1/gamma mechanism ===
+d=  2R beta=0.1: mismatch rows 0/0/0  centre W3= -4.968 W2= -5.742 (-asin b=-5.739)  half W3=29.988 W2=29.826  ratio=0.9946  1/gamma=0.9950  Jac(W2,W3)=0.9745  sqrt(1-b^2)=0.9950
+d=  2R beta=0.5: mismatch rows 0/0/0  centre W3=-25.668 W2=-30.006 (-asin b=-30.000)  half W3=29.988 W2=25.650  ratio=0.8553  1/gamma=0.8660  Jac(W2,W3)=0.8554  sqrt(1-b^2)=0.8660
+d=  2R beta=0.9: mismatch rows 0/0/0  centre W3=-51.210 W2=-64.152 (-asin b=-64.158)  half W3=29.970 W2=12.564  ratio=0.4192  1/gamma=0.4359  Jac(W2,W3)=0.4196  sqrt(1-b^2)=0.4359
+d= 10R beta=0.1: mismatch rows 0/0/0  centre W3= -5.724 W2= -5.742 (-asin b=-5.739)  half W3=5.724 W2=5.706  ratio=0.9969  1/gamma=0.9950  Jac(W2,W3)=0.9969  sqrt(1-b^2)=0.9950
+d= 10R beta=0.5: mismatch rows 0/0/0  centre W3=-29.844 W2=-30.006 (-asin b=-30.000)  half W3=5.724 W2=4.950  ratio=0.8648  1/gamma=0.8660  Jac(W2,W3)=0.8652  sqrt(1-b^2)=0.8660
+d= 10R beta=0.9: mismatch rows 0/0/0  centre W3=-63.576 W2=-64.152 (-asin b=-64.158)  half W3=5.724 W2=2.484  ratio=0.4340  1/gamma=0.4359  Jac(W2,W3)=0.4357  sqrt(1-b^2)=0.4359
+d=100R beta=0.1: mismatch rows 0/0/0  centre W3= -5.742 W2= -5.742 (-asin b=-5.739)  half W3=0.558 W2=0.558  ratio=1.0000  1/gamma=0.9950  Jac(W2,W3)=1.0000  sqrt(1-b^2)=0.9950
+d=100R beta=0.5: mismatch rows 0/0/0  centre W3=-30.006 W2=-30.006 (-asin b=-30.000)  half W3=0.558 W2=0.486  ratio=0.8710  1/gamma=0.8660  Jac(W2,W3)=0.8750  sqrt(1-b^2)=0.8660
+d=100R beta=0.9: mismatch rows 0/0/0  centre W3=-64.152 W2=-64.170 (-asin b=-64.158)  half W3=0.540 W2=0.234  ratio=0.4333  1/gamma=0.4359  Jac(W2,W3)=0.4516  sqrt(1-b^2)=0.4359
+-- oblique closed-form certificate (45 deg, d=10R) --
+  beta=0.1: d_perp=7.0711  sprite dist=9.3615 (gamma*d_perp=7.1067)  mismatches 0/0/0  Jac W2=0.9971
+  beta=0.5: d_perp=7.0711  sprite dist=7.7581 (gamma*d_perp=8.1650)  mismatches 0/0/0  Jac W2=0.9341
+=== Arm O: observer beta_O = 0.5, d = 2R, occluder static ===
+  approach(+x toward occluder): half-arc observer-frame 17.58 deg, coordinate-frame 29.99 deg (static 30.00; arc-size error 41.4%); coordinate-arc row parity misclassifies 2 rows (0.020%)
+  recede: half-arc observer-frame 49.77 deg, coordinate-frame 29.99 deg (static 30.00; arc-size error 65.9%); coordinate-arc row parity misclassifies 2 rows (0.020%)
+=== Arm B: differential Shapiro delay across a strong-field transit ===
+  b_ray=10.26M: delay quad=8.5084s  log=8.6606s  exact=8.5084s  (log vs quad 1.79%)
+  beta= 0.0001: transit   20000.00s | sprite-consistent differential 0.7821s (0.004%) | W1 error d/c = 2.0s | naive no-cancel delay 8.66s (not the observable)
+  beta= 0.5000: transit       4.00s | sprite-consistent differential 0.7821s (19.551%) | W1 error d/c = 2.0s | naive no-cancel delay 8.66s (not the observable)
+=== Price: exact W3 per row (vectorised; order of magnitude, shared x86) ===
+  100k rows: 6.92 ms/pass -> 69 ns/row (numpy one-off overhead included)
+wrote /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261018-0143-second-20261018-0035-redteam-22d1-9ffc/eclipse_parity-out.json
+== corrected W2/W2p onset errors (grid) and closed forms ==
+d=    2R b=0.5: W2  +0.4729s (closed +0.4721)  W2p  +0.2368s  artifact col, as quoted in dossier    +0.4758s
+d=    2R b=0.9: W2  +0.6194s (closed +0.6198)  W2p  +0.3833s  artifact col, as quoted in dossier    +0.9965s
+d=   10R b=0.5: W2  +0.2862s (closed +0.2859)  W2p  +0.2364s  artifact col, as quoted in dossier    +1.2514s
+d=   10R b=0.9: W2  +0.4341s (closed +0.4336)  W2p  +0.3837s  artifact col, as quoted in dossier    +9.2968s
+d=  100R b=0.5: W2  +0.2423s (closed +0.2411)  W2p  +0.2377s  artifact col, as quoted in dossier   +15.0547s
+d=  100R b=0.9: W2  +0.3855s (closed +0.3887)  W2p  +0.3809s  artifact col, as quoted in dossier  +125.1389s
+== certificates ==
+max |onset - closed form| over all cells/wirings: 3.637978807091713e-12
+max |t_quad - t_bisect| over all grids: 1.0913936421275139e-11  brackets valid: True
+arc per-row closed-form mismatches (W1/W2/W3), all 11 cells: 0
+== the 1/gamma mechanism (10R) ==
+b=0.1: centre W2  -5.742 (-asin b -5.739)  half ratio 0.9969 vs 1/gamma 0.9950  Jac 0.9969 vs sqrt(1-b^2) 0.9950
+b=0.5: centre W2 -30.006 (-asin b -30.000)  half ratio 0.8648 vs 1/gamma 0.8660  Jac 0.8652 vs sqrt(1-b^2) 0.8660
+b=0.9: centre W2 -64.152 (-asin b -64.158)  half ratio 0.4340 vs 1/gamma 0.4359  Jac 0.4357 vs sqrt(1-b^2) 0.4359
+== oblique (45 deg, d=10R): fixed W2, exact sprite identity ==
+b=0.1: sprite dist 9.3615 = light time 9.3615  Jac W1 0.493 W2 0.9971 W2p 0.8420
+b=0.5: sprite dist 7.7581 = light time 7.7581  Jac W1 0.000 W2 0.9341 W2p 0.6187
+== rim (b=0.5): bounded, shrinking with d ==
+{'2R': {'W1': -1.5636399999999995, 'W2': 0.43628, 'W2p': 0.1682200000000016, 'W3': 0.0}, '10R': {'W1': -9.725100000000005, 'W2': 0.2750999999999948, 'W2p': 0.22511999999999688, 'W3': 0.0}}
+== W2p alternate letter reading (per-frame CURRENT distance): onset err vs W3 ==
+  100R b0.5:   +15.05s   (constant-d reading: +0.236s)
+  100R b0.9:  +125.12s   (constant-d reading: +0.384s)
+== PG: unchanged vs the original run (must be no violations) ==
+violations: []
+== the tell == original W2/W2p: +125.1344/+125.1206 (convergent); fixed: +0.3855/+0.3809 (distinct)
