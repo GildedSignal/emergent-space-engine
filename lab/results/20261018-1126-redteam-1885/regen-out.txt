@@ -1,0 +1,32 @@
+[control] s=0.1: logword bias -0.0772 vs analytic exp(-8s^2)-1 -0.0769
+[control] s=0.3: logword bias -0.5123 vs analytic exp(-8s^2)-1 -0.5132
+[control] Newtonian readout under-reports the beta 0.9 fleet by 628x
+
+arm                                               s_lnk 1smp med  logword strb med strb>2%  tail1%    n@5%  colour
+------------------------------------------------------------------------------------------------------------------
+CONTROL lognormal s=0.10                          0.100    0.262   -0.077    0.408    0.97   0.027      70   0.073
+CONTROL lognormal s=0.30                          0.300    0.691   -0.512    1.086    0.98   0.130    1268   0.334
+fleet beta=0.1 sig=0.001 (sphi=0.001)             0.001    0.003   -0.000    0.004    0.00   0.010       1   0.001
+fleet beta=0.1 sig=0.05 (sphi=0.051)              0.051    0.133   -0.020    0.186    0.94   0.017      17   0.034
+fleet beta=0.5 sig=0.001 (sphi=0.001)             0.001    0.004   -0.000    0.005    0.01   0.010       1   0.001
+fleet beta=0.5 sig=0.05 (sphi=0.067)              0.067    0.180   -0.035    0.234    0.95   0.020      30   0.048
+fleet beta=0.9 sig=0.001 (sphi=0.005)             0.005    0.014   -0.000    0.021    0.51   0.011       1   0.004
+fleet beta=0.9 sig=0.01 (sphi=0.053)              0.053    0.137   -0.022    0.194    0.94   0.017      19   0.036
+fleet beta=0.9 sig=0.03 (sphi=0.158)              0.158    0.400   -0.180    0.584    0.98   0.045     196   0.128
+fleet beta=0.9 sig=0.05 (sphi=0.263)              0.263    0.633   -0.425    0.944    0.99   0.101     799   0.279
+fleet beta=0.99 sig=0.001 (sphi=0.050)            0.050    0.136   -0.020    0.187    0.93   0.017      17   0.035
+fleet beta=0.99 sig=0.005 (sphi=0.251)            0.251    0.599   -0.397    0.924    0.98   0.094     709   0.255
+fleet beta=0.99 sig=0.01 (sphi=0.503)             0.503    0.917   -0.867    1.732    1.00   0.372   16788   0.675
+fleet beta=1e-05 sig=1e-05 (sphi=0.000)           0.000    0.000   -0.000    0.000    0.00   0.010       1   0.000
+observer betaO=0.5 th=1.57 sth=0.05               0.025    0.068   -0.005    0.094    0.88   0.013       5   0.017
+observer betaO=0.9 th=1.57 sth=0.05               0.045    0.123   -0.016    0.164    0.94   0.016      14   0.032
+observer betaO=0.9 th=1.57 sth=0.2                0.184    0.492   -0.269    0.652    0.99   0.087     583   0.206
+observer betaO=0.99 th=1.57 sth=0.05              0.050    0.134   -0.020    0.181    0.94   0.017      17   0.035
+observer betaO=0.9 th=0.00 sth=0.05               0.015    0.035   -0.002    0.028    0.59   0.010       2   0.008
+
+total-flicker (median |d ln F| per frame, P pixels), flagship rows:
+  fleet beta=0.9 sig=0.05 (sphi=0.263): P100 0.138  P1000 0.043  tail0.1% 0.020  colour_p90 0.483
+  fleet beta=0.99 sig=0.005 (sphi=0.251): P100 0.126  P1000 0.036  tail0.1% 0.019  colour_p90 0.453
+  fleet beta=0.99 sig=0.01 (sphi=0.503): P100 0.379  P1000 0.158  tail0.1% 0.136  colour_p90 0.830
+
+All per-arm analytic controls pass (logword = exp(-8 s^2)-1 within 0.02).
