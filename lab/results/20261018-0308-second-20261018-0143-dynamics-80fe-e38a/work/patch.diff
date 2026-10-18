@@ -1,0 +1,733 @@
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..ea49ceb0 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -66,9 +66,25 @@ pub enum Resolved {
+     Boundary,
+     Handoff,
+     Lost,
++    /// Lost, by branch (a lab census): the planned terminal; the crash item's periapsis check;
++    /// a surface found at a kick or boundary; a planet's surface at a kick; the system's edge;
++    /// a plan that could not be made.
++    LostTerminal,
++    LostPeriapsis,
++    LostSurface,
++    LostPlanet,
++    LostEdge,
++    LostPlanFail,
+     Refused,
+ }
+ 
++impl Resolved {
++    /// Every Lost branch, however specific.
++    pub fn is_lost(self) -> bool {
++        matches!(self, Resolved::Lost | Resolved::LostTerminal | Resolved::LostPeriapsis | Resolved::LostSurface | Resolved::LostPlanet | Resolved::LostEdge | Resolved::LostPlanFail)
++    }
++}
++
+ /// The kick step of a tube: `1/64` of its radial period (a passage: of its duration), a power of
+ /// two of ticks. Inside a planet's doll the orbit that leaves the doll (a flyby, a quasi-parabolic
+ /// capture) is resolved over what it spends in the doll: twice the leg from periapsis to the edge.
+@@ -666,13 +682,13 @@ impl Work<'_, '_> {
+             if let Some(radius) = self.ctx.surface_in(j, d)? {
+                 if norm2(sub2(s.pos, x)?)? < radius {
+                     self.rec.alive = false;
+-                    return Ok(Resolved::Lost);
++                    return Ok(Resolved::LostPlanet);
+                 }
+             }
+         }
+         if self.rec.kind != Kind::Planet && norm2(x)? < self.doll().surface {
+             self.rec.alive = false;
+-            return Ok(Resolved::Lost);
++            return Ok(Resolved::LostSurface);
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
+@@ -728,11 +744,11 @@ impl Work<'_, '_> {
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
+-            return Ok(Resolved::Lost);
++            return Ok(Resolved::LostSurface);
+         }
+         if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+             self.rec.alive = false;
+-            return Ok(Resolved::Lost);
++            return Ok(Resolved::LostEdge);
+         }
+         self.rec.anchor = t;
+         Ok(Resolved::Boundary)
+@@ -761,13 +777,13 @@ impl Work<'_, '_> {
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
+-            return Ok(Resolved::Lost);
++            return Ok(Resolved::LostSurface);
+         }
+         if movable {
+             if d == 0 {
+                 if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+                     self.rec.alive = false;
+-                    return Ok(Resolved::Lost);
++                    return Ok(Resolved::LostEdge);
+                 }
+                 if self.maybe_capture(t, &st, x)? {
+                     return Ok(Resolved::Handoff);
+@@ -811,13 +827,13 @@ impl Work<'_, '_> {
+         if self.rec.b.terminal_tick()? == Some(t) {
+             self.rec.alive = false;
+             self.rec.plan.clear();
+-            return Ok(Resolved::Lost);
++            return Ok(Resolved::LostTerminal);
+         }
+         let st = self.rec.b.readout(t)?;
+         let (x, _) = scalars(&st)?;
+         if norm2(x)? <= self.doll().surface {
+             self.rec.alive = false;
+-            return Ok(Resolved::Lost);
++            return Ok(Resolved::LostPeriapsis);
+         }
+         Ok(Resolved::Open)
+     }
+@@ -847,12 +863,12 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             w.rec.refusals += 1;
+             if item.what == What::Boundary {
+                 w.rec.alive = false;
+-                Resolved::Lost
++                Resolved::LostPlanFail
+             } else if w.rec.ext.is_some() && w.rec.alive && !w.rec.plan.iter().any(|p| matches!(p.what, What::Kick(_))) {
+                 // A clock-stepped body plans its next kick when it kicks: a refused kick must not leave it without one.
+                 if w.plan_clock(t).is_err() {
+                     w.rec.alive = false;
+-                    Resolved::Lost
++                    Resolved::LostPlanFail
+                 } else {
+                     Resolved::Refused
+                 }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..b7c40bf8 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -119,6 +119,14 @@ pub struct Stats {
+     pub boundaries: u64,
+     pub handoffs: u64,
+     pub lost: u64,
++    /// Lost census by branch (a lab probe): which certificate or plan failure ended the body.
++    pub lost_terminal: u64,
++    pub lost_periapsis: u64,
++    pub lost_star_kick: u64,
++    pub lost_planet_kick: u64,
++    pub lost_boundary: u64,
++    pub lost_edge: u64,
++    pub lost_plan_fail: u64,
+     pub refused: u64,
+     pub slices: u64,
+     pub encounters: u64,
+@@ -653,6 +661,30 @@ impl Universe {
+             Resolved::Boundary => self.stats.boundaries += 1,
+             Resolved::Handoff => self.stats.handoffs += 1,
+             Resolved::Lost => self.stats.lost += 1,
++            Resolved::LostTerminal => {
++                self.stats.lost += 1;
++                self.stats.lost_terminal += 1;
++            }
++            Resolved::LostPeriapsis => {
++                self.stats.lost += 1;
++                self.stats.lost_periapsis += 1;
++            }
++            Resolved::LostSurface => {
++                self.stats.lost += 1;
++                self.stats.lost_star_kick += 1;
++            }
++            Resolved::LostPlanet => {
++                self.stats.lost += 1;
++                self.stats.lost_planet_kick += 1;
++            }
++            Resolved::LostEdge => {
++                self.stats.lost += 1;
++                self.stats.lost_edge += 1;
++            }
++            Resolved::LostPlanFail => {
++                self.stats.lost += 1;
++                self.stats.lost_plan_fail += 1;
++            }
+             Resolved::Refused => self.stats.refused += 1,
+         }
+         self.resolved += 1;
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index a1e9b0a4..0595bc21 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -41,6 +41,7 @@ pub mod oracle;
+ pub mod resonance;
+ pub mod restricted;
+ pub mod rotating;
++pub mod trojan_dive;
+ pub mod scale;
+ pub mod select;
+ pub mod sample;
+diff --git a/xtask/src/behave/trojan_dive.rs b/xtask/src/behave/trojan_dive.rs
+new file mode 100644
+index 00000000..4c0e9e88
+--- /dev/null
++++ b/xtask/src/behave/trojan_dive.rs
+@@ -0,0 +1,558 @@
++//! Lab probe (chaos-shadowing open direction 4): decide the plane's 48 co-orbital deaths —
++//! real star-crossing periapsis of a diverged trajectory, or spurious planned terminal.
++//!
++//! The prior run (20261015-0128-dynamics-b9be) left the 48 deaths unattributed: every traced loss
++//! is fault-free, refusal-free, handoff-free, and both the oracle and the plane's own sampled
++//! trajectory stay far from both surfaces at P/8 and P/256 grids. But grid sampling is blind to
++//! exactly the geometry that decides this: a perihelion passage at q ≈ the star's surface dwells
++//! below 2q for ~P/10⁵, so no fixed grid sees it. This probe reads the geometry the grids cannot:
++//!
++//! - **osculating elements** q(t) = a(1−e) from heliocentric E, L at every P/8 sample (computed,
++//!   not sampled — q is exact from any point of the orbit, however fast the passage);
++//! - **the Jacobi constant** J(t) of plane and oracle states, and the rotating-frame neck
++//!   criticals J(L1), J(L2), J(L3) of the scene;
++//! - **a flood fill of the allowed region {U_eff ≥ J}** from each IC: the smallest star and
++//!   planet distance the exact dynamics can ever reach (a zero-velocity confinement certificate);
++//! - **a census of the engine's Lost branches** (new `Resolved::Lost*` variants, stats-only,
++//!   outcome-free): planned terminal vs periapsis check vs kick-time surface vs planet vs edge.
++//!
++//! Arms (TROJAN_OUT=<file>, TROJAN_ARM=plane|oracle|analytic|control):
++//! ```text
++//! TROJAN_OUT=/tmp/d.jsonl TROJAN_ARM=plane cargo test --release -p xtask trojan_dive -- --ignored --nocapture
++//! ```
++#![cfg(test)]
++
++use super::plane::build_scene;
++use super::restricted::{reference, Restricted, JUPITER, RTOL};
++use std::io::Write as _;
++
++/// The 1:1 co-orbital band's half width in a/sep (as trojan.rs).
++fn band(scene: &Restricted) -> f64 {
++    (8.0 * scene.mu / 3.0).sqrt()
++}
++
++/// A circular heliocentric orbit of radius a = sep·(1+du) at synodic angle `phi` from the planet
++/// (as trojan.rs).
++fn ic(scene: &Restricted, du: f64, phi: f64) -> [f64; 4] {
++    let a = scene.sep * (1.0 + du);
++    let (sp, sv) = scene.star(0.0);
++    let v = ((1.0 - scene.mu) / a).sqrt();
++    let (s, c) = phi.sin_cos();
++    [a * c + sp[0], a * s + sp[1], -v * s + sv[0], v * c + sv[1]]
++}
++
++/// Osculating (a/sep, e, q) from the heliocentric energy and angular momentum. Works bound and
++/// unbound (q = a(1−e) is the periapsis in both); None for the exactly-parabolic E = 0.
++fn elements(scene: &Restricted, t: f64, ship: &[f64; 4]) -> Option<(f64, f64, f64)> {
++    let (e0, l) = scene.heliocentric(t, ship);
++    let mu = 1.0 - scene.mu;
++    if e0 == 0.0 {
++        return None;
++    }
++    let a = -mu / (2.0 * e0);
++    let e = (1.0 + 2.0 * e0 * l * l / (mu * mu)).max(0.0).sqrt();
++    let q = a * (1.0 - e);
++    Some((a / scene.sep, e, q))
++}
++
++/// The rotating-frame effective potential 2(1−μ)/r₁ + 2μ/r₂ + Ω²(x²+y²): the allowed region of the
++/// exact dynamics at Jacobi constant J is {U_eff ≥ J}.
++fn u_eff(scene: &Restricted, x: f64, y: f64) -> f64 {
++    let (s, p) = (-scene.mu * scene.sep, scene.sep * (1.0 - scene.mu));
++    let r1 = ((x - s) * (x - s) + y * y).sqrt();
++    let r2 = ((x - p) * (x - p) + y * y).sqrt();
++    2.0 * (1.0 - scene.mu) / r1 + 2.0 * scene.mu / r2 + scene.omega() * scene.omega() * (x * x + y * y)
++}
++
++/// The three collinear necks' critical values J(L1) (star–planet), J(L2) (beyond the planet),
++/// J(L3) (beyond the star): local minima of U_eff along the rotating x-axis (golden section).
++fn criticals(scene: &Restricted) -> (f64, f64, f64) {
++    let (s, p) = (-scene.mu * scene.sep, scene.sep * (1.0 - scene.mu));
++    let minimum = |mut lo: f64, mut hi: f64| {
++        // Golden-section on U_eff (the local minimum inside the bracket: each neck is a dip of
++        // the allowed region's boundary along the axis).
++        let phi = 0.618_033_988_749_894_9;
++        let (mut a, mut b) = (lo + (hi - lo) * (1.0 - phi), lo + (hi - lo) * phi);
++        let (mut fa, mut fb) = (u_eff(scene, a, 0.0), u_eff(scene, b, 0.0));
++        for _ in 0..200 {
++            if fa < fb {
++                hi = b;
++                (b, fb) = (a, fa);
++                a = lo + (hi - lo) * (1.0 - phi);
++                fa = u_eff(scene, a, 0.0);
++            } else {
++                lo = a;
++                (a, fa) = (b, fb);
++                b = lo + (hi - lo) * phi;
++                fb = u_eff(scene, b, 0.0);
++            }
++        }
++        0.5 * (fa + fb)
++    };
++    let jl1 = minimum(s + 1e3, p - 1e3);
++    let jl2 = minimum(p + 1e3, 6.0 * scene.sep);
++    let jl3 = minimum(-6.0 * scene.sep, s - 1e3);
++    (jl1, jl2, jl3)
++}
++
++/// The smallest star and planet distances the exact dynamics can EVER reach from `ship`: a flood
++/// fill of {U_eff ≥ J(ship)} on a polar grid about the star, started at the ship's cell. The grid's
++/// resolution is the certificate's (r cells of S/8 near the star, 0.5° in angle).
++fn confinement(scene: &Restricted, ship: &[f64; 4], s_star: f64) -> (f64, f64, usize) {
++    let j = scene.jacobi(0.0, ship);
++    let r_hi = 4.0 * scene.sep;
++    let nr = 360usize;
++    let na = 720usize;
++    let (dr, da) = (r_hi / nr as f64, std::f64::consts::TAU / na as f64);
++    // Allowed cells; cell (i, k) is the annulus sector at r = (i + 0.5)·dr, angle k·da.
++    let idx = |i: usize, k: usize| i * na + (k % na);
++    let mut allowed = vec![false; nr * na];
++    let (mut ri0, mut k0) = (nr, na);
++    let (x0, y0) = (ship[0], ship[1]);
++    let r0 = x0.hypot(y0);
++    let a0 = y0.atan2(x0);
++    for i in 0..nr {
++        let r = (i as f64 + 0.5) * dr;
++        for k in 0..na {
++            let th = k as f64 * da;
++            let (x, y) = (r * th.cos(), r * th.sin());
++            allowed[idx(i, k)] = u_eff(scene, x, y) >= j;
++            if (r - r0).abs() < dr && (th - a0.rem_euclid(std::f64::consts::TAU)).abs() < da {
++                (ri0, k0) = (i, k);
++            }
++        }
++    }
++    if ri0 == nr {
++        return (f64::INFINITY, f64::INFINITY, 0);
++    }
++    // Flood fill from the ship's cell (4-connected in (i, k), angle wrapping).
++    let mut seen = vec![false; nr * na];
++    let mut stack = vec![idx(ri0, k0)];
++    seen[stack[0]] = true;
++    let mut touches_edge = false;
++    while let Some(c) = stack.pop() {
++        let (i, k) = (c / na, c % na);
++        if i + 1 == nr {
++            touches_edge = true;
++        }
++        for (di, dk) in [(1usize, 0usize, ), (0, 1)] {
++            for sgn in [1i64, -1] {
++                let (ii, kk) = if di == 1 {
++                    (i as i64 + sgn, k as i64)
++                } else {
++                    (i as i64, k as i64 + sgn)
++                };
++                if ii < 0 || ii >= nr as i64 {
++                    continue;
++                }
++                let n = idx(ii as usize, kk.rem_euclid(na as i64) as usize);
++                if allowed[n] && !seen[n] {
++                    seen[n] = true;
++                    stack.push(n);
++                }
++            }
++        }
++    }
++    // The smallest star distance on the reached component; and the smallest planet distance there.
++    let (ps, pp) = (-scene.mu * scene.sep, scene.sep * (1.0 - scene.mu));
++    let (mut r_star, mut r_planet) = (f64::INFINITY, f64::INFINITY);
++    let mut reached = 0usize;
++    for i in 0..nr {
++        let r = (i as f64 + 0.5) * dr;
++        for k in 0..na {
++            let c = idx(i, k);
++            if !seen[c] {
++                continue;
++            }
++            reached += 1;
++            let th = k as f64 * da;
++            let (x, y) = (r * th.cos(), r * th.sin());
++            r_star = r_star.min(r);
++            r_planet = r_planet.min(((x - pp) * (x - pp) + (y - 0.0) * (y - 0.0)).sqrt());
++            let _ = ps;
++        }
++    }
++    (r_star / s_star, r_planet / scene.planet_radius, reached)
++}
++
++/// One (du, phi) ship of the ensemble, run through the shipped plane with per-sample elements and
++/// a refined death epoch. Returns the JSONL line. `phi` is in degrees (the ensemble label).
++fn plane_line(scene: &Restricted, du: f64, phi: f64, step: i32, periods: f64) -> String {
++    let to_root = 1.0 / (1.0 - scene.mu);
++    let p = scene.period();
++    let n = (periods * 8.0) as usize;
++    let times: Vec<f64> = (0..=n).map(|k| k as f64 * p / 8.0).collect();
++    let ship = ic(scene, du * band(scene), phi.to_radians());
++    let mut series: Vec<(f64, f64, f64, f64)> = Vec::new(); // (t/P, J, q/S_star, e)
++    let s_star = 471_000.0 * (1.0 - scene.mu);
++    let mut run = |ts: &[f64]| -> Option<(Vec<[f64; 4]>, emergent_universe::universe::Stats)> {
++        let (mut u, id) = build_scene(&scene, ship, step)?;
++        let mut states = Vec::with_capacity(ts.len());
++        for &t in ts {
++            let tick = (t * to_root).round() as i64;
++            u.settle(tick);
++            if !u.bodies().alive(id) {
++                return Some((states, u.stats));
++            }
++            let (pos, vel) = emergent_universe::observe::root_state(&u.ctx(), id, tick).ok()?;
++            let (sp, sv) = scene.star(t);
++            states.push([pos[0] / to_root + sp[0], pos[1] / to_root + sp[1], vel[0] + sv[0], vel[1] + sv[1]]);
++        }
++        Some((states, u.stats))
++    };
++    let (states, stats) = match run(&times) {
++        Some((s, st)) => (s, st),
++        None => return format!(r#"{{"du":{du},"phi_deg":{phi},"dead":null,"why":"build_or_read"}}"#),
++    };
++    let dead = states.len() < times.len();
++    for (t, st) in times.iter().zip(&states) {
++        let (_, e, q) = elements(scene, *t, st).unwrap_or((f64::NAN, f64::NAN, f64::NAN));
++        series.push((t / p, scene.jacobi(*t, st), q / s_star, e));
++    }
++    // Refine the death epoch to P/64 inside the bracketing P/8 interval, and keep the finer last state.
++    let mut epoch = if dead { times[states.len().saturating_sub(1)] / p } else { f64::INFINITY };
++    let mut last = states.last().copied();
++    if dead {
++        let lo = times[states.len().saturating_sub(1)];
++        let sub: Vec<f64> = (1..=8).map(|k| lo + k as f64 * p / 64.0).collect();
++        if let Some((sts, _)) = run(&sub) {
++            epoch = (if sts.is_empty() { lo + p / 64.0 } else { sub[sts.len() - 1] }) / p;
++            if let Some(st) = sts.last() {
++                last = Some(*st);
++            }
++        }
++    }
++    let js: Vec<f64> = series.iter().map(|x| x.1).filter(|x| x.is_finite()).collect();
++    let j_ref = js.first().copied().unwrap_or(f64::NAN);
++    let (j_last, q0, e0) = last.map_or((f64::NAN, f64::NAN, f64::NAN), |st| {
++        let t = if dead { epoch * p } else { times[states.len() - 1] };
++        let (_, e, q) = elements(scene, t, &st).unwrap_or((f64::NAN, f64::NAN, f64::NAN));
++        (scene.jacobi(t, &st), q / s_star, e)
++    });
++    let channel = |s: &emergent_universe::universe::Stats| -> &'static str {
++        if s.lost_terminal > 0 {
++            "terminal"
++        } else if s.lost_periapsis > 0 {
++            "periapsis"
++        } else if s.lost_star_kick > 0 {
++            "star_kick"
++        } else if s.lost_planet_kick > 0 {
++            "planet_kick"
++        } else if s.lost_edge > 0 {
++            "edge"
++        } else if s.lost_plan_fail > 0 {
++            "plan_fail"
++        } else if s.lost > 0 {
++            "handout"
++        } else {
++            "none"
++        }
++    };
++    let mut s = format!(
++        r#"{{"du":{du},"phi_deg":{phi},"dead":{},"epoch_P":{:.4},"channel":"{}","lost":{},"refused":{},"kicks":{},"handoffs":{},"j_last_rel":{:.3e},"q_last_over_S":{:.4},"e_last":{:.5},"j_min_rel":{:.3e},"j_max_rel":{:.3e},"q_min_over_S":{:.4},"series":["#,
++        dead,
++        epoch,
++        channel(&stats),
++        stats.lost,
++        stats.refused,
++        stats.kicks,
++        stats.handoffs,
++        (j_last - j_ref) / j_ref.abs(),
++        q0,
++        e0,
++        (js.iter().copied().fold(f64::INFINITY, f64::min) - j_ref) / j_ref.abs(),
++        (js.iter().copied().fold(f64::NEG_INFINITY, f64::max) - j_ref) / j_ref.abs(),
++        series.iter().filter(|x| x.2.is_finite()).map(|x| x.2).fold(f64::INFINITY, f64::min),
++    );
++    for (i, (t, j, q, e)) in series.iter().enumerate() {
++        if i > 0 {
++            s.push(',');
++        }
++        s.push_str(&format!(r#"[{t:.4},{j:.9e},{q:.5},{e:.5}]"#));
++    }
++    s.push_str("]}");
++    s
++}
++
++/// One (du, phi) ship through the float oracle: osculating q(t) and J(t) at P/8 (plus a dense P/64
++/// window around a given death epoch, when `win` is set), all as computed elements.
++fn oracle_line(scene: &Restricted, du: f64, phi: f64, periods: f64, rtol: f64, win: Option<f64>) -> String {
++    let p = scene.period();
++    let s_star = 471_000.0 * (1.0 - scene.mu);
++    let n = (periods * 8.0) as usize;
++    let times: Vec<f64> = (0..=n).map(|k| k as f64 * p / 8.0).collect();
++    let ship = ic(scene, du * band(scene), phi.to_radians());
++    let Some(states) = reference(scene, ship, &times, rtol) else {
++        return format!(r#"{{"du":{du},"phi_deg":{phi:.1},"gave_up":true}}"#);
++    };
++    // The periapsis-resolved closest approach to the planet (the judge's own `tracking`
++    // integrator: every radial turn bisected), over the whole horizon in one pass.
++    let mut it = super::restricted::Integrator::new(scene, super::restricted::Model::Full, rtol, ship).tracking();
++    let mut closest = f64::NAN;
++    for &t in &times {
++        if it.advance(t).is_none() {
++            break;
++        }
++    }
++    closest = it.closest();
++    let mut j_dev = 0.0f64;
++    let mut q_min = f64::INFINITY;
++    let mut q_min_t = f64::NAN;
++    let mut j0 = f64::NAN;
++    for (k, (t, st)) in times.iter().zip(&states).enumerate() {
++        let j = scene.jacobi(*t, st);
++        let q = elements(scene, *t, st).map_or(f64::NAN, |(_, _, q)| q);
++        if k == 0 {
++            j0 = j;
++        }
++        j_dev = j_dev.max((j - j0).abs());
++        if q < q_min {
++            (q_min, q_min_t) = (q, *t / p);
++        }
++    }
++    // The dense window (P/64, ±2 P) around the plane's death epoch, when given: osculating q and
++    // the planet distance on the grid, plus the window's periapsis-resolved planet minimum.
++    let mut win_series: Vec<(f64, f64, f64, f64)> = Vec::new();
++    let mut win_closest = f64::NAN;
++    if let Some(td) = win {
++        let t_lo = (td - 2.0).max(0.0) * p;
++        let t_hi = (td + 2.0) * p;
++        let wt: Vec<f64> = {
++            let mut v = Vec::new();
++            let mut t = t_lo;
++            while t <= t_hi {
++                v.push(t);
++                t += p / 64.0;
++            }
++            v
++        };
++        if let Some(ws) = reference(scene, ship, &wt, rtol) {
++            for (t, st) in wt.iter().zip(&ws) {
++                let q = elements(scene, *t, st).map_or(f64::NAN, |(_, _, q)| q);
++                win_series.push((*t / p, scene.jacobi(*t, st), q / s_star, scene.planet_distance(*t, st) / scene.planet_radius));
++            }
++        }
++        let mut wit = super::restricted::Integrator::new(scene, super::restricted::Model::Full, rtol, ship).tracking();
++        if wit.advance(t_lo).is_some() {
++            let _ = wit.advance(t_hi);
++            win_closest = wit.closest();
++        }
++    }
++    let mut s = format!(
++        r#"{{"du":{du},"phi_deg":{phi:.1},"j0":{:.9e},"j_dev_rel":{:.2e},"q_min_over_S":{:.5},"q_min_t_P":{:.2},"closest_Rp":{:.4},"win_closest_Rp":{:.4},"win":["#,
++        j0,
++        j_dev / j0.abs(),
++        q_min / s_star,
++        q_min_t,
++        closest / scene.planet_radius,
++        win_closest / scene.planet_radius,
++    );
++    for (i, (t, j, q, rp)) in win_series.iter().enumerate() {
++        if i > 0 {
++            s.push(',');
++        }
++        s.push_str(&format!(r#"[{t:.4},{j:.9e},{q:.5},{rp:.3}]"#));
++    }
++    s.push_str("]}");
++    s
++}
++
++/// The analytic arm: J₀, the neck criticals, and the flood-fill confinement per IC.
++fn analytic_line(scene: &Restricted, du: f64, phi: f64, (jl1, jl2, jl3): (f64, f64, f64)) -> String {
++    let s_star = 471_000.0 * (1.0 - scene.mu);
++    let ship = ic(scene, du * band(scene), phi.to_radians());
++    let j0 = scene.jacobi(0.0, &ship);
++    let (r_star, r_planet, cells) = confinement(scene, &ship, s_star);
++    format!(
++        r#"{{"du":{du},"phi_deg":{:.1},"j0":{:.9e},"jl1":{:.9e},"jl2":{:.9e},"jl3":{:.9e},"dj1_rel":{:.3e},"zvc_r_star_over_S":{:.4},"zvc_r_planet_over_Rp":{:.4},"cells":{}}}"#,
++        phi.to_degrees(),
++        j0,
++        jl1,
++        jl2,
++        jl3,
++        (j0 - jl1) / jl1.abs(),
++        r_star,
++        r_planet,
++        cells
++    )
++}
++
++/// The rate arm (encounter parity): every entry of the truth into the planet's disk, as the
++/// judge's own `until_crossing` finds it (resolved to the integrator's step size, never a grid),
++/// with the exit epochs; plus the whole-horizon closest approach. Each entry is one encounter
++/// event of the birth–death process the certificate must match.
++fn events_line(scene: &Restricted, du: f64, phi: f64, periods: f64, rtol: f64) -> String {
++    let p = scene.period();
++    let ship = ic(scene, du * band(scene), phi.to_radians());
++    let limit = periods * p;
++    let mut it = super::restricted::Integrator::new(scene, super::restricted::Model::Full, rtol, ship).tracking();
++    let mut entries: Vec<f64> = Vec::new();
++    let mut exits: Vec<f64> = Vec::new();
++    let mut t_now = 0.0f64;
++    let mut gave_up = false;
++    while t_now < limit {
++        let Some(t_in) = it.until_crossing(scene.planet_radius, false, limit) else {
++            gave_up = it.advance(limit).is_none();
++            break;
++        };
++        entries.push(t_in / p);
++        t_now = t_in;
++        match it.until_crossing(scene.planet_radius, true, limit) {
++            Some(t_out) => {
++                exits.push(t_out / p);
++                t_now = t_out;
++            }
++            None => {
++                gave_up = it.advance(limit).is_none();
++                break;
++            }
++        }
++    }
++    format!(
++        r#"{{"du":{du},"phi_deg":{phi:.1},"mu":{:.4},"entries":[{}],"exits":[{}],"closest_Rp":{:.4},"gave_up":{}}}"#,
++        scene.mu,
++        entries.iter().map(|t| format!("{t:.4}")).collect::<Vec<_>>().join(","),
++        exits.iter().map(|t| format!("{t:.4}")).collect::<Vec<_>>().join(","),
++        it.closest() / scene.planet_radius,
++        gave_up
++    )
++}
++
++#[test]
++#[ignore]
++fn trojan_dive() {
++    // The scene's mass ratio: JUPITER's unless TROJAN_MU overrides it (the parity sweep).
++    let scene = Restricted {
++        mu: std::env::var("TROJAN_MU").ok().and_then(|m| m.parse().ok()).unwrap_or(JUPITER.mu),
++        sep: JUPITER.sep,
++        planet_radius: JUPITER.planet_radius,
++    };
++    let out_path = std::env::var("TROJAN_OUT").expect("TROJAN_OUT=<file> for the JSONL results");
++    let arm = std::env::var("TROJAN_ARM").unwrap_or_else(|_| "plane".into());
++    let workers: usize = std::env::var("TROJAN_WORKERS").ok().and_then(|w| w.parse().ok()).unwrap_or(6);
++    let periods: f64 = std::env::var("TROJAN_PERIODS").ok().and_then(|p| p.parse().ok()).unwrap_or(512.0);
++    let step: i32 = std::env::var("TROJAN_STEP").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
++    let rtol: f64 = std::env::var("TROJAN_RTOL").ok().and_then(|r| r.parse().ok()).unwrap_or(RTOL);
++    let crit = criticals(&scene);
++    let dus: Vec<f64> = [0.35f64, 0.6, 0.85, 1.05, 1.25, 1.45].iter().flat_map(|&u| [u, -u]).collect();
++    let phis: Vec<f64> = (0..12).map(|k| (15.0 + 30.0 * k as f64).to_radians()).collect();
++    // The windowed oracle pass: TROJAN_WIN_FILE holds one {"du","phi_deg","epoch_P"} per dead ship.
++    let mut wins: std::collections::HashMap<(i64, i64), f64> = std::collections::HashMap::new();
++    if let Some(s) = std::env::var("TROJAN_WIN_FILE").ok().and_then(|p| std::fs::read_to_string(p).ok()) {
++        for l in s.lines() {
++            if let Ok(v) = serde_json::from_str::<serde_json::Value>(l) {
++                let du = v["du"].as_f64().unwrap_or(1e9);
++                let phi = v["phi_deg"].as_f64().unwrap_or(1e9);
++                wins.insert(((du * 1e4) as i64, (phi * 1e4) as i64), v["epoch_P"].as_f64().unwrap_or(f64::NAN));
++            }
++        }
++    }
++    let mut jobs: Vec<(f64, f64)> = if wins.is_empty() {
++        phis.iter().flat_map(|&phi| dus.iter().map(move |&du| (du, phi))).collect()
++    } else {
++        phis.iter().flat_map(|&phi| dus.iter().map(move |&du| (du, phi))).filter(|&(du, phi)| wins.contains_key(&((du * 1e4) as i64, (phi.to_degrees() * 1e4) as i64))).collect()
++    };
++    if !wins.is_empty() {
++        jobs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.partial_cmp(&b.1).unwrap()));
++    }
++    eprintln!(
++        "dive: arm={} ships={} horizon={}P step={} rtol={} workers={} jl1={:.6e} jl2={:.6e} jl3={:.6e}",
++        arm,
++        jobs.len(),
++        periods,
++        step,
++        rtol,
++        workers,
++        crit.0,
++        crit.1,
++        crit.2
++    );
++    let t0 = std::time::Instant::now();
++    let (tx, rx) = std::sync::mpsc::channel::<String>();
++    let next = std::sync::atomic::AtomicUsize::new(0);
++    let (arm_ref, jobs_ref, next_ref, wins_ref) = (arm.as_str(), jobs.as_slice(), &next, &wins);
++    std::thread::scope(|scope| {
++        let senders: Vec<_> = (0..workers).map(|_| tx.clone()).collect();
++        for s in senders {
++            scope.spawn(move || loop {
++                let i = next_ref.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
++                if i >= jobs_ref.len() {
++                    break;
++                }
++                let (du, phi) = jobs_ref[i];
++                let win = wins_ref.get(&((du * 1e4) as i64, (phi.to_degrees() * 1e4) as i64)).copied();
++                let l = match arm_ref {
++                    "plane" => plane_line(&scene, du, phi.to_degrees(), step, periods),
++                    "oracle" => oracle_line(&scene, du, phi.to_degrees(), periods, rtol, win),
++                    "analytic" => analytic_line(&scene, du, phi.to_degrees(), crit),
++                    "events" => events_line(&scene, du, phi.to_degrees(), periods, rtol),
++                    _ => panic!("TROJAN_ARM must be plane, oracle, analytic or events"),
++                };
++                if let Err(e) = s.send(l) {
++                    eprintln!("dive: worker send failed: {e}");
++                    break;
++                }
++            });
++        }
++        drop(tx);
++        let mut file = std::fs::File::create(&out_path).expect("create TROJAN_OUT");
++        let mut n = 0usize;
++        while let Ok(l) = rx.recv() {
++            writeln!(file, "{l}").expect("write result line");
++            n += 1;
++        }
++        assert_eq!(n, jobs.len(), "every ship must leave one line");
++    });
++    eprintln!("dive: arm {} done in {:.1}s -> {}", arm, t0.elapsed().as_secs_f64(), out_path);
++}
++
++/// Controls: (a) a state born inside the star's surface dies on its first item (the death channel's
++/// positive control); (b) the same state's oracle osculating q reads its true periapsis; (c) the
++/// tolerance pair of the oracle arm.
++#[test]
++#[ignore]
++fn trojan_dive_control() {
++    let scene = JUPITER;
++    let to_root = 1.0 / (1.0 - scene.mu);
++    let s_star = 471_000.0 * (1.0 - scene.mu);
++    // (a) A tangential circular orbit at 0.9·S_star from the star: inside the plane's surface.
++    let r0 = 0.9 * s_star;
++    let v0 = ((1.0 - scene.mu) / r0).sqrt();
++    let (sp, sv) = scene.star(0.0);
++    let ship = [r0 + sp[0], sp[1], sv[0], v0 + sv[1]];
++    let mut out = String::new();
++    if let Some((mut u, id)) = build_scene(&scene, ship, 7) {
++        u.settle(1);
++        out += &format!(
++            "control dive: inside-star ship alive={} lost={} channel terminal={} periapsis={} star={} planet={} edge={} planfail={}\n",
++            u.bodies().alive(id),
++            u.stats.lost,
++            u.stats.lost_terminal,
++            u.stats.lost_periapsis,
++            u.stats.lost_star_kick,
++            u.stats.lost_planet_kick,
++            u.stats.lost_edge,
++            u.stats.lost_plan_fail
++        );
++    } else {
++        out += "control dive: inside-star ship refused at build (its own verdict)\n";
++    }
++    // (b) The oracle reads the same orbit's elements (the pipeline control).
++    if let Some(st) = reference(&scene, ship, &[0.0, scene.period() / 8.0], RTOL) {
++        let (a, e, q) = elements(&scene, scene.period() / 8.0, &st[1]).expect("elements");
++        out += &format!("control elements: a/sep={a:.6} e={e:.6} q/S={:.4}\n", q / s_star);
++    }
++    // (c) The tolerance pair on one mid-band IC (the full P/8 grid over 8 P).
++    let ship2 = ic(&scene, 1.05 * band(&scene), 60f64.to_radians());
++    let p = scene.period();
++    let grid: Vec<f64> = (0..=64).map(|k| k as f64 * p / 8.0).collect();
++    for rtol in [1e-12, 1e-13] {
++        if let Some(st) = reference(&scene, ship2, &grid, rtol) {
++            let qs: Vec<f64> = [0usize, 32, 64].iter().map(|&k| elements(&scene, grid[k], &st[k]).map_or(f64::NAN, |(_, _, q)| q)).collect();
++            out += &format!("control rtol={rtol:.0e}: q/S at 0,4,8 P: {:.4} {:.4} {:.4}\n", qs[0] / s_star, qs[1] / s_star, qs[2] / s_star);
++        }
++    }
++    let _ = to_root;
++    eprint!("{out}");
++    std::fs::write(std::env::var("TROJAN_CONTROL").unwrap_or_else(|_| "/tmp/dive-control.txt".into()), out).expect("write control");
++}

@@ -1,0 +1,32 @@
+events-arm gave-ups: 0
+plane channels: {'planet_kick': 47}
+per-synodic first-event rates (h=512 P, n=144): truth 0.0076/syn (40 events)  plane 0.0089/syn (47)  ratio 1.175
+first events at h=512 P: truth 40/144  plane 47/144  parity ratio (per-P) 1.175
+S(t) — t: 16  64  128  256  512   (last point = parity horizon)
+      truth: 0.986  0.965  0.896  0.806  0.722   plane: 0.986  0.931  0.847  0.764  0.674
+max |dS| = 0.062 at t=488 P; plane inside truth's 95% band (+0.02 slack) everywhere: True
+truth hazard 0-128 P: 8.138e-04/P (15 of 144 at risk)   128-512 P: 5.047e-04/P (25 of 129)   ratio 1.61
+plane hazard 0-128 P: 1.194e-03/P (22 of 144)   128-512 P: 5.336e-04/P (25 of 122)   ratio 2.24
+truth entries total (full 512 P) 68 on 40 crossing ICs; recrossers (>1 entry): 16, max 7
+plane: kills 47 (of 144 completed ICs), refused>0: 0
+
+events-arm gave-ups: 0
+plane channels: {'planet_kick': 8}
+per-synodic first-event rates (h=4 P, n=144): truth 0.0005/syn (8 events)  plane 0.0015/syn (8)  ratio 3.162
+first events at h=4 P: truth 8/144  plane 8/144  parity ratio (per-P) 1.000
+S(t) — t: 4   (last point = parity horizon)
+      truth: 0.944   plane: 0.944
+max |dS| = 0.000 at t=4.0 P; plane inside truth's 95% band (+0.02 slack) everywhere: True
+truth hazard 0-128 P: 4.340e-04/P (8 of 144 at risk)   128-512 P: 0.000e+00/P (0 of 136)   ratio inf
+plane hazard 0-4 P: 1.389e-02/P (8 of 144)   4-4 P: nan/P (0 of 136)   ratio nan
+truth entries total (full 512 P) 39 on 32 crossing ICs; recrossers (>1 entry): 7, max 2
+plane: kills 8 (of 144 completed ICs), refused>0: 0
+
+=== instrument: rtol 1e-12 vs 1e-13 (mu=1e-3) ===
+first-entry counts: 40 vs 38 (|d| = 2); crossing-membership agrees on 104/144 ICs
+max |dS| between rtols: 0.028
+per-IC epoch scramble on the 19 both-crossing ICs: median 178.1 P, max 444.1 P
+
+=== driver check (mu=1e-3 plane, 512 P) ===
+this tree dead: 47   e846 dead: 47   same set: True
+epoch agreement on 47 shared dead ICs: max |d_epoch| = 0.0000 P (P/64 resolution)
