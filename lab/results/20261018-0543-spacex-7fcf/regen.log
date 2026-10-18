@@ -1,0 +1,74 @@
+tree: 559722782a93558c48e72caabb23056b5c849929 (composed patch + doll_probe applied)
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on shared package cache
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+=== off_45: doll_probe 1000 45s rtf 100 seed 1 ()
+frames: game_s 4500, max ev/fr 251, p99 ev/fr 136, kicks 7736, boundaries 7483, encounters 183, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 2.008673e-6 p01 1.699841e-14 p99 3.178301e-4 max 6.348366e-4
+  |dL/L0|: n 313 med 9.577881e-7 p01 8.586311e-15 p99 1.545044e-4 max 3.253762e-4
+  |dE/E0| p25 3.800e-9 p75 1.524e-5 frac<1e-12 0.240 (75/313)
+=== cs_45: doll_probe 1000 45s rtf 100 seed 1 (ES_CHAIN=1 ES_LOCAL_STAGGER=1)
+frames: game_s 4500, max ev/fr 52, p99 ev/fr 25, kicks 7937, boundaries 7678, encounters 184, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 7.427136e-6 p01 1.754649e-14 p99 3.062246e-4 max 4.213611e-4
+  |dL/L0|: n 313 med 3.644185e-6 p01 9.066412e-15 p99 1.441146e-4 max 2.121678e-4
+  |dE/E0| p25 9.320e-7 p75 3.460e-5 frac<1e-12 0.054 (17/313)
+=== both_45: doll_probe 1000 45s rtf 100 seed 1 (ES_SECULAR=1 ES_CHAIN=1 ES_LOCAL_STAGGER=1)
+frames: game_s 4500, max ev/fr 41, p99 ev/fr 12, kicks 1324, boundaries 1167, encounters 184, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 2.418742e-11 p01 1.653785e-14 p99 3.062246e-4 max 4.213611e-4
+  |dL/L0|: n 313 med 1.142147e-11 p01 8.243150e-15 p99 1.441146e-4 max 2.121678e-4
+  |dE/E0| p25 1.826e-12 p75 7.190e-6 frac<1e-12 0.214 (67/313)
+=== off_90: doll_probe 1000 90s rtf 100 seed 1 ()
+frames: game_s 9000, max ev/fr 334, p99 ev/fr 135, kicks 14703, boundaries 14372, encounters 378, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 1.978664e-5 p01 9.408803e-9 p99 5.882614e-4 max 1.284814e-3
+  |dL/L0|: n 313 med 1.031839e-5 p01 7.163353e-9 p99 3.029123e-4 max 6.582075e-4
+  |dE/E0| p25 1.338e-6 p75 1.008e-4 frac<1e-12 0.000 (0/313)
+=== cs_90: doll_probe 1000 90s rtf 100 seed 1 (ES_CHAIN=1 ES_LOCAL_STAGGER=1)
+frames: game_s 9000, max ev/fr 52, p99 ev/fr 23, kicks 14880, boundaries 14590, encounters 378, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 1.939321e-5 p01 1.093493e-8 p99 6.285773e-4 max 8.731788e-4
+  |dL/L0|: n 313 med 1.024618e-5 p01 8.496521e-9 p99 2.905377e-4 max 4.474576e-4
+  |dE/E0| p25 1.573e-6 p75 1.073e-4 frac<1e-12 0.000 (0/313)
+=== both_90: doll_probe 1000 90s rtf 100 seed 1 (ES_SECULAR=1 ES_CHAIN=1 ES_LOCAL_STAGGER=1)
+frames: game_s 9000, max ev/fr 41, p99 ev/fr 10, kicks 1754, boundaries 1570, encounters 378, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 4.370391e-11 p01 6.858525e-14 p99 6.285773e-4 max 8.731788e-4
+  |dL/L0|: n 313 med 2.158384e-11 p01 3.454417e-14 p99 2.905377e-4 max 4.474576e-4
+  |dE/E0| p25 4.809e-12 p75 3.893e-5 frac<1e-12 0.131 (41/313)
+=== off_110: doll_probe 1000 110s rtf 100 seed 1 ()
+frames: game_s 11000, max ev/fr 334, p99 ev/fr 135, kicks 17747, boundaries 17575, encounters 562, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 2.314199e-5 p01 2.004655e-8 p99 5.882614e-4 max 1.284814e-3
+  |dL/L0|: n 313 med 1.197078e-5 p01 5.090106e-9 p99 3.029123e-4 max 6.582075e-4
+  |dE/E0| p25 1.484e-6 p75 1.187e-4 frac<1e-12 0.000 (0/313)
+=== cs_110: doll_probe 1000 110s rtf 100 seed 1 (ES_CHAIN=1 ES_LOCAL_STAGGER=1)
+frames: game_s 11000, max ev/fr 52, p99 ev/fr 22, kicks 17931, boundaries 17662, encounters 561, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 2.233244e-5 p01 1.701652e-8 p99 6.470713e-4 max 1.528076e-3
+  |dL/L0|: n 313 med 1.161535e-5 p01 3.507410e-9 p99 3.479317e-4 max 7.827012e-4
+  |dE/E0| p25 1.545e-6 p75 1.212e-4 frac<1e-12 0.000 (0/313)
+=== both_110: doll_probe 1000 110s rtf 100 seed 1 (ES_SECULAR=1 ES_CHAIN=1 ES_LOCAL_STAGGER=1)
+frames: game_s 11000, max ev/fr 41, p99 ev/fr 10, kicks 1915, boundaries 1744, encounters 561, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 5.452593e-11 p01 1.610900e-13 p99 6.470713e-4 max 1.528076e-3
+  |dL/L0|: n 313 med 2.650425e-11 p01 8.145363e-14 p99 3.479317e-4 max 7.827012e-4
+  |dE/E0| p25 7.759e-12 p75 3.991e-5 frac<1e-12 0.096 (30/313)
+=== off_110_s2: doll_probe 1000 110s rtf 100 seed 2 ()
+frames: game_s 11000, max ev/fr 360, p99 ev/fr 140, kicks 19500, boundaries 18897, encounters 1140, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 2.453895e-5 p01 7.094944e-9 p99 4.780351e-4 max 7.776094e-4
+  |dL/L0|: n 313 med 1.345345e-5 p01 1.211210e-8 p99 2.473532e-4 max 3.872431e-4
+  |dE/E0| p25 1.374e-6 p75 9.161e-5 frac<1e-12 0.000 (0/313)
+=== both_110_s2: doll_probe 1000 110s rtf 100 seed 2 (ES_SECULAR=1 ES_CHAIN=1 ES_LOCAL_STAGGER=1)
+frames: game_s 11000, max ev/fr 47, p99 ev/fr 8, kicks 3170, boundaries 2562, encounters 1146, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+  |dE/E0|: n 313 med 2.993720e-11 p01 9.526531e-14 p99 5.616662e-4 max 9.385065e-4
+  |dL/L0|: n 313 med 1.495599e-11 p01 4.933657e-14 p99 3.145997e-4 max 4.661047e-4
+  |dE/E0| p25 5.258e-12 p75 4.230e-5 frac<1e-12 0.112 (35/313)
+--- ensemble deviation (composed vs OFF), med of E1/L1/r1, relative ---
+h45 E1 off -4.253781e-11 both -4.253635e-11 reldev 3.43e-05
+h45 L1 off 1.084065e+05 both 1.084084e+05 reldev 1.75e-05
+h45 r1 off 1.179520e+10 both 1.179518e+10 reldev 1.70e-06
+h90 E1 off -4.253942e-11 both -4.253635e-11 reldev 7.22e-05
+h90 L1 off 1.084045e+05 both 1.084084e+05 reldev 3.60e-05
+h90 r1 off 1.176499e+10 both 1.176492e+10 reldev 5.95e-06
+h110 E1 off -4.254010e-11 both -4.253635e-11 reldev 8.82e-05
+h110 L1 off 1.084036e+05 both 1.084084e+05 reldev 4.43e-05
+h110 r1 off 1.175135e+10 both 1.175126e+10 reldev 7.66e-06
+s2 h110 E1 off -4.400928e-11 both -4.401087e-11 reldev 3.61e-05
+s2 h110 L1 off 1.063697e+05 both 1.063676e+05 reldev 1.97e-05
+s2 h110 r1 off 1.181014e+10 both 1.181004e+10 reldev 8.47e-06
+DONE

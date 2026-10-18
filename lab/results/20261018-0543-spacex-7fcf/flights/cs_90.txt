@@ -1,0 +1,14 @@
+probe N=1000 seed=1 rtf=100 bodies=1028
+frames: game_s 9000, max ev/fr 52, p99 ev/fr 23, kicks 14880, boundaries 14590, encounters 378, dead 0, refusals 0, reads refused 0, doll census {2: 310, 3: 3}
+ensemble@t0 (E,L,r):
+  E0: n 313 med -4.253635e-11 p01 -4.023942e-10 p99 -7.118541e-12 max -7.104142e-12
+  L0: n 313 med 1.084084e5 p01 3.525000e4 p99 2.646941e5 max 2.649174e5
+  r0: n 313 med 1.182332e10 p01 1.242563e9 p99 7.281571e10 max 7.348631e10
+ensemble@t1 (E,L,r):
+  E1: n 313 med -4.253929e-11 p01 -4.023942e-10 p99 -7.119889e-12 max -7.104332e-12
+  L1: n 313 med 1.084046e5 p01 3.525000e4 p99 2.646909e5 max 2.649110e5
+  r1: n 313 med 1.176499e10 p01 1.242563e9 p99 7.276850e10 max 7.343398e10
+per-body drift t0->t1:
+  |dE/E0|: n 313 med 1.939321e-5 p01 1.093493e-8 p99 6.285773e-4 max 8.731788e-4
+  |dL/L0|: n 313 med 1.024618e-5 p01 8.496521e-9 p99 2.905377e-4 max 4.474576e-4
+  |dE/E0| p25 1.573e-6 p75 1.073e-4 frac<1e-12 0.000 (0/313)

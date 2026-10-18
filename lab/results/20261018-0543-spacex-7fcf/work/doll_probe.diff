@@ -1,0 +1,286 @@
+diff --git a/crates/universe/examples/doll_probe.rs b/crates/universe/examples/doll_probe.rs
+new file mode 100644
+index 00000000..0fcc2df0
+--- /dev/null
++++ b/crates/universe/examples/doll_probe.rs
+@@ -0,0 +1,137 @@
++//! The comb cure's legality probe on the population it cures: the planet-doll locals
++//! (bodies with `b.doll != 0`, the class `ES_LOCAL_STAGGER` gates on — no frozen gate's
++//! judged body is ever born there, 20261016-1459-second-...-21a7). Flies the plane the way
++//! `nladder` does (budget-free coast, rtf), and at two checkpoints reads every doll body's
++//! state through the shipped `readout`, forming the ensemble of the assist gate's own
++//! quantities: specific energy E = v²/2 − 1/r and angular momentum L = q×v about the doll's
++//! centre (doll units, M = c = 1), plus r. Prints the ensembles and the per-body drifts
++//! |ΔE|/|E|, |ΔL|/L between the checkpoints, with alive/dead/refusals and the frame stats
++//! (the arming control: the comb's max events/frame must collapse under the cures).
++//!
++//! cargo run --release -p emergent-universe --example doll_probe [-- <N> <wall s> <rtf> [<seed>]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &mut [f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return f64::NAN;
++    }
++    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// (E, L, r) of body `i`'s current binding at `t`, in its doll's units.
++fn elr(u: &emergent_universe::Universe, i: usize, t: i64) -> Option<(f64, f64, f64)> {
++    let b = u.rec(i).b;
++    let st = b.readout(t).ok()?;
++    let le = st.length_exponent as f64;
++    let ve = st.velocity_exponent as f64;
++    let (px, py) = (st.position[0] as f64 * 2f64.powi(le as i32), st.position[1] as f64 * 2f64.powi(le as i32));
++    let (vx, vy) = (st.velocity[0] as f64 * 2f64.powi(ve as i32), st.velocity[1] as f64 * 2f64.powi(ve as i32));
++    let r = (px * px + py * py).sqrt();
++    let v2 = vx * vx + vy * vy;
++    Some((v2 / 2.0 - 1.0 / r, px * vy - py * vx, r))
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(45.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    println!("probe N={n} seed={seed} rtf={rtf} bodies={bodies}");
++    let mut snap: Vec<Option<(f64, f64, f64)>> = vec![None; bodies];
++    let mut max_ev = 0u64;
++    let mut p99_ev = Vec::new();
++    let (mut dead, mut refusals) = (0usize, 0u64);
++    let mut last = p.u.stats;
++    let t_first = p.u.now; // before any frame: the birth state
++    let mut took_first = true;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) {
++            println!("probe: truncated at frame {f}");
++            break;
++        }
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: None }, i64::MAX);
++        max_ev = max_ev.max(frame.events);
++        if f >= 60 {
++            p99_ev.push(frame.events as f64);
++        }
++        if took_first && f == 60 {
++            // checkpoint 0: one second in, the birth ensemble (the fleet's opening hand-outs are done later; locals are born at genesis)
++            for i in 0..bodies {
++                let r = p.u.rec(i);
++                if r.alive && r.b.doll != 0 {
++                    snap[i] = elr(&p.u, i, p.u.now);
++                }
++            }
++            took_first = false;
++        }
++        last = p.u.stats;
++    }
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    // checkpoint 1: the end ensemble and the per-body drifts
++    let (mut e0, mut l0, mut r0) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut e1, mut l1, mut r1) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut de, mut dl) = (Vec::new(), Vec::new());
++    let mut refused_read = 0usize;
++    let mut per_doll = std::collections::BTreeMap::new();
++    for i in 0..bodies {
++        let r = p.u.rec(i);
++        if !r.alive {
++            dead += 1;
++        }
++        refusals += r.refusals;
++        if r.b.doll != 0 {
++            *per_doll.entry(r.b.doll).or_insert(0usize) += 1;
++            if let Some(x) = elr(&p.u, i, p.u.now) {
++                e1.push(x.0);
++                l1.push(x.1.abs());
++                r1.push(x.2);
++                if let Some(s0) = snap[i] {
++                    de.push((x.0 - s0.0).abs() / s0.0.abs().max(1e-12));
++                    dl.push((x.1 - s0.1).abs() / s0.1.abs().max(1e-12));
++                }
++            } else {
++                refused_read += 1;
++            }
++            if let Some(s0) = snap[i] {
++                e0.push(s0.0);
++                l0.push(s0.1.abs());
++                r0.push(s0.2);
++            }
++        }
++    }
++    println!(
++        "frames: game_s {game_s:.0}, max ev/fr {max_ev}, p99 ev/fr {:.0}, kicks {}, boundaries {}, encounters {}, dead {dead}, refusals {refusals}, reads refused {refused_read}, doll census {:?}",
++        pct(&mut p99_ev, 0.99),
++        last.kicks, last.boundaries, last.encounters, per_doll
++    );
++    let q = |v: &mut Vec<f64>, name: &str, scale: f64| {
++        println!(
++            "  {name}: n {} med {:.6e} p01 {:.6e} p99 {:.6e} max {:.6e}",
++            v.len(),
++            pct(v, 0.5) * scale,
++            pct(v, 0.01) * scale,
++            pct(v, 0.99) * scale,
++            pct(v, 1.0) * scale
++        );
++    };
++    println!("ensemble@t0 (E,L,r):");
++    q(&mut e0, "E0", 1.0);
++    q(&mut l0, "L0", 1.0);
++    q(&mut r0, "r0", 1.0);
++    println!("ensemble@t1 (E,L,r):");
++    q(&mut e1, "E1", 1.0);
++    q(&mut l1, "L1", 1.0);
++    q(&mut r1, "r1", 1.0);
++    println!("per-body drift t0->t1:");
++    q(&mut de, "|dE/E0|", 1.0);
++    q(&mut dl, "|dL/L0|", 1.0);
++}
+diff --git a/crates/universe/examples/doll_probe.rs b/crates/universe/examples/doll_probe.rs
+new file mode 100644
+index 00000000..0fcc2df0
+--- /dev/null
++++ b/crates/universe/examples/doll_probe.rs
+@@ -0,0 +1,137 @@
++//! The comb cure's legality probe on the population it cures: the planet-doll locals
++//! (bodies with `b.doll != 0`, the class `ES_LOCAL_STAGGER` gates on — no frozen gate's
++//! judged body is ever born there, 20261016-1459-second-...-21a7). Flies the plane the way
++//! `nladder` does (budget-free coast, rtf), and at two checkpoints reads every doll body's
++//! state through the shipped `readout`, forming the ensemble of the assist gate's own
++//! quantities: specific energy E = v²/2 − 1/r and angular momentum L = q×v about the doll's
++//! centre (doll units, M = c = 1), plus r. Prints the ensembles and the per-body drifts
++//! |ΔE|/|E|, |ΔL|/L between the checkpoints, with alive/dead/refusals and the frame stats
++//! (the arming control: the comb's max events/frame must collapse under the cures).
++//!
++//! cargo run --release -p emergent-universe --example doll_probe [-- <N> <wall s> <rtf> [<seed>]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &mut [f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return f64::NAN;
++    }
++    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// (E, L, r) of body `i`'s current binding at `t`, in its doll's units.
++fn elr(u: &emergent_universe::Universe, i: usize, t: i64) -> Option<(f64, f64, f64)> {
++    let b = u.rec(i).b;
++    let st = b.readout(t).ok()?;
++    let le = st.length_exponent as f64;
++    let ve = st.velocity_exponent as f64;
++    let (px, py) = (st.position[0] as f64 * 2f64.powi(le as i32), st.position[1] as f64 * 2f64.powi(le as i32));
++    let (vx, vy) = (st.velocity[0] as f64 * 2f64.powi(ve as i32), st.velocity[1] as f64 * 2f64.powi(ve as i32));
++    let r = (px * px + py * py).sqrt();
++    let v2 = vx * vx + vy * vy;
++    Some((v2 / 2.0 - 1.0 / r, px * vy - py * vx, r))
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(45.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    println!("probe N={n} seed={seed} rtf={rtf} bodies={bodies}");
++    let mut snap: Vec<Option<(f64, f64, f64)>> = vec![None; bodies];
++    let mut max_ev = 0u64;
++    let mut p99_ev = Vec::new();
++    let (mut dead, mut refusals) = (0usize, 0u64);
++    let mut last = p.u.stats;
++    let t_first = p.u.now; // before any frame: the birth state
++    let mut took_first = true;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) {
++            println!("probe: truncated at frame {f}");
++            break;
++        }
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: None }, i64::MAX);
++        max_ev = max_ev.max(frame.events);
++        if f >= 60 {
++            p99_ev.push(frame.events as f64);
++        }
++        if took_first && f == 60 {
++            // checkpoint 0: one second in, the birth ensemble (the fleet's opening hand-outs are done later; locals are born at genesis)
++            for i in 0..bodies {
++                let r = p.u.rec(i);
++                if r.alive && r.b.doll != 0 {
++                    snap[i] = elr(&p.u, i, p.u.now);
++                }
++            }
++            took_first = false;
++        }
++        last = p.u.stats;
++    }
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    // checkpoint 1: the end ensemble and the per-body drifts
++    let (mut e0, mut l0, mut r0) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut e1, mut l1, mut r1) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut de, mut dl) = (Vec::new(), Vec::new());
++    let mut refused_read = 0usize;
++    let mut per_doll = std::collections::BTreeMap::new();
++    for i in 0..bodies {
++        let r = p.u.rec(i);
++        if !r.alive {
++            dead += 1;
++        }
++        refusals += r.refusals;
++        if r.b.doll != 0 {
++            *per_doll.entry(r.b.doll).or_insert(0usize) += 1;
++            if let Some(x) = elr(&p.u, i, p.u.now) {
++                e1.push(x.0);
++                l1.push(x.1.abs());
++                r1.push(x.2);
++                if let Some(s0) = snap[i] {
++                    de.push((x.0 - s0.0).abs() / s0.0.abs().max(1e-12));
++                    dl.push((x.1 - s0.1).abs() / s0.1.abs().max(1e-12));
++                }
++            } else {
++                refused_read += 1;
++            }
++            if let Some(s0) = snap[i] {
++                e0.push(s0.0);
++                l0.push(s0.1.abs());
++                r0.push(s0.2);
++            }
++        }
++    }
++    println!(
++        "frames: game_s {game_s:.0}, max ev/fr {max_ev}, p99 ev/fr {:.0}, kicks {}, boundaries {}, encounters {}, dead {dead}, refusals {refusals}, reads refused {refused_read}, doll census {:?}",
++        pct(&mut p99_ev, 0.99),
++        last.kicks, last.boundaries, last.encounters, per_doll
++    );
++    let q = |v: &mut Vec<f64>, name: &str, scale: f64| {
++        println!(
++            "  {name}: n {} med {:.6e} p01 {:.6e} p99 {:.6e} max {:.6e}",
++            v.len(),
++            pct(v, 0.5) * scale,
++            pct(v, 0.01) * scale,
++            pct(v, 0.99) * scale,
++            pct(v, 1.0) * scale
++        );
++    };
++    println!("ensemble@t0 (E,L,r):");
++    q(&mut e0, "E0", 1.0);
++    q(&mut l0, "L0", 1.0);
++    q(&mut r0, "r0", 1.0);
++    println!("ensemble@t1 (E,L,r):");
++    q(&mut e1, "E1", 1.0);
++    q(&mut l1, "L1", 1.0);
++    q(&mut r1, "r1", 1.0);
++    println!("per-body drift t0->t1:");
++    q(&mut de, "|dE/E0|", 1.0);
++    q(&mut dl, "|dL/L0|", 1.0);
++}

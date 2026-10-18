@@ -1,0 +1,490 @@
+diff --git a/crates/universe/examples/doll_probe.rs b/crates/universe/examples/doll_probe.rs
+new file mode 100644
+index 00000000..49172156
+--- /dev/null
++++ b/crates/universe/examples/doll_probe.rs
+@@ -0,0 +1,149 @@
++//! The comb cure's legality probe on the population it cures: the planet-doll locals
++//! (bodies with `b.doll != 0`, the class `ES_LOCAL_STAGGER` gates on — no frozen gate's
++//! judged body is ever born there, 20261016-1459-second-...-21a7). Flies the plane the way
++//! `nladder` does (budget-free coast, rtf), and at two checkpoints reads every doll body's
++//! state through the shipped `readout`, forming the ensemble of the assist gate's own
++//! quantities: specific energy E = v²/2 − 1/r and angular momentum L = q×v about the doll's
++//! centre (doll units, M = c = 1), plus r. Prints the ensembles and the per-body drifts
++//! |ΔE|/|E|, |ΔL|/L between the checkpoints, with alive/dead/refusals and the frame stats
++//! (the arming control: the comb's max events/frame must collapse under the cures).
++//!
++//! cargo run --release -p emergent-universe --example doll_probe [-- <N> <wall s> <rtf> [<seed>]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &mut [f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return f64::NAN;
++    }
++    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// (E, L, r) of body `i`'s current binding at `t`, in its doll's units.
++fn elr(u: &emergent_universe::Universe, i: usize, t: i64) -> Option<(f64, f64, f64)> {
++    let b = u.rec(i).b;
++    let st = b.readout(t).ok()?;
++    let le = st.length_exponent as f64;
++    let ve = st.velocity_exponent as f64;
++    let (px, py) = (st.position[0] as f64 * 2f64.powi(le as i32), st.position[1] as f64 * 2f64.powi(le as i32));
++    let (vx, vy) = (st.velocity[0] as f64 * 2f64.powi(ve as i32), st.velocity[1] as f64 * 2f64.powi(ve as i32));
++    let r = (px * px + py * py).sqrt();
++    let v2 = vx * vx + vy * vy;
++    Some((v2 / 2.0 - 1.0 / r, px * vy - py * vx, r))
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(45.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    println!("probe N={n} seed={seed} rtf={rtf} bodies={bodies}");
++    let mut snap: Vec<Option<(f64, f64, f64)>> = vec![None; bodies];
++    let mut max_ev = 0u64;
++    let mut p99_ev = Vec::new();
++    let (mut dead, mut refusals) = (0usize, 0u64);
++    let mut last = p.u.stats;
++    let t_first = p.u.now; // before any frame: the birth state
++    let mut took_first = true;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) {
++            println!("probe: truncated at frame {f}");
++            break;
++        }
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: None }, i64::MAX);
++        max_ev = max_ev.max(frame.events);
++        if f >= 60 {
++            p99_ev.push(frame.events as f64);
++        }
++        if took_first && f == 60 {
++            // checkpoint 0: one second in, the birth ensemble (the fleet's opening hand-outs are done later; locals are born at genesis)
++            for i in 0..bodies {
++                let r = p.u.rec(i);
++                if r.alive && r.b.doll != 0 {
++                    snap[i] = elr(&p.u, i, p.u.now);
++                }
++            }
++            took_first = false;
++        }
++        last = p.u.stats;
++    }
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    // checkpoint 1: the end ensemble and the per-body drifts
++    let (mut e0, mut l0, mut r0) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut e1, mut l1, mut r1) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut de, mut dl) = (Vec::new(), Vec::new());
++    let mut refused_read = 0usize;
++    let mut per_doll = std::collections::BTreeMap::new();
++    for i in 0..bodies {
++        let r = p.u.rec(i);
++        if !r.alive {
++            dead += 1;
++        }
++        refusals += r.refusals;
++        if r.b.doll != 0 {
++            *per_doll.entry(r.b.doll).or_insert(0usize) += 1;
++            if let Some(x) = elr(&p.u, i, p.u.now) {
++                e1.push(x.0);
++                l1.push(x.1.abs());
++                r1.push(x.2);
++                if let Some(s0) = snap[i] {
++                    de.push((x.0 - s0.0).abs() / s0.0.abs().max(1e-12));
++                    dl.push((x.1 - s0.1).abs() / s0.1.abs().max(1e-12));
++                }
++            } else {
++                refused_read += 1;
++            }
++            if let Some(s0) = snap[i] {
++                e0.push(s0.0);
++                l0.push(s0.1.abs());
++                r0.push(s0.2);
++            }
++        }
++    }
++    println!(
++        "frames: game_s {game_s:.0}, max ev/fr {max_ev}, p99 ev/fr {:.0}, kicks {}, boundaries {}, encounters {}, dead {dead}, refusals {refusals}, reads refused {refused_read}, doll census {:?}",
++        pct(&mut p99_ev, 0.99),
++        last.kicks, last.boundaries, last.encounters, per_doll
++    );
++    let q = |v: &mut Vec<f64>, name: &str, scale: f64| {
++        println!(
++            "  {name}: n {} med {:.6e} p01 {:.6e} p99 {:.6e} max {:.6e}",
++            v.len(),
++            pct(v, 0.5) * scale,
++            pct(v, 0.01) * scale,
++            pct(v, 0.99) * scale,
++            pct(v, 1.0) * scale
++        );
++    };
++    println!("ensemble@t0 (E,L,r):");
++    q(&mut e0, "E0", 1.0);
++    q(&mut l0, "L0", 1.0);
++    q(&mut r0, "r0", 1.0);
++    println!("ensemble@t1 (E,L,r):");
++    q(&mut e1, "E1", 1.0);
++    q(&mut l1, "L1", 1.0);
++    q(&mut r1, "r1", 1.0);
++    println!("per-body drift t0->t1:");
++    q(&mut de, "|dE/E0|", 1.0);
++    q(&mut dl, "|dL/L0|", 1.0);
++    // this run's addition (print-only): the mixture witness — deleted bodies are pure tubes,
++    // so their E reads out identical between checkpoints up to f64 noise (20261018-0543-spacex-7fcf).
++    let zeros = de.iter().filter(|d| **d < 1e-12).count();
++    let mut de2 = de.clone();
++    println!(
++        "  |dE/E0| p25 {:.3e} p75 {:.3e} frac<1e-12 {:.3} ({}/{})",
++        pct(&mut de2, 0.25),
++        pct(&mut de2, 0.75),
++        zeros as f64 / de.len().max(1) as f64,
++        zeros,
++        de.len()
++    );
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..8cc70ea1 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,40 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On Linux (the lab's boxes): the resident set and its high-water mark, from /proc/self/status.
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        let kb = |key: &str| {
++            std::fs::read_to_string("/proc/self/status")
++                .ok()
++                .and_then(|s| {
++                    s.lines()
++                        .find(|l| l.starts_with(key))
++                        .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++                })
++                .unwrap_or(0)
++                * 1024
++        };
++        (kb("VmRSS:"), kb("VmHWM:"))
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -87,6 +107,12 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if let Ok(path) = std::env::var("ES_DUMP") {
++            use std::io::Write;
++            if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
++                let _ = writeln!(out, "{f} {} {}", took.as_secs_f64() * 1e3, frame.events);
++            }
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -94,11 +120,60 @@ fn main() {
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+         }
++
+         if !rec.alive {
+             alive = false;
+             break;
+         }
+     }
++
++    // ES_STATES: every body's end state (doll, kind, fleet origin, plan length, key a, position
++    // angle), with the dolls' units and each source's pull — enough to recompute ES_SECULAR's
++    // legality decision independently of the engine's own.
++    if let Ok(path) = std::env::var("ES_STATES") {
++        use std::io::Write;
++        let mut out = std::fs::OpenOptions::new().create(true).truncate(true).write(true).open(&path).unwrap();
++        let kf = |k: &emergent_space::orbit::OrbitKey| -> (f64, f64) {
++            let kk = k.k as f64 * 2f64.powi(k.k_exponent as i32 - 48);
++            let a = if kk > 0.5 { emergent_universe::num::to_f64(k.periapsis) * kk / (2.0 * kk - 1.0) } else { f64::NAN };
++            (a, if kk > 0.0 { 1.0 / kk - 1.0 } else { f64::NAN })
++        };
++        let now = p.u.now;
++        writeln!(out, "# dolls: idx name parent shift unit_mu centre mass_log2").unwrap();
++        for (i, d) in p.u.dolls.iter().enumerate() {
++            writeln!(out, "D {i} {} {:?} {} {:.6} {:?} {}", d.name, d.parent, d.shift, emergent_universe::num::to_f64(d.unit.mu), d.centre, d.mass_log2).unwrap();
++        }
++        writeln!(out, "# sources of each doll").unwrap();
++        for (i, s) in p.u.sources.iter().enumerate() {
++            for &j in s {
++                writeln!(out, "S {i} {j} {:.9e}", emergent_universe::num::to_f64(p.u.info[j].gm)).unwrap();
++            }
++        }
++        writeln!(out, "# bodies: i doll kind plan_len alive a e angle_deg radius; then fleet members").unwrap();
++        for i in 0..bodies {
++            let r = p.u.rec(i);
++            let kind = match r.kind { emergent_universe::body::Kind::Planet => "P", emergent_universe::body::Kind::Moon => "M", emergent_universe::body::Kind::Ship => "s", emergent_universe::body::Kind::Player => "Y" };
++            let key = r.b.entry.trajectory.key();
++            let (a, e) = key.as_ref().map(|k| kf(k)).unwrap_or((f64::NAN, f64::NAN));
++            let st = r.b.readout(now).ok();
++            let (angle, radius) = st
++                .map(|st| {
++                    let sx = emergent_space::orbit::Scalar::raw(st.position[0] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                    let sy = emergent_space::orbit::Scalar::raw(st.position[1] as i128, st.length_exponent as i32).ok().map(emergent_universe::num::to_f64);
++                    match (sx, sy) {
++                        (Some(x), Some(y)) => (y.atan2(x).to_degrees(), (x * x + y * y).sqrt()),
++                        _ => (f64::NAN, f64::NAN),
++                    }
++                })
++                .unwrap_or((f64::NAN, f64::NAN));
++            writeln!(out, "B {i} {} {kind} {} {} {a:.9e} {e:.9e} {angle:.6} {radius:.9e}", r.b.doll, r.plan.len(), u8::from(r.alive)).unwrap();
++        }
++        for (i, inf) in p.u.info.iter().enumerate() {
++            if let Some((f0, m0)) = inf.from {
++                writeln!(out, "F {i} {f0} {m0}").unwrap();
++            }
++        }
++    }
+     let (now2, rss2) = footprint();
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..1606f852 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -97,6 +97,66 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
+ }
+ 
++// ---- ES_SECULAR (lab probe, default off): step 5's delete arm --------------------------------------
++//
++// docs/law.md's step 5 deletes the metronome's events for stable bodies instead of spreading them.
++// This probe implements the delete half behind a flag: a ship (not a fleet member, not the player)
++// whose orbit is secular-legal against EVERY perturber of its doll is deleted from the metronome —
++// r9's bound applied per perturber, `tau_p = 3 (m_p/m_host) (a/a_p)^3` under r9's `tau0 = 3.6e-3`
++// for the parent star and for every secondary source of the doll — and free of resonances with the
++// doll's secondaries (a small-integer period commensurability within 2%, co-orbital within 5% in a;
++// `ES_SECULAR_RES=1` disables the exclusion, the adversarial control). The body is then a pure tube,
++// the `has_forces == false` state: no kicks, no boundaries. The secular residual r9 bounded (the
++// apsidal precession the freeze no longer applies) is carried by nothing — the flight measures both
++// the deleted event ledger and that residual, which prices the sparse re-kick cadence the real
++// generator needs. With the flag off the shipped law is untouched, bit for bit.
++
++fn es_flag(name: &str) -> bool {
++    std::env::var(name).is_ok_and(|v| v != "0")
++}
++
++const SECULAR_TAU0: f64 = 3.6e-3;
++
++/// The semimajor axis of a bound turning key, as f64 in the doll's units. `None`: passage, plunge
++/// or unbound — never secular. The key holds `k`, the mantissa of `1/(1+e)`, so `a = p·k/(2k−1)`.
++fn es_a(periapsis: Scalar, k: u64, k_exponent: i16) -> Option<f64> {
++    let k = k as f64 * 2f64.powi(k_exponent as i32 - 48);
++    if k <= 0.5 {
++        return None; // e >= 1
++    }
++    Some(crate::num::to_f64(periapsis) * k / (2.0 * k - 1.0))
++}
++
++/// Lab probes (default off, so the shipped law is bit for bit): `ES_CHAIN` and `ES_LOCAL_STAGGER`.
++fn flag(name: &str) -> bool {
++    std::env::var(name).is_ok_and(|v| v != "0")
++}
++
++/// `ES_CHAIN` (default off): chain every interval from the body's previous event — the clock law's
++/// own shape — instead of re-anchoring to the absolute power-of-two grid. Inert while a body's
++/// boundaries are on the grid (a one-tick birth); after any off-grid event (a birth spread, a
++/// handoff) the offset persists instead of being re-absorbed within one interval, so no population
++/// can lock its boundaries onto one shared grid again. Gives up "every pair shares boundaries"
++/// (docs/law.md) exactly as a per-body phase does.
++fn chain_on() -> bool {
++    flag("ES_CHAIN")
++}
++
++/// `ES_LOCAL_STAGGER` (default off): a planet-doll body's *first* interval is shorter by a uniform
++/// id-derived fraction of its own step, de-phasing a one-tick-born population at birth. Under the
++/// shipped anchor the grid re-absorbs the offset within one period; under `ES_CHAIN` it is permanent.
++fn stagger_on() -> bool {
++    flag("ES_LOCAL_STAGGER")
++}
++
++/// A uniform id-derived offset in `[0, step)` (splitmix64 of the body's index).
++fn stagger_off(i: usize, step: i64) -> i64 {
++    let mut z = (i as u64).wrapping_add(0x9E3779B97F4A7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++    ((z ^ (z >> 31)) % step.max(1) as u64) as i64
++}
++
+ /// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
+ /// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
+ /// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
+@@ -105,6 +165,11 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+ /// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
+ /// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
+ pub fn aligned(step: i64, t: Tick) -> i64 {
++    if chain_on() {
++        // ES_CHAIN: the interval is the body's own step from wherever it stands. There are no
++        // stubs at all (a step change costs no extra interval), and an off-grid offset persists.
++        return step;
++    }
+     let off = t.rem_euclid(step);
+     if off == 0 {
+         return step;
+@@ -336,6 +401,8 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// Whether this is the body's first plan (its creation): where `ES_LOCAL_STAGGER` applies.
++    first: bool,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -537,6 +604,60 @@ impl Work<'_, '_> {
+         Ok(())
+     }
+ 
++    /// ES_SECULAR's per-body decision (the module note above): secular-legal against every
++    /// perturber of the doll (r9's `tau_p` under `tau0`), and free of resonances with its
++    /// secondaries. Masses come from the ctx's own units (both sides of each ratio in the same
++    /// doll's units); distances from the keys, converted by the doll-pair shift.
++    fn secular(&self) -> bool {
++        if !matches!(self.rec.kind, Kind::Ship) || self.ctx.info[self.i].from.is_some() {
++            return false; // never the player or a fleet member: the battle and the hand own them
++        }
++        let Some(key) = self.rec.b.entry.trajectory.key() else { return false };
++        let Some(a) = es_a(key.periapsis, key.k, key.k_exponent) else { return false };
++        let d = self.rec.b.doll as usize;
++        let doll = &self.ctx.dolls[d];
++        let host = crate::num::to_f64(doll.unit.mu);
++        let t = self.rec.anchor;
++        // The parent star's tide: its mass in this doll's units (Ctx::tide's own conversion), the
++        // host's semimajor axis from its key in the parent's units, shifted into this doll's.
++        if let Some(p) = doll.parent {
++            let centre = doll.centre.expect("a child doll has a centre");
++            let Some((pm, _)) = self.ctx.tide(self.rec.b.doll, t).ok().flatten() else { return false };
++            let Some(ck) = self.ctx.bodies.binding_at(centre, t).and_then(|b| b.entry.trajectory.key()) else { return false };
++            let Some(a_p) = es_a(ck.periapsis, ck.k, ck.k_exponent) else { return false };
++            let shift = 2f64.powi(doll.shift as i32 - self.ctx.dolls[p as usize].shift as i32);
++            let a_host = a_p * shift;
++            if 3.0 * (crate::num::to_f64(pm) / host) * (a / a_host).powi(3) >= SECULAR_TAU0 {
++                return false;
++            }
++        }
++        // The secondaries: r9's tide per source, then the resonance exclusion.
++        let res_on = es_flag("ES_SECULAR_RES");
++        for &j in &self.ctx.sources[d] {
++            if j == self.i {
++                continue;
++            }
++            let Some(jk) = self.ctx.bodies.binding_at(j, t).and_then(|b| b.entry.trajectory.key()) else { continue };
++            let Some(a_j) = es_a(jk.periapsis, jk.k, jk.k_exponent) else { continue }; // a passing source has no resonance
++            let m_j = crate::num::to_f64(self.ctx.info[j].gm);
++            if 3.0 * (m_j / host) * (a / a_j).powi(3) >= SECULAR_TAU0 {
++                return false;
++            }
++            if !res_on
++                && ((a / a_j - 1.0).abs() < 0.05
++                    || (1..=8u32).any(|q| {
++                        (1..=8u32).any(|r| {
++                            let qr = q as f64 / r as f64;
++                            (((a / a_j).powf(1.5) * (host / (host + m_j)).sqrt()) / qr - 1.0).abs() < 0.02
++                        })
++                    }))
++            {
++                return false;
++            }
++        }
++        true
++    }
++
+     /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
+     /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
+     fn plan_interval(&mut self, t: Tick) -> Res<()> {
+@@ -551,6 +672,11 @@ impl Work<'_, '_> {
+             self.rec.plan.clear();
+             return Ok(());
+         }
++        if es_flag("ES_SECULAR") && self.secular() {
++            // ES_SECULAR: deleted from the metronome (a pure tube; the module note above).
++            self.rec.plan.clear();
++            return Ok(());
++        }
+         if self.on_clock() {
+             return self.plan_clock(t);
+         }
+@@ -567,6 +693,17 @@ impl Work<'_, '_> {
+         }
+         self.rec.anchor = t;
+         let mut h = aligned(self.rec.step, t);
++        if self.first && stagger_on() && d != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player) {
++            // ES_LOCAL_STAGGER: de-phase a one-tick-born population at birth — the first interval is
++            // shorter by a uniform id-derived fraction of the step (no less accurate: it is shorter).
++            // Under the shipped anchor the grid re-absorbs this within one period; under ES_CHAIN
++            // every later interval starts where this one ends, so the offset is permanent.
++            let off = stagger_off(self.i, self.rec.step);
++            h = self.rec.step - off;
++            if h < MIN_STEP {
++                h += self.rec.step;
++            }
++        }
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+@@ -826,7 +963,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -866,7 +1003,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: true };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +1015,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, first: false };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
