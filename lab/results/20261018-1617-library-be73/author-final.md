@@ -1,0 +1,4 @@
+Working...
+Run complete. All deliverables in `lab/results/20261018-1617-library-be73/`: predictions.md (pre-registered, P1–P6 held), compose_fix.py + verify_quotes.py (5/5 quotes byte-identical against a fresh 4,590-highlight export), lessons.md (38 lines), dossier.md, regen.sh (PASS, 8 s), wiki/library-directions.md folded; no shipped code touched, no git commands run.
+
+**Claim:** The scan pin's fix ("answer-or-expire") is composed from measured constants and is a trigger-and-expiry change, not a cost change — answering every mint at arrival costs 0.34% of the frame budget at the 10⁶ target, expiry-on-supersede (the census's own 91% player-clock trigger) bounds the pin load-independently at ~2 entries (426–448 MB, 18× under the wall), the shipped 2048-count cap is the spike generator (one forced answer = 158–364% of the budget) and dies for one byte counter, and at 10⁹ the pin's multiplier is the doll's population D (≲1.8×10⁷), never the queue policy.

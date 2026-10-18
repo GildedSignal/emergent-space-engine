@@ -1,0 +1,49 @@
+== Readwise cache (fresh fetch if READWISE_TOKEN set) ==
+fetched 9 pages, 770 books, 4590 highlights
+== composition ==
+== P1: one-doll bust law  t_8GB = 8e9/(λ·224·(K+38)) ==
+  K=1e+04:    67640.8 game-s   (676.408 wall-s at rtf 100)
+  K=1e+05:     6787.2 game-s   (67.872 wall-s at rtf 100)
+  K=1e+06:      679.0 game-s   (6.790 wall-s at rtf 100)
+  K=1e+07:       67.9 game-s   (0.679 wall-s at rtf 100)
+  K=1e+08:        6.8 game-s   (0.068 wall-s at rtf 100)
+  K=1e+09:        0.7 game-s   (0.007 wall-s at rtf 100)
+  at 1e6: script 679 gs vs acf2 measured 687 gs -> ratio 0.988
+== P2: the 2048-count cap's byte edge ==
+  entries/mint m=1.0: cap alone holds 8 GB only below K = 1.740e+04
+  entries/mint m=1.95: cap alone holds 8 GB only below K = 3.397e+04
+  entries to 8 GB at K=1e6 without the cap: 35.7
+== P3: the answer half — per-frame cost of answering EVERY mint at arrival ==
+  arrivals/frame = λ·1.5 gs/frame = 0.0789
+  compare-form (acf2): K=1e+06       40.6 us/frame =    0.34% of budget
+  compare-form (acf2): K=1e+07      406.3 us/frame =    3.39% of budget
+  shipped walk (96f6): K=1e+06    14991.6 us/frame =  124.93% of budget
+  shipped walk (96f6): K=1e+07   149910.6 us/frame = 1249.25% of budget
+  store-grounded (96f6, 0.67 ms/scan at 1e6): 52.9 us/frame = 0.44% of budget
+  compare-form crosses the whole budget only at K = 2.95e+08 (one doll)
+  shipped walk crosses it at             K = 8.00e+05 (one doll)
+== P4: the latch spike — ONE forced answer inside a frame (shipped walk) ==
+  K=6.3e+04:  12.0 ms =   100% of budget; compare-form same answer   32.4 us (369x cheaper)
+  K=1.0e+05:  19.0 ms =   158% of budget; compare-form same answer   51.5 us (369x cheaper)
+  K=2.3e+05:  43.7 ms =   364% of budget; compare-form same answer  118.4 us (369x cheaper)
+== P5: supersede bound — steady pin with expiry on the census triggers ==
+  D=1e+05:      43-     45 MB (  179x under 8 GB)
+  D=1e+06:     426-    448 MB (   18x under 8 GB)
+  D=1e+07:    4256-   4480 MB (    2x under 8 GB)
+  partition ceiling for the 2-entry bound: D = 1.79e+07
+  load-independence: the bound uses no µ; b8e2's utilization knob
+  (µ/λ = 1.0 quiet vs 0.03-0.15 loaded) leaves it unchanged.
+== answer stream as a core fraction under partition (rtf 100) ==
+  D=1e+05:    0.27 ms/s =  0.03% of one core
+  D=1e+06:    2.71 ms/s =  0.27% of one core
+  D=1e+07:   27.09 ms/s =  2.71% of one core
+== λ corroboration ==
+  ladder λ 0.0526/gs inside b8e2's held-scene band (0.053, 0.064)/gs (member-independent)
+== quote verification ==
+indexed 4590 highlights from 770 books
+OK   [The Tim Ferriss Show] Limited work in progress improves efficiency by preventing... -> found in [('#722 —  Cal Newport — How to Embrace Slow Productivity, Build a Deep Life, Achieve Mastery, and Defend Your Time', 'The Tim Ferriss Show')]
+OK   [Farnam Street] Be quick to say no and slow to say yes. Saying yes consume... -> found in [('The Focus to Say No', 'Farnam Street')]
+OK   [Farnam Street] Rules that made sense when they were written may well be o... -> found in [('Lessons on Leadership: Michael Abrashoff on Turning the Worst Ship in the Navy Into the Best', 'Farnam Street')]
+OK   [Farnam Street] every single piece has a principle of motion of its own... -> found in [('The Chessboard Fallacy', 'Farnam Street')]
+OK   [Farnam Street] Anyone looks like a genius when they... -> found in [('Leverage Time', 'Farnam Street')]
+REGEN: PASS
