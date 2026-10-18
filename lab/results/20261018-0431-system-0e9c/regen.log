@@ -1,0 +1,16 @@
+patch already present
+    Finished `release` profile [optimized + debuginfo] target(s) in 30.50s
+DIGESTS: the frozen 13-case record is bit-identical under ES_LOCAL_BAIL (13 cases)
+
+=== census (last cumulative line per arm) ===
+n0_coast_off: scan_census: captures=384 bails=383 fb_walk=27860 doll_discard=6894 fb_cand=12460 filt=1 filt_walk=3 filt_cand=2 capture_ms=13.2
+n0_coast_on: scan_census: captures=384 bails=0 fb_walk=0 doll_discard=0 fb_cand=0 filt=384 filt_walk=20969 filt_cand=12462 capture_ms=41.4
+n10k_coast_off: scan_census: captures=384 bails=0 fb_walk=0 doll_discard=0 fb_cand=0 filt=384 filt_walk=77245 filt_cand=68738 capture_ms=61.9
+n10k_coast_on: scan_census: captures=384 bails=0 fb_walk=0 doll_discard=0 fb_cand=0 filt=384 filt_walk=77245 filt_cand=68738 capture_ms=61.2
+n1k_burn_off: scan_census: captures=2112 bails=414 fb_walk=443161 doll_discard=297252 fb_cand=142211 filt=1698 filt_walk=125031 filt_cand=117983 capture_ms=67.3
+n1k_burn_on: scan_census: captures=2112 bails=0 fb_walk=0 doll_discard=0 fb_cand=0 filt=2112 filt_walk=270940 filt_cand=260194 capture_ms=94.2
+
+=== digest arms (first/last case + verdict lines) ===
+N=1000 belt crossing L10     | ef19d3de1d269d64f0846134717ebda0 | kicks  38106 encounters    789 contacts   0 | 4 schedules agree  [19.6 s]
+N=3000 belt crossing L10     | 4995f38448103cc20232d292eb40a84b | kicks  40106 encounters    789 contacts   0 | 4 schedules agree  [19.3 s]
+every case: one digest on every schedule
