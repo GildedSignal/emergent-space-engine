@@ -2,11 +2,52 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261017-0739-second-20261017-0552-inversion-604c-2e42
+updated: 20261018-0431-scout-b083
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
+**[20261018-0431-scout-b083] The scan's phase axis is corrected to the answer tier, and it
+is measured on the shipped predicate: no horizon can cut a circular formation's candidates
+(the coast window ≈ 9r contains the ring and every member's radial range is the player's
+own — 604c's 1.00·K law is structural, not a dial), but on a shared circular orbit
+d·w = 0 exactly (3.6e-15), so the per-member read list collapses to one compare on a
+stored phase offset — 2r·sin(δ/2) ≤ 2¹⁰·ρ·r, horizon-independent (no closure on a rigid
+ring: these answers carry slack, not urgency) — at 19.2 ns vectorised / ~10 ns
+native against the measured 4.4 µs per-candidate read (7.1 µs with capture's binding_at):
+the 10⁶-ship formation scan falls 4.4 s → ~10–20 ms plus 353 exact reads (~2× order on
+the instrument, load-dependent — the regen 200× assert fails at 79× on a loaded box,
+checker), closing 604c's ~500×-over answer term to ≈1×. [Checker: the shipped law::hit
+additionally requires *approaching* (d·w < 0, law.rs every branch), which the replica
+dropped; on a rigid ring d·w ≡ 0 (identically on the integer lattice), so the shipped
+encounter *answer* there is empty — the 37/353/3,204 near set is the exact tier's read
+list (a sound superset: law::hit ⊆ seg-dist ⊆ the window), not the shipped answer set;
+the price holds a fortiori, the answer needs the approaching conjunct.]** The near set
+is a pure phase
+window (37/353/3,204 per 10⁶ at ρ = 1e-7/1e-6/1e-5; ∝1/σ_φ under clustering to 4.1k/40.6k/
+391k — the clustered tail is the standing-contact class, encounters od 1's group
+certificate, not per-member reads). The failure modes are priced: the naive circular chord
+degrades to 0.8–3.0% membership error at e = 0.2–0.5 (the per-orbit-class capability curve
+C(δ, ν_p) is grid-limited, not e-limited: 0.8% at 2¹⁴ samples, sound with one-cell
+widening; build ~29 ms per ν-bin per class amortized ~1e-3 s/s — circular formations, the
+measured ruin class, need no curve); the phase-only tier is sound for σ_a ≤ 1e-5·a (0
+misses/40k at h=P/10; onset of unsoundness at σ_a ≈ 1e-3 against the predicted
+1.5·n·σ_a·h ≈ near at 1.09e-3; keys fleets are σ_a = 0 by birth) [checker: the onset is
+horizon-dependent — at the coast horizon h ≈ 9 (the ruin case) σ* ≈ 7.6e-5, first
+misses measured at 7.6e-5 and 5 at 1e-4; the sound class σ_a ≤ 1e-5 has 0 misses at
+both horizons; and at ρ = 1e-4 under clustering the near set is 100% of the fleet —
+the tier is net-negative one decade past the swept range]; and 99.97% of the shipped
+reads on a uniform fleet buy ≤ 0.001 bits (the boundary comb's no-op machine, at the
+observer). Float replica of the shipped predicate's segment distance (encounter.rs::
+Scan::compute, radial.rs window; the approaching conjunct d·w < 0 of law::hit was
+dropped — see the bracket above),
+r=1 units, controls both sides (e=0 exactness 2.2e-16; shuffled-table 47.7% disagreement);
+Linux/x86 orders of magnitude. Mechanism = PRINCIPLES 32 (the crowd's symmetry is the one
+compiled key the engine already mints per keys-fleet) and bottleneck 0's own store shape
+(bodies as offsets in the cell's frame); prior art fit-ranked: Clohessy–Wiltshire/Hill and
+the shearing sheet (first-order-only, the standing rule), constellation phase-slot tables,
+taleb-09b5's rank axis at the observer tier.
+
 **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget
 frames at fleet scale in-phase are comb-owned (91.7-99.7% item pipeline: kicks, boundaries, fits),
 not scan-owned — at K=1,000, 0.6-1.0% scan / 97.7-98.5% comb in the 68 over frames on both seeds
@@ -139,6 +180,17 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
   the near set pinned, what's left of the cliff is the cadence's
   (20261017-0005-…-8792; c439). [20261017-0552: the "near set pinned" clause is
   crowd-scoped — under a formation the set is K-sized, not 70.]
+- **"A phase/along-orbit axis makes fleet scenes cheap for the scan" (this page's od 1b,
+  the candidate-side reading): measured wrong at coast and unnecessary — the window
+  contains the ring and the radial representation is degenerate on it (candidates =
+  1.00·K at every horizon for circular formations; eccentric rings are cut only at
+  burn-class windows, 0.15% at e = 0.5); the cheap answer is the offset compare, not a
+  shorter candidate list (20261018-0431-scout-b083).**
+- **"The observer's crowd bill needs a new index" (any candidate-side structure): the
+  shipped predicate's own geometry (d ⊥ w on a shared circular orbit) already carries the
+  read list per member in one compare on the stored phase word (the answer adds the
+  approaching conjunct d·w < 0 — empty on a rigid ring, checker); the index is the store's
+  existing class-major layout (calendar od 3) (20261018-0431-scout-b083).**
 
 ## Open directions
 1. **The scan's representation under concentration** (this run's handback): price (a) the bail made
@@ -199,3 +251,4 @@ freeze and pin. The frame's over-budget tail is comb-owned on both seeds.
 - 20261017-0428-quant-c439 (this run): the read census — read demand O(1) in N (counts
 - 20261017-0552-inversion-604c (this run): the formation scene flown — the filter bails on
 - 20261017-0739-second-20261017-0552-inversion-604c-2e42 (this run, second author): the
+- 20261018-0431-scout-b083 (scout, awaiting grade): the phase axis lands on the answer

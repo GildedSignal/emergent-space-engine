@@ -20,9 +20,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [chaos-shadowing](chaos-shadowing.md) | open | 8 | (no current best yet) |
 | [library-directions](library-directions.md) | open | 8 | **The 10⁹ memory wall is composed from measured constants and its decision structure is |
 | [read-stream](read-stream.md) | open | 9 | **[20261017-2330-quant-588d] Direction 2's gate is measured: the fit-compile memo's sharing |
-| [scan-queue](scan-queue.md) | open | 10 | **The reuse walk is the memo's proof, not its overhead, and no change-signal coarser than the |
+| [scan-queue](scan-queue.md) | open | 11 | **The fallback's domain is the universe, the certificate's is the doll, and the fix is one |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
-| [promotion](promotion.md) | open | 14 | **The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget |
+| [promotion](promotion.md) | open | 15 | **[20261018-0431-scout-b083] The scan's phase axis is corrected to the answer tier, and it |
 | [allocator-ratchet](allocator-ratchet.md) | open | 17 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
@@ -30,7 +30,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [kick-cadence](kick-cadence.md) | open | 57 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
+| [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |

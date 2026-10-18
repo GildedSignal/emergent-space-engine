@@ -2,7 +2,7 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0143-components-16ec
+updated: 20261018-0431-second-20261018-0143-components-16ec-49e9
 
 # Kick cadence: how often a body is kicked, and by what rule
 
@@ -41,21 +41,36 @@ whole lifetime; probe-verified on 1,200 swept cycles (e to 0.99, residuals to 2�
 units 1 and 1.5): zero excursions, passages refused. Flights (`nladder 10000 … 60 1800`, cut
 pinned at 1.2×10¹⁰ ticks via `ES_LIMIT` — unpinned cuts drift with load and their digests are
 incomparable, measured): coast ctl = ctl-rerun = fast (a725217f1dcd9f2a, 19,423/19,423 skipped);
-**burn: the checker found the instrument itself is schedule-coupled — two flag-off burn controls
-flown back to back differ (d9d0a2aa… vs bbd72d20…; the author's 08b6399c… and the regen's d12096fd…
-are two more), because the harness injects the thrust at `p.u.now` at frame 60 and the presented
-tick drifts with the 12 ms budget, so a pinned cut cannot adjudicate the burn arm (the fast arm
-skips only the belt's 19,423 there; all 338–340 player passages are read out in both arms) — the
-"kill fired" reading is an artifact, and the next probe is a pinned-input harness first, then the
-bisect if a real difference survives (20261018-0143-components-16ec, checker).** Two scope
-corrections to 3570's record: (a) the clock path is the minority of boundary mass at N=10⁴ — the
-census's 19,423 clock-path calls against ~1.03–1.08×10⁵ boundary events of both paths in the flight
-window give **≤18% clock / ≥82% WH-split `boundary()`** (WH ≥4.4× clock; the dossier's
-10.2%/84.6%/190,000-item denominator is not regenerable from the shipped evidence), so the shared-box
-p50 25.2 µs mixed paths, and the clock-path boundary — the 10⁹ term — measures **4.1–5.2 µs mean,
-not 25**; (b) the deletion form needs no re-freeze on the coasting belt (digest cannot move), unlike
-the unscheduling form (od 1's, still stronger: −1 event per body per interval). Ledger, this box:
-10⁹ belt boundaries ≈ 0.15 cores continuous shipped → ≈ 0.007 with the fast path.
+**burn: CLOSED by the pinned-input harness — the shipped harness's burn divergence was the
+decision tick, by construction: `digest()` hashes the logged decision ticks (`self.inputs`),
+and `input(p.u.now)` logs whatever the load made the presented tick, so no two
+differently-loaded runs can share a digest, physics aside — and the mechanism is measured on
+both sides: equal logged tick → equal digest (two controls injected at presented 247,463,935,
+both `37efae11…`; shipA at presented 343,400,821 → `08b6399c…`, the same tick and digest in
+two regen windows), unequal ticks → unequal digests (across windows: presented 247,463,935 →
+`37efae11…` vs 343,400,821 → `08b6399c…`; the overwritten fix-window regen also caught shipB
+lagged to 342,397,356 → `c3038c23…`, per the dossier's provenance note); every distinct
+shipped-burn digest in the record is explained by its logged tick).
+With the decision pinned at its own canonical tick (`Universe::schedule`, the
+engine's "Ties" rule: a decision takes effect at its logged tick, never a wall-derived one),
+burn ctl = ctl-rerun = fast = fast-rerun, all `1198b23ec9b91432` at the same cut, at 100.0%
+belt skip (19,423/19,423, all 338 player passages read out), across presented ticks
+230.7M–343.4M (a 49% schedule spread, author and regen windows) — **the fast path is digest-neutral on
+thrusting populations; 16ec's "not adoptable until understood" is lifted**; a harness that
+logs wall-derived decision ticks is itself the instrument (20261018-0143-components-16ec,
+checker; closed by 20261018-0431-second-…-49e9). The never-flown `slow_cycle` refusal branch
+is also flight-proven: with leave at 2^28 (inside the belt's apoapsis span) the widened range
+straddles the certificate, the skip refuses 5,126 times, skips 12,549 (71%), the 1,753
+deaths past leave are identical in both arms, digest identical (0c3b1c7dcd0dfeeb).** Two scope
+corrections to 3570's record: (a) the clock path is the minority of boundary mass at N=10⁴ —
+the flight-window decomposition now **regenerates from one shipped command** (`bound: decomp`:
+census delta over `stats.boundaries` delta): **clock_share 0.166–0.187 across the twenty
+flights of both windows, WH ≥4.3× clock**, retiring the dossier's unregenerable 10.2%/84.6%/190,000, so the shared-box
+p50 25.2 µs mixed paths, and the clock-path boundary — the 10⁹ term — measures **4.4–5.6 µs
+mean, not 25** (0.21–0.27 µs skipped, ~20×); (b) the deletion form needs no re-freeze on the
+coasting belt (digest cannot move), unlike the unscheduling form (od 1's, still stronger:
+−1 event per body per interval). Ledger, this box: 10⁹ belt boundaries ≈ 0.15 cores
+continuous shipped → ≈ 0.007 with the fast path.
 
 
 **Open direction 1 is decided: the boundary comb is welded to the kick comb's own step and
@@ -422,3 +437,4 @@ attribution.]
 - 20261017-1240-second-20261017-1149-fermi-de7b-f790 (second author): the named misses closed — BELT_SPLIT flown directly (8× both combs, identities exact, 9,700/9,700), seeds 2–3 identical, record byte-reproduced; gold stands.
 - 20261017-2038-components-3570 (components, silver): the boundary comb census — 99.88% no-op, 27.8% of belt resolver CPU for 0 bits; key-range design priced; checker: no-op holds at N=3×10⁴ (99.96%) and on the burn arm (99.91%), news class = Passage bodies (~25 fixed, 269/275), coverage headline corrected; gold awaits the kick-time key-range test flown.
 - 20261018-0143-components-16ec (components, gold): the key-range test flown as a
+- 20261018-0431-second-20261018-0143-components-16ec-49e9 (second author): the burn question closed — pinned-decision harness (`schedule` at a canonical tick) proves the fast path digest-neutral on thrusting populations (1198b23e ×4, 100% skip, 338 passages read), the divergence mechanism measured both sides (equal tick → equal digest; unequal → unequal), the slow_cycle refusal branch flight-proven (5,126 refused, digest identical), and the decomposition regenerates (clock_share 0.166–0.187 from one command).
