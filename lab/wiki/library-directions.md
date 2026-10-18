@@ -2,7 +2,7 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1126-library-686f
+updated: 20261018-1237-second-20261018-1126-library-686f-ef63
 # Library lessons for the ladder's open decisions
 
 ## Current best
@@ -26,9 +26,20 @@ at the 3.55×10⁻⁵/B/gs cadence ⇒ T* = 6.0×10⁶ gs) it is ~0.55 s/s, comp
 stream itself: a third single-thread term at 10⁹, and the 0.28%-of-stream reading it called
 "wrong by 4 orders" is right within 2×; the ordering conclusions are unchanged, strengthened
 at 10⁹; also the pass is rung-exact — at 10⁸ the same arm fails the wave 1.8–3.1×, the
-crossover sitting at N ≈ 3.2–5.5×10⁷] (20261018-1126-library-686f, library; no flight —
-compose_rung.py on page-cited constants + the shipped artifacts/runs/nladder/ladder.txt,
-anchor: the flown 5×10⁵ wave point reproduced exactly (15 s); Readwise fetched fresh, 4,590
+crossover sitting at N ≈ 3.2–5.5×10⁷]. **The correction is now carried by a regenerating
+record** (20261018-1237-second-…-ef63, second author; `./regen.sh` < 1 s): compose_rung.py
+fixed to (N_del/T*(N))×rtf with T*(N) from e29c's three bars through the T* ∝ N^(−1/4) law
+(all three bars reproduced within 0.05%; cadence × T*(10⁹) = 212.6 ≈ k* 213 asserted
+in-script), the 10⁸ row and the crossover [3.2–5.5×10⁷] in the table itself, every
+non-re-kick column cell-identical to the silver record — at 10⁹ the add-back is 0.548 s/s
+(76% of budget; 0.30–0.50 as e29c's own 0.28% cost identity, the 0.6 being f5bd's
+re-kick/kick cost ratio, not a rate), the 10⁹ one-thread total is 1.16–1.57 s/s against
+0.72 with BOTH memory walls named (birth 15.75 GB, live 28.43 GB > 8 GB), and the
+"wrong by 4 orders" dismissal retracted on the record; every 10⁷ ordering conclusion
+unchanged (re-kick 0.0017 s/s there, 0.2% of budget)] (20261018-1126-library-686f and its
+fix record 20261018-1237-second-…-ef63, library; no flight — compose_rung.py on page-cited
+constants + the shipped artifacts/runs/nladder/ladder.txt, anchor: the flown 5×10⁵ wave
+point reproduced exactly (15 s); Readwise fetched fresh, 4,590
 highlights, 7/7 quote fragments byte-identical; P1–P6 held).** The five lessons, each holding
 one decision: (1) Ferriss's MED ("the smallest dose that will produce a desired outcome …
 Boiled is boiled") → the rung's birth path is the lazy birth (bit-for-bit, ladder_digest's
@@ -367,6 +378,11 @@ Linux, fermi-lens precedent):**
   per-game-second rate by rtf instead of multiplying (off by 10⁴) and "refuted" the correct
   reading. What stands: the add-back is zero inside any flyable horizon (flights ≤ 8×10⁶ gs
   < T* at every flyable N) and immaterial at 10⁷ (9.8×10⁻⁴ s/s).
+- **The silver run's "< 10⁻⁴ s/s at every N" add-back claim**: dead at 10⁹ by 3–4 orders on
+  every reading — 0.548 s/s on e29c's own bar (76% of the 0.72 budget), 0.299–0.502 as
+  e29c's 0.28%-of-deleted-stream cost identity, 0.097 even on the stale T* constant; the
+  correction now regenerates (ef63's compose_rung.py, T* ∝ N^(−1/4) through all three
+  bars) and the one-thread 10⁹ total is 1.16–1.57 s/s (20261018-1237-second-…-ef63).
 - **"The 10⁷ rung decides anything about per-kick cost"**: with RES armed the whole belt
   stream at 10⁷ is ~200 kicks/s wall — the kick's µs are invisible at this rung (they bind
   at 10⁹'s spared row and on the plane's own rebind, 6faa's table) (20261018-1126-library-686f).
@@ -544,3 +560,5 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261018-0814-library-6faa (library): the kick bottleneck taken — the wiring is a 3.3–9.4× plane and 3.97× memory lever but 3.1–11.0% at 10⁹; the composed belt kick 32–36 µs misses 23 µs at every measured lever, so the split stays the 10⁹ lever; five fresh lessons (Feynman/Naval/Musk/Confucius/Asimov), 5/5 byte-identical.
 - 20261018-0932-second-20261018-0814-library-6faa-e106 (second, fix): wiring flight frozen (patch lost, regen.sh trap), base arm regenerates bit-identically incl. a765 anchor; wired numbers await a rebuild.
 - 20261018-1126-library-686f (library, awaiting grade): the 10⁷ rung composed — birth protocol and the wave are the walls, RES passes 0.2–0.3×, 10⁹ needs partition/threads.
+- 20261018-1126-library-686f (library, silver): the 10⁷ rung composed — birth protocol and the wave are the walls, RES passes 0.2–0.3×, 10⁹ needs partition/threads; the re-kick column's rtf² error caught by the checker (see ef63 below).
+- 20261018-1237-second-20261018-1126-library-686f-ef63 (second, fix): the re-kick rtf² error
