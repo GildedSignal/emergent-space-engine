@@ -1,0 +1,83 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..e229632d 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -24,7 +24,7 @@ use session::Session;
+ use std::time::{Duration, Instant};
+ 
+ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+-    let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
++    let (mut seed, mut rtf, mut port, mut threads, mut members, mut extra) = (1u64, 1.0f64, 8792u16, 1usize, 48u64, 0usize);
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
+@@ -38,6 +38,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--extra" => extra = val("--extra")?.parse::<usize>()?.clamp(0, 3_000_000),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
+@@ -68,8 +69,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if replay_all {
+         return replay::replay_all(&flights.unwrap_or_else(replay::default_flights), replay::ALL_SECONDS);
+     }
+-    let mut s = Session::new(seed, threads, members, rtf)?;
+-    s.engine_ms = engine_ms;
++    let mut s = Session::with_extra(seed, threads, members, rtf, extra)?;
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..a67994be 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -1,7 +1,7 @@
+ //! A flight: the plane, the frame loop, the dashboard. Shared by the page and the benchmark.
+ use emergent_universe::dash::Dash;
+ use emergent_universe::fleet::Order;
+-use emergent_universe::scenario::{plane, Plane};
++use emergent_universe::scenario::{plane_extra, Plane};
+ use emergent_universe::view::{gather_cached, View, ViewCache};
+ use emergent_universe::{Budget, Config};
+ use serde_json::{json, Value};
+@@ -35,6 +35,8 @@ pub struct Session {
+     names: Vec<String>,
+     threads: usize,
+     members: u64,
++    /// The ladder's extra bodies (0: the shipped plane).
++    extra: usize,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+     cache: ViewCache,
+     /// The flight recorder (a served session has one: [`Session::record_into`]; the benchmark and the tests do not).
+@@ -43,11 +45,18 @@ pub struct Session {
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        Self::with_extra(seed, threads, members, rtf, 0)
++    }
++
++    /// [`Session::new`] with the ladder's extra bodies (`scenario::plane_extra`): the belt and the
++    /// extra locals, the scene the N ladder flies, loadable by the flyable frame loop.
++    pub fn with_extra(seed: u64, threads: usize, members: u64, rtf: f64, extra: usize) -> crate::Result<Self> {
++        let p = plane_extra(Config::default(), seed, Order::Sparse, threads, members, extra).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, extra, cache: ViewCache::default(), rec: None })
+     }
+ 
++
+     /// Record this session's flight in `dir` (`artifacts/flights/`): see [`super::flight`].
+     pub fn record_into(&mut self, dir: PathBuf) {
+         self.rec = Some(Recorder::new(dir, self.seed, self.rtf, self.members, self.threads));
+@@ -82,7 +91,7 @@ impl Session {
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+     pub fn restarted(&self) -> crate::Result<Self> {
+-        let mut s = Self::new(self.seed, self.threads, self.members, self.rtf)?;
++        let mut s = Self::with_extra(self.seed, self.threads, self.members, self.rtf, self.extra)?;
+         s.engine_ms = self.engine_ms;
+         if let Some(r) = &self.rec {
+             s.record_into(r.dir().to_path_buf());

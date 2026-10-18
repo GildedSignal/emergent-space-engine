@@ -1,0 +1,15 @@
+arm        bodies frame p50     p99 over16.7   eng p50/p99  gather   json   wire  vw share   served  readouts  wireKB  fill_ms
+b0             71      1.02    3.41        0    0.05/2.17     0.78   0.10   0.04  0.716       0         0     0.0     0.0
+b1000        1071     22.04   26.66      595    0.09/4.59    19.32   1.92   0.58  0.972       0         0     0.0     0.0
+b10000      10071    260.74  273.98      360    0.11/4.64   231.31  24.00   4.77  0.997       0         0     0.0     0.0
+r0             71      0.95    3.01        0    0.05/2.02     0.76   0.08   0.03  0.711      46        69    13.9     0.5
+r1000        1071      1.16    6.25        0    0.06/4.40     0.85   0.16   0.06  0.679      88       109    26.0     5.6
+r10000      10071      1.20   38.46       32    0.07/4.37     0.89   0.17   0.07  0.874      88       368    26.3    44.8
+r30000      30071      1.24  202.70       25    0.06/4.47     0.90   0.19   0.08  0.960      91      1421    26.9   131.2
+r10000s2    10070      0.98   70.97       25    0.06/4.57     0.67   0.15   0.06  0.905      78       512    23.3    46.2
+a1000: audit frames 36, drawn 2849, viol px/miss/ghost/panel 26/1/1/0 -> 0.98% of drawn rows; frame p50 1.19 ms
+a10000: audit frames 12, drawn 948, viol px/miss/ghost/panel 3/2/0/0 -> 0.53% of drawn rows; frame p50 1.21 ms
+
+collapse at 1e3: 22.0 -> 1.16 ms (19x)
+collapse at 1e4: 260.7 -> 1.20 ms (217x)
+engine digest at equal cut: baseline 03abdbc9c57d7f69 rows 03abdbc9c57d7f69 identical=True
