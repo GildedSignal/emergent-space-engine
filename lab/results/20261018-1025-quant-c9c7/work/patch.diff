@@ -1,0 +1,141 @@
+diff --git a/crates/encounters/examples/churn.rs b/crates/encounters/examples/churn.rs
+new file mode 100644
+index 00000000..294144c0
+--- /dev/null
++++ b/crates/encounters/examples/churn.rs
+@@ -0,0 +1,90 @@
++//! The candidate-scan churn law (encounters wiki open 1, cd3b): pairs a kick re-checks on the
++//! shipped U-scan tier, vs occupancy — fixed band (density axis) and fixed density (control).
++//! JSON per line: `churn <n> <sigma_e> <a_lo> <a_hi> <seed> [nk] [eps]`.
++
++use emergent_encounters::belt::{make_belt, Spec};
++use emergent_encounters::kepler::Body;
++use emergent_encounters::pairs::{is_candidate, Sorted};
++use std::collections::HashSet;
++use std::time::Instant;
++
++fn band_hi(a_lo: f64, area_au2: f64) -> f64 {
++    (a_lo * a_lo + area_au2 / std::f64::consts::PI).sqrt()
++}
++
++fn run(n: usize, sigma_e: f64, a_lo: f64, a_hi: f64, seed: u64, nk: usize, eps: f64) {
++    let rho = 1e-4;
++    let sp = Spec { name: "churn".into(), n, sigma_e, rho, a_lo, a_hi, keys: 0, seed, orbits: 0.0 };
++    let t_build = Instant::now();
++    let b = make_belt(&sp);
++    let sorted = Sorted::new(&b, rho);
++    let build_s = t_build.elapsed().as_secs_f64();
++    let span = a_hi - a_lo;
++    let kicked: Vec<usize> = (0..nk).map(|q| (q * 97 + 13) % n).collect();
++    let tk = 10.0 * std::f64::consts::TAU;
++    let mut scanned = 0u64;
++    let mut cand_old = 0u64;
++    let mut cand_new = 0u64;
++    let mut gained = 0u64;
++    let mut kept = 0u64;
++    let t0 = Instant::now();
++    for &i in &kicked {
++        let old = b[i];
++        // The shipped kick's own move (main.rs kick): a *= 1+eps, same point on the orbit.
++        let a_new = old.a * (1.0 + eps);
++        let n_new = a_new.powf(-1.5);
++        let lam_k = old.mean_anomaly(tk) + old.pom;
++        let new = Body::new(a_new, old.e, old.pom, lam_k - n_new * tk);
++        let (olo, ohi) = sorted.range(old.binet()[0], sorted.reach(&old));
++        let (nlo, nhi) = sorted.range(new.binet()[0], sorted.reach(&new));
++        scanned += (nhi - nlo) as u64;
++        let mut olds = HashSet::new();
++        for &(_, j) in &sorted.order[olo..ohi] {
++            if j as usize != i && is_candidate(&old, &b[j as usize], rho) {
++                olds.insert(j);
++            }
++        }
++        for &(_, j) in &sorted.order[nlo..nhi] {
++            if j as usize == i || !is_candidate(&new, &b[j as usize], rho) {
++                continue;
++            }
++            cand_new += 1;
++            if olds.contains(&j) {
++                kept += 1;
++            } else {
++                gained += 1;
++            }
++        }
++        cand_old += olds.len() as u64;
++    }
++    let lost = cand_old - kept;
++    let secs = t0.elapsed().as_secs_f64();
++    let reach_med = sorted.reach(&b[n / 2]);
++    println!(
++        "{{\"exp\":\"churn\",\"n\":{},\"sigma_e\":{},\"band\":[{:.4},{:.4}],\"span\":{:.4},\"seed\":{},\"nk\":{},\"eps\":{:e},\
++\"scanned_per_kick\":{:.1},\"cand_per_kick\":{:.1},\"cand_old_per_kick\":{:.1},\"gained_per_kick\":{:.1},\"lost_per_kick\":{:.1},\
++\"kept_frac\":{:.4},\"reach_med\":{:.5},\"e_max_over_p\":{:.5},\"build_s\":{:.2},\"scan_us_per_kick\":{:.0},\"us_per_scan_entry\":{:.4}}}",
++        n, sigma_e, a_lo, a_hi, span, seed, nk, eps,
++        scanned as f64 / nk as f64, cand_new as f64 / nk as f64, cand_old as f64 / nk as f64,
++        gained as f64 / nk as f64, lost as f64 / nk as f64,
++        if cand_new == 0 { 0.0 } else { kept as f64 / cand_new as f64 },
++        reach_med, sorted.e_max, build_s, secs * 1e6 / nk as f64, secs * 1e6 / scanned as f64
++    );
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    if args.len() < 6 {
++        eprintln!("usage: churn <n> <sigma_e> <a_lo> <a_hi> <seed> [nk=64] [eps=1.1920929e-7]");
++        std::process::exit(2);
++    }
++    let n: usize = args[1].parse().unwrap();
++    let sigma_e: f64 = args[2].parse().unwrap();
++    let a_lo: f64 = args[3].parse().unwrap();
++    let a_hi: f64 = args[4].parse().unwrap();
++    let seed: u64 = args[5].parse().unwrap();
++    let nk: usize = args.get(6).map(|x| x.parse().unwrap()).unwrap_or(64);
++    let eps: f64 = args.get(7).map(|x| x.parse().unwrap()).unwrap_or(2.0f64.powi(-23));
++    run(n, sigma_e, a_lo, a_hi, seed, nk, eps);
++    let _ = band_hi;
++}
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bff..1cbdbd04 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -375,14 +375,27 @@ fn cone_pairs_sample(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> V
+ /// A kick: re-scan the kicked body's range and re-set up its pairs. Also: how many certificates a
+ /// kick actually changes, and how many a stored slack (the relative period change a silent
+ /// certificate absorbs over the horizon) would let the re-certification skip.
+-fn kick() {
+-    let sp = spec("kick", 10_000, 1e-2, 1e-4, 1.0, 1.5, 0, 0.0, 20261050);
++fn kick(rest: &[String]) {
++    // kick [n sigma_e rho a_lo a_hi seed nk eps..] — defaults are the shipped arm.
++    let (n, sigma_e, rho, a_lo, a_hi, seed, nk) = (
++        rest.first().map(|x| x.parse().unwrap()).unwrap_or(10_000),
++        rest.get(1).map(|x| x.parse().unwrap()).unwrap_or(1e-2),
++        rest.get(2).map(|x| x.parse().unwrap()).unwrap_or(1e-4),
++        rest.get(3).map(|x| x.parse().unwrap()).unwrap_or(1.0),
++        rest.get(4).map(|x| x.parse().unwrap()).unwrap_or(1.5),
++        rest.get(5).map(|x| x.parse().unwrap()).unwrap_or(20261050),
++        rest.get(6).map(|x| x.parse().unwrap()).unwrap_or(100),
++    );
++    let sp = spec("kick", n, sigma_e, rho, a_lo, a_hi, 0, 0.0, seed);
+     let b = make_belt(&sp);
+     let sorted = Sorted::new(&b, sp.rho);
+     let horizon = 1000.0 * TAU;
+     let tk = 10.0 * TAU;
+-    let nk = 100;
+-    let epss = [1e-9, 1e-7, 1e-5, 1e-3];
++    let epss: Vec<f64> = if rest.len() > 7 {
++        rest[7..].iter().map(|x| x.parse().unwrap()).collect()
++    } else {
++        vec![1e-9, 1e-7, 1e-5, 1e-3]
++    };
+     // Old certificates of each kicked body's partners: hits, proposal count, slack budget.
+     struct Old {
+         j: u32,
+@@ -526,7 +539,7 @@ fn main() {
+             steady(n, rho, &hs)
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+-        Some("kick") => kick(),
++        Some("kick") => kick(&args[2..]),
+         _ => {
+             let _ = run_section;
+             eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick");

@@ -1,0 +1,10 @@
+Working...
+**Grade: gold** — written to `lab/results/20261018-1025-quant-c9c7/check.md`, with a checker bracket added to the author's `wiki/encounters.md`. Tree and `work/churn.jsonl` restored as found.
+
+**Reproduction.** Clean tree at base `487a05b8` + `work/patch.diff`; `regen.sh` rerun end-to-end (38 s): every deterministic field **bit-identical** to the runner's regen. Timings bracket the dossier (my 23.1 ms/kick · 4.78 µs/pair vs quoted 23.2 · 4.79; runner's busier 24.4 · 5.05). The instrument is faithful — `churn.rs` drives the unmodified shipped `Sorted::reach/range`/`is_candidate`, its kick move is line-identical to `main.rs`'s, and σ 0.07 / [2,3) / cap 0.4 is the shipped belt's own spec in `scenario.rs`.
+
+**Predictions.** `predictions.md` (10:32) precedes the decisive runs (dossier 10:40). Held-out seed 777 held; P1/P0/P3/P4 held; **P2 failed and was reported as the finding** — pre-registered flatness killed by its own control, honestly.
+
+**My attacks (two outside the author's range).** σ 0.4 → **0.940·N** (saturation monotone in dispersion: 0.082/0.484/0.849/0.940·N across σ 0.01→0.4 — a stirred belt worsens the verdict); n 3×10⁶ → **0.519·N**, exponent 1.02 (constant is really 0.48–0.52·N); fe6b's formula at X=2 → 0.050/0.053·N vs predicted 0.0519·N (the X identification is real); slack cliff → 0.83/0.55/0.19 at eps 3×10⁻⁷/10⁻⁶/3×10⁻⁶, **0 violations at every rung**; composition arithmetic re-derived by hand.
+
+**Why gold.** It answers the encounters wiki's open direction 1 verbatim, shows the row's standing premise (rescan bounded by cells / O(1) at fixed density) is wrong at the shipped mix, and prices the surviving closure (slack + arm-by-flow) with measured constants — PRINCIPLES #3's pure case. Adoptable in one step, zero build. One documented slip (dossier-only): the fixed-density control's "anchor 4×10⁴/AU²" is the control band's own density — the control ran *lower*-density and still rose, so the kill is stronger than stated. Residual risk: replica Binet-cone tier, not the live word — scoped honestly in the dossier.
