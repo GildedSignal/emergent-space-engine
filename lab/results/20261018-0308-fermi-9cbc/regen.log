@@ -1,0 +1,49 @@
+====================================================================================================
+A. THE CONTROL: can the standing row regenerate? (Fermi lens attack 3)
+  identity: 1/interval = 3.553e-05 ev/B/game-s   vs a9d7 census 3.55e-5 (gold, N-invariant)
+  one-comb rail at rtf 1: 29.3us=1.04, 50us=1.78, 72us=2.56 cores
+  control C+ (9e75's own 'the average fits: 1.75 cores at rtf 1'): one comb @50us = 1.78  [PASS]
+  control C- (the standing row 4e2d/de7b/f790): 10.3 M1 cores = 9.9x one-comb@29.3us, 4.9x two-comb@29.3us (at rtf 1)
+  its implied belt rate: 9.9 ev/B/interval vs the page's own measured census 2.00  [FAIL: not regenerable]
+  the artifact's mechanism, from the row's own anchors: at 10^4 the scene flies kicks ~73.8k + boundaries ~71.6k per comb window with the locals' N-INDEPENDENT 86-88k/interval stream (4e2d's own text): a per-body division of a locals-dominated scene count. At 10^9 the belt is everything and its rate is 2.00.
+  the rtf-100 anchors: two combs @29.3us x100 = 208 cores ~ 9e75's '185-187 at rtf 100'; one comb @50us x100 = 178 ~ e7ef's '104-178'.
+====================================================================================================
+B. THE RECOMPOSED RAIL at both pace conventions (cores = core-seconds per wall-second)
+                                   rtf 1 (literal real time)     rtf 100 (shipped player pace)
+no delete (S=1)                         2.08-    5.12 cores             208-     512 cores
+flown belt delete (S=0.615)             1.28-    3.15 cores             128-     315 cores
+RES (S=0)                               0.96-    0.97 cores              96-      97 cores
+  (two combs; cost bracket 29.3-72us; S=0 rows add re-kick 0.28%@0.57x + encounters 0.95 + view + reabsorb)
+  budget 4.0 P-eq (5.12 with E-cores at 0.28P). rtf 1: fits everywhere except the 72us/no-delete corner (5.12 = 1.28x over 4.0).
+  rtf 100: 208-512 no-delete, 128-315 at the flown delete (26-79x over) -- ONLY the RES end closes (96.4-96.9 cores).
+  the S dial's price at rtf 100: each 0.1 of survival = 21-51 cores. No measured cadence lever closes rtf-100 CPU at S>=0.615:
+  split 8 (f790, measured) gives 26-64; split+delete 16-39; the ~50ns event floor gives 0.36-0.36.
+====================================================================================================
+C. THE CREST AT rtf 1 IS THE GENESIS WAVE, NOT A STEADY RATE
+  steady rtf-1 demand: 7.107e+04 ev/wall-s = 2.1-5.1 cores; 9e75's 19-20-h freeze is the rtf-100 budget clamp, not a rate.
+  at belt birth the genesis train (C50 40-58x, calendar d520) peaks ~20x for ~1.4e3 game-s: 42-102 cores rtf 1 -- one-time, stagger-cured (f82a).
+====================================================================================================
+D. THE S DIAL (what the delete still owes), from shipped scenario.rs
+  frozen exclusion replica (j,k<=8, 2% on period): spared 0.530 (anchor 434/712 = 0.615, ratio 0.86)
+  per planet: Cinder=0.000, Home=0.261, Giant=0.407  (Cinder zero: its period ratio to the belt exceeds 8)
+  first-order (j+1):j resonances inside [2,3) AU: 0 -> NONE
+    Cinder: mu=4.77e-07, shipped first-order W=2.5*mu^(2/3)=1.53e-04 (frozen 2% = this W x 131.1)
+    Home: mu=3.81e-06, shipped first-order W=2.5*mu^(2/3)=6.10e-04 (frozen 2% = this W x 32.8)
+    Giant: mu=9.77e-04, shipped first-order W=2.5*mu^(2/3)=2.46e-02 (frozen 2% = this W x 0.8)
+  => no first-order member exists in the belt; the frozen 2% applies Giant-width protection to
+     >=2nd-order resonances: a dial with 33x (Home) headroom, not a tide fact (nladder's own note).
+====================================================================================================
+E. MEMORY ROW (cited 6793, reproduced as controls)
+  live wall: 8 GB / 5,060 B = 1.581e+06 live bodies (6793's 1.58-1.65e6) [PASS]
+  q16 store 3.0 GB + live: at 1.3 kB post-Carlson ~3.85M live -> total ~8.0 GB [AT the ceiling]
+  negative control: 126-bit store = 15.75 GB > 8 GB busts [PASS]
+
+VERDICT: the standing 10.3-core 10^9 row is not regenerable at any pace (implied belt rate 9.9
+ev/B/interval vs the page's own census 2.00; a locals-dominated scene-rate artifact). Recomposed:
+rail = 2.08-5.12 cores x rtf/100 x S for the stream, plus the game-rate terms (encounters 0.95 at
+F=10^3, view, reabsorb, re-kick) which scale with the pace too. rtf 1: everything fits (<=5.2 worst,
+<=3.15 with the delete). rtf 100: the stream alone is 208-512 no-delete / 128-315 flown delete -- the
+row UNDERSTATES 20-50x -- and even RES carries the terms (encounters ~95 at F=10^3 on b509's own
+basis): rtf-100 closure needs the RES-legal delete AND b509's fleet contract AND/OR ns-class events.
+Two unpinned conventions decide 10^9 CPU: the pace (rtf) and the exclusion width (S): >100x together.
+Memory (6793) binds once pace and S let CPU close.
