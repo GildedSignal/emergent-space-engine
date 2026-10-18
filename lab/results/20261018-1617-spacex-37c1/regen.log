@@ -1,0 +1,132 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling autocfg v1.5.1
+   Compiling serde_core v1.0.229
+   Compiling num-traits v0.2.19
+   Compiling syn v3.0.5
+   Compiling serde v1.0.229
+   Compiling serde_derive v1.0.229
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.12
+   Compiling cc v1.4.5
+   Compiling num-integer v0.1.47
+   Compiling blake3 v1.8.7
+   Compiling num-bigint v0.4.8
+   Compiling constant_time_eq v0.4.2
+   Compiling arrayvec v0.7.8
+   Compiling cfg-if v1.0.4
+   Compiling cpufeatures v0.3.1
+   Compiling zmij v1.0.23
+   Compiling libc v0.2.189
+   Compiling serde_json v1.0.151
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/lattice)
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+   Compiling emergent-lattice-event v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/lattice-event)
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+   Compiling emergent-allocator v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/allocator)
+   Compiling emergent-shipmem v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/shipmem)
+   Compiling emergent-lattice-metal v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/lattice-metal)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 52.29s
+== arm ship48 (seed 1 members 48 speed_div 32768 order sparse, 30s of game)
+== arm ship400 (seed 1 members 400 speed_div 32768 order sparse, 30s of game)
+== arm sd128 (seed 1 members 48 speed_div 128 order sparse, 30s of game)
+== arm sd8 (seed 1 members 48 speed_div 8 order sparse, 30s of game)
+== arm sd4 (seed 1 members 48 speed_div 4 order sparse, 30s of game)
+== arm sd2 (seed 1 members 48 speed_div 2 order sparse, 30s of game)
+== arm sd2s2 (seed 2 members 48 speed_div 2 order sparse, 30s of game)
+== arm sd2m400 (seed 1 members 400 speed_div 2 order sparse, 30s of game)
+== arm sd2dense (seed 1 members 48 speed_div 2 order dense, 3s of game)
+  (arm sd2dense exited nonzero; census kept)
+== summary (skip ⟺ dw ≥ 0 at the resolve instant; ρ = reach/|w|)
+sd128.cens: n=50 skip=0 (0.0000%)  |w| p1/p50/p99/max = 2267/13045/25000/25000  rho p1/p50/p99/min = 57.8/129/856/57.8  rho<1: 0 (0.00%)  rho(skip) med = -  reach[min,max]=1116727,2032914
+sd2.cens: n=41 skip=5 (12.1951%)  |w| p1/p50/p99/max = 59915/878150/1445029/1445029  rho p1/p50/p99/min = 0.926/1.71/25.2/0.926  rho<1: 2 (4.88%)  rho(skip) med = 1.2430754981553633  reach[min,max]=1123492,1886073
+sd2dense.cens: n=41 skip=5 (12.1951%)  |w| p1/p50/p99/max = 59915/878150/1445029/1445029  rho p1/p50/p99/min = 0.926/1.71/25.2/0.926  rho<1: 2 (4.88%)  rho(skip) med = 1.2430754981553633  reach[min,max]=1123492,1886073
+sd2m400.cens: n=1451 skip=46 (3.1702%)  |w| p1/p50/p99/max = 57846/573690/1381954/1753861  rho p1/p50/p99/min = 1.1/2.79/26.7/0.829  rho<1: 4 (0.28%)  rho(skip) med = 1.8110143366412321  reach[min,max]=1066030,2090986
+sd2s2.cens: n=32 skip=3 (9.3750%)  |w| p1/p50/p99/max = 48269/552263/1304328/1304328  rho p1/p50/p99/min = 1.05/3.02/35.9/1.05  rho<1: 0 (0.00%)  rho(skip) med = 3.6147004870075197  reach[min,max]=1134998,1918642
+sd4.cens: n=44 skip=2 (4.5455%)  |w| p1/p50/p99/max = 56740/452748/828601/828601  rho p1/p50/p99/min = 1.65/3.84/33.5/1.65  rho<1: 0 (0.00%)  rho(skip) med = 1.978192071312661  reach[min,max]=1140965,1937785
+sd8.cens: n=53 skip=0 (0.0000%)  |w| p1/p50/p99/max = 26232/163661/332057/424557  rho p1/p50/p99/min = 4.04/9.39/53.7/3.98  rho<1: 0 (0.00%)  rho(skip) med = -  reach[min,max]=1123492,1933576
+ship400.cens: n=1571 skip=0 (0.0000%)  |w| p1/p50/p99/max = 5/38/103/132  rho p1/p50/p99/min = 1.51e+04/4.17e+04/3.38e+05/1.02e+04  rho<1: 0 (0.00%)  rho(skip) med = -  reach[min,max]=1070083,2086020
+ship48.cens: n=49 skip=0 (0.0000%)  |w| p1/p50/p99/max = 6/44/122/122  rho p1/p50/p99/min = 1.21e+04/3.7e+04/2.67e+05/1.21e+04  rho<1: 0 (0.00%)  rho(skip) med = -  reach[min,max]=1092887,1937785
+== dense-vs-sparse census identity
+IDENTICAL
+== per-contact tau* = −dw/|w|² at resolve (the mechanism table: skips sit in (−1, 0))
+== sd2
+  tau*=   -0.817  rho=   1.746  SKIP
+  tau*=   -0.637  rho=   1.444  SKIP
+  tau*=   -0.573  rho=   1.243  SKIP
+  tau*=   -0.071  rho=   1.207  SKIP
+  tau*=   -0.062  rho=   0.926  SKIP
+  tau*=   +0.116  rho=   1.508  
+  tau*=   +0.140  rho=   1.432  
+  tau*=   +0.248  rho=   1.169  
+  tau*=   +0.278  rho=   0.976  
+  tau*=   +0.334  rho=   1.298  
+  tau*=   +0.384  rho=   1.361  
+  tau*=   +0.607  rho=   1.618  
+  tau*=   +0.612  rho=   1.413  
+  tau*=   +0.670  rho=   1.594  
+  tau*=   +0.698  rho=   1.702  
+  tau*=   +0.738  rho=   1.615  
+  tau*=   +0.772  rho=   1.224  
+  tau*=   +0.791  rho=   2.286  
+  tau*=   +0.797  rho=   2.218  
+  tau*=   +0.816  rho=   1.475  
+  tau*=   +0.914  rho=   1.915  
+  tau*=   +0.948  rho=   2.042  
+  tau*=   +0.974  rho=   1.386  
+  tau*=   +1.039  rho=   2.004  
+  tau*=   +1.046  rho=   1.397  
+  tau*=   +1.073  rho=   1.708  
+  tau*=   +1.154  rho=   1.890  
+  tau*=   +1.161  rho=   1.719  
+  tau*=   +1.299  rho=   1.959  
+  tau*=   +1.425  rho=   2.140  
+  tau*=   +1.428  rho=   1.534  
+  tau*=   +1.676  rho=   1.807  
+  tau*=   +1.696  rho=   1.803  
+  tau*=   +1.898  rho=   2.629  
+  tau*=   +2.524  rho=   3.471  
+  tau*=   +4.152  rho=   5.017  
+  tau*=   +6.053  rho=   7.115  
+  tau*=   +8.101  rho=   8.714  
+  tau*=  +10.007  rho=  11.527  
+  tau*=  +22.853  rho=  23.349  
+  tau*=  +24.713  rho=  25.214  
+== sd2s2
+  tau*=   -0.268  rho=   3.615  SKIP
+  tau*=   -0.093  rho=   1.567  SKIP
+  tau*=   -0.014  rho=   6.528  SKIP
+  tau*=   +0.802  rho=   1.126  
+  tau*=   +0.822  rho=   1.055  
+  tau*=   +0.850  rho=   1.368  
+  tau*=   +0.937  rho=   2.096  
+  tau*=   +0.993  rho=   2.035  
+  tau*=   +1.000  rho=   1.493  
+  tau*=   +1.031  rho=   1.371  
+  tau*=   +1.061  rho=   2.589  
+  tau*=   +1.117  rho=   1.719  
+  tau*=   +1.128  rho=   1.571  
+  tau*=   +1.214  rho=   1.941  
+  tau*=   +1.229  rho=   2.380  
+  tau*=   +1.480  rho=   2.995  
+  tau*=   +1.651  rho=   2.303  
+  tau*=   +1.980  rho=   2.458  
+  tau*=   +2.409  rho=   3.022  
+  tau*=   +2.449  rho=   3.237  
+  tau*=   +2.639  rho=   4.368  
+  tau*=   +2.826  rho=   3.680  
+  tau*=   +3.021  rho=   3.668  
+  tau*=   +3.321  rho=   4.087  
+  tau*=   +4.072  rho=   5.712  
+  tau*=   +4.546  rho=   5.032  
+  tau*=   +5.193  rho=   9.072  
+  tau*=   +6.054  rho=   8.821  
+  tau*=   +6.434  rho=  15.636  
+  tau*=  +15.613  rho=  35.888  
+  tau*=  +16.799  rho=  17.621  
+  tau*=  +17.548  rho=  20.965  

@@ -1,0 +1,94 @@
+diff --git a/crates/lattice/src/chronon.rs b/crates/lattice/src/chronon.rs
+index 9bab167d..3506a2e4 100644
+--- a/crates/lattice/src/chronon.rs
++++ b/crates/lattice/src/chronon.rs
+@@ -6,6 +6,7 @@ use crate::law::{self, Body, Consumed, Response, Tick, World};
+ use crate::{Event, Kickable, Kind, Log, Metrics, Motion, Stepper};
+ use std::collections::HashMap;
+ 
++
+ pub struct Chronon {
+     w: World,
+     /// (index a, index b), a < b → revisions at which the contact was consumed.
+@@ -67,8 +68,8 @@ impl Chronon {
+                             if self.consumed.get(&(i, j)) == Some(&(a.rev, b.rev)) {
+                                 continue;
+                             }
+-                            predicates += 1;
+-                            if law::hit(law::sub(b.x, a.x), law::sub(b.k, a.k), (a.radius + b.radius) as i128) {
++                            let hit_pair = law::hit(law::sub(b.x, a.x), law::sub(b.k, a.k), (a.radius + b.radius) as i128);
++                            if hit_pair {
+                                 pairs.push((i as usize, j as usize));
+                             }
+                         }
+diff --git a/crates/lattice/src/relativity.rs b/crates/lattice/src/relativity.rs
+index 5be893f8..9df2f84d 100644
+--- a/crates/lattice/src/relativity.rs
++++ b/crates/lattice/src/relativity.rs
+@@ -42,6 +42,11 @@
+ use crate::law::{dot, sub, Body, Container, Law, Response, World};
+ use num_bigint::BigInt;
+ 
++/// Print-only contact census switch (lab run 20261018-1617-spacex-37c1): SPACEX_CENSUS=1 logs
++/// every pair that reaches a response batch, with the receding gate's own integers.
++static CENSUS: std::sync::LazyLock<bool> =
++    std::sync::LazyLock::new(|| std::env::var_os("SPACEX_CENSUS").is_some_and(|v| v != "0"));
++
+ /// Fixed-point scale of γ in v0: 2^16. Γ is floored before the product with Q, so Γ = F for
+ /// every |k| < √(2/F)·Q and v0's energy cannot see kinetic energy below about 0.0055c
+ /// (measured in H0173); v1 fixes this.
+@@ -233,6 +238,14 @@ pub fn resolve_law(
+         }
+         let d = sub(bodies[b].x, bodies[a].x);
+         let w = sub(k[b], k[a]);
++        let dw = (d[0] as i128) * (w[0] as i128) + (d[1] as i128) * (w[1] as i128);
++        let ww = (w[0] as i128) * (w[0] as i128) + (w[1] as i128) * (w[1] as i128);
++        if *CENSUS {
++            // Print-only census (lab run 20261018-1617-spacex-37c1): every pair that reached
++            // this response batch, with the exact integers of the receding gate below. The gate
++            // drops the pair (a detected contact that exchanges nothing) iff dw ≥ 0.
++            eprintln!("CENSUS {ww} {dw} {}", (bodies[a].radius + bodies[b].radius) as i128);
++        }
+         if dot(d, w) >= 0 || dot(d, d) == 0 {
+             continue;
+         }
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..621634ae 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -144,7 +144,8 @@ fn lcg(seed: &mut u64) -> f64 {
+ /// ship in low orbit near the fleet. Every number is a literal or comes from a fixed seeded
+ /// generator; nothing is engineered to produce an outcome.
+ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64) -> Res<Plane> {
+-    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    let speed_div = std::env::var("SPACEX_SPEED_DIV").ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(1 << 15);
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, speed_div, false);
+     plane_with(cfg, seed, order, threads, world)
+ }
+ 
+@@ -158,7 +159,8 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+ /// Home and the Moon, the rest in a belt about the star), each on its own exact orbit, with the ids after the plane's own ships
+ /// and before the player's. `extra = 0` is the plane, bit for bit.
+ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize) -> Res<Plane> {
+-    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    let speed_div = std::env::var("SPACEX_SPEED_DIV").ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(1 << 15);
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, speed_div, false);
+     plane_with_extra(cfg, seed, order, threads, world, extra)
+ }
+ 
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..b0cc07f7 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -43,7 +43,10 @@ pub struct Session {
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        // Lab run 20261018-1617-spacex-37c1: env dial to fly the same battle world through the
++        // dense (Chronon) stepper; the shipped flight is sparse (EventCore).
++        let order = if std::env::var_os("SPACEX_ORDER").is_some_and(|v| v == "dense") { Order::Dense } else { Order::Sparse };
++        let p = plane(Config::default(), seed, order, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+         Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
+     }
