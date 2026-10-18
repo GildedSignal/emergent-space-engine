@@ -2,10 +2,61 @@ topic: encounters
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1018-second-20261017-0839-inversion-2373-b509
+updated: 20261018-0543-library-5567
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
+
+**[20261018-0543-library-5567] The fleet row's requirement is dead by representation: the plane
+already ships the formation's native carrier (the Fermi-frame fleet, `crates/universe/src/fleet.rs`),
+and on it the F = 10⁵ × 10⁴ population prices at ≤ ~1 core, not cf2a's 4,510 (99.77% of that
+ledger).** Measured on shipped `universe --bench` (members cap env-gated, 2,000 game-s per
+flight): 0.89 µs per member per game-second at the low-orbit Armada (85.3 ms / 3,931 slices,
+m = 48), per-slice cost member-flat 21.7 → 22.0 µs from m = 48 → 192 while the frame holds
+(the EventCore charges events, not members; the contact batch is binned), ×2.43 total for ×4
+members. Composed heliocentric on the scale-free epoch law (1,600–3,200 epochs/period at any
+radius, frame.rs:37): ~0.15 cores of member events + ~0.8 cores of per-epoch batch scans at
+10⁹ members + 10⁵ origin tubes at the belt stream — against 4,510 cores carried as belt bodies
+through the pairwise tier. The frame's domain is measured at its edge: seed 1 dissolves at
+m = 768 (768/768 handed out as ships, ship class 1,345 → 19,699 items), seed 7 by 192 — the
+extent rule r_p/32 is the dimensionless gate (tight formations inside, the L4/L5 quarter
+outside, and dissolution is exactly the tier's ruin regime handed back). Wiring debts,
+code-verified: one fleet per universe (universe.rs:513), the player loop runs every fleet to
+the player's tick (universe.rs:733 needs a doll filter), a heliocentric frame is doll 0 with
+the star's mass. Consequence: the pairwise tier sees only the dilute remainder, where
+q-candidate-degree measured zero misses; the rank certificate is unneeded for the fleet class
+(library lens; quotes 5/5 byte-identical, 4,590 highlights cached; held-out seed 7 held; the
+heliocentric step is arithmetic on the measured epoch law, not a flown doll-0 frame — the
+named next run).
+**[Checker, 20261018: two corrections and one extension. The "~0.8 cores of per-epoch batch
+scans" is 10³ its own printed factors (10⁵ × 7.6×10⁻⁵ epoch/s × 10⁴ members × ~10 ns =
+7.6×10⁻⁴ cores); the ≤ ~1 core total holds under either reading. The measured domain is
+m ≤ 768, one fleet, low orbit — checker flights extend it: seed 3, and m up to 6,144 (this
+run's own named held-out case, unflown by the author): exponent 0.71 across ×128 members,
+per-member rate falling 0.89 → 0.22 µs/member/game-s, no quadratic onset, the extent gate
+shedding overflow as leavers. Unpriced: the contact flow is period-independent — epoch
+scaling discounts kicks, not battles; even the all-battle bound (every member in continuous
+Armada-density combat, no scaling) is ~2.2×10² cores, 20× under the row.]**
+**[Checker-2, 20261018: three corrections to the numbers above, none touching the finding. (1)
+The per-member rate at m ≥ 768 must be normalized by the *presented* game-time, not the
+nominal 2,000 game-s: the bench presents 1,109 gs at m = 768, 20.9 gs at m = 3,072, 15.7 gs at
+m = 6,144 (the battle lags its deadline under the engine budget), so the honest rates are 0.80
+µs (m = 768), 96 µs (m = 3,072 — ~entirely the hand-out storm, 1,515 leavers × ~4 ms: the
+extent gate refusing, not the carrier carrying), 30 µs (m = 6,144). All still under P2's own
+100 µs kill bar; the held regime (m ≤ 192) is unaffected. "Per-member rate falling to 0.22"
+above is the broken normalization, not a falling rate. (2) The all-battle bound is
+packing-dependent, not 2.2×10²: at the Armada's own packing (m = 48, fixed spacing 5q) it is
+~9×10² cores (0.89 µs × 10⁹, under the row); at m = 3,072 packing the storm prices ~10⁵ cores.
+"≤ ~1 core" is the quiet-formation maintenance price; war compute is a population parameter
+(contacts are period-independent), not a carrier property. (3) The m ≤ 192 per-slice
+member-flat claim does not extend: a slice at m = 3,072 is 36.9 ms (×1,700), event- and
+contact-dense. Also: "the L4/L5 quarter outside" is asserted, not measured — 0.25 R_H at AU
+scale fits r_p/32 of a heliocentric frame by ~an order on checker arithmetic; the rate
+parenthetical "85.3 ms / 3,931 slices" computes the per-slice 21.7 µs, the rate is 85.3
+ms/(48 × 2,000 game-s).]**
+
+
+*[Prior best retained below.]*
 
 **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum
 3.17×10⁻¹⁴ m/s): at it every Dohnanyi conjunction fires the word and mints a compiled key
@@ -234,3 +285,4 @@ above for the live-path anchor.]**
 - 20261017-0839-fermi-2b89 (fermi, this run): the live anchor measured — ev = −73, quantum 3.17e-14 m/s, every Dohnanyi conjunction fires and mints a key from 2¹¹–2¹² quanta; the exact tier is full on the live path; 10⁹ closes on the flux accumulator at every width; the anchor is a word-width dial (5–15 bits between 277d's and f0a2's worlds).
 - 20261017-0839-inversion-2373 (inversion, silver): the phase certificate's k priced — quadratic in F for every fleet with shape dispersion, 36–4,500 cores at 10⁹ fleets; the composed ledger's encounter row is population-dependent and missing.
 - 20261017-1018-second-20261017-0839-inversion-2373-b509 (second, pending grade): the
+- 20261018-0543-library-5567 (library): the fleet row dies by representation — the shipped Fermi-frame fleet carries F=10⁵×10⁴ at ≤ ~1 core (0.89 µs/member/game-s measured, member-flat slices, scale-free epoch composition); dissolution at spread > r_p/32 measured; three wiring debts named.

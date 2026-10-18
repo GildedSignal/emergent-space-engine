@@ -2,11 +2,51 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2330-spacex-f134
+updated: 20261018-0543-spacex-7fcf
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**The composed law's single remaining adoption debt is flown and it is empty: at the worst
+horizons the doll-born drift band under the composed arm carries NO median channel — the
+delete deletes the samplers — so 87fd's kill of chain+stagger-alone does not transfer.
+Measured with 87fd's `doll_probe` verbatim (print-only, shipped `Binding::readout`, plus
+this run's disclosed p25/p75 + frac<1e-12 lines) on f134's composed patch verbatim,
+budget-free coast N=1000 rtf 100, horizons 4,500/9,000/11,000 game-s, seeds 1 + held-out
+2, all arms arming-controlled to the frozen records bit for bit (off@4,500 = 87fd's table
+exactly: 251/136/7,736/183, med 2.0e-6; cs@4,500 = 7.4e-6/7,937 kicks exactly; off@9,000 =
+the 87fd-checker's 19.8e-6/1.28e-3 exactly; both@4,500 = f134's max-41 class). The
+doll-born |ΔE/E0| MEDIAN: off 2.0e-6 → 1.98e-5 → 2.31e-5 across the horizons, chain+stagger
+7.4e-6 → 1.94e-5 → 2.23e-5 (87fd's channel, confirmed to the digit), composed **2.4e-11 →
+4.4e-11 → 5.5e-11** — 4.2-4.5×10⁵ below OFF at the worst horizons (8.2×10⁵× on seed 2:
+2.99e-11 vs 2.45e-5), flat in horizon (∝t at most) vs OFF's ×10 doubling — the deleted
+majority drifts at the tube readout's noise floor (p25 7.8e-12 vs OFF's 1.5e-6 at 11,000 gs:
+1.9×10⁵× separation; the pre-registered frac<1e-12 ≥ 0.5 missed — the noise sits at
+1e-11-class, one order above the threshold [checker: the witness is worst-horizon-only —
+OFF itself reads 0.24 below 1e-12 at 4,500 gs, and 0.000 from 9,000 gs on]). The spared
+quarter keeps the tail BIT-IDENTICAL
+to chain+stagger's (p99 6.470713e-4 / max 1.528076e-3, the same digits in both arms at
+every horizon — the delete removes the median mass, not the tail population; ≤ 1.21× OFF's
+own, under the pre-registered 2× bar). Ensembles hold: worst cross-arm med deviation 8.8e-5
+relative (E1 at 11,000 gs; 87fd's band was 3e-5 at 4,500) — K1/K2 never fire. Ledger at the
+worst horizon: kicks 17,747 → 1,915 (−89%), encounters 562 vs 561 (seed 2: 1,140 → 1,146,
++0.5%), dead 0, census {2:310, 3:3} in all 11 flights. So the composed law is
+legality-dominant too: the doll-born drift band (87fd's direction 1, f134's "single
+remaining adoption debt") is measured at the worst horizon and holds; what is left unpriced
+is what 1a46 already priced (the deleted set's carried angle debt, 1.2e-3° at 11,000 gs,
+~3 orders under r9's per-orbit bound — a sparse re-kick cadence choice, not a legality
+unknown) and the structurally-blind B13/B14 gates stay replaced by this probe (21a7)
+(20261018-0543-spacex-7fcf, spacex; regen.sh, flights bit-identical across two executions
+from a restored tree).**
+[Checker 2, blind: third execution bit-identical, both arms; held-out, all holding —
+22,000 gs (2× the worst flown): composed med 5.38e-11 vs OFF 5.19e-5, the tail again
+bit-identical to chain+stagger's (p99 1.130123e-3, max 2.868460e-3, both arms); seed 3 at
+11,000 gs 4.30e-11 vs 3.48e-5, dead 0; N=10⁴ clean (the doll census is N-independent, so N
+is not an axis for this legality claim); ES_SECULAR_RES=1 at 11,000 gs leaves the tail
+bit-identical — the spared tail here is the in-situ illegal set, not the resonant quarter.
+OFF's ×10-per-doubling is horizon-local (the 4.5k→9k octave; ×2.2 from 11k to 22k): the
+honest contrast is OFF ~×10³ over the flown span against a flat composed median.]
 
 **The page's cheapest named rung is flown and the comb question closes: delete + chain compose
 with zero interference, and the composed law (ES_SECULAR + ES_CHAIN + ES_LOCAL_STAGGER — one
@@ -270,16 +310,26 @@ section is additive and sides with neither standing conflict.]*
   total frame's 12-ms letter (M1) extrapolates to ≈ 6×10⁵, locals-driven (checker correction)
   (20261016-0346-spacex-917c; budget-free, off-arm bit-identical,
   anchors bit-exact on 1a1c's 487/1,328).
+- **"The cure trades the comb for a first-order per-body bill" (87fd's kill of the de-phase,
+  inherited by every de-phase arm): it does not transfer to the composed law — the delete
+  removes the samplers themselves, so the doll-born |ΔE/E0| median under ES_SECULAR +
+  chain+stagger sits at the tube readout's noise floor (5.5e-11 at the 11,000-gs worst
+  horizon, 4.2×10⁵ under OFF's 2.31e-5, flat in horizon) while the spared quarter's tail is
+  bit-identical to chain+stagger's; the ensembles hold at 8.8e-5
+  (20261018-0543-spacex-7fcf).**
+
 
 ## Open directions
 
-1. **The composed law's legality gates — the single remaining adoption debt.** The storm and the
-   ledger are closed (f134: 41/12, −72%, envelope decays to 3, N-flat, horizon-stable, 13/13
-   schedule-determinism, patch-off bit-identical); what is unflown is 87fd's direction 1 under
-   the composed arm: the doll-born drift band frozen at the worst horizon (the medians cross by
-   6,700 s), the B13/B14-class gates, and the long-lived-battle rate case. The sparse secular
-   re-kick (every ~2¹⁰–2¹² carried kicks) retires the delete's sub-quantum fence debt at zero
-   storm cost — the one law choice the composed flight still prices (20261017-2330-spacex-f134).
+1. **The composed law's adoption debt — now measured, and empty on the E/L/r instruments.**
+   The storm, the ledger and now the doll-born drift band are closed (f134; 7fcf: no median
+   channel at the 11,000-gs worst horizon, spared tail ≤ 1.21× OFF, ensembles ≤ 8.8e-5,
+   kills K1/K2 unfired). Still unflown, in order: the long-lived-battle rate case (the fleet
+   battle that never dissolves, where the slice excess becomes a rate), the burn arm under
+   the probe (f134 flew the burn ledger at max 105; its drift band unmeasured), and the
+   structurally-blind B13/B14 gates stay replaced by the doll_probe class (21a7, 87fd). The
+   sparse secular re-kick (every ~2¹⁰–2¹² carried kicks) remains the one law choice the
+   composed adoption still prices (20261017-2330-spacex-f134).
 2. The r9-bound transfer from satellite tides to heliocentric bodies (the belt) is assumed, not
    measured — and the honest belt margin is 5.5–6.4× under, not 57–105× [checker], so a B14-class
    probe on a belt body under Cinder's and the Giant's tide closes it with little slack.
@@ -463,3 +513,4 @@ direction 1.
 - 20261016-0023-second-20261015-1747-inversion-b172-f56e (this run): b172's gold step closed — the depth arms landed (29.26 at 48k, 26.07 at 32k, horizon one wave recurrence), the bill scene-invariant at depth (270,979), and the matched-fills control kills the angular reading (fills 616,250 invariant in w and K; 1.013 at full diffusion). [restored by checker 20261017: dropped from this run's conflict resolution; Runs is append-only]
 - 20261016-1459-second-20261016-1319-system-4fa8-21a7 (awaiting grade): the gates blind to the comb law (every gate body root-doll); ES_LOCAL_PHASE = chain+stagger on every instrument; parsimony decides.
 - 20261017-2330-spacex-f134 (spacex, awaiting grade): delete + chain composed — strictly dominant (max 41 vs 52/131, p99 12, ledger −72% with no slice bill, envelope decays 41→3, N-flat, horizon-stable, 13/13 schedule-determinism); patch-off bit-identical to the frozen record; the comb question closes.
+- 20261018-0543-spacex-7fcf (spacex, awaiting grade): the composed law's doll-born drift

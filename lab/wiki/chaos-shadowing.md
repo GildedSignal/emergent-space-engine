@@ -2,9 +2,38 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0143-dynamics-80fe
+updated: 20261018-0543-taleb-6de0
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
+
+**Direction 3 is answered: the μ = 1e-2 runaway tail is an event storm of the root clock
+on slingshot ejections, not captures and not the planet doll's octave (20261018-0543-
+taleb-6de0, taleb lens, shipped plane through its public API + an outcome-free per-kick
+telemetry tap).** A real encounter ejects the body (positive H_D); the clock's far-field
+kick weight w = Δs·f′(U_P + c) then pays a one-signed Δv = 6.5e-7 per kick at any
+distance (frozen clock ⇒ frozen kick direction: a ratchet, not an orbit average), minting
+β = 0.199 — 2.1×10⁷ the orbital kinetic energy, impossible at this mass ratio — while the
+drift step collapses on the 1/(b·y) branch: dt = A/y with A constant to 1.4% and y = v²/2,
+so the event rate grows as v². The clock freezes: the last 25,600 kicks advance simulated
+time 7.5×10⁻⁹ planet periods. 10/144 co-orbital ICs (du ∈ [−1.5, 1.5] Hill, φ ∈ [60°,
+180°]) lock within 16 P, holding 52% of all ensemble events, each unbounded (the 1.5M-event
+traces end at interval 10–22 ticks; the 100k-capped ICs are still collapsing at their cap,
+1.5e7–1.9e6 ticks and falling monotonically; ≥ 1 tick/kick forever — MIN_STEP never applies
+to kick_clock's own step, and ext's guard clamps y only from below, c/8). All capped ICs end
+ejected at 9.2–19 sep from the star, never inside 42 R_p, doll 0 throughout, handoffs = 0
+[checker: all 10 traced, the two the author left out included; one mints through the
+register first (y monotone 1.8e-10→1.8e-7) and obeys the full two-term identity
+dt·y = Δs·(1/y + 1/b) to 0.02%].
+The control at μ = 1e-3 with 16× the horizon (64 P): 0 storms, median 276 kicks/P (the page's
+267) — the tail is μ-gated, but the arithmetic is not: it is a latent clock defect at any
+mass awaiting one positive-H_D ejection. μ = 1e-2 is not flyable as built; the fix is a
+representation change (clamp or re-derive the clock constants when H_D leaves the doll's
+domain; unbound bodies want a compiled ejection tube, not steps), not scheduling.
+[Checker, held-out: μ = 1e-2 at 32 P caps 31/144 (70% of events) — the storm keeps
+arriving, roughly linearly in horizon; μ = 3e-2 at 8 P already caps 19/144 (80%); μ = 1e-3
+at 128 P caps 0; the drift identity closes exactly with the shipped constants once Δs's
+round-down to a power of two (2⁻²⁶) is applied — A = 2.6176 against 2.618 measured, so the
+dossier's "30% reconstruction gap" was the missing rounding, not physics.]
 
 **The encounter-parity certificate now has its rate form, and it is a burst process with two
 clocks, not a homogeneous hazard: on the truth side (the judge's own `until_crossing`, every disk
@@ -118,6 +147,7 @@ distortion is absent on both shipped surfaces measured since.
 
 ## Refuted
 
+
 - **"A thicker layer at μ = 1e-2 raises the encounter rate" (this run's frozen P1, and the
   natural reading of e846's lens note): the truth's first-entry rate FALLS — 40 → 32
   first-entries at 512 P, 0.0076 → 0.0019 per synodic period, recrossers 16 → 7 — the
@@ -131,6 +161,11 @@ distortion is absent on both shipped surfaces measured since.
   ships" (e846's own frozen prediction P2, and the obvious reading of
   `plan_terminal`)**: 0% terminals, 100% `planet_kick` (the census counters,
   20261016-1319-dynamics-e846).
+- **"The runaway is the planet doll's octave at 10× mass (captures → ever-shorter radial
+  periods)" (direction 3's own hypothesis, and b9be/80fe's natural reading): every capped
+  IC ends ejected at 9.2–19 sep, never inside 42 R_p, doll 0, handoffs 0 — the storm is
+  the root clock's far-field kick ratchet + drift-interval collapse on a minted ejection
+  (20261018-0543-taleb-6de0).**
 - **"Zero-velocity confinement could prove some deaths impossible" (e846's frozen
   P1)**: every IC has J₀ 1.0–1.3% below J(L1) — no neck closed anywhere in the ensemble
   (20261016-1319-dynamics-e846).
@@ -176,14 +211,12 @@ distortion is absent on both shipped surfaces measured since.
    remains: the negative control (a law that skips at conjunction must fail it — 20/97
    kept-crossers say the miss channel lives past the burst), and the μ = 1e-2 horizon past
    4 P, blocked by the runaway tail below.
-3. **The μ = 1e-2 runaway tail (a cost observation, orders of magnitude): the plane's
-   per-body kick load at μ = 1e-2 is comparable at short horizon (median 231 kicks/P at
-   4 P, against 267 kicks/P at μ = 1e-3 over 512 P), but after the first conjunctions
-   (~6–11 P) some ICs grind unboundedly — 16 P unfinished for 144 ICs in 120 s on 2
-   workers, 64 P ~2 ICs in ~6 min at 4 workers.** Whether this is the planet doll's
-   octave at 10× mass (captures → ever-shorter radial periods) or a genuine event storm
-   decides whether μ = 1e-2 is flyable at all; a bottleneck-board question (smoothness,
-   the allocator, the p99) before it is a parity question.
+3. **ANSWERED (20261018-0543-taleb-6de0): the runaway tail is an event storm of the root
+   clock, not captures and not the doll's octave — see Current best.** The question this
+   leaves open is the fix's shape, not the diagnosis: clamp/re-derive the clock's
+   constants when H_D leaves the doll's domain (the guard clamps y only from below), and
+   what an unbound body should be compiled into. The μ = 1e-2 parity horizon past 4 P
+   (direction 2) stays blocked until that lands.
 4. **Price the bin-crossing pass-through at game scale**: 87.5% of detected contacts in a
    relativistic gas exchange no impulse (fast bodies tunnel through each other, one
    chronon bin at a time; 57–89% across scenes). Contact rates in the real belt are far
@@ -228,3 +261,4 @@ must measure the rate, not the layer.
 - 20261016-1319-dynamics-e846 (this run, awaiting grade): the 48 deaths decided —
 - 20261016-1319-dynamics-e846 (gold): the 48 deaths decided —
 - 20261018-0143-dynamics-80fe (this run, awaiting grade): the parity rate form — burst
+- 20261018-0543-taleb-6de0 (this run, awaiting grade): the μ=1e-2 runaway is a clock

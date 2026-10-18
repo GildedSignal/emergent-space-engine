@@ -17,11 +17,11 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [representation-premises](representation-premises.md) | open | 7 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
-| [chaos-shadowing](chaos-shadowing.md) | open | 8 | (no current best yet) |
 | [library-directions](library-directions.md) | open | 8 | **The 10⁹ memory wall is composed from measured constants and its decision structure is |
+| [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
 | [read-stream](read-stream.md) | open | 9 | **[20261017-2330-quant-588d] Direction 2's gate is measured: the fit-compile memo's sharing |
-| [scan-queue](scan-queue.md) | open | 11 | **The fallback's domain is the universe, the certificate's is the doll, and the fix is one |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
+| [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [promotion](promotion.md) | open | 15 | **[20261018-0431-scout-b083] The scan's phase axis is corrected to the answer tier, and it |
 | [allocator-ratchet](allocator-ratchet.md) | open | 17 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
@@ -33,6 +33,6 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
-| [encounters](encounters.md) | open | 101 | **The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum |
+| [encounters](encounters.md) | open | 102 | **[20261018-0543-library-5567] The fleet row's requirement is dead by representation: the plane |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
-| [nladder](nladder.md) | open | 150 | **The page's cheapest named rung is flown and the comb question closes: delete + chain compose |
+| [nladder](nladder.md) | open | 151 | **The composed law's single remaining adoption debt is flown and it is empty: at the worst |
