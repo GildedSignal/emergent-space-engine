@@ -1,0 +1,160 @@
+diff --git a/crates/space/examples/circle_ratchet.rs b/crates/space/examples/circle_ratchet.rs
+new file mode 100644
+index 00000000..006a3f84
+--- /dev/null
++++ b/crates/space/examples/circle_ratchet.rs
+@@ -0,0 +1,154 @@
++//! The order boundary's circle ratchet, run deep: the seam map (compile -> sample at a
++//! true phase of the orbit's own period -> cartesian at the doll word -> `Rebinding::
++//! from_state` -> next key) chained on shipped pub APIs, per-crossing columns out as
++//! JSONL. Question (order-boundary od 2): does the circle's one-signed k walk decelerate
++//! to a constant (linear drift), to zero (arrest/attractor), or as a power law — and is
++//! the rate a function of the minted deficit (state feedback) or of history?
++//!
++//! ```text
++//! cargo run --release -p emergent-space --example circle_ratchet -- [depth] > out.jsonl
++//! ```
++use emergent_space::binding::{cartesian, Rebinding};
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::io::Write;
++
++const UNIT: u64 = 1 << 48;
++
++fn f2(x: Scalar) -> f64 {
++    x.significand() as f64 * (x.exponent() as f32 as f64 - 62.0).exp2()
++}
++
++struct Arm {
++    name: &'static str,
++    p_log2: i32,
++    e0: f64,
++    phi_eighths: i128,
++    w0: u32,
++    cw: bool,
++    depth: usize,
++    word: i32,
++}
++
++fn run(arm: &Arm, out: &mut impl Write) {
++    let p = Scalar::power_of_two(arm.p_log2 as i16);
++    // e in Q48 -> k = 2^48/(1+e), via the shipped `bound` conversion for consistency.
++    let e_q48 = (arm.e0 * UNIT as f64).round() as u64;
++    let mut key = OrbitKey::bound(p, e_q48).unwrap();
++    let mut w = arm.w0;
++    let mut cw = arm.cw;
++    // Doll word: position integers normalized to ~2^61 (the bank's convention), velocity
++    // full-word at 2^-62. Value = integer * 2^exponent.
++    let pe = (arm.p_log2 - 61 + arm.word) as i16;
++    let units = (pe, -62i16);
++    let mut refusals = 0usize;
++    let mut class_flips = 0usize;
++    for i in 0..arm.depth {
++        let mut row = format!(
++            "{{\"arm\":\"{}\",\"i\":{},\"k\":{},\"kexp\":{},\"p\":{:.17e},\"w\":{},\"cw\":{},",
++            arm.name, i, key.k, key.k_exponent, f2(key.periapsis), w, cw
++        );
++        let orbit = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(e) => {
++                refusals += 1;
++                writeln!(out, "{}\"refuse\":\"compile:{:?}\"}}", row, e).unwrap();
++                return;
++            }
++        };
++        let period = match orbit.period() {
++            Ok(t) => t,
++            Err(e) => {
++                refusals += 1;
++                writeln!(out, "{}\"refuse\":\"period:{:?}\"}}", row, e).unwrap();
++                return;
++            }
++        };
++        let elapsed = match period.mul(Scalar::raw(arm.phi_eighths, -3).expect("phi")) {
++            Ok(t) => t,
++            Err(e) => {
++                refusals += 1;
++                writeln!(out, "{}\"refuse\":\"elapsed:{:?}\"}}", row, e).unwrap();
++                return;
++            }
++        };
++        let st = match orbit.signed_state(elapsed) {
++            Ok(s) => s,
++            Err(e) => {
++                refusals += 1;
++                writeln!(out, "{}\"refuse\":\"state:{:?}\"}}", row, e).unwrap();
++                return;
++            }
++        };
++        let x = match cartesian(st, w, cw, units) {
++            Ok(s) => s,
++            Err(e) => {
++                refusals += 1;
++                writeln!(out, "{}\"refuse\":\"cartesian:{:?}\"}}", row, e).unwrap();
++                return;
++            }
++        };
++        let rpos = (((x.position[0] as f64).powi(2) + (x.position[1] as f64).powi(2)).sqrt())
++            * 2f64.powi(pe as i32);
++        let fit = match Rebinding::from_state(x, elapsed, None) {
++            Ok(f) => f,
++            Err(e) => {
++                refusals += 1;
++                writeln!(out, "{}\"refuse\":\"fit:{:?}\"}}", row, e).unwrap();
++                return;
++            }
++        };
++        let next = match fit.trajectory.key() {
++            Some(k) => k,
++            None => {
++                refusals += 1;
++                writeln!(out, "{}\"refuse\":\"plunge\"}}", row).unwrap();
++                return;
++            }
++        };
++        if !next.periodic() {
++            class_flips += 1;
++        }
++        let res = &fit.residual;
++        let rp = res.position[0].abs().max(res.position[1].abs());
++        let rv = res.velocity[0].abs().max(res.velocity[1].abs());
++        writeln!(
++            out,
++            "{}\"k2\":{},\"kexp2\":{},\"p2\":{:.17e},\"w2\":{},\"cw2\":{},\"r\":{:.17e},\"res_p\":{},\"res_v\":{},\"flip\":{}}}",
++            row,
++            next.k,
++            next.k_exponent,
++            f2(next.periapsis),
++            fit.periapsis_angle,
++            fit.clockwise,
++            rpos,
++            rp,
++            rv,
++            !next.periodic()
++        )
++        .unwrap();
++        key = next;
++        w = fit.periapsis_angle;
++        cw = fit.clockwise;
++    }
++    eprintln!("arm {} done: refusals {} class_flips {}", arm.name, refusals, class_flips);
++}
++
++fn main() {
++    let depth: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(1024);
++    let arms = [
++        Arm { name: "p21_e0_phi1", p_log2: 21, e0: 0.0, phi_eighths: 1, w0: 1 << 29, cw: false, depth, word: 0 },
++        Arm { name: "p21_e0_phi5", p_log2: 21, e0: 0.0, phi_eighths: 5, w0: 1 << 29, cw: false, depth, word: 0 },
++        Arm { name: "p21_e0_phi1_w3", p_log2: 21, e0: 0.0, phi_eighths: 1, w0: 3 << 29, cw: false, depth, word: 0 },
++        Arm { name: "p12_e0_phi1", p_log2: 12, e0: 0.0, phi_eighths: 1, w0: 1 << 29, cw: false, depth, word: 0 },
++        Arm { name: "p30_e0_phi1", p_log2: 30, e0: 0.0, phi_eighths: 1, w0: 1 << 29, cw: false, depth: depth.min(16384), word: 0 },
++        Arm { name: "p21_em3_phi1", p_log2: 21, e0: 1e-3, phi_eighths: 1, w0: 1 << 29, cw: false, depth: depth.min(16384), word: 0 },
++        Arm { name: "p21_em6_phi1", p_log2: 21, e0: 1e-6, phi_eighths: 1, w0: 1 << 29, cw: false, depth: depth.min(16384), word: 0 },
++        Arm { name: "p21_e0_phi1_w43", p_log2: 21, e0: 0.0, phi_eighths: 1, w0: 1 << 29, cw: false, depth: depth.min(16384), word: 18 },
++        Arm { name: "p21_e5_phi38", p_log2: 21, e0: 0.5, phi_eighths: 3, w0: 1 << 29, cw: false, depth: depth.min(4096), word: 0 },
++    ];
++    let stdout = std::io::stdout();
++    let mut lock = stdout.lock();
++    for arm in &arms {
++        run(arm, &mut lock);
++    }
++}

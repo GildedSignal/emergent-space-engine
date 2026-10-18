@@ -1,0 +1,76 @@
+warning: value assigned to `refusals` is never read
+  --> crates/space/examples/circle_ratchet.rs:53:17
+   |
+53 |                 refusals += 1;
+   |                 ^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: value assigned to `refusals` is never read
+  --> crates/space/examples/circle_ratchet.rs:61:17
+   |
+61 |                 refusals += 1;
+   |                 ^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: value assigned to `refusals` is never read
+  --> crates/space/examples/circle_ratchet.rs:69:17
+   |
+69 |                 refusals += 1;
+   |                 ^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: value assigned to `refusals` is never read
+  --> crates/space/examples/circle_ratchet.rs:77:17
+   |
+77 |                 refusals += 1;
+   |                 ^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: value assigned to `refusals` is never read
+  --> crates/space/examples/circle_ratchet.rs:85:17
+   |
+85 |                 refusals += 1;
+   |                 ^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: value assigned to `refusals` is never read
+  --> crates/space/examples/circle_ratchet.rs:95:17
+   |
+95 |                 refusals += 1;
+   |                 ^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: value assigned to `refusals` is never read
+   --> crates/space/examples/circle_ratchet.rs:103:17
+    |
+103 |                 refusals += 1;
+    |                 ^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: variable does not need to be mutable
+  --> crates/space/examples/circle_ratchet.rs:46:13
+   |
+46 |         let mut row = format!(
+   |             ----^^^
+   |             |
+   |             help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+arm p21_e0_phi1 done: refusals 0 class_flips 0
+arm p21_e0_phi5 done: refusals 0 class_flips 0
+arm p21_e0_phi1_w3 done: refusals 0 class_flips 0
+arm p12_e0_phi1 done: refusals 0 class_flips 0
+arm p30_e0_phi1 done: refusals 0 class_flips 0
+arm p21_em3_phi1 done: refusals 0 class_flips 0
+arm p21_em6_phi1 done: refusals 0 class_flips 0
+arm p21_e0_phi1_w43 done: refusals 0 class_flips 0
+arm p21_e5_phi38 done: refusals 0 class_flips 0
