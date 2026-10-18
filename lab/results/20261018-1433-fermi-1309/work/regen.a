@@ -1,0 +1,26 @@
+== A. reproduction of the published cells (one s per row?) ==
+wave budgets: unstaggered 10.7 s at rtf100 / 1068 s at rtf1; staggered 203 s at rtf100
+
+10^7 shipped steady                          s=100.00% [no delete]  stream 1.081-1.809 s/s (x0.4-0.7 margin vs 0.72)
+10^7 lazy+RES steady  ['0.006-0.010']        s= 0.56% [RES]  stream 0.006-0.010 s/s (x70.8-118.5 margin vs 0.72)
+10^7 frozen steady    (corrected)            s=60.96% [frozen]  stream 0.659-1.103 s/s (x0.7-1.1 margin vs 0.72)
+10^9 steady spared    ['0.61-1.02']          s=60.96% [frozen]  stream 0.659-1.103 s/s (x0.7-1.1 margin vs 0.72)
+10^9 steady under RES (corrected)            s= 0.56% [RES]  stream 0.006-0.010 s/s (x70.8-118.5 margin vs 0.72)
+
+10^7 ES_SECULAR-only wave ['19.8-34.3x']     s=60.96%  wave 19.75-34.31 x budget
+10^7 lazy+RES wave        ['0.2-0.3x']       s= 0.56%  wave 0.18-0.32 x budget
+10^9 wave                 ['18.1-31.4x']     s=60.96%  wave 19.75-34.31 x budget
+10^7 frozen wave, staggered (corrected)      s=60.96%  wave 1.04-1.81 x budget
+
+== B. the cliff ==
+s_frozen/s_RES = 108.5x on the stream at every scale (N.rtf invariant: 10^7 x rtf100 = 10^9 x rtf1)
+10^7 @rtf100 RES legal        stream 0.006-0.010 s/s (70.83-118.50x budget); one thread holds to rtf~=7083
+10^7 @rtf100 frozen legality  stream 0.659-1.103 s/s (0.65-1.09x budget); one thread holds to rtf~=65
+
+== C. the frozen exclusion re-derived from scenario.rs ==
+periods (yr): Cinder 0.251 (a=0.398 AU), Home 1.031 (a=1.020 AU), Giant 12.202 (a=5.300 AU)
+spared by the frozen rule (period-space, order<=8, 2%): 0.584
+spared by the frozen rule (a-space, order<=8, 2%): 0.750
+measured frozen survival (1a46): 0.610; RES: 0.00562
+
+wrote work/fermi_check.json
