@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place: `dossier.md`, `predictions.md` (pre-registered), `regen.sh`, `sweep.sh` + `sweep-results.txt` + `battle-extra.txt`, and `wiki/allocator-ratchet.md` (folded). The only tree change is the harness `crates/allocator/examples/exposure.rs` (no engine patch), saved by the runner as `work/patch.diff`.
+
+**The claim:** inverting the allocator's crash family on shipped code separates the game's scenes by fire — the faction fleet battle (`worlds::galaxy`, Relativistic, unsabotaged, shipped `min_region`) fires the finality assert at protocol (1/14 draws at `speed_margin 0.5`, seed-skewed race; 0/6 at the shipped default 2.0), while every belt-shaped arm stays clean and a dense gas blob churns 171 rollbacks with zero fires, showing fire needs light slack **and** an unplanned meeting: churn alone is inert, so the engine-side fix's test scene is fleets, not gas — and margin 0.0 (the shipped tests' value) is its own progress-collapse ruin.

@@ -1,0 +1,111 @@
+diff --git a/crates/allocator/examples/exposure.rs b/crates/allocator/examples/exposure.rs
+new file mode 100644
+index 00000000..32c0951b
+--- /dev/null
++++ b/crates/allocator/examples/exposure.rs
+@@ -0,0 +1,105 @@
++//! Exposure sweep for the finality assert (`alloc.rs`: "would revise its published tick"):
++//! the game's own scene shapes on the shipped frames harness, unsabotaged.
++//! One draw per process; a firing assert panics and the process exits non-zero.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example exposure -- <class> <seed> [rate] [min_region]
++//!
++//! Classes: gas | battle | streams | quiet  (all `Law::Relativistic`, sabotage off).
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig};
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::Response;
++use emergent_lattice::worlds;
++use std::sync::Arc;
++
++fn factory() -> Factory<Chronon> {
++    Arc::new(|w| Chronon::new(w, false).expect("a region's world is a valid world"))
++}
++
++fn main() {
++    let a = std::env::args().collect::<Vec<_>>();
++    let class = a.get(1).expect("class: gas|battle|streams|quiet").clone();
++    let seed: u64 = a.get(2).expect("seed").parse().unwrap();
++    let rate: f64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(600.0);
++    let n_gas: u64 = a.get(5).map(|s| s.parse().unwrap()).unwrap_or(8192);
++    let min_region: usize = a.get(4).map(|s| s.parse().unwrap()).unwrap_or(32);
++    let margin: f64 = a.get(6).map(|s| s.parse().unwrap()).unwrap_or(2.0);
++    let q = 256;
++    let mut parts: Vec<_>;
++    let observer;
++    match class.as_str() {
++        // The churn class (the ratchet page's selfchurn): ONE dense slow gas cluster.
++        "gas" => {
++            parts = vec![scenes::loose_gas(n_gas, q, 2, seed, 1, [0, 0])];
++            let b = &parts[0].bodies.iter().map(|b| b.x).collect::<Vec<_>>();
++            let lo = b.iter().map(|p| p[0]).min().unwrap();
++            let hi = b.iter().map(|p| p[0]).max().unwrap();
++            observer = [(lo + hi) / 2, (lo + hi) / 2];
++        }
++        // The game's faction battle: lattice `worlds::galaxy` (power-law fleets of bouncers,
++        // bulk drift up to Q/4, dispersion Q/16, never overlapping at genesis, + 256 stream).
++        "battle" => {
++            let g = worlds::galaxy(4352, 12, 11, q, seed).expect("galaxy scene in range");
++            let n = g.bodies.len();
++            let c = g.bodies.iter().fold(([i64::MAX, i64::MAX], [i64::MIN, i64::MIN]), |(lo, hi), b| {
++                ([lo[0].min(b.x[0]), lo[1].min(b.x[1])], [hi[0].max(b.x[0]), hi[1].max(b.x[1])])
++            });
++            observer = [(c.0[0] + c.1[0]) / 2, (c.0[1] + c.1[1]) / 2];
++            parts = vec![scenes::world(&g, g.bodies.clone())];
++            eprintln!("battle: {n} bodies, 12 power-law fleets");
++        }
++        // Sustained ballistic crossing traffic (the belt's shape): 4 lanes x 4 clumps of Pass
++        // discs, lanes at opposing drifts, NO contact response change in the whole scene.
++        "streams" => {
++            parts = Vec::new();
++            let mut id = 1u64;
++            for lane in 0..4i64 {
++                let drift = if lane % 2 == 0 { q / 4 } else { -q / 8 };
++                for c in 0..4i64 {
++                    let w = worlds::random(96, 300, q, 1, seed + 100 * lane as u64 + c as u64, Response::Pass);
++                    let off = [c * 900 + lane * 200, lane * 1200];
++                    parts.push(scenes::world(&w, scenes::place(&w, id, off, 1, 1, [drift, 0])));
++                    id += 1000;
++                }
++            }
++            observer = [1650 * q, 1800 * q];
++        }
++        // Negative control: sparse Pass islands, far apart, no contacts, no crossings.
++        "quiet" => {
++            parts = Vec::new();
++            for i in 0..8u64 {
++                let w = worlds::random(48, 4000, q, 1, seed + i, Response::Pass);
++                let off = [(i % 4) as i64 * 6000, (i / 4) as i64 * 6000];
++                parts.push(scenes::world(&w, scenes::place(&w, 1 + 1000 * i, off, 1, 1, [0, 0])));
++            }
++            observer = [9000 * q, 3000 * q];
++        }
++        // The belt's shape: a wide grid of churny clusters (bounce discs, internal
++        // velocities /den) spaced with light slack: internal churn + sustained crossings.
++        "clumps" => {
++            parts = scenes::galaxy(q, 3, 3, 256, 1800, 8, seed);
++            observer = [2 * 1800 * q, 2 * 1800 * q];
++        }
++        _ => panic!("unknown class {class}"),
++    }
++    let bodies: usize = parts.iter().map(|w| w.bodies.len()).sum();
++    let parts = scenes::with_law(parts, emergent_lattice::law::Law::Relativistic);
++    let cfg = Config {
++        p_workers: 2,
++        e_workers: 2,
++        sabotage: None,
++        speed_margin: margin,
++        min_region,
++        observer,
++        view_radius: 400 * q,
++        ..Config::default()
++    };
++    let mut al = Allocator::new(parts, factory(), cfg).expect("scene");
++    let rep = al.run_frames(&FrameConfig { hz: 240.0, seconds: 4.5, rate, ahead_seconds: 0.3, record: false });
++    let f = rep.frames.as_ref().expect("frame report");
++    let r = &rep.regions;
++    eprintln!(
++        "done {class} seed {seed} rate {rate} min_region {min_region}: {bodies} bodies | present {:.0} | rollbacks {} merges {} splits {} regions {}->{} | deadline misses {} | final lead max {:.0} | violations {}",
++        rep.sim.present_end, r.rollbacks, r.merges, r.splits, r.initial, r.last, f.deadline_misses,
++        f.final_lead_chronons.max, rep.finality.hard_speed_violations
++    );
++}
