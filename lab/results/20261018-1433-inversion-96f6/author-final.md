@@ -1,0 +1,3 @@
+done — doRun complete. The deliverables are in `lab/results/20261018-1433-inversion-96f6/` (dossier, pre-registered predictions, six flight logs, regen.sh verified idempotent, wiki page folded).
+
+**Claim:** The composed crowd's frame break at K=5×10⁴ is decomposed and it is a wall beside the cure, not inside it — all 33 over frames carry exactly 2 events while one scan capture (the bail's full O(K) walk, ~190 ns/body linear, arriving at a K-independent 0.097/game-s) costs 9.60 ms alone, 80% of the 12-ms budget — so "pending the observer fix" is really three ranked walls (capture walk ~6.3×10⁴; the pinned candidates Vec 8 GB at ~3.5×10⁵, first; the fix's compare-form ~6×10⁵), and only a store-grounded fix that deletes the candidates Vec holds the crowd to 10⁶.
