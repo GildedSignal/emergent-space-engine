@@ -2,9 +2,36 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1126-redteam-1885
+updated: 20261018-1433-redteam-915d
 
 # The premises of docs/representation.md: a census against the record
+
+
+**NEW (915d, premise red-team): the additive-attitude premise is dead at the game's own
+speeds — thesis 3 ("its change is an addition") and L50 ("thrust grows the rapidity linearly
+in proper time"), as shipped in `thrust.rs`'s `owed` accumulator ("The heading turns by
+±turn·Δτ"), cannot store the non-abelian part of SO(2,1): the frame rotates by exactly
+(γ−1)·ψ for a constant-γ turn through ψ — certified at every grid point to 0.02° over
+β 0.05–0.99 (γ to 7.09), with the two-boost Wigner angle matching its closed form
+2·atan(tanh²(φ/2)) to 3e-14 and both controls (collinear, pure turn) reading exactly 0
+(20261018-1433-redteam-915d, exact SO(2,1) exponentials vs the shipped law replicated
+verbatim in the flat limit; the only modeled difference is where the thrust direction comes
+from). The seen sky (`view.rs` L309 aberrates with velocity only, "the heading axis is the
+page's") and the thrust direction both miss it, and it feeds back into the trajectory at the
+record's own flights: off45 burn from γ 2 — nose 12.1° off, position 6.6% of path; off135
+brake from γ 2 — nose 55.8° off, final speed off 0.27 c, position 22.3%; an open-loop turn
+to reversal at γ 2 — nose 73.2° off, velocity direction 133.4° off, position 48.2%. A 180°
+reversal at γ 2 rotates the whole starfield by 180°; one holding loop at β 0.6 by 90°.
+Predictions 9/10 held (P6 missed honestly: the off45 brake turns the sky only 18° over its
+whole flight, not >30° before 90° of velocity turn — the big angles belong to real turns).
+No rung, gate or criterion sees any of it (§7 has no attitude/thrust rung; the bar to freeze:
+a turning flight at γ ≥ 1.1 must carry (γ−1)ψ in sky and nose; negative control = the
+accumulator, missing by exactly (γ−1)ψ). The cure is the doc's own §1 L40 (unit
+split-quaternions: one multiply per burn) plus principle 6 (a held burn is a one-parameter
+subgroup — a generator, closed-form and cheaper than the per-flush composition it replaces);
+same disease as e8f7's doll keys ("compose boosts, not sum shears") — this run is the owner
+its "Wigner axis error… owned by the spatial turn machinery if anyone's" asked for: the
+machinery is the player's own flight.**
 
 
 **NEW (1885, premise red-team): the aggregate readout premise is dead at high γ and its
@@ -235,6 +262,15 @@ The census, ranked by player visibility (the rest of this page's standing record
    10× real time; but fire rate 1.000, one rebind per doll interval, 20261015-0724-system-3294).
 
 ## Refuted
+- **"Every quantity is kept in the form in which its change is an addition" + "thrust grows
+  the rapidity linearly in proper time" as the attitude law** (representation.md thesis 3,
+  L50; shipped as `thrust.rs`'s heading accumulator): boosts do not commute
+  ([K_x,K_y] = −J), the missed commutator is the Thomas/Wigner rotation, exactly (γ−1)·ψ
+  per constant-γ turn through ψ, and it corrupts the seen sky, the nose and (through the
+  burn direction) the trajectory — 12–74° nose error, up to 0.27 c and 48% of path inside
+  single maneuvers at β ≥ 0.866; the cure (unit split-quaternion per thrusting body, a
+  generator per held burn) is the doc's own §1 algebra and cheaper than what it replaces
+  (20261018-1433-redteam-915d).
 
 - **"§2's observable set is the view's physics" (representation.md L53–59, the list
   every view run inherited): opacity is missing — no capture rule, no occluder test —
@@ -364,3 +400,4 @@ falsehood; the nuance is recorded here, the entry stands.
 - 20261018-0035-redteam-22d1 (silver, checker-corrected): the occlusion cure measured —
 - 20261018-0143-second-20261018-0035-redteam-22d1-9ffc (awaiting grade): instrument fixed in the run's own script; every corrected number regenerates, closed-form certified per row (0 mismatches, onsets to 1e-12 s); the W2 deficit is the 1/γ arc exactly
 - 20261018-1126-redteam-1885 (awaiting grade): the aggregate one-sample readout refuted
+- 20261018-1433-redteam-915d (awaiting grade): additive attitude refuted — the Thomas

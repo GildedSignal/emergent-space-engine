@@ -5,11 +5,11 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [flyable-frame](flyable-frame.md) | open | 1 | **The flyable frame (the loop `xtask universe` serves: engine advance + view gather + view |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [contact-speed](contact-speed.md) | open | 3 | **[20261018-0722-scout-6362] The skip's open design question ("a real fix needs the contact |
+| [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
@@ -17,8 +17,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [order-boundary](order-boundary.md) | open | 6 | **The walk's class is now named, and the record's "bounded" was geometry, not |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
-| [representation-premises](representation-premises.md) | open | 8 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
+| [representation-premises](representation-premises.md) | open | 9 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [library-directions](library-directions.md) | open | 13 | **The board's #1 bottleneck, the N ladder's 10⁷ rung, is composed from the levers measured |
@@ -36,4 +36,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open | 114 | **[20261018-1126-second-20261018-1025-scout-fbf9-1a29] The silver's kill test is flown |
-| [nladder](nladder.md) | open | 152 | **The composed law's last unflown scene class is the crowd itself, and the transfer is the |
+| [nladder](nladder.md) | open | 153 | **The crowd's 5×10⁴ frame break is decomposed and it is a wall beside the cure, not |

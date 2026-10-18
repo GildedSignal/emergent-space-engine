@@ -2,11 +2,43 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1126-inversion-7581
+updated: 20261018-1433-inversion-96f6
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**The crowd's 5×10⁴ frame break is decomposed and it is a wall beside the cure, not
+inside it: 33/33 over frames carry exactly 2 events while one scan capture — the bail's
+full O(K) walk of 1.00·K candidates at ~190 ns/body (linear above 2×10⁴) — costs 9.60 ms
+alone, 80% of the 12-ms budget, arriving at the K-independent 0.097/game-s; capture breaks
+the frame on its own at K ≈ 4–6×10⁴ (measured onset between 3 and 5×10⁴, over 0 at 3×10⁴),
+and the "pending the observer fix" letter is three ranked walls, not one wiring step: the
+capture walk (~6.3×10⁴ by the linear fit), then the fix's own compare-form (19.2 ns/member ⇒ 12
+ms at 6.25×10⁵) and the pinned candidates Vec **co-located at ~6–7×10⁵** — the pin's multiplier
+is ~30 distinct held scans × 216 B × K at the 600-frame window, NOT held 81–97 [checker: the
+author's ×held model is refuted by the run's own hwm — 875 MB of Vecs inside 637 MB total — and
+by 10⁵ surviving at 1.24 GB where ×held demands ≥2.2 GB; ~30 distinct fits every measured hwm
+(159/302/441/637/887/1,240 MB at K = 10⁴…10⁵)]; only the store-grounded form (0.67
+ms/scan at 10⁶) holds CPU, and it must delete the Vec to clear the pin. OFF at 5×10⁴
+(max_ev 50,013, p99 2,196 ms, game_s 237.9) confirms the composed arm keeps 3.1× OFF's game
+time while broken — the break is not the comb's return. Census: 87/87 scans bail then
+full-walk (kept=0), held-answers never fire (the latch freeze), λ K-independent (20261018-1433-inversion-96f6,
+inversion; 7581's scanprobe verbatim from its published branch, rebuilt at its base; coast
+seed 1 rtf 100 600 frames, K = 10/20/30/50 ×10³, prof + census + ES_DUMP attribution; the
+10⁴ control reproduces 7581's record bit-exactly; the 5×10⁴ comb row slides one event at
+the deadline across executions, digest/ledger stable).**
+
+[Checker 96f6, held-out extensions: K=7×10⁴ and 10⁵ (2× the top flown) confirm the decomposition —
+capture 194.9/204.8 ns/body (linear to 10⁵), 41/41 over frames carry exactly 2 events at both K,
+max_ev ≤ 29, metronome still deleted; and refute the pin ranking — the pin also grows ~6 MB per
+arrival in flight TIME (637→1,121 MB over +80 arrivals at 1,200 frames, held_max 161, the latch
+answers nothing), so at fixed K it is an unbounded time wall (~8 GB at 5×10⁴ after ~13,000
+game-s): the fix's requirement is answer-or-expire held scans, not only delete the Vec. The 30k
+digest is deadline-coupled (author f8573d2a vs regen c7f47c26, counts identical), and the decisive
+50k flight's stdout was not kept (the dump and every count regenerate).]
+
+*[Prior best retained below.]*
 
 **The composed law's last unflown scene class is the crowd itself, and the transfer is the
 delete's alone (20261018-1126-inversion-7581, inversion; 604c's formation harness verbatim +
@@ -288,6 +320,11 @@ section is additive and sides with neither standing conflict.]*
 
 ## Refuted
 
+- **"The crowd's break beyond 10⁴ is the comb returning / the cure's N-flatness failing"
+   (the reading 7581's own bound invited):** at K=5×10⁴ composed, every one of the 33 over
+   frames carries exactly 2 events (median = max; zero frames with events > 40 in 540), the
+   metronome stays deleted (max_ev 28–29), and the break is the scan capture walk — 9.60 ms
+   per call, 6× every other prof stage (20261018-1433-inversion-96f6).
 - **"CHAIN+STAGGER cures the comb" as a scene-independent law (f134's letter, and this
    page's mechanism reading "the envelope decays 41→3"):** at crowd scale the de-phase
    spreads an intrinsic, standing rate instead of deleting it — p50_ev 2→323, rate ×1.9,
@@ -557,3 +594,4 @@ direction 1.
 - 20261017-2330-spacex-f134 (spacex, awaiting grade): delete + chain composed — strictly dominant (max 41 vs 52/131, p99 12, ledger −72% with no slice bill, envelope decays 41→3, N-flat, horizon-stable, 13/13 schedule-determinism); patch-off bit-identical to the frozen record; the comb question closes.
 - 20261018-0543-spacex-7fcf (spacex, awaiting grade): the composed law's doll-born drift
 - 20261018-1126-inversion-7581 (inversion, awaiting grade): the composed law on the crowd
+- 20261018-1433-inversion-96f6 (inversion, awaiting grade): the crowd's 5×10⁴ break decomposed — 33/33 over frames carry 2 events; the bail's full O(K) capture walk (190 ns/body, λ K-independent) owns the frame at 4–6×10⁴; the observer fix must land store-grounded and delete the candidates Vec (pin 8 GB at ~3.5×10⁵ first).
