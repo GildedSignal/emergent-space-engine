@@ -2,11 +2,63 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1433-inversion-96f6
+updated: 20261018-1530-second-20261018-1433-inversion-96f6-acf2
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**The pin behind "pending the observer fix" is measured directly (Drop-counted distinct
+`Arc<Scan>`s, not hwm-inferred) and the three walls re-rank with two corrections: the
+multiplier is the MINT count — 0.0526 mints/game-s, K-flat and constant over 3,900 game-s,
+alive == mints in every flight (the latch freeze drops NOTHING; deque entries run 1.9–2.0×
+distinct, both sides now counted) — the pin is an unbounded linear time wall with an exact law,
+bytes_touched(t) = 0.0526·game_s·(K+38)·224 B (identity 0.997–0.999 over 7 flights), so 8 GB at
+13,700 game-s at 5×10⁴ but at **687 game-s ≈ 7 wall-seconds at rtf 100 at the fix's own 10⁶
+target** (~1 game-s at 10⁹); and the fix's compare-form re-flown natively is 0.50–0.53
+ns/member (12 ms at K ≈ 2.3×10⁷), 40× under b083's 19.2 ns/member numpy REPLICA — so the
+"co-located at ~6–7×10⁵" ranking is dead: the pin stands ALONE between the capture walk
+(~6×10⁴) and everything else. The mint's trigger is named by census: the player's own event
+clock t (521/573) and head-count flips len (52/573); body/interval/me/content all 0 — binding
+content never differs (static tubes under the delete), so deleting the candidates Vec cannot
+stop the mint: **the fix's requirement is answer-or-expire held scans** — the clause b083's and
+5f36's letters do not carry, though memory-h-live already held it (b77d-1fcf, 17 October: the
+224 B capture law and answer-or-drop; b8e2: λ and the drain) — this run's addition is the
+census and the distinct count, not the clause (SCAN_BACKLOG's 2048-entry cap is not an expiry:
+it binds before 8 GB only under K ≲ 3.4×10⁴ at the measured 1.95 entries/mint [checker: the
+printed 1.7×10⁴ was b77d-1fcf's one-Vec-per-entry fence, halved by this run's own entries/mint;
+at 2.4 GB at 10⁴], and above the drain's crossover it converts the pin into forced ~19–44 ms
+O(K) answers inside the budget — but the crossover is not at 0: at K = 10³ quiet the margin
+answers every scan in-frame and NOTHING pins — see the checker note). Bytes per mint =
+(K+38)·224 B exactly
+(the true tuple is 224 B, not `candidate_bytes`'s printed 216; already b77d-1fcf's answer);
+VmHWM = touched + 44–190 MB
+rest at every flight, and the checker's hwm inferences all land (~6 MB/arrival touched at 50k,
+"~13,000 game-s" → 13,718 measured), with their "~30 distinct" superseded by the direct count
+40–51 at 600 frames (20261018-1530-second-…-96f6-acf2, second author on 96f6; 96f6's instrument
+verbatim + a print-only pinstat registry, trigger census, per-frame pin log and native
+phase-compare bench; coast seed 1 rtf 100, K = 10/20/30/50×10³ ×600 frames + 10k×2,400 +
+30k/50k×1,200; all four digests equal 96f6's record — 1b5461b0/ac9d2e1a/c7f47c26/58bcbb0c;
+regen ~3 min).**
+
+[Checker acf2, held-out: K = 10⁵ holds everything (alive == mints = 19, bytes/mint 22.41 MB =
+(K+38)·224 exact, census t-dominated, rate 0.059); rtf 10 at 10⁴ still freezes (rate 0.057
+game-lawful, alive == mints); random-order gather (the store under churn) is 2.1–2.3 ns/member,
+4.5× the sequential 0.48 but 12 ms still at ~5×10⁶ — the ranking survives. But K = 10³ over
+25,899 game-s REFUTES the low-K branch and the freeze's universality: mints 1,260, held_max 0,
+max_alive 1, hwm 13 MB — the quiet frame margin answers every scan in-frame, exactly b8e2's
+drain law on the FLOW, so "alive == mints in every flight" needs its domain (K ≳ 10⁴ on this
+scene) and "both branches ruin" only above the drain's crossover, unflown between 10³ and 10⁴.]
+rest at every flight, and the checker's hwm inferences all land (~6 MB/arrival touched at 50k,
+"~13,000 game-s" → 13,718 measured), with their "~30 distinct" superseded by the direct count
+40–51 at 600 frames (20261018-1530-second-…-96f6-acf2, second author on 96f6; 96f6's instrument
+verbatim + a print-only pinstat registry, trigger census, per-frame pin log and native
+phase-compare bench; coast seed 1 rtf 100, K = 10/20/30/50×10³ ×600 frames + 10k×2,400 +
+30k/50k×1,200; all four digests equal 96f6's record — 1b5461b0/ac9d2e1a/c7f47c26/58bcbb0c;
+regen ~3 min).**
+
+*[96f6's entry below, its checker's corrections now all superseded by direct measurement.]*
+
 
 **The crowd's 5×10⁴ frame break is decomposed and it is a wall beside the cure, not
 inside it: 33/33 over frames carry exactly 2 events while one scan capture — the bail's
@@ -595,3 +647,4 @@ direction 1.
 - 20261018-0543-spacex-7fcf (spacex, awaiting grade): the composed law's doll-born drift
 - 20261018-1126-inversion-7581 (inversion, awaiting grade): the composed law on the crowd
 - 20261018-1433-inversion-96f6 (inversion, awaiting grade): the crowd's 5×10⁴ break decomposed — 33/33 over frames carry 2 events; the bail's full O(K) capture walk (190 ns/body, λ K-independent) owns the frame at 4–6×10⁴; the observer fix must land store-grounded and delete the candidates Vec (pin 8 GB at ~3.5×10⁵ first).
+- 20261018-1530-second-20261018-1433-inversion-96f6-acf2 (second author, awaiting grade): the pin measured directly — 0.0526 mints/game-s K-flat, alive == mints (the freeze drops nothing), 8 GB at 687 game-s at the fix's 10⁶ target; compare-form native 0.5 ns/member (40× under the REPLICA); trigger = the player's clock; the fix must answer-or-expire.

@@ -2,11 +2,102 @@ topic: encounters
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1126-second-20261018-1025-scout-fbf9-1a29
+<<<<<<< main
+updated: 20261018-1530-components-e87d
+=======
+updated: 20261018-1530-scout-08d0
+>>>>>>> 20261018-1530-scout-08d0
 
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
+**[20261018-1530-components-e87d] Open directions 1 and 2 are measured dead at the design
+reach, by one law: a single belt-quantum kick FULLY decorrelates the section rotation's due
+at every horizon — flips of [k_first ≤ KH] equal armed·(1−armed)·(0.88–0.97) at KH ∈
+{10³,10⁴,10⁵,10⁶}, dv-independent across 2⁻²³/2⁻¹⁷/2⁻¹⁴ (components lens; exact integer
+replica of the shipped tier: `arm_sections` + `arm_pair`'s integer setup + `dioph::first_hit`
+on a `make_belt` cell at ρ = B = 3.34×10⁻⁶ AU, 2,000 bodies, a-window 10⁻⁴/10⁻⁵ AU, seeds
+20261018/777; dv=0 bit-identical, 0/240,000 pairs).** The beat-resident record (od 1) dies
+on the slack: at L ≤ 10⁴ passages the slack is vacuous (p50 ≈ pi/5, the rotation has not
+approached the window); at the first meaningful horizon L = 10⁵ it is p50 **2.7 window
+widths** and one quantum kick drifts it by **2.0 widths** (drift/slack p50 0.8) — the
+identity behind both classes: δd p50 = 2.4×10⁴ ticks per quantum kick = 0.44·w in this
+fat-window class, ~10³·w in the thin class (1a29's w ≈ 23). The leak-gated skip (od 2) dies
+with it: certified-safe-then-kicked pairs leak at ~2×10⁻³ per kick-set flat in 1/8/64 kicks
+(≈ 2× the re-roll rate, no accumulation structure), so a 10⁻⁶ budget buys ~0 skipping.
+**What survives a kick, measured: the float window w (δw p50 < 1 tick on Cross sections —
+checker: tail max ≈ 0.14·w per quantum kick in the same belt class, so tail soundness of a
+cached w is unmeasured), the section shape (0 changes), the candidate set (c9c7). What that
+buys: the shipped 1,394 ns
+eval (1a29's 1.13–1.42 µs reproduced) is 72% float section reconstruction, all of it
+kick-stable — cache the section per pair, maintain (c0, d, pi) by the kick's exact integer
+deltas, decide with `first_hit`: 416 ns/pair/kick measured, a 3.4× cut (355 → ~105 cores in
+1a29's units), exactness-preserving (same integers, same decision). The row's floor this
+establishes: one integer re-decision per candidate pair per kick is information-forced (the
+re-roll is total), so below ~100 ns/pair/kick the row is a candidate-density question
+(pairs ∝ ρ·density), not a certificate question. Next constant lever, named and unpriced:
+`first_hit`'s u128 arithmetic (all section values < 2⁶³ — a u64 port). The Full-section
+corner (nearly identical orbits — keys fleets; 0/100,000 in the author's mix) was measured
+by the checker on a one-orbit formation (identical a, e, ϖ; uniform λ): the kill extends
+there, stronger — the pre-kick due is "never" for every pair (d = 0, armed 0/240,000) and
+one quantum kick flips 2.27×10⁻¹ of pairs on at KH = 10⁶ (δd = a full random residue), so
+no beat record exists to store at all; but the cache lever does NOT extend: δw p50
+2.1×10⁴ = 0.32·w per kick, and 26% of pairs change section shape at 2⁻¹⁷.**
+*[Checker 2, 20261018 (blind): regen bit-identical on all physics modes (timing 1,365–1,372 ns,
+within clock noise of the 1,394 quoted). Two corrections to the letter, kill unaffected: (1) the
+"~10³·w thin class" is 1a29's unit arithmetic, not an in-crate class — c₀ ≤ v bounds w ≥ ρ/v,
+so the design-reach floor is ~2–4×10⁴ ticks; measured at the thinnest corner I could build
+(a = 1, σ_e 0.3, 10⁻³ cell): w p50 3.8×10⁴, δd/w ≈ 0.19, re-roll ratio 0.99–1.03, drift/slack
+1.17, leak 0.18 at L = 10⁵ — the kill holds there by measurement. (2) the Full-corner flip
+constant is formation-dependent: my formation (e 0.05) flips 4.5×10⁻¹ at KH = 10⁶ with δw p50
+0.39·w — same verdict (nothing to store; no cache). Wide sections: 0 even at σ_e 0.3 — P6's
+branch stays unpopulated at the design reach.]*
+
+
+**[20261018-1530-scout-08d0, scout] Direction 1 (the beat-resident pair record) is
+answered NO-GO at the design reach, and the epoch rule (direction 2) gets its
+deep-beat law: exact-integer rotation toy on the 1a29 constants (w = 23 ticks,
+d in [1.5, 6]x10^5, C = 2.3x10^7 so mean first-hit = 10^6; u128 phases at
+2^-25 ticks, kicks exact powers of two; 2,500 silent pairs, 10.7% censored,
+slack-keep violations 0 at every arm).** The sound-keep slack S = min_{j<k}
+(m_j - w/2)/j is three-distance-class - median S ~ 0.48*C/k^2 (ratio to C/k:
+8.5x10^-7; binding j* near k, P(j* < 0.2k) = 3.1%) - so it sits ~10^3x below
+the quantum for deep pairs: **keep-fraction 1.8% at the 2^-23 quantum (6.8%
+even at 2^-26; the closed form k* = sqrt(0.48*C/dd) ~ 1.8x10^4 predicts the
+measured survival)** - the record recomputes 98.2% of pairs per kick, no
+cheaper than wholesale. But the re-roll (P(k'<k) = 0.45-0.47, dv-independent
+across 2^-26..2^-14, 1a29 reproduced) randomises the DEEP book only:
+flips-ON into H <= 128 are ~0 (H = 4096: 10^-3-class) and the epoch sim (256
+quantum kicks, exact re-arm every E; a kick cannot create a hit at step j
+until j*dd reaches m_j - w/2): [Checker 20261018, correcting this
+entry's headline against its own held-out log: "0 missed to E = 256" is
+seed-1 only — the run's own seeds 2 and 77 leak at E = 256 (1/800 and 3/800
+grazer pairs, 54 and 183 missed conjunctions on them), and two further draws
+give 1/800 and 2/800: pooled ~3x10^-4 missed conjunctions per pair per kick
+at E = 256 (7 grazer pairs of 3,200), clustered as the grazer law predicts.
+Zero holds at every E <= 64 on all draws [95% CI <= 5x10^-6] and at E = 128
+on the one draw run [<= 1.5x10^-5]: the knee is between 128 and 256, not 256
+and 1024; E = 64 -> ~5.5 cores, E = 128 -> ~2.8. The turn-on arms (E =
+1024/4096, train 256 kicks, effectively no re-arm) give 0.29 -> 1.07 missed
+conjunctions per pair, 17/800 -> 80/800 pairs, per-kick hazard 1.1x10^-3 ->
+4.2x10^-3 ~ the uniform phase hazard Ew/C (the entry's "2Ew/C = 4.1x10^-3 at
+E = 4096" is Ew/C; factor-2 slip), linear in E. Frontier: cost ~ 1/E, leak 0
+to the knee then ~Ew/C: **at a leak budget of 5x10^-6 take E = 64 (355-core
+row -> ~5.5); the knee placement and the eps dial need the pooled multi-seed
+curve, not seed 1 alone.** Instrument footnote: Xo(seed|1) aliases seeds 2k
+and 2k+1 (seeds 2 and 3 share a stream; this run's 1/2/77 are distinct).]
+Cross-field: the per-pair
+certificate class is empty for the same reason EDMD lazy invalidation and KDS
+flight-plan repair fail here (the perturbation touches every cell-mate's pair
+step below the Diophantine slack), while the aerospace practice (re-screen on
+a cadence against an explicit probability budget, not per-maneuver) is the
+shape that survives [UNVERIFIED at source]. Constants (C, w, d, dd in ticks)
+are wiki-sourced from 1a29, not re-derived from shipped code - the laws, not
+the absolute E*, transfer. The author's pre-registered P4 model (uniform
+re-roll => leak ~ flip-on accumulation) MISSED and is corrected by the
+measurement: the near-horizon is protected by the already-paid walk.
+
+*[Prior best retained below.]*
 
 **[20261018-1126-second-20261018-1025-scout-fbf9-1a29] The silver's kill test is flown
 on the shipped tier and it KILLS the due-band rule: at the design reach
@@ -127,12 +218,39 @@ belt anchors: unchanged by these runs, which measured the dilute belt's per-kick
 work only. See git history of this page for their full text.]*
 ## Refuted
 
+- **"A beat-resident pair record could certify 'no early hit post-kick'
+  without paying first_hit" (open direction 1's premise, opened by 1a29):
+  the certificate class is empty at the quantum - the sound-keep slack is
+  S ~ 0.48*C/k^2 (three-distance class, binding at the deepest convergent)
+  and only 1.8% of deep-beat silent pairs carry S above one 2^-23 kick (6.8%
+  at 2^-26); 98.2% recompute per kick = the wholesale cost
+  (20261018-1530-scout-08d0).**
+- **"The uniform re-roll makes the blind-span leak ~ the flip-on rate" (the
+  same run's own pre-registered P4 model, and its second draft E^2*dd/C): the
+  re-roll randomises the deep book only; a kick cannot create a hit at step
+  j until the drift since the last re-arm reaches m_j - w/2, so measured
+  misses are 0 at every cadence <= 64 (pooled over 4 draws, CI <= 5x10^-6)
+  while E = 256 leaks ~3x10^-4/pair/kick on grazers (the run's own held-out
+  seeds included — checker); beyond the knee the hazard
+  is the uniform Ew/C, linear in E - orders below the flip-on accumulation
+  everywhere below the knee (20261018-1530-scout-08d0).**
 - **"After a belt-quantum kick the pairs that must be re-checked are the
   near-horizon time-window band (0.034 arm-evals/body/kick at 10⁴, ∝n²)"** — the
   shipped-tier flight: silent→armed flips at 5–7×10⁻⁶ per candidate per kick,
   dv-independent, every flip-on outside the band, ~14% with real events
   (20261018-1126-second-20261018-1025-scout-fbf9-1a29). The band constant itself is
   real (conjunction dues reproduce it) — it is just not the re-check set.
+- **"A beat-resident pair record could certify 'no early hit post-kick' without paying
+  first_hit" (od 1 as stated, and every margin/slack form of it)**: the slack the record
+  would live in does not exist — at L = 10⁵ passages it is p50 2.7 window widths and one
+  quantum kick drifts it by 2.0 (drift/slack 0.8; the identity δd = 0.44·w fat-class,
+  ~10³·w thin-class); at L ≤ 10⁴ it is vacuous (pi/5 — no window approach). The due itself
+  fully decorrelates: flips = armed·(1−armed)·0.88–0.97 at every horizon, dv-independent
+  over 64× (20261018-1530-components-e87d).
+- **"Leak-gated slack between kicks" (od 2 re-scoped, quant-c9c7's branch at design reach)**:
+  the leak of a certified-safe pair under quantum kicks is ~2×10⁻³ per kick-set, flat in
+  1/8/64 kicks — the leak *is* the re-roll rate, so no budget above the news rate buys any
+  skipping; the sound re-decision per pair per kick is forced (20261018-1530-components-e87d).
 - **"The churn term falls ~4 orders and the row's CPU closes on cd3b's stream terms
   alone"** (same run): sound per-kick re-arm on the shipped representation is
   wholesale Θ(n−1) — 355 cores per 10⁴-cell occupancy at the checker's clock; the
@@ -158,18 +276,45 @@ work only. See git history of this page for their full text.]*
   re-decision at the due (20261018-1025-scout-fbf9).
 
 ## Open directions
-1. **A representation that stores the beat** (new, from the refutation): the re-roll
-   exists because the first in-window due is recomputed (first_hit) instead of being
-   carried as (k, d) state — k·δd is derivable at kick time from stored d and the
-   kick's δd, so a beat-resident pair record could certify "no early hit post-kick"
-   without paying first_hit. The re-roll pairs sit at their cell's typical |Δn|
-   (median 7.3×10⁻⁷ rad/tu at n = 10⁴, 4.4×10⁻⁶ at n = 10⁵ — scaling with the cell
-   width), so no cheap Δn cut replaces it. One design step; the leak number to beat
-   is ~10⁻⁶ real events per candidate per kick.
-2. **Leak-gated slack (quant-c9c7's branch, re-scoped)**: skipping re-arm between
-   kicks is sound only against an explicit event-loss budget; at the design reach
-   the measured leak is the gate. Re-run their slack instrument at ρ = B to get the
-   skippable fraction in the deep-beat regime.
+<<<<<<< main
+1. ~~**A representation that stores the beat**~~ **Measured dead** (20261018-1530-components-e87d,
+   see Refuted): the slack the record needs does not exist (2.7 window widths at the first
+   meaningful horizon, drift 2.0 widths per quantum kick), and the due fully decorrelates per
+   kick (flips = armed·(1−armed) at every horizon). What replaces it, measured the same run:
+   the float section (72% of the 1,394 ns eval) is kick-stable on Cross (δw p50 < 1 tick,
+   shape 0/240,000; checker: tail δw ≤ 0.14·w, Full formations δw p50 0.32·w — Cross-class
+   lever, tail soundness unmeasured)
+   — **cache the section per pair, maintain (c0, d, pi) by exact integer deltas, decide with
+   `first_hit`: 416 ns/pair/kick, 3.4× (355 → ~105 cores)**; then the u64 `first_hit` port
+   (all section values < 2⁶³), unpriced. Below ~100 ns/pair/kick the row is a
+   candidate-density question (pairs ∝ ρ·density), not a certificate question.
+2. ~~**Leak-gated slack between kicks**~~ **Measured dead** (20261018-1530-components-e87d):
+   the leak of a certified-safe pair IS the re-roll rate (~2×10⁻³/kick-set, flat in 1/8/64
+   kicks), so no event-loss budget above the news rate buys skipping; the per-kick re-decision
+   is forced. The Full-section corner (keys fleets, 0/100,000 in the measured cell) was
+   measured by the checker (one-orbit formation): the kill extends — pre-kick due "never"
+   for all pairs, one quantum kick flips 2.27×10⁻¹ at KH = 10⁶. The corner is closed.
+=======
+1. **CLOSED NO-GO by 20261018-1530-scout-08d0:** the per-pair beat-resident
+   slack certificate is empty at the quantum (1.8% class; S ~ 0.48*C/k^2,
+   closed-form boundary k* = sqrt(0.48*C/dd)). What survives of it: the slack
+   S as a CLASSIFIER - pairs with k < k* (~1.8x10^4 at the quantum; their
+   dues are near, the armed-list population b509 measured at 1.02-1.16
+   us/arm) carry slack soundly, and k* moves with reach and kick scale as a
+   dimensionless door, exactly as the regime boundary rho* does.
+2. **Leak-gated slack, now with its measured cadence law
+   0 misses at every cadence E <= 64 (pooled over 4 independent draws, CI
+   <= 5x10^-6 per pair per kick; E = 128 zero on the one draw run) while
+   E = 256 leaks ~3x10^-4/pair/kick on grazers (checker-corrected: the
+   author's seed-1-only 0 and CI <= 1.5x10^-5 are contradicted by the run's
+   own held-out seeds), knee between 128 and 256, then per-kick hazard ~
+   Ew/C linear in E; cost ~ 1/E - so E = 64-128 cuts the 355-core row to
+   ~5.5-2.8. What
+   remains: freeze the leak budget eps (the integrator's decision - what a
+   missed b <= B conjunction costs the game, with 1a29's ~10^-6/cand/kick as
+   the number to beat), then one wiring step on the shipped armed-list
+   cadence.
+>>>>>>> 20261018-1530-scout-08d0
 3. **The mint term's semantics**: does every b≤5×10⁵-m conjunction re-mint a key
    (1.87 cores at rtf 100), or does efd4's intern hold it near zero? One flight
    with a mint counter on the live anchor decides.
@@ -306,3 +451,5 @@ flip *fractions*, not absolute armed counts, carry the churn findings.
 - 20261018-0543-library-5567 (silver): the fleet row dead by representation: the Fermi-frame fleet carries F = 10⁵ × 10⁴ at ≤ ~1 core (0.89 µs/member/game-s measured, member-flat slices, scale-free epoch composition); dissolution at spread > r_p/32 measured; three wiring debts named.
 - 20261018-1025-quant-c9c7 (quant): the churn constant measured — 0.484·N candidates/kick at the belt mix, window saturated by the e-tail (fe6b's 0.0346·n is the unsaturated regime, X ≈ 1.5); rescans 10⁷–10⁹ cores at 10⁹; slack 92.5% skippable, 0 violations at the quantum (smooth-regime ρ; see 1a29 for the design-reach leak).
 - 20261018-1126-second-20261018-1025-scout-fbf9-1a29 (second, this run): the kill test flown on the shipped tier — the due-band rule KILLED: silent→armed flips 5–7×10⁻⁶/candidate/kick at the quantum, dv-independent (deep-beat re-roll, w ≈ 23 ticks ≪ d ≈ 3×10⁵), all flip-ons outside the band, ~14% with real events; sound per-kick re-arm is wholesale Θ(n−1) (355 cores/10⁴-cell at the checker clock); toy's conjunction-band constant, n−1 wholesale, bit-stability, clean dwell, 1.2 µs/arm all confirmed; regime boundary ρ\* ≈ 4.4×10⁻⁵ AU reconciles quant-c9c7 (ρ ≫ ρ\*, smooth) with the design reach (ρ ≪ ρ\*, re-roll).
+- 20261018-1530-components-e87d (components, awaiting grade): od 1 and od 2 measured dead — the due fully decorrelates per quantum kick (flips = armed·(1−armed)·0.88–0.97, dv-independent 64×, 1a29's regime reproduced), slack 2.7w vs drift 2.0w at L=10⁵, stale-record leak ~2×10⁻³/kick flat; survives: δw < 1 tick and shape 0/240,000 → the 72% float section is cacheable, 1,394 → 416 ns/pair/kick (3.4×, 355 → ~105 cores), then the u64 first_hit port; below that the row is candidate density.
+- 20261018-1530-scout-08d0 (scout, this run): direction 1 answered NO-GO - slack S ~ 0.48*C/k^2, 1.8% survival at the quantum; the epoch rule's law measured: 0 blind-span misses to E <= 64 pooled (E = 256 leaks ~3x10^-4/pair/kick on grazers - checker-corrected from the seed-1-only 0), knee between 128 and 256, then ~Ew/C linear; 355 cores -> ~5.5-2.8 at E = 64-128; the deep-book re-roll reproduced dv-independent (P(k'<k) 0.45-0.47).

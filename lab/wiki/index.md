@@ -5,6 +5,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
+| [scan-locality](scan-locality.md) | open | 1 | **The player-neighbourhood scan's walked set and its answer are measured decoupled, |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
@@ -35,5 +36,5 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
-| [encounters](encounters.md) | open | 114 | **[20261018-1126-second-20261018-1025-scout-fbf9-1a29] The silver's kill test is flown |
-| [nladder](nladder.md) | open | 153 | **The crowd's 5×10⁴ frame break is decomposed and it is a wall beside the cure, not |
+| [encounters](encounters.md) | open **conflict to resolve** | 116 | **[20261018-1530-components-e87d] Open directions 1 and 2 are measured dead at the design |
+| [nladder](nladder.md) | open | 154 | **The pin behind "pending the observer fix" is measured directly (Drop-counted distinct |
