@@ -1,0 +1,53 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..57167bfd 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,21 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+-}
+-
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// (resident bytes now, the process's peak resident bytes) from /proc: the Linux instrument for this run
++/// (the shipped `proc_pid_rusage` is macOS-only; same two numbers, resident instead of physical footprint).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    let mut now = 0u64;
++    let mut hwm = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(rest) = line.strip_prefix("VmRSS:") {
++                now = rest.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++            } else if let Some(rest) = line.strip_prefix("VmHWM:") {
++                hwm = rest.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++            }
++        }
+     }
+-    (buf[9], buf[30])
++    (now, hwm)
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -88,6 +89,14 @@ fn main() {
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
++        // Print-only probe (this run): the frame, the wall, the held scans, the game time and the resident memory.
++        if f >= 60 {
++            let (rss_f, hwm_f) = footprint();
++            println!(
++                "probe f={f} ms={:.2} ev={} held={} now={} rss={:.0} hwm={:.0}",
++                took.as_secs_f64() * 1e3, frame.events, p.u.held_scans(), p.u.now, rss_f as f64 / 1e6, hwm_f as f64 / 1e6
++            );
++        }
+         last_stats = p.u.stats;
+         ran += 1;
+         let rec = p.u.rec(p.player);

@@ -1,0 +1,11 @@
+Working...
+Check complete. Verdict written to `lab/results/20261018-1717-fermi-dcf1/check2.md`: **Grade: gold**.
+
+**What I did**
+
+- **Reproduced**: The patch is genuinely print-only (`/proc` footprint + one probe line/frame). Found that regen.sh's rename guard makes its printed table re-read the *author's* committed logs — so I analyzed the runner's fresh underscore-named flights directly: every slope, HWM pair, and over-12 count matches (held_max elastic 13→17, 187→223, the load-elasticity 2403's checker already registered).
+- **Attacked (3 arms outside the grid)**: 5×10⁵ burn — one rung beyond, slope 0.024 vs the law's ~81.5 MB/game-s, held 19; 3×10⁵ burn 32 s — crosses two doll switches, slope 0.008, held 175 and drained; 3×10⁵ coast 16 s — the original coast law's own arm, 0.004 vs 3.4. Also closed the instrument's one blind spot: at 3×10⁵ (~702 MB live catalogue under a 705 MB peak), a first 67 MB full-K Vec must show as an HWM step; max per-frame step in every log is 1 MB — no full-K materialization ever happens on this path.
+- **Found the real mechanism** (the author's one substantive error): git shows no engine commit since 14 Oct, so the dossier's "different code eras / row-set-deletion merged" story is impossible — acf2 measured the (K+38)·224 law the *same day* on the same engine, but on their patch's **formation scene** (scanprobe: crowd on the player's circle), while the ladder's radial index caps candidates at ~300 locals ⇒ ~67 kB/Vec — exactly 2403's checker's ~52 kB/scan and this run's flat HWM. The inference chained a formation-scene byte law onto a ladder-scene rate. Consequence the author missed: the formation-scene law survives; the fence's byte-counting stays load-bearing there.
+- **Corrected the author's page** in `wiki/nladder.md` (era→scene mechanism, regen-guard caveat, surviving formation domain); nothing else in the run folder touched, no git writes, adversarial artifacts in `/tmp/dcf1-check/`.
+
+Gold stands on: pre-registered kill criterion fired (predictions.md 17:23:06, before all flights), premise shown wrong by ~10³× on the board's #1 question, re-ranking (build 2,339–2,459 B/body + gather 5.0–5.1 µs/seen linear to 5×10⁵) verified, adoptable in one step.
