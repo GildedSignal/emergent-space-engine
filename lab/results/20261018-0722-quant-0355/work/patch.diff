@@ -1,0 +1,796 @@
+diff --git a/crates/space/examples/compmemo.rs b/crates/space/examples/compmemo.rs
+new file mode 100644
+index 00000000..cc1483d3
+--- /dev/null
++++ b/crates/space/examples/compmemo.rs
+@@ -0,0 +1,310 @@
++//! Compile-memo probe (lab run 20261018-0722-quant-0355). Replays a captured
++//! `Orbit::compile` key stream (32 B/key, written by ES_KEYCAP) and measures:
++//! (1) the compile's split — `OrbitShape::bound` (shared quadrature) vs the
++//! `from_shape` glue — which bounds any shape-memo delete; (2) the exactness of
++//! `from_shape(exact key, class shape)` against the exact compile and against the
++//! shipped `QuantizedMemo` (the quantized-key arm); (3) the memo hit prices.
++//! Controls: bit-identity of the identity path; a wrong-class negative.
++//!
++//! cargo run --release -p emergent-space --example compemo -- keys.bin [rounds]
++use emergent_space::orbit::{probe_bound, Orbit, OrbitKey, QuantizedMemo, ShapeMemo};
++use emergent_space::orbit::PROBE_RELAXED;
++use emergent_space::scaled::Scalar;
++use std::collections::HashMap;
++use std::sync::Arc;
++use std::time::Instant;
++
++fn scalar_f64(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi((s.exponent() as i32) - 62)
++}
++
++fn read_keys(path: &str) -> Vec<OrbitKey> {
++    let raw = std::fs::read(path).expect("keys file");
++    let mut out = Vec::with_capacity(raw.len() / 32);
++    for c in raw.chunks_exact(32) {
++        let k = u64::from_le_bytes(c[0..8].try_into().unwrap());
++        let k_exp = i16::from_le_bytes(c[8..10].try_into().unwrap());
++        let sig = i64::from_le_bytes(c[10..18].try_into().unwrap());
++        let exp = i16::from_le_bytes(c[18..20].try_into().unwrap());
++        let null = c[20] != 0;
++        let gap = if c[21] != 0 {
++            Some(Scalar::raw(
++                i64::from_le_bytes(c[22..30].try_into().unwrap()) as i128,
++                62 - i16::from_le_bytes(c[30..32].try_into().unwrap()) as i32,
++            ).expect("gap"))
++        } else {
++            None
++        };
++        out.push(OrbitKey {
++            periapsis: Scalar::raw(sig as i128, 62 - exp as i32).expect("periapsis"),
++            k,
++            k_exponent: k_exp,
++            null,
++            gap,
++        });
++    }
++    out
++}
++
++struct Inc {
++    period: f64,
++    tau: f64,
++    advance: f64,
++}
++fn inc(o: &Orbit) -> Inc {
++    Inc {
++        period: scalar_f64(o.period().unwrap()),
++        tau: scalar_f64(o.proper_period().unwrap()),
++        advance: scalar_f64(o.advance().unwrap()),
++    }
++}
++
++fn pct(mut v: Vec<f64>, p: f64) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[(((v.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let path = args.get(1).expect("keys.bin path");
++    let rounds: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3);
++    let all = read_keys(path);
++    let keys: Vec<OrbitKey> = all.iter().copied().filter(|k| Orbit::compile(*k).is_ok()).collect();
++    let skipped = all.len() - keys.len();
++    println!("census stream={} skipped_compile_err={} ok={}", all.len(), skipped, keys.len());
++
++    // ---- identity / class census ----
++    let mut exact_keys = std::collections::HashSet::new();
++    let mut shape_keys = std::collections::HashSet::new();
++    let mut classes: HashMap<u64, OrbitKey> = HashMap::new();
++    let mut class_of: Vec<u64> = Vec::with_capacity(keys.len());
++    let mut nonperiodic = 0usize;
++    for k in &keys {
++        exact_keys.insert(*k);
++        match Orbit::probe_class_bits(*k) {
++            Ok(bits) => {
++                classes.entry(bits).or_insert(*k);
++                class_of.push(bits);
++            }
++            Err(_) => {
++                nonperiodic += 1;
++                class_of.push(u64::MAX);
++            }
++        }
++    }
++    for k in &keys {
++        // ShapeKey identity via a fresh compile's shape key.
++        if let Ok(o) = Orbit::compile(*k) {
++            shape_keys.insert(o.shape().key());
++        }
++    }
++    let mut hist: HashMap<u64, usize> = HashMap::new();
++    for b in &class_of {
++        if *b != u64::MAX {
++            *hist.entry(*b).or_default() += 1;
++        }
++    }
++    let hits: usize = hist.values().map(|c| c.saturating_sub(1)).sum();
++    let unique_rate = 1.0 - hist.len() as f64 / exact_keys.len().max(1) as f64;
++    println!("census unique_stream_class_hit_rate={:.4}", unique_rate);
++    println!(
++        "census distinct_keys={} distinct_shapekeys={} classes={} class_hit_rate={:.4} nonperiodic_classless={}",
++        exact_keys.len(),
++        shape_keys.len(),
++        hist.len(),
++        hits as f64 / keys.len().max(1) as f64,
++        nonperiodic
++    );
++    // Exact ShapeMemo reproduction anchor (588d): repeats ~ 0.
++    let mut sm = ShapeMemo::default();
++    for k in keys.iter().take(keys.len()) {
++        let _ = sm.get(*k);
++    }
++    println!("census exact_shapememo_hits={} of {} (expect ~0)", sm.hits, keys.len());
++
++    // ---- class representative shapes (first-seen key per class) ----
++    let mut rep_shape: HashMap<u64, Arc<emergent_space::orbit::OrbitShape>> = HashMap::new();
++    for (k, b) in keys.iter().zip(&class_of) {
++        if *b != u64::MAX && !rep_shape.contains_key(b) {
++            if let Ok(s) = probe_bound(*k) {
++                rep_shape.insert(*b, s);
++            }
++        }
++    }
++    println!("census rep_shapes_built={}", rep_shape.len());
++
++    // ---- control D: identity path bit-identity ----
++    let mut mism = 0usize;
++    for k in keys.iter().step_by((keys.len() / 500).max(1)) {
++        let a = Orbit::compile(*k).unwrap();
++        let s = probe_bound(*k).unwrap();
++        let d = Orbit::probe_from_shape(*k, s).unwrap();
++        if a.period() != d.period() || a.proper_period() != d.proper_period() || a.advance() != d.advance() {
++            mism += 1;
++        }
++    }
++    println!("control identity_path_bit_mismatches={} (expect 0)", mism);
++
++    // ---- timing arms, interleaved rounds ----
++    let mut qm = QuantizedMemo::with_capacity(4096);
++    for k in &keys {
++        let _ = qm.get(*k);
++    }
++    let qm_hits_warm = qm.hits;
++    let mut t_compile = vec![0f64; rounds];
++    let mut t_bound = vec![0f64; rounds];
++    let mut t_hit_c = vec![0f64; rounds];
++    let mut t_hit_b = vec![0f64; rounds];
++    PROBE_RELAXED.store(true, std::sync::atomic::Ordering::Relaxed);
++    let mut sink = 0u64;
++    for r in 0..rounds {
++        let t0 = Instant::now();
++        for k in &keys {
++            if let Ok(o) = Orbit::compile(*k) {
++                sink += o.period().unwrap().significand() as u64;
++            }
++        }
++        t_compile[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++        let t0 = Instant::now();
++        for (k, b) in keys.iter().zip(&class_of) {
++            if let Some(s) = rep_shape.get(b) {
++                if let Ok(o) = Orbit::probe_from_shape(*k, s.clone()) {
++                    sink += o.period().unwrap().significand() as u64;
++                }
++            }
++        }
++        t_hit_c[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++        let t0 = Instant::now();
++        for k in &keys {
++            if let Ok(o) = qm.get(*k) {
++                sink += o.period().unwrap().significand() as u64;
++            }
++        }
++        t_hit_b[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++        let t0 = Instant::now();
++        for k in &keys {
++            if let Ok(s) = probe_bound(*k) {
++                sink += s.key().k;
++            }
++        }
++        t_bound[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++    }
++    PROBE_RELAXED.store(false, std::sync::atomic::Ordering::Relaxed);
++    let med = |v: &Vec<f64>| {
++        let mut s = v.clone();
++        s.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        s[s.len() / 2]
++    };
++    println!(
++        "timing ns/call median compile={:.0} bound={:.0} glue_implicit={:.0} hit_C_lookup_glue={:.0} hit_B_quantmemo={:.0} sink={}",
++        med(&t_compile),
++        med(&t_bound),
++        med(&t_compile) - med(&t_bound),
++        med(&t_hit_c),
++        med(&t_hit_b),
++        sink % 2
++    );
++    println!("timing quantmemo_warm_hits={} (expect ~stream)", qm_hits_warm);
++
++    // ---- exactness census: A exact vs C exact-key+class-shape vs B quantized-key ----
++    PROBE_RELAXED.store(true, std::sync::atomic::Ordering::Relaxed);
++    let (mut dp_c, mut dtau_c, mut dadv_c) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut dp_b, mut dtau_b, mut dadv_b) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut dp_w, mut dtau_w, mut dadv_w) = (Vec::new(), Vec::new(), Vec::new());
++    let mut pred = Vec::new();
++    let mut c_ok = 0usize;
++    let mut c_err = 0usize;
++    let mut wrong_bits: Vec<u64> = Vec::new();
++    for (k, b) in keys.iter().zip(&class_of) {
++        let a = Orbit::compile(*k).unwrap();
++        let ia = inc(&a);
++        if *b != u64::MAX {
++            if let Some(s) = rep_shape.get(b) {
++                match Orbit::probe_from_shape(*k, s.clone()) {
++                    Ok(c) => {
++                        let ic = inc(&c);
++                        dp_c.push((ic.period - ia.period).abs() / ia.period);
++                        dtau_c.push((ic.tau - ia.tau).abs() / ia.tau);
++                        dadv_c.push((ic.advance - ia.advance).abs() / (ia.advance.abs() + 1e-300));
++                        // predicted: |dlnP/dlnk| * |k-krep|/k, krep = rep key of the class
++                        let kr = classes[b];
++                        let kf = scalar_f64(k.shape().unwrap());
++                        let krf = scalar_f64(kr.shape().unwrap());
++                        let kk = (kf + krf) / 2.0;
++                        let sens = 3.0 * kk / (2.0 * kk - 1.0);
++                        pred.push(sens * (kf - krf).abs() / kf);
++                        c_ok += 1;
++                    }
++                    Err(_) => c_err += 1,
++                }
++            }
++            if let Some(s) = wrong_for(b, &rep_shape) {
++                if let Ok(w) = Orbit::probe_from_shape(*k, s.clone()) {
++                    let iw = inc(&w);
++                    dp_w.push((iw.period - ia.period).abs() / ia.period);
++                    dtau_w.push((iw.tau - ia.tau).abs() / ia.tau);
++                    dadv_w.push((iw.advance - ia.advance).abs() / (ia.advance.abs() + 1e-300));
++                }
++            }
++        }
++        if let Ok(q) = qm.get(*k) {
++            let ib = inc(&q);
++            dp_b.push((ib.period - ia.period).abs() / ia.period);
++            dtau_b.push((ib.tau - ia.tau).abs() / ia.tau);
++            dadv_b.push((ib.advance - ia.advance).abs() / (ia.advance.abs() + 1e-300));
++        }
++    }
++    PROBE_RELAXED.store(false, std::sync::atomic::Ordering::Relaxed);
++    wrong_bits = vec![]; // silence
++    let _ = wrong_bits;
++    println!(
++        "exactness C(exact key+class shape) n={} errs={} period p50={:.3e} p99={:.3e} max={:.3e} tau p50={:.3e} adv p50={:.3e} med/pred={:.2}",
++        c_ok,
++        c_err,
++        pct(dp_c.clone(), 0.5),
++        pct(dp_c.clone(), 0.99),
++        dp_c.iter().cloned().fold(0./0., f64::max),
++        pct(dtau_c.clone(), 0.5),
++        pct(dadv_c.clone(), 0.5),
++        pct(dp_c.clone(), 0.5) / pct(pred.clone(), 0.5)
++    );
++    println!(
++        "exactness B(quantized key, shipped arm) n={} period p50={:.3e} p99={:.3e} tau p50={:.3e} adv p50={:.3e}",
++        dp_b.len(),
++        pct(dp_b.clone(), 0.5),
++        pct(dp_b.clone(), 0.99),
++        pct(dtau_b.clone(), 0.5),
++        pct(dadv_b.clone(), 0.5)
++    );
++    if !dp_w.is_empty() {
++        println!(
++            "exactness NEGATIVE(wrong-class shape) n={} period p50={:.3e} max={:.3e} tau p50={:.3e}",
++            dp_w.len(),
++            pct(dp_w.clone(), 0.5),
++            dp_w.iter().cloned().fold(0./0., f64::max),
++            pct(dtau_w.clone(), 0.5)
++        );
++    }
++    println!(
++        "exactness pred(class k-quantum x 3k/(2k-1)) p50={:.3e} p99={:.3e}",
++        pct(pred.clone(), 0.5),
++        pct(pred.clone(), 0.99)
++    );
++}
++
++/// A shape from a DIFFERENT class (the negative control): the nearest other class id.
++fn wrong_for<'a>(b: &u64, reps: &'a HashMap<u64, Arc<emergent_space::orbit::OrbitShape>>) -> Option<&'a Arc<emergent_space::orbit::OrbitShape>> {
++    let mut best: Option<(u64, &Arc<_>)> = None;
++    for (b2, s) in reps.iter().take(64) {
++        if b2 != b {
++            let d = (*b2 as i64 - *b as i64).unsigned_abs();
++            if best.as_ref().map(|(bd, _)| d < *bd).unwrap_or(true) {
++                best = Some((d, s));
++            }
++        }
++    }
++    best.map(|(_, s)| s)
++}
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..e711d14a 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -549,6 +549,7 @@ impl Orbit {
+         &self.shape
+     }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
++        Self::capture(key);
+         if key.null {
+             return Err(Error::NotPeriodic);
+         }
+@@ -578,6 +579,60 @@ impl Orbit {
+         }
+         Self::from_shape(key, Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
+     }
++}
++
++// ================= probe instrumentation (lab run 20261018-0722-quant-0355) =================
++// Print-only / bench-only additions: the flight path is byte-identical unless a bench
++// explicitly opts in (PROBE_RELAXED) or the capture env var is set.
++#[doc(hidden)]
++pub static PROBE_RELAXED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++
++#[doc(hidden)]
++pub fn probe_bound(key: OrbitKey) -> Result<std::sync::Arc<OrbitShape>> {
++    Ok(std::sync::Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
++}
++
++impl Orbit {
++#[doc(hidden)]
++    pub fn probe_from_shape(key: OrbitKey, shape: std::sync::Arc<OrbitShape>) -> Result<Self> {
++        Self::from_shape(key, shape)
++    }
++
++    /// Capture the exact key stream (32 B/key: k, k_exp, peri sig/exp, null, gap) for offline
++    /// bench replay. Enabled only by ES_KEYCAP=<path>; writes never touch computation.
++    fn capture(key: OrbitKey) {
++        use std::io::Write;
++        thread_local! {
++            static CAP: std::cell::RefCell<Option<Option<std::fs::File>>> =
++                std::cell::RefCell::new(None);
++        }
++        CAP.with_borrow_mut(|slot| {
++            if slot.is_none() {
++                *slot = Some(std::env::var("ES_KEYCAP").ok().and_then(|p| {
++                    std::fs::OpenOptions::new().create(true).append(true).open(p).ok()
++                }));
++            }
++            if let Some(f) = slot.as_mut().and_then(|o| o.as_mut()) {
++                let mut b = [0u8; 32];
++                b[0..8].copy_from_slice(&key.k.to_le_bytes());
++                b[8..10].copy_from_slice(&key.k_exponent.to_le_bytes());
++                b[10..18].copy_from_slice(&key.periapsis.significand().to_le_bytes());
++                b[18..20].copy_from_slice(&key.periapsis.exponent().to_le_bytes());
++                b[20] = key.null as u8;
++                if let Some(g) = key.gap {
++                    b[21] = 1;
++                    b[22..30].copy_from_slice(&g.significand().to_le_bytes());
++                    b[30..32].copy_from_slice(&g.exponent().to_le_bytes());
++                }
++                let _ = f.write_all(&b);
++            }
++        });
++    }
++
++#[doc(hidden)]
++pub fn probe_class_bits(key: OrbitKey) -> Result<u64> {
++    Ok(MemoCode::encode(key)?.shape_bits()?)
++}
+     /// Planted Newtonian force for the independent behaviour judge's negative control.
+     pub fn newtonian(key: OrbitKey) -> Result<Self> {
+         if key.null || !key.periodic() {
+@@ -605,7 +660,7 @@ impl Orbit {
+         })
+     }
+     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+-        if shape.key != ShapeKey::for_orbit(key)? {
++        if shape.key != ShapeKey::for_orbit(key)? && !PROBE_RELAXED.load(std::sync::atomic::Ordering::Relaxed) {
+             return Err(Error::Topology);
+         }
+         let q = key.compactness()?;
+diff --git a/crates/space/examples/compmemo.rs b/crates/space/examples/compmemo.rs
+new file mode 100644
+index 00000000..cc1483d3
+--- /dev/null
++++ b/crates/space/examples/compmemo.rs
+@@ -0,0 +1,310 @@
++//! Compile-memo probe (lab run 20261018-0722-quant-0355). Replays a captured
++//! `Orbit::compile` key stream (32 B/key, written by ES_KEYCAP) and measures:
++//! (1) the compile's split — `OrbitShape::bound` (shared quadrature) vs the
++//! `from_shape` glue — which bounds any shape-memo delete; (2) the exactness of
++//! `from_shape(exact key, class shape)` against the exact compile and against the
++//! shipped `QuantizedMemo` (the quantized-key arm); (3) the memo hit prices.
++//! Controls: bit-identity of the identity path; a wrong-class negative.
++//!
++//! cargo run --release -p emergent-space --example compemo -- keys.bin [rounds]
++use emergent_space::orbit::{probe_bound, Orbit, OrbitKey, QuantizedMemo, ShapeMemo};
++use emergent_space::orbit::PROBE_RELAXED;
++use emergent_space::scaled::Scalar;
++use std::collections::HashMap;
++use std::sync::Arc;
++use std::time::Instant;
++
++fn scalar_f64(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi((s.exponent() as i32) - 62)
++}
++
++fn read_keys(path: &str) -> Vec<OrbitKey> {
++    let raw = std::fs::read(path).expect("keys file");
++    let mut out = Vec::with_capacity(raw.len() / 32);
++    for c in raw.chunks_exact(32) {
++        let k = u64::from_le_bytes(c[0..8].try_into().unwrap());
++        let k_exp = i16::from_le_bytes(c[8..10].try_into().unwrap());
++        let sig = i64::from_le_bytes(c[10..18].try_into().unwrap());
++        let exp = i16::from_le_bytes(c[18..20].try_into().unwrap());
++        let null = c[20] != 0;
++        let gap = if c[21] != 0 {
++            Some(Scalar::raw(
++                i64::from_le_bytes(c[22..30].try_into().unwrap()) as i128,
++                62 - i16::from_le_bytes(c[30..32].try_into().unwrap()) as i32,
++            ).expect("gap"))
++        } else {
++            None
++        };
++        out.push(OrbitKey {
++            periapsis: Scalar::raw(sig as i128, 62 - exp as i32).expect("periapsis"),
++            k,
++            k_exponent: k_exp,
++            null,
++            gap,
++        });
++    }
++    out
++}
++
++struct Inc {
++    period: f64,
++    tau: f64,
++    advance: f64,
++}
++fn inc(o: &Orbit) -> Inc {
++    Inc {
++        period: scalar_f64(o.period().unwrap()),
++        tau: scalar_f64(o.proper_period().unwrap()),
++        advance: scalar_f64(o.advance().unwrap()),
++    }
++}
++
++fn pct(mut v: Vec<f64>, p: f64) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[(((v.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let path = args.get(1).expect("keys.bin path");
++    let rounds: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3);
++    let all = read_keys(path);
++    let keys: Vec<OrbitKey> = all.iter().copied().filter(|k| Orbit::compile(*k).is_ok()).collect();
++    let skipped = all.len() - keys.len();
++    println!("census stream={} skipped_compile_err={} ok={}", all.len(), skipped, keys.len());
++
++    // ---- identity / class census ----
++    let mut exact_keys = std::collections::HashSet::new();
++    let mut shape_keys = std::collections::HashSet::new();
++    let mut classes: HashMap<u64, OrbitKey> = HashMap::new();
++    let mut class_of: Vec<u64> = Vec::with_capacity(keys.len());
++    let mut nonperiodic = 0usize;
++    for k in &keys {
++        exact_keys.insert(*k);
++        match Orbit::probe_class_bits(*k) {
++            Ok(bits) => {
++                classes.entry(bits).or_insert(*k);
++                class_of.push(bits);
++            }
++            Err(_) => {
++                nonperiodic += 1;
++                class_of.push(u64::MAX);
++            }
++        }
++    }
++    for k in &keys {
++        // ShapeKey identity via a fresh compile's shape key.
++        if let Ok(o) = Orbit::compile(*k) {
++            shape_keys.insert(o.shape().key());
++        }
++    }
++    let mut hist: HashMap<u64, usize> = HashMap::new();
++    for b in &class_of {
++        if *b != u64::MAX {
++            *hist.entry(*b).or_default() += 1;
++        }
++    }
++    let hits: usize = hist.values().map(|c| c.saturating_sub(1)).sum();
++    let unique_rate = 1.0 - hist.len() as f64 / exact_keys.len().max(1) as f64;
++    println!("census unique_stream_class_hit_rate={:.4}", unique_rate);
++    println!(
++        "census distinct_keys={} distinct_shapekeys={} classes={} class_hit_rate={:.4} nonperiodic_classless={}",
++        exact_keys.len(),
++        shape_keys.len(),
++        hist.len(),
++        hits as f64 / keys.len().max(1) as f64,
++        nonperiodic
++    );
++    // Exact ShapeMemo reproduction anchor (588d): repeats ~ 0.
++    let mut sm = ShapeMemo::default();
++    for k in keys.iter().take(keys.len()) {
++        let _ = sm.get(*k);
++    }
++    println!("census exact_shapememo_hits={} of {} (expect ~0)", sm.hits, keys.len());
++
++    // ---- class representative shapes (first-seen key per class) ----
++    let mut rep_shape: HashMap<u64, Arc<emergent_space::orbit::OrbitShape>> = HashMap::new();
++    for (k, b) in keys.iter().zip(&class_of) {
++        if *b != u64::MAX && !rep_shape.contains_key(b) {
++            if let Ok(s) = probe_bound(*k) {
++                rep_shape.insert(*b, s);
++            }
++        }
++    }
++    println!("census rep_shapes_built={}", rep_shape.len());
++
++    // ---- control D: identity path bit-identity ----
++    let mut mism = 0usize;
++    for k in keys.iter().step_by((keys.len() / 500).max(1)) {
++        let a = Orbit::compile(*k).unwrap();
++        let s = probe_bound(*k).unwrap();
++        let d = Orbit::probe_from_shape(*k, s).unwrap();
++        if a.period() != d.period() || a.proper_period() != d.proper_period() || a.advance() != d.advance() {
++            mism += 1;
++        }
++    }
++    println!("control identity_path_bit_mismatches={} (expect 0)", mism);
++
++    // ---- timing arms, interleaved rounds ----
++    let mut qm = QuantizedMemo::with_capacity(4096);
++    for k in &keys {
++        let _ = qm.get(*k);
++    }
++    let qm_hits_warm = qm.hits;
++    let mut t_compile = vec![0f64; rounds];
++    let mut t_bound = vec![0f64; rounds];
++    let mut t_hit_c = vec![0f64; rounds];
++    let mut t_hit_b = vec![0f64; rounds];
++    PROBE_RELAXED.store(true, std::sync::atomic::Ordering::Relaxed);
++    let mut sink = 0u64;
++    for r in 0..rounds {
++        let t0 = Instant::now();
++        for k in &keys {
++            if let Ok(o) = Orbit::compile(*k) {
++                sink += o.period().unwrap().significand() as u64;
++            }
++        }
++        t_compile[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++        let t0 = Instant::now();
++        for (k, b) in keys.iter().zip(&class_of) {
++            if let Some(s) = rep_shape.get(b) {
++                if let Ok(o) = Orbit::probe_from_shape(*k, s.clone()) {
++                    sink += o.period().unwrap().significand() as u64;
++                }
++            }
++        }
++        t_hit_c[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++        let t0 = Instant::now();
++        for k in &keys {
++            if let Ok(o) = qm.get(*k) {
++                sink += o.period().unwrap().significand() as u64;
++            }
++        }
++        t_hit_b[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++        let t0 = Instant::now();
++        for k in &keys {
++            if let Ok(s) = probe_bound(*k) {
++                sink += s.key().k;
++            }
++        }
++        t_bound[r] = t0.elapsed().as_secs_f64() / keys.len() as f64 * 1e9;
++    }
++    PROBE_RELAXED.store(false, std::sync::atomic::Ordering::Relaxed);
++    let med = |v: &Vec<f64>| {
++        let mut s = v.clone();
++        s.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        s[s.len() / 2]
++    };
++    println!(
++        "timing ns/call median compile={:.0} bound={:.0} glue_implicit={:.0} hit_C_lookup_glue={:.0} hit_B_quantmemo={:.0} sink={}",
++        med(&t_compile),
++        med(&t_bound),
++        med(&t_compile) - med(&t_bound),
++        med(&t_hit_c),
++        med(&t_hit_b),
++        sink % 2
++    );
++    println!("timing quantmemo_warm_hits={} (expect ~stream)", qm_hits_warm);
++
++    // ---- exactness census: A exact vs C exact-key+class-shape vs B quantized-key ----
++    PROBE_RELAXED.store(true, std::sync::atomic::Ordering::Relaxed);
++    let (mut dp_c, mut dtau_c, mut dadv_c) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut dp_b, mut dtau_b, mut dadv_b) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut dp_w, mut dtau_w, mut dadv_w) = (Vec::new(), Vec::new(), Vec::new());
++    let mut pred = Vec::new();
++    let mut c_ok = 0usize;
++    let mut c_err = 0usize;
++    let mut wrong_bits: Vec<u64> = Vec::new();
++    for (k, b) in keys.iter().zip(&class_of) {
++        let a = Orbit::compile(*k).unwrap();
++        let ia = inc(&a);
++        if *b != u64::MAX {
++            if let Some(s) = rep_shape.get(b) {
++                match Orbit::probe_from_shape(*k, s.clone()) {
++                    Ok(c) => {
++                        let ic = inc(&c);
++                        dp_c.push((ic.period - ia.period).abs() / ia.period);
++                        dtau_c.push((ic.tau - ia.tau).abs() / ia.tau);
++                        dadv_c.push((ic.advance - ia.advance).abs() / (ia.advance.abs() + 1e-300));
++                        // predicted: |dlnP/dlnk| * |k-krep|/k, krep = rep key of the class
++                        let kr = classes[b];
++                        let kf = scalar_f64(k.shape().unwrap());
++                        let krf = scalar_f64(kr.shape().unwrap());
++                        let kk = (kf + krf) / 2.0;
++                        let sens = 3.0 * kk / (2.0 * kk - 1.0);
++                        pred.push(sens * (kf - krf).abs() / kf);
++                        c_ok += 1;
++                    }
++                    Err(_) => c_err += 1,
++                }
++            }
++            if let Some(s) = wrong_for(b, &rep_shape) {
++                if let Ok(w) = Orbit::probe_from_shape(*k, s.clone()) {
++                    let iw = inc(&w);
++                    dp_w.push((iw.period - ia.period).abs() / ia.period);
++                    dtau_w.push((iw.tau - ia.tau).abs() / ia.tau);
++                    dadv_w.push((iw.advance - ia.advance).abs() / (ia.advance.abs() + 1e-300));
++                }
++            }
++        }
++        if let Ok(q) = qm.get(*k) {
++            let ib = inc(&q);
++            dp_b.push((ib.period - ia.period).abs() / ia.period);
++            dtau_b.push((ib.tau - ia.tau).abs() / ia.tau);
++            dadv_b.push((ib.advance - ia.advance).abs() / (ia.advance.abs() + 1e-300));
++        }
++    }
++    PROBE_RELAXED.store(false, std::sync::atomic::Ordering::Relaxed);
++    wrong_bits = vec![]; // silence
++    let _ = wrong_bits;
++    println!(
++        "exactness C(exact key+class shape) n={} errs={} period p50={:.3e} p99={:.3e} max={:.3e} tau p50={:.3e} adv p50={:.3e} med/pred={:.2}",
++        c_ok,
++        c_err,
++        pct(dp_c.clone(), 0.5),
++        pct(dp_c.clone(), 0.99),
++        dp_c.iter().cloned().fold(0./0., f64::max),
++        pct(dtau_c.clone(), 0.5),
++        pct(dadv_c.clone(), 0.5),
++        pct(dp_c.clone(), 0.5) / pct(pred.clone(), 0.5)
++    );
++    println!(
++        "exactness B(quantized key, shipped arm) n={} period p50={:.3e} p99={:.3e} tau p50={:.3e} adv p50={:.3e}",
++        dp_b.len(),
++        pct(dp_b.clone(), 0.5),
++        pct(dp_b.clone(), 0.99),
++        pct(dtau_b.clone(), 0.5),
++        pct(dadv_b.clone(), 0.5)
++    );
++    if !dp_w.is_empty() {
++        println!(
++            "exactness NEGATIVE(wrong-class shape) n={} period p50={:.3e} max={:.3e} tau p50={:.3e}",
++            dp_w.len(),
++            pct(dp_w.clone(), 0.5),
++            dp_w.iter().cloned().fold(0./0., f64::max),
++            pct(dtau_w.clone(), 0.5)
++        );
++    }
++    println!(
++        "exactness pred(class k-quantum x 3k/(2k-1)) p50={:.3e} p99={:.3e}",
++        pct(pred.clone(), 0.5),
++        pct(pred.clone(), 0.99)
++    );
++}
++
++/// A shape from a DIFFERENT class (the negative control): the nearest other class id.
++fn wrong_for<'a>(b: &u64, reps: &'a HashMap<u64, Arc<emergent_space::orbit::OrbitShape>>) -> Option<&'a Arc<emergent_space::orbit::OrbitShape>> {
++    let mut best: Option<(u64, &Arc<_>)> = None;
++    for (b2, s) in reps.iter().take(64) {
++        if b2 != b {
++            let d = (*b2 as i64 - *b as i64).unsigned_abs();
++            if best.as_ref().map(|(bd, _)| d < *bd).unwrap_or(true) {
++                best = Some((d, s));
++            }
++        }
++    }
++    best.map(|(_, s)| s)
++}
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..e711d14a 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -549,6 +549,7 @@ impl Orbit {
+         &self.shape
+     }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
++        Self::capture(key);
+         if key.null {
+             return Err(Error::NotPeriodic);
+         }
+@@ -578,6 +579,60 @@ impl Orbit {
+         }
+         Self::from_shape(key, Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
+     }
++}
++
++// ================= probe instrumentation (lab run 20261018-0722-quant-0355) =================
++// Print-only / bench-only additions: the flight path is byte-identical unless a bench
++// explicitly opts in (PROBE_RELAXED) or the capture env var is set.
++#[doc(hidden)]
++pub static PROBE_RELAXED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++
++#[doc(hidden)]
++pub fn probe_bound(key: OrbitKey) -> Result<std::sync::Arc<OrbitShape>> {
++    Ok(std::sync::Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
++}
++
++impl Orbit {
++#[doc(hidden)]
++    pub fn probe_from_shape(key: OrbitKey, shape: std::sync::Arc<OrbitShape>) -> Result<Self> {
++        Self::from_shape(key, shape)
++    }
++
++    /// Capture the exact key stream (32 B/key: k, k_exp, peri sig/exp, null, gap) for offline
++    /// bench replay. Enabled only by ES_KEYCAP=<path>; writes never touch computation.
++    fn capture(key: OrbitKey) {
++        use std::io::Write;
++        thread_local! {
++            static CAP: std::cell::RefCell<Option<Option<std::fs::File>>> =
++                std::cell::RefCell::new(None);
++        }
++        CAP.with_borrow_mut(|slot| {
++            if slot.is_none() {
++                *slot = Some(std::env::var("ES_KEYCAP").ok().and_then(|p| {
++                    std::fs::OpenOptions::new().create(true).append(true).open(p).ok()
++                }));
++            }
++            if let Some(f) = slot.as_mut().and_then(|o| o.as_mut()) {
++                let mut b = [0u8; 32];
++                b[0..8].copy_from_slice(&key.k.to_le_bytes());
++                b[8..10].copy_from_slice(&key.k_exponent.to_le_bytes());
++                b[10..18].copy_from_slice(&key.periapsis.significand().to_le_bytes());
++                b[18..20].copy_from_slice(&key.periapsis.exponent().to_le_bytes());
++                b[20] = key.null as u8;
++                if let Some(g) = key.gap {
++                    b[21] = 1;
++                    b[22..30].copy_from_slice(&g.significand().to_le_bytes());
++                    b[30..32].copy_from_slice(&g.exponent().to_le_bytes());
++                }
++                let _ = f.write_all(&b);
++            }
++        });
++    }
++
++#[doc(hidden)]
++pub fn probe_class_bits(key: OrbitKey) -> Result<u64> {
++    Ok(MemoCode::encode(key)?.shape_bits()?)
++}
+     /// Planted Newtonian force for the independent behaviour judge's negative control.
+     pub fn newtonian(key: OrbitKey) -> Result<Self> {
+         if key.null || !key.periodic() {
+@@ -605,7 +660,7 @@ impl Orbit {
+         })
+     }
+     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+-        if shape.key != ShapeKey::for_orbit(key)? {
++        if shape.key != ShapeKey::for_orbit(key)? && !PROBE_RELAXED.load(std::sync::atomic::Ordering::Relaxed) {
+             return Err(Error::Topology);
+         }
+         let q = key.compactness()?;
