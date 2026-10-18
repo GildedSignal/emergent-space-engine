@@ -1,0 +1,376 @@
+diff --git a/crates/universe/examples/train.rs b/crates/universe/examples/train.rs
+new file mode 100644
+index 00000000..7be889c8
+--- /dev/null
++++ b/crates/universe/examples/train.rs
+@@ -0,0 +1,244 @@
++//! The train probe (run 20261017-2330-second-20261017-2038-quant-b4a8-d520): the calendar page's comb rule
++//! on the shipped chained clock. The checker's named experiment: census the genesis fire train per fire
++//! generation, across a swept orbit-draw width and on quantized-period belts (shared exact (a, e) classes),
++//! and establish train lifetime vs the population's step spread. The instrument is b4a8's census extended
++//! with the checker's own corrections: dues density over the step span (not just support), the half-mass
++//! window (f82a's 57× metric), a derived per-body fire count, and the within-class shear.
++//!
++//! cargo run --release -p emergent-universe --example train [-- <arm> ...]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane_belt, plane_extra, BeltDraw, AU};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Config, Universe};
++
++/// A 60 FPS frame at rtf 100, in ticks.
++const FRAME_TICKS: i64 = ((1.0 / 60.0) * 100.0 / TICK_SECONDS) as i64;
++const GENS: i64 = 8;
++
++fn bd(lo_milli: u64, hi_milli: u64, sigma_milli: u64, classes: u64, e_levels: u64) -> BeltDraw {
++    BeltDraw {
++        a_lo_q8: AU as u128 * lo_milli as u128 * 32 / 125,
++        a_hi_q8: AU as u128 * hi_milli as u128 * 32 / 125,
++        sigma_milli,
++        classes,
++        e_levels,
++    }
++}
++
++struct Arm {
++    name: &'static str,
++    extra: usize,
++    belt: BeltDraw,
++}
++
++fn arms() -> Vec<Arm> {
++    vec![
++        Arm { name: "shipped", extra: 12_000, belt: bd(2000, 3000, 70, 0, 0) },
++        Arm { name: "w2000", extra: 3_000, belt: bd(2000, 3000, 70, 0, 0) },
++        Arm { name: "w2400", extra: 3_000, belt: bd(2400, 3000, 70, 0, 0) },
++        Arm { name: "w2800", extra: 3_000, belt: bd(2800, 3000, 70, 0, 0) },
++        Arm { name: "w2950", extra: 3_000, belt: bd(2950, 3000, 70, 0, 0) },
++        Arm { name: "w2999", extra: 3_000, belt: bd(2999, 3000, 70, 0, 0) },
++        Arm { name: "q32e16", extra: 3_000, belt: bd(2000, 3000, 70, 32, 16) },
++        Arm { name: "q1024e16", extra: 3_000, belt: bd(2000, 3000, 70, 1024, 16) },
++    ]
++}
++
++#[derive(Clone, Copy)]
++struct Row {
++    id: usize,
++    doll: u16,
++    clock: bool,
++    step: i64,
++    next: i64,
++}
++
++fn census(u: &Universe, ids: &[usize]) -> Vec<Row> {
++    ids.iter()
++        .map(|&i| {
++            let r = u.rec(i);
++            Row { id: i, doll: r.b.doll, clock: r.ext.is_some(), step: r.step, next: u.key_of(i).map(|(t, _)| t).unwrap_or(-1) }
++        })
++        .collect()
++}
++
++fn q<'a, T: Copy>(v: &'a [T], f: f64) -> T {
++    v[((v.len().max(1) as f64 - 1.0) * f) as usize]
++}
++
++/// One generation's census line: steps, dues per frame over the median-step span (the checker's
++/// denominator), exact-tick battalions, the half-mass window, and the largest genesis-step class's shear.
++fn generation(name: &str, g: i64, rows: &[Row], firsts: &std::collections::HashMap<usize, i64>, gsteps: &std::collections::HashMap<usize, i64>) {
++    let belt: Vec<&Row> = rows.iter().filter(|r| r.doll == 0 && r.clock).collect();
++    let mut steps: Vec<i64> = belt.iter().map(|r| r.step).filter(|&s| s > 0).collect();
++    steps.sort_unstable();
++    let nexts: Vec<i64> = belt.iter().map(|r| r.next).filter(|&t| t >= 0).collect();
++    let mut ns = nexts.clone();
++    ns.sort_unstable();
++    let p50s = q(&steps, 0.5);
++    let span_bins = (p50s / FRAME_TICKS).max(1) as usize;
++    // Dues per frame over the dues' own range; density judged against the median-step span.
++    let (lo, hi) = (ns[0], ns[ns.len() - 1]);
++    let nb = ((hi - lo) / FRAME_TICKS + 1) as usize;
++    let mut bins = vec![0i64; nb];
++    for &t in &nexts {
++        bins[((t - lo) / FRAME_TICKS) as usize] += 1;
++    }
++    let mut sb = bins.clone();
++    sb.sort_unstable();
++    let mu_span = nexts.len() as f64 / span_bins as f64;
++    let maxf = *sb.last().unwrap();
++    let p99f = q(&sb, 0.99);
++    // Battalions: exact shared next ticks.
++    let mut by_tick = std::collections::HashMap::<i64, i64>::new();
++    for &t in &nexts {
++        *by_tick.entry(t).or_insert(0) += 1;
++    }
++    let mut sizes: Vec<i64> = by_tick.values().copied().collect();
++    sizes.sort_unstable();
++    let largest = *sizes.last().unwrap_or(&0);
++    let groups2 = sizes.iter().filter(|&&s| s >= 2).count();
++    // The half-mass window: the smallest span of ticks holding 50% of the dues.
++    let need = nexts.len() / 2;
++    let (mut best, mut l) = (i64::MAX, 0usize);
++    let mut r = 0usize;
++    let mut count = 0i64;
++    while l < ns.len() {
++        while r < ns.len() && count < need as i64 {
++            count += 1;
++            r += 1;
++        }
++        if count >= need as i64 {
++            best = best.min(ns[r - 1] - ns[l]);
++        }
++        count -= 1;
++        l += 1;
++    }
++    let hm_frames = best as f64 / FRAME_TICKS as f64;
++    let c50 = 0.5 * p50s as f64 / best.max(1) as f64;
++    // The derived per-body fire count, and the largest genesis-step class's dues shear.
++    let mut ms: Vec<f64> = Vec::new();
++    for r in belt.iter() {
++        if let (Some(&f0), Some(&s0)) = (firsts.get(&r.id), gsteps.get(&r.id)) {
++            if r.next >= 0 && s0 > 0 {
++                ms.push((r.next - f0) as f64 / s0 as f64);
++            }
++        }
++    }
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let m_med = if ms.is_empty() { 0.0 } else { q(&ms, 0.5) };
++    let mut gclass = std::collections::HashMap::<i64, Vec<i64>>::new();
++    for r in belt.iter() {
++        if r.next >= 0 {
++            if let Some(&s0) = gsteps.get(&r.id) {
++                gclass.entry(s0).or_default().push(r.next);
++            }
++        }
++    }
++    let (cls_n, cls_spread, cls_maxframe) = match gclass.values().max_by_key(|v| v.len()) {
++        None => (0, 0, 0),
++        Some(v) => {
++            let (mut mn, mut mx) = (i64::MAX, i64::MIN);
++            for &t in v {
++                mn = mn.min(t);
++                mx = mx.max(t);
++            }
++            let mut cb = std::collections::HashMap::<i64, i64>::new();
++            for &t in v {
++                *cb.entry((t - mn) / FRAME_TICKS.max(1)).or_insert(0) += 1;
++            }
++            (v.len(), mx - mn, *cb.values().max().unwrap())
++        }
++    };
++    println!(
++        "ARM {name} g={g} n={} steps[min={},p1={},p50={},p99={},max={}] distinct={} | dues n={} touched={} span_bins={} mu_span={:.2} max={} max/mu_span={:.1} p99={} p99/mu_span={:.1} | battalion={} groups2+={} | hm_frames={:.1} hm_pct_step={:.2}% C50={:.1}x | m_med={:.2} | class n={} spread={}t/{:.1}f maxframe={}",
++        belt.len(),
++        q(&steps, 0.0), q(&steps, 0.01), p50s, q(&steps, 0.99), q(&steps, 1.0),
++        steps.iter().collect::<std::collections::HashSet<_>>().len(),
++        nexts.len(), nb, span_bins, mu_span, maxf, maxf as f64 / mu_span, p99f, p99f as f64 / mu_span,
++        largest, groups2, hm_frames, 100.0 * best.max(1) as f64 / p50s as f64, c50, m_med,
++        cls_n, cls_spread, cls_spread as f64 / FRAME_TICKS as f64, cls_maxframe,
++    );
++}
++
++fn controls(u: &Universe, name: &str, rows: &[Row], planets: &[usize], moon: usize) {
++    let mut pok = 0;
++    let mut pbad = 0;
++    for &i in planets.iter().chain(std::iter::once(&moon)) {
++        let r = u.rec(i);
++        if let Some((t, _)) = u.key_of(i) {
++            if t.rem_euclid(r.step) == 0 || t.rem_euclid(r.step) == r.step / 2 {
++                pok += 1;
++            } else {
++                pbad += 1;
++            }
++        }
++    }
++    let mut lok = 0;
++    let mut lbad = 0;
++    for r in rows.iter().filter(|r| r.doll != 0 && !r.clock) {
++        if r.next < 0 || r.step <= 0 {
++            continue;
++        }
++        let res = r.next.rem_euclid(r.step);
++        if res == 0 || res == r.step / 2 {
++            lok += 1;
++        } else {
++            lbad += 1;
++        }
++    }
++    println!("CTRL {name} planets+moon {pok}/{} on-grid, locals {lok}/{} on-grid", pok + pbad, lok + lbad);
++}
++
++fn run_arm(a: &Arm) {
++    let t0 = std::time::Instant::now();
++    let mut p = plane_belt(Config::default(), 1, Order::Sparse, 1, 16, a.extra, a.belt).unwrap();
++    let u = &mut p.u;
++    let ids: Vec<usize> = p.ships[p.ships.len() - a.extra..].to_vec();
++    let g0 = census(u, &ids);
++    // The genesis state every generation is judged against: first due and step per body.
++    let firsts: std::collections::HashMap<usize, i64> = g0.iter().map(|r| (r.id, r.next)).collect();
++    let gsteps: std::collections::HashMap<usize, i64> = g0.iter().map(|r| (r.id, r.step)).collect();
++    let belt0: Vec<&Row> = g0.iter().filter(|r| r.doll == 0 && r.clock).collect();
++    let first_max = belt0.iter().map(|r| r.next).max().unwrap_or(0);
++    let step_max = belt0.iter().map(|r| r.step).max().unwrap_or(1);
++    controls(u, a.name, &g0, &p.planets, p.moon);
++    generation(a.name, 0, &g0, &firsts, &gsteps);
++    for g in 1..=GENS {
++        let h = first_max + (step_max as i128 * g as i128 * 103 / 100) as i64 + FRAME_TICKS;
++        u.settle(h);
++        let rows = census(u, &ids);
++        generation(a.name, g, &rows, &firsts, &gsteps);
++        if g == GENS {
++            controls(u, a.name, &rows, &p.planets, p.moon);
++        }
++    }
++    println!(
++        "END {} wall_s={:.1} kicks={} boundaries={} handoffs={} lost={} refused={}",
++        a.name, t0.elapsed().as_secs_f64(),
++        u.stats.kicks, u.stats.boundaries, u.stats.handoffs, u.stats.lost, u.stats.refused
++    );
++}
++
++fn main() {
++    let want: Vec<String> = std::env::args().skip(1).collect();
++    let t0 = std::time::Instant::now();
++    // The refactor control (P5): plane_belt with the shipped draw reproduces plane_extra bit for bit.
++    {
++        let a = plane_extra(Config::default(), 1, Order::Sparse, 1, 16, 3_000).unwrap();
++        let b = plane_belt(Config::default(), 1, Order::Sparse, 1, 16, 3_000, bd(2000, 3000, 70, 0, 0)).unwrap();
++        let key = |u: &Universe, ids: &[usize]| -> Vec<(i64, i64)> {
++            ids.iter()
++                .map(|&i| (u.rec(i).step, u.key_of(i).map(|(t, _)| t).unwrap_or(-1)))
++                .collect()
++        };
++        let (ka, kb) = (key(&a.u, &a.ships), key(&b.u, &b.ships));
++        println!("CONTROL refactor plane_belt==plane_extra at N=3000: {}", if ka == kb { "IDENTICAL" } else { "DIFFER" });
++    }
++    for a in arms() {
++        if want.is_empty() || want.iter().any(|w| w == a.name) {
++            run_arm(&a);
++        }
++    }
++    println!("total_wall_s {:.1}", t0.elapsed().as_secs_f64());
++}
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..f95e74bf 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,18 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_with_belt(cfg, seed, order, threads, world, extra, BeltDraw::SHIPPED)
++}
++
++/// [`plane_extra`] with the belt's draw parameterized ([`BeltDraw`]): the locals are the ladder's own, the belt is
++/// `belt`'s. `BeltDraw::SHIPPED` is `plane_extra` bit for bit. The lab's train probe (20261017-2330).
++pub fn plane_belt(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, belt: BeltDraw) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_with_belt(cfg, seed, order, threads, world, extra, belt)
++}
++
++/// [`plane_belt`] with the fleet's world given (as [`plane_with_extra`]).
++pub fn plane_with_belt(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, belt: BeltDraw) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -258,7 +270,11 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     }
+     // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
+     for k in 0..extra {
+-        let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
++        let (spec, radius) = if (k as u64) < ladder_locals(extra as u64) {
++            ladder_ship(seed, k as u64, extra as u64, home_doll)?
++        } else {
++            belt_ship(seed, k as u64, &belt)?
++        };
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+         names.push(String::new());
+     }
+@@ -295,7 +311,7 @@ fn mix64(mut z: u64) -> u64 {
+ }
+ 
+ /// Draw `lane` of ship `k`: independent of every other ship's draws (a counter, not a stream).
+-fn draw(seed: u64, k: u64, lane: u64) -> u64 {
++fn draw_lane(seed: u64, k: u64, lane: u64) -> u64 {
+     mix64(mix64(seed ^ 0x5DEE_CE66_D1CE_4E5B) ^ k.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (lane << 56))
+ }
+ 
+@@ -320,28 +336,67 @@ pub fn rayleigh_q48(u: u32, sigma_milli: u64) -> u64 {
+     e2.isqrt() as u64 // e · 2^48
+ }
+ 
++/// The belt's draw: the span of its semi-major axes (root units at 2^-8 each) and the Rayleigh scale of its
++/// eccentricities in milli, with optional quantization onto `classes` shared exact axes and `e_levels` shared
++/// exact eccentricities (the compact store's shared exact periods: same (a, e) ⇒ same clock constants ⇒ same
++/// step). The shipped ladder belt is [`BeltDraw::SHIPPED`].
++#[derive(Clone, Copy)]
++pub struct BeltDraw {
++    pub a_lo_q8: u128,
++    pub a_hi_q8: u128,
++    pub sigma_milli: u64,
++    pub classes: u64,
++    pub e_levels: u64,
++}
++
++impl BeltDraw {
++    /// The shipped ladder belt: a uniform in [2, 3) AU at 2^-8 of a root unit, e Rayleigh of scale 0.070, continuous.
++    pub const SHIPPED: BeltDraw = BeltDraw {
++        a_lo_q8: (2 * AU as u128) << 8,
++        a_hi_q8: (3 * AU as u128) << 8,
++        sigma_milli: 70,
++        classes: 0,
++        e_levels: 0,
++    };
++}
++
++/// One ship of the belt (the ladder's `k ≥ locals` ships): the draw is [`BeltDraw`]'s, the lanes the ladder's own.
++pub fn belt_ship(seed: u64, k: u64, draw: &BeltDraw) -> Res<(OrbitSpec, Scalar)> {
++    let d = |lane: u64| draw_lane(seed, k, lane);
++    let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
++    let span = draw.a_hi_q8 - draw.a_lo_q8;
++    let a_q8 = if draw.classes > 0 {
++        draw.a_lo_q8 + ((d(1) as u128 % draw.classes as u128) * span) / draw.classes as u128
++    } else {
++        draw.a_lo_q8 + (d(1) as u128 % span)
++    };
++    let mut e = rayleigh_q48((d(2) >> 32) as u32, draw.sigma_milli);
++    for lane in 16.. {
++        if e <= (2u64 << 48) / 5 {
++            break;
++        }
++        e = rayleigh_q48((d(lane) >> 32) as u32, draw.sigma_milli);
++    }
++    if draw.e_levels > 0 {
++        let grid = (1u64 << 48) / draw.e_levels;
++        e = e / grid * grid;
++    }
++    let p_q8 = a_q8 - ((a_q8 * e as u128) >> 48);
++    let spec = OrbitSpec { doll: 0, periapsis: Scalar::raw(p_q8 as i128, -8)?, e_q48: e, clockwise: false, angle, phase };
++    Ok((spec, Scalar::raw(34, -10)?))
++}
++
+ /// One ship of the N ladder: the orbit it is made on and its radius. Ship `k` of `extra`: the first [`ladder_locals`] are about
+ /// Home (a quarter of them on the Moon's orbit, 60 degrees ahead of or behind it, where a ship stays; the rest from just above
+ /// the surface out to two thirds of the Moon's distance, Rayleigh eccentricities); the rest are a belt about the star between 2
+ /// and 3 AU (Rayleigh eccentricities of scale 0.07, periapsis above 1.2 AU: no crossing of Home's orbit), uniform angles. Each is
+ /// a real body on its own exact orbit; nothing is averaged, and every number is an integer from the seed and `k`.
+ pub fn ladder_ship(seed: u64, k: u64, extra: u64, home_doll: u16) -> Res<(OrbitSpec, Scalar)> {
+-    let d = |lane: u64| draw(seed, k, lane);
++    let d = |lane: u64| draw_lane(seed, k, lane);
+     let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
+     let locals = ladder_locals(extra);
+     if k >= locals {
+-        // The belt: a uniform in [2, 3) AU at 2^-8 of a root unit, e Rayleigh (re-drawn above 0.4), p = a (1 - e).
+-        let a_q8 = ((2 * AU as u128) << 8) + (d(1) as u128 % ((AU as u128) << 8));
+-        let mut e = rayleigh_q48((d(2) >> 32) as u32, 70);
+-        for lane in 16.. {
+-            if e <= (2u64 << 48) / 5 {
+-                break;
+-            }
+-            e = rayleigh_q48((d(lane) >> 32) as u32, 70);
+-        }
+-        let p_q8 = a_q8 - ((a_q8 * e as u128) >> 48);
+-        let spec = OrbitSpec { doll: 0, periapsis: Scalar::raw(p_q8 as i128, -8)?, e_q48: e, clockwise: false, angle, phase };
+-        return Ok((spec, Scalar::raw(34, -10)?));
++        return belt_ship(seed, k, &BeltDraw::SHIPPED);
+     }
+     let radius = Scalar::raw(34, -10 + 18)?;
+     if k < locals / 4 {

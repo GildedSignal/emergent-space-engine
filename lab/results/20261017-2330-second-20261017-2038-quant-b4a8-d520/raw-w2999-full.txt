@@ -1,0 +1,15 @@
+# The w2999 arm's full generation curve (the smoke run, before the sweep; identical seeds and code)
+CONTROL refactor plane_belt==plane_extra at N=3000: IDENTICAL
+CTRL w2999 planets+moon 4/4 on-grid, locals 300/300 on-grid
+ARM w2999 g=0 C50=40.8x hm=206.5f (1.22%) max/mu_span=99.9 battalion=1
+ARM w2999 g=1 C50=10.3x hm=822.4f (4.88%) max/mu_span=43.7 battalion=1 m_med=1.50
+ARM w2999 g=2 C50=6.8x hm=1233.1f (7.31%) max/mu_span=31.2 battalion=1 m_med=2.50
+ARM w2999 g=3 C50=5.1x hm=1642.2f (9.74%) max/mu_span=31.2 battalion=1 m_med=3.50
+ARM w2999 g=4 C50=4.1x hm=2049.9f (12.15%) max/mu_span=31.2 battalion=1 m_med=4.50
+ARM w2999 g=5 C50=3.5x hm=2428.8f (14.40%) max/mu_span=31.2 battalion=1 m_med=5.50
+ARM w2999 g=6 C50=3.2x hm=2670.8f (15.84%) max/mu_span=25.0 battalion=1 m_med=6.50
+ARM w2999 g=7 C50=2.3x hm=3670.4f (21.76%) max/mu_span=25.0 battalion=1 m_med=7.50
+ARM w2999 g=8 C50=2.2x hm=3899.9f (23.12%) max/mu_span=31.2 battalion=1 m_med=8.99
+CTRL w2999 after settle: planets+moon 4/4, locals 300/300 on-grid
+END w2999 wall_s=52.5 kicks=422286 boundaries=420468 handoffs=6 lost=8 refused=0
+# wave-width growth: (3899.9-206.5)/8 = 462 frames/gen = 2.74% of the median step per fire
