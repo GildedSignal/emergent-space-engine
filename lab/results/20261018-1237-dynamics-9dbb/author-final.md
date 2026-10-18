@@ -1,0 +1,4 @@
+Working...
+Run complete. All deliverables are in `lab/results/20261018-1237-dynamics-9dbb/` (dossier, pre-registered predictions, tested regen — bit-identical regeneration, wiki page; control passed: b9c8's own probe reproduces its record on today's tree).
+
+**Claim:** the order-boundary walk is re-classified — the record's "bounded, not compounding" is the position sample's geometric bound (its radius is invariant below the 2⁻²⁰ floor), while the stored columns compound linearly: an exact lattice translation in k on every eccentric arm (e.g. −13 Q48 ulps/crossing for all 8192 crossings, independent of the w lottery), a one-signed decelerating ratchet on circles, a column-exact fixed-point corner at p=16·2³⁰/e=0.99, a neutral (non-chaotic) perturbation response, and a leak priced harmless past 10⁶–10⁹ crossings — so "do nothing" at demote-at-commit is now priced beside the w-anchor and residual-carry fixes.

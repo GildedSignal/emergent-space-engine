@@ -1,0 +1,176 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+warning: unused variable: `s`
+   --> crates/universe/examples/seam_walk.rs:390:9
+    |
+390 |     let s = cartesian(st, 0x2000_0000, false, units).unwrap();
+    |         ^ help: if this is intentional, prefix it with an underscore: `_s`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "seam_walk") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.40s
+     Running `/home/glmlab/lab-target-1/release/examples/seam_walk lab/results/20261018-1237-dynamics-9dbb/series`
+determinism rerun identical series: true
+twinA: p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_d8192_twinA steps=8192 dr=3760562181 colcyc=None
+twinB: p16e17_e140737488355328_phi3o8_w20000001_cwfalse_s0_mu1_d8192_twinB steps=8192 dr=3760562181 colcyc=None
+jobs done. see lab/results/20261018-1237-dynamics-9dbb/series/index.tsv
+cost: full crossing = 20461.9 ns
+== walk class per chain (grid, depth 1024) ==
+cfg                                                        class              rate  sign%       dk min/max w         dr_rel    respos     cyc  
+p16e-1_e0_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid       ratchet           -7571   100% -138933/1143    jump41    2.6e-08   7.11e+08   -    
+p16e-1_e0_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid       ratchet           -7509   100% -176848/1962    jump34    2.6e-08   7.82e+08   -    
+p16e-1_e0_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid       ratchet           -7586    99% -132984/9345    jump43    2.6e-08   7.85e+08   -    
+p16e-1_e0_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid       ratchet           -7551   100% -115836/1884    jump39    2.6e-08   7.25e+08   -    
+p16e-1_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid ratchet              -1    98%      -1/0       tiny      5.5e-12   1.18e+07   -    
+p16e-1_e281474976710_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid ratchet              -1    99%      -1/0       frozen    5.5e-12   1.18e+07   -    
+p16e-1_e281474976710_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid ratchet              -1    99%      -1/0       tiny      5.5e-12   6.98e+08   -    
+p16e-1_e281474976710_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid ratchet              -1    99%      -1/0       tiny      5.5e-12   6.99e+08   -    
+p16e-1_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid ratchet              -1   100%      -1/0       tiny      2.2e-11   1.81e+05   -    
+p16e-1_e140737488355328_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    2.2e-11   9.04e+04   -    
+p16e-1_e140737488355328_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid ratchet              -1   100%      -1/0       jump1023  2.2e-11   2.38e+09   -    
+p16e-1_e140737488355328_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      jump1023  2.2e-11   1.19e+09   -    
+p16e-1_e278660226943550_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid ratchet              -1    99%      -1/0       tiny      1.4e-09   3.96e+06   -    
+p16e-1_e278660226943550_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    1.4e-09   3.76e+06   -    
+p16e-1_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid mixed                -1    83%      -1/0       jump1023  1.2e-09   1.09e+09   -    
+p16e-1_e278660226943550_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid mixed                -1    88%      -1/0       jump1023  1.3e-09   1.07e+09   -    
+p16e17_e0_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid       ratchet           -5312   100% -100096/-1216   jump16    1.8e-08   7.48e+08   -    
+p16e17_e0_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid       ratchet           -5247   100%  -93440/-1278   jump15    1.8e-08   7.65e+08   -    
+p16e17_e0_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid       ratchet           -5312   100% -100096/-1280   jump13    1.8e-08   7.44e+08   -    
+p16e17_e0_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid       ratchet           -5312   100% -100096/0       jump16    1.8e-08   8e+08      -    
+p16e17_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      frozen    4.4e-12   6.99e+06   -    
+p16e17_e281474976710_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    4.4e-12   6.98e+06   -    
+p16e17_e281474976710_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      tiny      4.4e-12   1.68e+09   -    
+p16e17_e281474976710_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      tiny      4.4e-12   1.68e+09   -    
+p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid translation         -13   100%     -13/-13     frozen    2.1e-10   1.08e+06   -    
+p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation         -13   100%     -13/-13     frozen    2.1e-10   5.41e+05   -    
+p16e17_e140737488355328_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid translation         -13   100%     -13/-13     tiny      2.1e-10   2.87e+09   -    
+p16e17_e140737488355328_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid translation         -13   100%     -13/-13     tiny      2.1e-10   1.43e+09   -    
+p16e17_e278660226943550_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      frozen    1.4e-09   6.11e+05   -    
+p16e17_e278660226943550_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    1.4e-09   6.11e+05   -    
+p16e17_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      tiny      1.4e-09   1.85e+09   -    
+p16e17_e278660226943550_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      tiny      1.4e-09   1.85e+09   -    
+p16e30_e0_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid       ratchet           -5202   100% -100130/-2355   jump19    1.8e-08   6.89e+08   -    
+p16e30_e0_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid       ratchet           -5202   100% -100130/-2356   jump20    1.8e-08   6.86e+08   -    
+p16e30_e0_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid       ratchet           -5202   100% -100130/-2355   jump20    1.8e-08   6.98e+08   -    
+p16e30_e0_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid       ratchet           -5202   100% -100130/-2355   jump19    1.8e-08   7.05e+08   -    
+p16e30_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      frozen    5.8e-12   9.21e+06   -    
+p16e30_e281474976710_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    5.8e-12   9.21e+06   -    
+p16e30_e281474976710_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      frozen    5.8e-12   1.26e+09   -    
+p16e30_e281474976710_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    5.8e-12   1.26e+09   -    
+p16e30_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      frozen    2.2e-11   5.49e+04   -    
+p16e30_e140737488355328_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    2.2e-11   2.75e+04   -    
+p16e30_e140737488355328_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid translation          -1   100%      -1/-1      frozen    2.2e-11   2.15e+09   -    
+p16e30_e140737488355328_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid translation          -1   100%      -1/-1      frozen    2.2e-11   1.07e+09   -    
+p16e30_e278660226943550_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid translation           0     0%       0/0       tiny      3.6e-17   4.19e+04   19   
+p16e30_e278660226943550_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid translation           0     0%       0/0       tiny      3.7e-17   4.19e+04   16   
+p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid translation           0     0%       0/0       frozen    5.2e-18   1.38e+09   4    
+p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid translation           0     0%       0/0       frozen    1.7e-18   1.38e+09   1    
+p16e17_e140737488355328_phi5o8_w20000000_cwtrue_s0_mu1_d1024_retro translation         -13   100%     -13/-13     tiny      2.1e-10   1.08e+06   -    
+p16e-1_e28147497671065_phi1o8_w20000000_cwtrue_s0_mu1_d1024_retro mixed                -1    68%      -1/0       tiny      1.1e-12   2.73e+09   45   
+p16e30_e281474976710_phi3o8_w20000000_cwtrue_s0_mux_d1024_retro translation          -1   100%      -1/-1      tiny      5.8e-12   1.68e+09   -    
+
+== P1: rate stability (early vs late window) ==
+p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_   rate -13 -> -13 ulps/crossing  change 0.0%
+p16e17_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d40   rate -1 -> -1 ulps/crossing  change 0.0%
+p16e-1_e0_phi3o8_w20000000_cwfalse_s0_mu1_d4096_deep       rate -10365 -> -2660 ulps/crossing  change 74.3%
+
+== P2: cycle census ==
+key cycles among 48 grid chains: 4
+column cycles anywhere: 5
+  p16e30_e278660226943550_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid key_cycle at 19 len 1  col_cycle 19
+  p16e30_e278660226943550_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid key_cycle at 16 len 1  col_cycle 16
+  p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid key_cycle at 4 len 1  col_cycle 4
+  p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid key_cycle at 1 len 1  col_cycle 1
+  p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_d4096_deep key_cycle at 4 len 1  col_cycle 4
+  p16e-1_e28147497671065_phi1o8_w20000000_cwtrue_s0_mu1_d1024_retro key_cycle at 45 len 1  col_cycle null
+
+== deep arms (depth 4096) ==
+p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_d4   translation  med -13 sign 100% min/max -13/-13 w frozen dr_rel 8.5e-10 k: 187649984473757 -> 187649984420522 (net -53235)
+p16e17_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d4096   translation  med -1 sign 100% min/max -1/-1 w frozen dr_rel 1.8e-11 k: 281193782927727 -> 281193782923632 (net -4095)
+p16e-1_e0_phi3o8_w20000000_cwfalse_s0_mu1_d4096_deep         ratchet      med -3713 sign 100% min/max -138933/1143 w jump41 dr_rel 5.2e-08 k: 281474976384651 -> 281474955866072 (net -20518579)
+p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_d4   translation  med +0 sign 0% min/max 0/0 w frozen dr_rel 5.2e-18 k: 141444711914902 -> 141444711914902 (net 0)
+
+== P4: twins (depth 8192) ==
+series bit-identical: False
+
+== P4b: twin per-column divergence (depth 8192) ==
+  k: identical over 8192 crossings
+  psig: diverges at 8161 crossings, first 0, max gap 505
+  pexp: identical over 8192 crossings
+  w: diverges at 8192 crossings, first 0, max gap 1
+  cw: identical over 8192 crossings
+  r: diverges at 8122 crossings, first 1, max gap 181
+  rp: diverges at 7285 crossings, first 0, max gap 26
+  rv: diverges at 7410 crossings, first 0, max gap 39
+first k divergence at crossing: None
+rate A -13 (-13/-13), rate B -13 (-13/-13)
+net k walk over 8192: A -106483 ulps = -3.783e-10 of range; to reach 1% of k range: 2.2e+11 crossings
+w frozen over 8192: A True B True; dw max 0 (0.000 turns)
+dr_rel A 1.71e-09 vs 2^-20 = 9.54e-07; res_pos median 1.081e+06, spread 3.98e-05
+
+== P6: residual vs rate ==
+p16e-1_e0_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid       res_pos   7.11e+08 res spread 2.4e+00 rate -7571
+p16e-1_e0_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid       res_pos   7.82e+08 res spread 2.1e+00 rate -7509
+p16e-1_e0_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid       res_pos   7.85e+08 res spread 2.1e+00 rate -7586
+p16e-1_e0_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid       res_pos   7.25e+08 res spread 2.3e+00 rate -7551
+p16e-1_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d10   res_pos   1.18e+07 res spread 1.0e+02 rate -1
+p16e-1_e281474976710_phi3o8_w20000000_cwfalse_s0_mux_d10   res_pos   1.18e+07 res spread 1.1e+00 rate -1
+p16e-1_e281474976710_phi5o8_w20000000_cwfalse_s0_mu1_d10   res_pos   6.98e+08 res spread 7.3e-02 rate -1
+p16e-1_e281474976710_phi5o8_w20000000_cwfalse_s0_mux_d10   res_pos   6.99e+08 res spread 6.9e-02 rate -1
+p16e-1_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_   res_pos   1.81e+05 res spread 1.5e+04 rate -1
+p16e-1_e140737488355328_phi3o8_w20000000_cwfalse_s0_mux_   res_pos   9.04e+04 res spread 9.3e-01 rate -1
+p16e-1_e140737488355328_phi5o8_w20000000_cwfalse_s0_mu1_   res_pos   2.38e+09 res spread 4.1e-01 rate -1
+p16e-1_e140737488355328_phi5o8_w20000000_cwfalse_s0_mux_   res_pos   1.19e+09 res spread 4.1e-01 rate -1
+p16e-1_e278660226943550_phi3o8_w20000000_cwfalse_s0_mu1_   res_pos   3.96e+06 res spread 5.9e+02 rate -1
+p16e-1_e278660226943550_phi3o8_w20000000_cwfalse_s0_mux_   res_pos   3.76e+06 res spread 3.3e-01 rate -1
+p16e-1_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_   res_pos   1.09e+09 res spread 2.3e+00 rate -1
+p16e-1_e278660226943550_phi5o8_w20000000_cwfalse_s0_mux_   res_pos   1.07e+09 res spread 2.4e+00 rate -1
+p16e17_e0_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid       res_pos   7.48e+08 res spread 2.2e+00 rate -5312
+p16e17_e0_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid       res_pos   7.65e+08 res spread 2.2e+00 rate -5247
+p16e17_e0_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid       res_pos   7.44e+08 res spread 2.3e+00 rate -5312
+p16e17_e0_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid       res_pos      8e+08 res spread 2.1e+00 rate -5312
+p16e17_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d10   res_pos   6.99e+06 res spread 1.4e-01 rate -1
+p16e17_e281474976710_phi3o8_w20000000_cwfalse_s0_mux_d10   res_pos   6.98e+06 res spread 1.4e-01 rate -1
+p16e17_e281474976710_phi5o8_w20000000_cwfalse_s0_mu1_d10   res_pos   1.68e+09 res spread 5.6e-04 rate -1
+p16e17_e281474976710_phi5o8_w20000000_cwfalse_s0_mux_d10   res_pos   1.68e+09 res spread 5.6e-04 rate -1
+p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_   res_pos   1.08e+06 res spread 3.3e-05 rate -13
+p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mux_   res_pos   5.41e+05 res spread 3.7e-05 rate -13
+p16e17_e140737488355328_phi5o8_w20000000_cwfalse_s0_mu1_   res_pos   2.87e+09 res spread 4.7e-03 rate -13
+p16e17_e140737488355328_phi5o8_w20000000_cwfalse_s0_mux_   res_pos   1.43e+09 res spread 4.7e-03 rate -13
+p16e17_e278660226943550_phi3o8_w20000000_cwfalse_s0_mu1_   res_pos   6.11e+05 res spread 1.9e-04 rate -1
+p16e17_e278660226943550_phi3o8_w20000000_cwfalse_s0_mux_   res_pos   6.11e+05 res spread 1.9e-04 rate -1
+p16e17_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_   res_pos   1.85e+09 res spread 8.6e-03 rate -1
+p16e17_e278660226943550_phi5o8_w20000000_cwfalse_s0_mux_   res_pos   1.85e+09 res spread 8.6e-03 rate -1
+p16e30_e0_phi3o8_w20000000_cwfalse_s0_mu1_d1024_grid       res_pos   6.89e+08 res spread 2.4e+00 rate -5202
+p16e30_e0_phi3o8_w20000000_cwfalse_s0_mux_d1024_grid       res_pos   6.86e+08 res spread 2.4e+00 rate -5202
+p16e30_e0_phi5o8_w20000000_cwfalse_s0_mu1_d1024_grid       res_pos   6.98e+08 res spread 2.4e+00 rate -5202
+p16e30_e0_phi5o8_w20000000_cwfalse_s0_mux_d1024_grid       res_pos   7.05e+08 res spread 2.4e+00 rate -5202
+p16e30_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d10   res_pos   9.21e+06 res spread 6.3e-02 rate -1
+p16e30_e281474976710_phi3o8_w20000000_cwfalse_s0_mux_d10   res_pos   9.21e+06 res spread 6.0e-02 rate -1
+p16e30_e281474976710_phi5o8_w20000000_cwfalse_s0_mu1_d10   res_pos   1.26e+09 res spread 4.6e-04 rate -1
+p16e30_e281474976710_phi5o8_w20000000_cwfalse_s0_mux_d10   res_pos   1.26e+09 res spread 4.7e-04 rate -1
+p16e30_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_   res_pos   5.49e+04 res spread 6.4e-04 rate -1
+p16e30_e140737488355328_phi3o8_w20000000_cwfalse_s0_mux_   res_pos   2.75e+04 res spread 7.6e-04 rate -1
+p16e30_e140737488355328_phi5o8_w20000000_cwfalse_s0_mu1_   res_pos   2.15e+09 res spread 1.7e-08 rate -1
+p16e30_e140737488355328_phi5o8_w20000000_cwfalse_s0_mux_   res_pos   1.07e+09 res spread 1.8e-08 rate -1
+p16e30_e278660226943550_phi3o8_w20000000_cwfalse_s0_mu1_   res_pos   4.19e+04 res spread 4.4e+04 rate +0
+p16e30_e278660226943550_phi3o8_w20000000_cwfalse_s0_mux_   res_pos   4.19e+04 res spread 4.4e+04 rate +0
+p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_   res_pos   1.38e+09 res spread 4.9e-08 rate +0
+p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mux_   res_pos   1.38e+09 res spread 4.8e-08 rate +0
+p16e17_e140737488355328_phi5o8_w20000000_cwtrue_s0_mu1_d   res_pos   1.08e+06 res spread 5.2e-03 rate -13
+p16e-1_e28147497671065_phi1o8_w20000000_cwtrue_s0_mu1_d1   res_pos   2.73e+09 res spread 1.0e+00 rate -1
+p16e30_e281474976710_phi3o8_w20000000_cwtrue_s0_mux_d102   res_pos   1.68e+09 res spread 3.5e-04 rate -1
+p16e17_e140737488355328_phi3o8_w20000000_cwfalse_s0_mu1_   res_pos   1.08e+06 res spread 3.9e-05 rate -13
+p16e17_e281474976710_phi3o8_w20000000_cwfalse_s0_mu1_d40   res_pos   6.99e+06 res spread 1.5e-01 rate -1
+p16e-1_e0_phi3o8_w20000000_cwfalse_s0_mu1_d4096_deep       res_pos   7.43e+08 res spread 2.3e+00 rate -3713
+p16e30_e278660226943550_phi5o8_w20000000_cwfalse_s0_mu1_   res_pos   1.38e+09 res spread 4.9e-08 rate +0
+
+== retro arms ==
+p16e17_e140737488355328_phi5o8_w20000000_cwtrue_s0_mu1_d1024_retro -> translation rate -13 sign 100% w tiny dr_rel 2.1e-10 key_cyc null
+p16e-1_e28147497671065_phi1o8_w20000000_cwtrue_s0_mu1_d1024_retro -> mixed rate -1 sign 68% w tiny dr_rel 1.1e-12 key_cyc 45
+p16e30_e281474976710_phi3o8_w20000000_cwtrue_s0_mux_d1024_retro -> translation rate -1 sign 100% w tiny dr_rel 5.8e-12 key_cyc null
+
+== class summary ==
+Counter({'translation': 29, 'ratchet': 19, '': 4, 'mixed': 3})
+b9c8 control on this tree: chains=864 nonzero-dr_rel=0 (expect 0: sub-floor) key-cyclic=92 (expect 92)
+regen: all numbers regenerated
