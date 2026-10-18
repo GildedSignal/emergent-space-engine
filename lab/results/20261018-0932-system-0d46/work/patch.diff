@@ -1,0 +1,102 @@
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..3c2d5c85 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -119,6 +119,19 @@ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+     Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+ }
+ 
++// --- print-only probe (lab run 20261018-0932-system-0d46): counters for the per-member walks; no law path is touched ---
++pub static W_CAPTURES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static W_CANDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static W_CAP_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static W_ANSWERS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static W_ANS_CANDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static W_ANS_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub fn walk_take() -> (u64, u64, u64, u64, u64, u64) {
++    use std::sync::atomic::Ordering::Relaxed;
++    (W_CAPTURES.swap(0, Relaxed), W_CANDS.swap(0, Relaxed), W_CAP_NS.swap(0, Relaxed),
++        W_ANSWERS.swap(0, Relaxed), W_ANS_CANDS.swap(0, Relaxed), W_ANS_NS.swap(0, Relaxed))
++}
++
+ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+@@ -128,6 +141,15 @@ impl Held for Scan {
+ impl Scan {
+     /// The expensive half: read the player and each candidate at `t` and apply the predicate.
+     fn compute(&self) -> Vec<Encounter> {
++        let __t0 = std::time::Instant::now();
++        let out = self.compute_inner();
++        W_ANSWERS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        W_ANS_CANDS.fetch_add(self.candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
++        W_ANS_NS.fetch_add(__t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++        out
++    }
++
++    fn compute_inner(&self) -> Vec<Encounter> {
+         let mut out = Vec::new();
+         let (t, body) = (self.t, self.body);
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+@@ -160,6 +182,8 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let __t0 = std::time::Instant::now();
++        W_CAPTURES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+@@ -187,6 +211,8 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        W_CANDS.fetch_add(candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
++        W_CAP_NS.fetch_add(__t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..db35182a 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -248,13 +248,37 @@ fn rest(kind: Kind, id: usize, doll_name: &str) -> (f64, f64) {
+ 
+ /// Gather everything that arrives at the player's present tick, every crossing found from scratch.
+ pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
+-    gather_with(u, names, None)
++    let __t0 = std::time::Instant::now();
++    let v = gather_with(u, names, None);
++    walk_tick(u, __t0, v.is_some());
++    v
++}
++
++// --- print-only probe (lab run 20261018-0932-system-0d46): one line per 60 gathers; no law path is touched ---
++static GATHERS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static G_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++fn walk_tick(u: &Universe, t0: std::time::Instant, ok: bool) {
++    use std::sync::atomic::Ordering::Relaxed;
++    let n = GATHERS.fetch_add(1, Relaxed) + 1;
++    if ok {
++        G_NS.fetch_add(t0.elapsed().as_nanos() as u64, Relaxed);
++    }
++    if n % 60 == 0 {
++        let (caps, cands, cap_ns, anss, ans_cands, ans_ns) = crate::encounter::walk_take();
++        println!(
++            "WALKPROBE gathers=60 ok_ns={} bodies={} | captures={} cands={} cap_ns={} | answers={} ans_cands={} ans_ns={}",
++            G_NS.swap(0, Relaxed), u.n_bodies(), caps, cands, cap_ns, anss, ans_cands, ans_ns
++        );
++    }
+ }
+ 
+ /// [`gather`], each emitter's crossing started from the one `cache` holds from the last frame (and
+ /// updated): the same view, in about one readout per emitter instead of two or three.
+ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> Option<View> {
+-    gather_with(u, names, Some(cache))
++    let __t0 = std::time::Instant::now();
++    let v = gather_with(u, names, Some(cache));
++    walk_tick(u, __t0, v.is_some());
++    v
+ }
+ 
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
