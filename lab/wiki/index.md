@@ -5,10 +5,10 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
+| [contact-speed](contact-speed.md) | open | 3 | **[20261018-0722-scout-6362] The skip's open design question ("a real fix needs the contact |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
@@ -19,10 +19,10 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [representation-premises](representation-premises.md) | open | 7 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [library-directions](library-directions.md) | open | 8 | **The 10⁹ memory wall is composed from measured constants and its decision structure is |
 | [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
-| [read-stream](read-stream.md) | open | 9 | **[20261017-2330-quant-588d] Direction 2's gate is measured: the fit-compile memo's sharing |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
-| [promotion](promotion.md) | open | 15 | **[20261018-0431-scout-b083] The scan's phase axis is corrected to the answer tier, and it |
+| [read-stream](read-stream.md) | open **conflict to resolve** | 13 | <<<<<<< main |
+| [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
 | [allocator-ratchet](allocator-ratchet.md) | open | 17 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |

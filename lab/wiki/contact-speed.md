@@ -2,11 +2,43 @@ topic: contact-speed
 status: open
 closed-by:
 valid-while:
-updated: 20261015-0724-dynamics-1648
-
+updated: 20261018-0722-scout-6362
 # The contact law's speed domain: which detected contacts exchange an impulse
 
 ## Current best
+
+**[20261018-0722-scout-6362] The skip's open design question ("a real fix needs the contact
+root |d| = reach — an integer-law design question", 1648) is answered in closed form: the
+root normal decomposes on the lattice's own integer data as n·R = P − s·w with P rational,
+w·P = 0 EXACTLY in integer arithmetic, and s = √D/|w|² the only irrational (D integer,
+D ≥ 0 iff hit), so the exact root-normal impulse is Δw = 2√D·P/R² − 2D·w/(|w|²R²) — one
+integer square root and one divide per component, no carried irrational state.** Verified
+in a standalone float/integer toy at the shipped constants' class (R = 2048 quanta [1648's
+gas], c = 2²⁰ quanta/chronon [8144's Q], k = 20 frac bits): grid arms b/R ∈ {0, ¼, ½,
+39/40} × ρ = |w|/R ∈ {3, 30, 300, 512} (β to 1.0) — integer-rule impulse recovery
+99.9855–100.0007% (worst exactly the pre-registered worst case, grazing × ρ = 3), angle ≤
+1.1×10⁻⁴ rad, against the shipped rule's 0% on every arm (the skip reproduced in-toy);
+adversarial random sweep, 200,000 arbitrary integer (d, w) pairs (22,072 crossed-in-bin,
+143,248 misses): recovery min 99.4452% / median 100.0000%, angle max 2.177×10⁻³ rad, ZERO
+fires on misses, w·P_num = 0 asserted on every pair; the root tick (ceil at 2²⁰ sub-ticks)
+bounds the position offset at ≤ 1.9 quanta against the bin-end application's ≤ 1.05×10⁶
+(R·ρ) — the impulse is identical, the schedule owns only the offset. Overflow at the
+shipped magnitudes: max intermediate ~2^120 static worst case (7 bits headroom in u128),
+104 bits measured on 50k shipped-magnitude pairs (24 bits headroom); k = 16 buys 4 bits,
+not 16 (S ∝ 2^k). Checker extended the domain (20261018-0722, check.md): at the shipped
+max |w| = 9.4×10⁵ with arbitrary geometry — recovery min 99.9914%, angle ≤ 2.1×10⁻⁴,
+grazing to 1-quanta clearance worst 99.93%, classification exact. Mechanism = event-driven
+MD's time-of-impact (Alder–Wainwright class; game
+physics' CCD/TOI sweeps are the same quadratic) [both UNVERIFIED at source, no network in
+the run]; adoption gates named: (1) re-derive on the shipped v1 operator (the toy shares
+the reflection between oracle and rule — the normal/TOI recovery is proven, the Householder
+4-normal composition is not), (2) the crossed-in-bin r5 scene with 1648's criterion (0.9c
+head-on must exchange; the shipped skip is the negative control), (3) multi-pair-bin
+ordering (event-driven MD's known failure mode; contamination measured ≤ 1.6% at fleet
+speeds). Cost: one branch at the receding gate + one u128 isqrt, on 0.1–2.7% of detected
+contacts (1648's rates) — but the firing test is the root-in-bin window via the
+already-computed tau_ticks, NOT bare D ≥ 0 (D ≥ 0 alone fires on consumed and future
+roots; measured exact in integers, 0 disagreements over 240k pairs, checker).
 
 **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected
 contact exchanges nothing iff its closest approach falls inside its detection chronon
@@ -46,17 +78,17 @@ gate needed. The in-situ per-ρ skip rate equals the driven-pair law max(0, 1−
 ±0.09 at every speed (ρ≈0.15→0.79, 0.4→0.59, 0.6→0.40, 0.85→0.14, ρ>1→0; checker,
 20261015: the ρ≈0.15 bin runs 0.757–0.800 against its 0.85 label at every speed — the
 bin's mean ρ sits above its label; binning, not bias) — the closed form is a gas law,
-not a probe artifact. **The fix rule of open direction 1 as worded
-("resolve at τ\* = −d·w/|w|²; the v1 reflection needs no root") is the identity:** in the
+not a probe artifact. The fix rule of open direction 1 as worded
+("resolve at τ\* = −d·w/|w|²; the v1 reflection needs no root") is the identity: in the
 pair's COM frame N is purely spatial along d(τ\*) ⊥ w while both momenta lie along w, so
 the reflection exchanges nothing, any masses — measured 0.3% of transport applied (the
 multi-pair contamination residue) against 48%/1.1% for the contact-root arm. A real fix
-pays the contact root |d| = reach (its normal carries ρ under a square root); the cheap
-bin-end exchange under-impulses grazes 2× at slow speeds (0.51% vs 1.09% at d2). Also:
-f50d's quantization innocence extends to these gases at |k| ≥ 150 quanta (contacts
-within 5% — d1 is 4.4%; skip fraction equal), and breaks at crawl speeds (|k| ~ 8: 826
-vs 900 contacts, faster equilibration) — the velocity quantum, not the skip, is the
-crawl-speed channel.
+pays the contact root |d| = reach (its normal carries ρ under a square root — closed
+in closed form above); the cheap bin-end exchange under-impulses grazes 2× at slow
+speeds (0.51% vs 1.09% at d2). Also: f50d's quantization innocence extends to these gases
+at |k| ≥ 150 quanta (contacts within 5% — d1 is 4.4%; skip fraction equal), and breaks at
+crawl speeds (|k| ~ 8: 826 vs 900 contacts, faster equilibration) — the velocity quantum,
+not the skip, is the crawl-speed channel.
 
 
 ## Refuted
@@ -85,38 +117,43 @@ crawl-speed channel.
   equipartition unchanged within finite-N noise, no re-encounter cascade; the distortion
   channel is real only as |w| → reach and beyond (48% of transport at |w| ≫ reach)
   (20261015-0724-dynamics-1648).**
+- **"The contact-root fix is an open integer-law design question" (1648's residue, "the
+  normal carries ρ under a square root"): answered in closed form — the irrational is one
+  scalar (s = √D/|w|²) beside the rational P with w·P = 0 exact in integers, and the
+  quantized rule recovers ≥ 99.44% of the impulse over 200k adversarial integer pairs
+  (20261018-0722-scout-6362). Not yet refuted: the shipped-operator composition (adoption
+  gate 1).**
 
 ## Open directions
 
-1. ~~**The fix, one rule:** resolve at the crossing the detection quadratic already finds
-   exactly (τ\* = −d·w/|w|² is rational; the v1 reflection needs no root), re-scoping the
-   double-resolution guard to consumed pairs.~~ **The no-root half is refuted** (the τ\*
-   reflection is the identity, 20261015-0724-dynamics-1648); what stands is the *criterion*
-   — a crossed-in-bin head-on pair at closing 0.9c must exchange the exact v1 impulse; the
-   shipped skip is the negative control — and the fact that a real fix needs the contact
-   root |d| = reach (irrational normal: ρ under a square root — an integer-law design
-   question) or the cheap bin-end exchange (measured 2× under-impulse on grazes, right
-   order). At fleet closing speeds nothing needs fixing (10⁻⁴–10⁻² of transport).
-2. ~~**The slow grazing half:** shallow-depth grazers skip at any speed; a dense slow gas
-   with many grazes was not measured.~~ **Measured innocent** (20261015-0724-dynamics-1648,
-   table above). What remains of this direction: *bound* pairs (the pump's 55–62% skip
-   inside a trap — dwell under the skip vs a resolving twin is f50d's domain, not
-   re-measured here) and filling fractions ≫ 2% (multi-pair-bin contamination was ≤ 1.6%
-   of skip-class contacts here).
+1. ~~**The fix, one rule**~~ — the design half is closed (20261018-0722-scout-6362: the
+   root-normal closed form, one isqrt + one divide, verified in toy). What remains is
+   adoption: (a) re-derive the closed form on the shipped v1 Householder operator (the
+   toy's shared-reflection proof covers the normal and TOI, not the 4-normal
+   composition); (b) freeze the crossed-in-bin r5 scene under 1648's criterion (a 0.9c
+   head-on pair must exchange the exact v1 impulse; the shipped skip is the negative
+   control; 8144's domain note: the shipped arms reach β 0.9, not 1.9×10⁶ quanta/chronon);
+   (c) multi-pair-bin root ordering (event-driven MD's classical failure mode; ≤ 1.6%
+   contamination at fleet speeds, 1648).
+2. ~~**The slow grazing half**~~ **Measured innocent** (20261015-0724-dynamics-1648).
+   What remains of this direction: *bound* pairs (the pump's 55–62% skip inside a trap —
+   dwell under the skip vs a resolving twin is f50d's domain) and filling fractions ≫ 2%.
 3. **The real rate in a flown fleet:** members share the frame velocity; the player's and
    leavers' relative speeds decide how often the threshold is crossed in play — unmeasured.
-   The gas numbers now bound it: at manoeuvre-scale relative speeds the skip channel is
+   The gas numbers bound it: at manoeuvre-scale relative speeds the skip channel is
    ≤ 10⁻² of transport; it bites only for deliberately fast crossers (missiles, flybys at
-   a large fraction of v\*).
+   a large fraction of v\*) — the class direction 1's fix restores.
 
 ## Contradictions
 
 None open. f50d's scene rates and this decomposition agree (same law, blind vs solved);
 f3ce/33f1's r5 arms sit in the exchanging regime by construction, a domain boundary, not a
 conflict — recorded so no run reads r5's pass as contact-law correctness at speed. The
-new run's innocence and 8144's fast-half danger are the same fence read from two sides:
-the boundary is |w| ~ depth, and both sides are now measured.
+innocence and fast-half danger are the same fence read from two sides: the boundary is
+|w| ~ depth, and both sides are measured. The toy's 0%-shipped column and 8144's
+294/294 closed form are the same law at one vs many arms.
 
 ## Runs
 - 20261015-0358-redteam-8144 (awaiting grade): the skip solved in closed form — skip ⟺ τ* ≤ 1,
 - 20261015-0724-dynamics-1648 (awaiting grade): the slow grazing half measured innocent
+- 20261018-0722-scout-6362 (silver): the fix's integer design answered — the root

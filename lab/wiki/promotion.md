@@ -2,11 +2,37 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0431-scout-b083
+updated: 20261018-0722-second-20261018-0431-scout-b083-5f36
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
+**[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching
+conjunct in) and flown on the shipped binary (`rigidring` probe: a rigid keys ring, one compiled
+key, e = 2^-48, beside the shipped plane): the read list on a rigid keys fleet IS the phase window
+at the scan's own interval (flown 32 at (K=10⁴, ρ=1e-5) and 32 again at (K=10⁵, ρ=1e-6); at
+larger intervals the segment read list grows past it — 2.2e4/2.5e4 at intervals 2¹²/2²⁴, K=10⁵,
+32.6, candidates = 1.00·K + background, the engine's answers agreeing member-for-member with an exact
+integer replica of `Scan::compute` — but the shipped ANSWER is neither empty nor law-decided: it
+is a quantization-signed residual (a scene-dependent fraction of the window at the scan tick —
+47–53% on the author's rings, 19% at K=3·10⁴, checker2 — swinging 15→31→12 across quarter-period
+decode points on a time-constant window — the approaching sign at the edge is grid noise, and
+the same-orbit relative motion is ⊥ to 1.3e-9 at large h). So the exact tier reads the window
+(~353 at K=10⁶, ρ=1e-6), never ~0. The selector is sound at 0 misses over 48 cells (e ≤ 0.5,
+σ_a ≤ 1e-3, h ∈ {P/10, 9}, clustered) ONLY as a 2D capability curve C(δ, Δa) (2¹⁴ × 9 Δa-bins,
+one-cell/one-bin widening) [checker2: still 0 misses on 15 cells beyond the swept axes — h = 90
+and 0.05, σ_a = 3e-3 (bins widened), ρ = 1e-5, σ_φ 0.005–0.05; reads/hits up to 68× at (0.5, 1e-3,
+h = 90)]: the 1D curve misses up to 9% of hits at e = 0.1–0.2 (near apsides
+the same-orbit d·w is O(δ²), so a linear-in-Δa shear flips the approaching sign ≈1.5·near
+outside the window), and the UNwidened curve misses 69–84% of hits (the hit set is one-sided
+under the approaching conjunct). Store-grounded price: the window lookup at K=10⁶ is 3.2 µs
+(`searchsorted` on the δ-sorted class-major store — O(log K), the 19.2 ns/member figure
+retired; unsorted packed sweep 0.32 ms), exact reads at the flown 1.9 µs/cand (3.8 µs at
+e = 0.1 — the flown eccentric arm, `e_q48 = 2^48/10`, not 0.05 as the dossier says; 604c's 4.4 µs
+class): the ρ=1e-6 closure at K=10⁶ is 0.67 ms/scan flown-rate
+(1.56 ms at 604c's) against 1.9–4.4 s shipped — ~3×10³×, and the observer term closes under
+one frame budget (the "≈1×" letter, flown end to end).**
+
 **[20261018-0431-scout-b083] The scan's phase axis is corrected to the answer tier, and it
 is measured on the shipped predicate: no horizon can cut a circular formation's candidates
 (the coast window ≈ 9r contains the ring and every member's radial range is the player's
@@ -22,7 +48,9 @@ additionally requires *approaching* (d·w < 0, law.rs every branch), which the r
 dropped; on a rigid ring d·w ≡ 0 (identically on the integer lattice), so the shipped
 encounter *answer* there is empty — the 37/353/3,204 near set is the exact tier's read
 list (a sound superset: law::hit ⊆ seg-dist ⊆ the window), not the shipped answer set;
-the price holds a fortiori, the answer needs the approaching conjunct.]** The near set
+the price holds a fortiori, the answer needs the approaching conjunct.] [0722, flown: the
+answer is the quantization-signed residual — ≈ half the window, unstable across decode
+points; the selector needs the 2D curve; see Current best.]** The near set
 is a pure phase
 window (37/353/3,204 per 10⁶ at ρ = 1e-7/1e-6/1e-5; ∝1/σ_φ under clustering to 4.1k/40.6k/
 391k — the clustered tail is the standing-contact class, encounters od 1's group
@@ -149,6 +177,16 @@ lever; ÷8 = the mint-budget lever; delete = the event-stream lever; burn-10⁹ 
 kick cadence's mint bill plus bytes/body, no separate read-stream term.
 
 ## Refuted
+- **"The shipped answer on a rigid keys fleet is empty" (b083's checker's idealization, and
+  b083's caveat iii read hopefully)**: flown, the answer is a residual (a scene-dependent
+  fraction of the window — 47–53% on the author's rings, 19% at K=3·10⁴, 50% at e = 0.3,
+  checker2) and the residual is not stable — 15→31→12 across quarter-period decode points on
+  a constant window of 32 (10→32→0 at e = 0.3, 18→66→12 at K=3·10⁴); the exact tier reads
+  the window, never ~0 (20261018-0722-second-…-5f36).
+- **"The per-orbit-class capability curve C(δ) + shear drift is a sound selector"** (b083's
+  e > 0 form): misses up to 9% of hits at e = 0.1–0.2, σ_a ≥ 1e-5 — the approaching conjunct's
+  window edge moves under the Δa-shear near apsides; the sound form is the 2D curve C(δ, Δa),
+  0 misses over the full sweep (20261018-0722-second-…-5f36).
 - **"The observer half is free / pin the ~70-body near set" (this page's own open direction 1, and
   the census's c439 reading)**: on the game's own crowd the near set is crowd-proportional (1.00
   candidates a ship), the filter bails on 100% of the plane's own scans, and at K=1,000 one answer
@@ -252,3 +290,4 @@ freeze and pin. The frame's over-budget tail is comb-owned on both seeds.
 - 20261017-0552-inversion-604c (this run): the formation scene flown — the filter bails on
 - 20261017-0739-second-20261017-0552-inversion-604c-2e42 (this run, second author): the
 - 20261018-0431-scout-b083 (scout, awaiting grade): the phase axis lands on the answer
+- 20261018-0722-second-20261018-0431-scout-b083-5f36 (second author): the tier
