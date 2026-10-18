@@ -1,0 +1,98 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..fb30894a 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -139,8 +139,53 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         }
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+-        s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
+-    }
++        let (v, _) = s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        // ES_SEEN_DUMP (print-only): the frame's seen rows on the sky circle — crowding census at instrument
++        // floors. No engine state is touched; the digest is the shipped one.
++        if let Some(path) = std::env::var_os("ES_SEEN_DUMP") {
++            if n == 30 || n == 90 {
++                if let Some(seen) = v.get("seen").and_then(|s| s.as_array()) {
++                    let wire = serde_json::to_string(seen).map(|t| t.len()).unwrap_or(0);
++                    let ang = |s: &serde_json::Value| -> f64 {
++                        let d = s.get("direction").and_then(|d| d.as_array()).unwrap();
++                        d[1].as_f64().unwrap().atan2(d[0].as_f64().unwrap())
++                    };
++                    let ls = |s: &serde_json::Value| s.get("light_seconds").and_then(|x| x.as_f64()).unwrap_or(0.0);
++                    let (mut far, mut near): (Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new());
++                    for s in seen {
++                        (if ls(s) > 100.0 { &mut far } else { &mut near }).push(ang(s));
++                    }
++                    fn census(a: &mut Vec<f64>) -> String {
++                        a.sort_by(|x, y| x.partial_cmp(y).unwrap());
++                        let n = a.len();
++                        if n < 2 {
++                            return format!("n={n} nn=- alone=-");
++                        }
++                        let mut gaps: Vec<f64> = a.windows(2).map(|w| w[1] - w[0]).collect();
++                        gaps.push(2.0 * std::f64::consts::PI - (a[n - 1] - a[0]));
++                        gaps.sort_by(|x, y| x.partial_cmp(y).unwrap());
++                        let nn_p50 = gaps[n / 2];
++                        let nn_min = gaps[0];
++                        let mut out = format!("n={n} nn_p50={nn_p50:.3e} nn_min={nn_min:.3e}");
++                        for f in [8e-3f64, 1e-3, 1e-4, 1e-5] {
++                            let mut cnt: std::collections::HashMap<i64, u32> = std::collections::HashMap::new();
++                            for &x in a.iter() {
++                                *cnt.entry((x / f).floor() as i64).or_insert(0) += 1;
++                            }
++                            let alone = cnt.values().filter(|&&c| c == 1).count();
++                            out += &format!(" f{f:e}:cells={} alone={:.4}", cnt.len(), alone as f64 / n as f64);
++                        }
++                        out
++                    }
++                    let line = format!("frame={n} seen={} wire_bytes={} FAR[{}] NEAR[{}]\n", seen.len(), wire, census(&mut far), census(&mut near));
++        use std::io::Write as _;
++        if let Ok(mut fh) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
++                            let _ = fh.write_all(line.as_bytes());
++                        }
++                    }
++                }
++            }
++        }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+     let presented_at_end = s.p.u.now;
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..4c9f3ce2 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -1,7 +1,7 @@
+ //! A flight: the plane, the frame loop, the dashboard. Shared by the page and the benchmark.
+ use emergent_universe::dash::Dash;
+ use emergent_universe::fleet::Order;
+-use emergent_universe::scenario::{plane, Plane};
++use emergent_universe::scenario::{plane, plane_extra, Plane};
+ use emergent_universe::view::{gather_cached, View, ViewCache};
+ use emergent_universe::{Budget, Config};
+ use serde_json::{json, Value};
+@@ -43,16 +43,22 @@ pub struct Session {
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        // ES_LADDER: the N ladder's extra real bodies (print-only scene knob; 0 is the plane, bit for bit).
++        let extra = std::env::var("ES_LADDER").ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
++        let p = if extra > 0 {
++            plane_extra(Config::default(), seed, Order::Sparse, threads, members, extra).map_err(|e| format!("the plane: {e:?}"))?
++        } else {
++            plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?
++        };
+         let names = p.names.clone();
+         Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
+     }
+-
+     /// Record this session's flight in `dir` (`artifacts/flights/`): see [`super::flight`].
+     pub fn record_into(&mut self, dir: PathBuf) {
+         self.rec = Some(Recorder::new(dir, self.seed, self.rtf, self.members, self.threads));
+     }
+ 
++
+     pub fn recording(&self) -> bool {
+         self.rec.is_some()
+     }
