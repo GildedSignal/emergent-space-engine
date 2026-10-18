@@ -1,0 +1,253 @@
+diff --git a/crates/universe/src/bin/tail.rs b/crates/universe/src/bin/tail.rs
+new file mode 100644
+index 00000000..970e9f0b
+--- /dev/null
++++ b/crates/universe/src/bin/tail.rs
+@@ -0,0 +1,145 @@
++//! The runaway-tail instrument (lab run 20261018-0543-taleb-6de0).
++//!
++//! Runs the shipped plane through its public API only, on the judge's restricted scene
++//! (a star and a planet of mass ratio mu on a circle, miniature-units ICs defined in
++//! judge units exactly as xtask/src/behave/restricted.rs writes them), one (du, phi)
++//! co-orbital IC at a time, to a horizon in planet periods under an event cap, printing
++//! one JSON line. The IC grid samples the 1:1 co-orbital band edge: a circular
++//! heliocentric orbit at a = sep + du*Hill(mu), phase phi from the planet. With
++//! KICK_TRACE set, crates/universe/src/trace.rs writes the per-kick series.
++//!
++//! `tail MU DU PHI PERIODS CAP [CHUNK]` — CAP is the event budget (the run is reported
++//! capped=true when it is spent before the horizon); CHUNK is events per advance call
++//! (default 20000; chunking preserves the canonical bits, universe.rs docs).
++use emergent_universe::num::from_f64;
++use emergent_universe::scenario::{AU, STAR_RADIUS};
++use emergent_universe::world::Mass;
++use emergent_universe::{Budget, Config, Kind, OrbitSpec, Universe};
++use std::f64::consts::TAU;
++
++/// The judge's scene (restricted.rs, float64 at the boundary only).
++struct Scene {
++    mu: f64,
++    sep: f64,
++    planet_radius: f64,
++}
++impl Scene {
++    fn omega(&self) -> f64 {
++        self.sep.powf(-1.5)
++    }
++    fn period(&self) -> f64 {
++        TAU * self.sep.powf(1.5)
++    }
++    fn hill(&self) -> f64 {
++        self.sep * (self.mu / 3.0).cbrt()
++    }
++    fn star(&self) -> ([f64; 2], [f64; 2]) {
++        let (s, c) = (0.0f64.sin(), 1.0f64);
++        let (r, v) = (self.sep * self.mu, self.sep * self.mu * self.omega());
++        ([-r * c, -r * s], [v * s, -v * c])
++    }
++}
++
++/// The scene as a universe: a copy of behave::plane::build_scene (crate-public there),
++/// at the default cadence, one thread: deterministic and canonical.
++fn build(scene: &Scene, ship: [f64; 4]) -> Option<(Universe, usize)> {
++    let mu = scene.mu;
++    let to_root = 1.0 / (1.0 - mu);
++    let mass = Mass::of(from_f64(mu / (1.0 - mu))).ok()?;
++    let cfg = Config::default();
++    let mut u = Universe::new(
++        from_f64(STAR_RADIUS as f64 * (scene.sep * to_root / AU as f64).min(1.0)),
++        cfg,
++    );
++    u.threads = 1;
++    let planet = u
++        .add_body(
++            Kind::Planet,
++            OrbitSpec { doll: 0, periapsis: from_f64(scene.sep * to_root), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            from_f64(0.0),
++        )
++        .ok()?;
++    let surface = from_f64(scene.planet_radius * to_root).scale(-mass.octave).ok()?;
++    u.add_doll("planet", planet, mass, surface).ok()?;
++    let (sp, sv) = scene.star();
++    let id = u
++        .add_body_state(
++            Kind::Ship,
++            0,
++            [from_f64((ship[0] - sp[0]) * to_root), from_f64((ship[1] - sp[1]) * to_root)],
++            [from_f64(ship[2] - sv[0]), from_f64(ship[3] - sv[1])],
++            from_f64(0.0),
++        )
++        .ok()?;
++    u.start().ok()?;
++    Some((u, id))
++}
++
++fn main() {
++    let a: Vec<f64> = std::env::args().skip(1).take(6).filter_map(|x| x.parse().ok()).collect();
++    if a.len() < 5 {
++        eprintln!("tail MU DU PHI PERIODS CAP [CHUNK]");
++        std::process::exit(2);
++    }
++    emergent_universe::trace::init();
++    let (mu, du, phi, periods, cap) = (a[0], a[1], a[2], a[3], a[4] as u64);
++    let chunk = a.get(5).copied().unwrap_or(20000.0) as u64;
++    let scene = Scene { mu, sep: 5.27e8, planet_radius: 4.84e4 };
++    // The IC: circular heliocentric orbit at sep + du*Hill, phi ahead of the planet.
++    let sma = scene.sep + du * scene.hill();
++    let (sin, cos) = phi.to_radians().sin_cos();
++    let vcirc = ((1.0 - mu) / sma).sqrt();
++    let (sp, sv) = scene.star();
++    let ship = [sma * cos + sp[0], sma * sin + sp[1], -vcirc * sin + sv[0], vcirc * cos + sv[1]];
++
++    let (mut u, id) = match build(&scene, ship) {
++        Some(x) => x,
++        None => {
++            println!("{{\"mu\":{mu},\"du\":{du},\"phi\":{phi},\"refused\":true}}");
++            return;
++        }
++    };
++    let p_ticks = (scene.period() / (1.0 - mu)) as i64; // planet period in root ticks
++    let horizon = (p_ticks as f64 * periods) as i64;
++    let quarter = (p_ticks / 4).max(1);
++    let mut target = 0i64;
++    let mut spent = 0u64;
++    let mut capped = false;
++    let mut cps: Vec<String> = Vec::new();
++    let mut alive = true;
++    let t0 = std::time::Instant::now();
++    while target < horizon {
++        target = (target + quarter).min(horizon);
++        // settle to `target` in budget chunks; stop at the cap.
++        loop {
++            let adv = u.advance(target, Budget::events(chunk));
++            spent += adv.events;
++            if spent > cap {
++                capped = true;
++                break;
++            }
++            if adv.events == 0 {
++                break;
++            }
++        }
++        cps.push(format!(
++            "[{:.4},{},{},{}]",
++            target as f64 / p_ticks as f64,
++            u.stats.kicks,
++            u.stats.events(),
++            u.bodies().alive(id)
++        ));
++        if capped || !u.bodies().alive(id) {
++            alive = u.bodies().alive(id);
++            break;
++        }
++    }
++    println!(
++        "{{\"mu\":{mu},\"du\":{du},\"phi\":{phi},\"periods\":{periods},\"cap\":{cap},\"kicks\":{},\"events\":{},\"handoffs\":{},\"capped\":{capped},\"alive\":{alive},\"secs\":{:.3},\"cp\":[{}]}}",
++        u.stats.kicks,
++        u.stats.events(),
++        u.stats.handoffs,
++        t0.elapsed().as_secs_f64(),
++        cps.join(",")
++    );
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..6420d80a 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -15,6 +15,7 @@ pub mod radial;
+ pub mod scenario;
+ pub mod step;
+ pub mod thrust;
++pub mod trace;
+ pub mod universe;
+ pub mod view;
+ pub mod world;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..364fc92e 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -714,6 +714,9 @@ impl Work<'_, '_> {
+         }
+         self.rec.interval = full;
+         self.rec.step = full;
++        if crate::trace::enabled() {
++            crate::trace::kick(t, d, &x, &v, Some(y), &secs, full);
++        }
+         insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
+         insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
+         self.plan_terminal(t)?;
+diff --git a/crates/universe/src/trace.rs b/crates/universe/src/trace.rs
+new file mode 100644
+index 00000000..9ef36631
+--- /dev/null
++++ b/crates/universe/src/trace.rs
+@@ -0,0 +1,70 @@
++//! An optional per-kick telemetry tap for lab instruments (run 20261018-0543-taleb-6de0).
++//!
++//! Off by default and outside every outcome: `KICK_TRACE=<path>` opens the sink,
++//! `KICK_TRACE_EVERY=<n>` keeps one line in every n clock kicks (1 unless set). When the
++//! sink is off the hook is one relaxed atomic load. The line is the state the kick leaves,
++//! the sources that kicked it, and the interval to the next kick — the series an
++//! instrument needs to tell a physical capture cascade (interval tracks the local orbital
++//! period) from an event storm (interval collapses with no short period behind it).
++use std::cell::RefCell;
++use std::io::Write;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++use crate::num::{to_f64, Tick};
++
++static ENABLED: AtomicBool = AtomicBool::new(false);
++static SEEN: AtomicU64 = AtomicU64::new(0);
++
++thread_local! {
++    static SINK: RefCell<Option<(std::fs::File, u64)>> = const { RefCell::new(None) };
++}
++
++/// Open the sink if `KICK_TRACE` is set; call once from the instrument's main (the
++/// thread that runs the universe).
++pub fn init() {
++    if let Some(path) = std::env::var_os("KICK_TRACE") {
++        let every = std::env::var("KICK_TRACE_EVERY")
++            .ok()
++            .and_then(|v| v.parse::<u64>().ok())
++            .unwrap_or(1)
++            .max(1);
++        if let Ok(f) = std::fs::File::create(&path) {
++            SINK.with(|s| *s.borrow_mut() = Some((f, every)));
++            ENABLED.store(true, Ordering::Relaxed);
++        }
++    }
++}
++
++/// Whether the hook should gather (checked before any borrow).
++pub fn enabled() -> bool {
++    ENABLED.load(Ordering::Relaxed)
++}
++
++/// One clock kick: `t` (doll ticks), the doll, the position the kick leaves, the
++/// secondaries (gm, position) at `t`, and `full`, the interval planned to the next kick.
++pub fn kick(
++    t: Tick,
++    d: u16,
++    x: &[emergent_space::orbit::Scalar; 2],
++    v: &[emergent_space::orbit::Scalar; 2],
++    y: Option<emergent_space::orbit::Scalar>,
++    secs: &[crate::force::Secondary],
++    full: i64,
++) {
++    let n = SEEN.fetch_add(1, Ordering::Relaxed);
++    SINK.with(|cell| {
++        let mut guard = cell.borrow_mut();
++        let Some((f, every)) = guard.as_mut() else { return };
++        if n % *every != 0 {
++            return;
++        }
++        let _ = write!(f, "{t} {d} {:.9e} {:.9e} {}", to_f64(x[0]), to_f64(x[1]), secs.len());
++        if let Some(y) = y {
++            let _ = write!(f, " {:.9e} {:.9e}", to_f64(y), to_f64(v[0]).hypot(to_f64(v[1])));
++        }
++        for s in secs.iter().take(3) {
++            let _ = write!(f, " {:.9e} {:.9e} {:.9e}", to_f64(s.gm), to_f64(s.pos[0]), to_f64(s.pos[1]));
++        }
++        let _ = writeln!(f, " {full}");
++    });
++}

@@ -1,0 +1,32 @@
+constants: c=1.898e-10 b=5.693e-09 ds=2.101e-08 A=ds/b=3.69 P=7.717e+13 ticks
+
+== mu=1e-2 (16 P, cap 100k): 144 ICs
+   events total=1979458 median=7329 max=104413
+   capped=10 holding 52.3% of all events | top1=5.3% | dead=9 | median kicks/P=230
+   events/s: uncapped~18772 (53 us/event) capped~8267 (121 us/event, x2.3)
+
+== mu=1e-2 early (4 P, cap 100k): 144 ICs
+   events total=279177 median=1837 max=3411
+   capped=0 holding 0.0% of all events | top1=1.2% | dead=1 | median kicks/P=230
+
+== mu=1e-3 control (64 P (16x horizon), cap 100k): 144 ICs
+   events total=4986183 median=35165 max=43677
+   capped=0 holding 0.0% of all events | top1=0.9% | dead=10 | median kicks/P=276
+
+grinder (du=-0.68, phi=81.8) events/P: 0.5P:424 1.5P:444 2.5P:412 3.5P:428 4.5P:424 5.5P:464 6.5P:448 7.5P:624 8.5P:676 9.5P:964
+
+== deep traces (end state at the cap):
+   a: kicks_sampled=46992 t_end=  7.331P r_star=  9.44sep r_pl=  8.54sep min_r_pl=    58R_p v=nan interval=22
+   b: kicks_sampled=47014 t_end= 14.982P r_star= 16.33sep r_pl= 15.54sep min_r_pl=   813R_p v=nan interval=10
+   c: kicks_sampled=46986 t_end= 12.820P r_star= 19.03sep r_pl= 18.15sep min_r_pl=   858R_p v=nan interval=11
+   a2: kicks_sampled=18867 t_end=  7.331P r_star=  9.45sep r_pl=  8.56sep min_r_pl=    58R_p v=1.991e-01 interval=132
+   d: kicks_sampled=1287 t_end= 15.535P r_star= 13.57sep r_pl= 12.75sep min_r_pl=   578R_p v=7.619e-02 interval=895
+   e: kicks_sampled=1281 t_end=  9.770P r_star=  9.21sep r_pl=  9.26sep min_r_pl=   941R_p v=1.303e-03 interval=1913356
+   f: kicks_sampled=1291 t_end= 12.693P r_star= 10.44sep r_pl=  9.53sep min_r_pl=   972R_p v=7.654e-02 interval=889
+   g: kicks_sampled=1280 t_end=  8.748P r_star=  9.77sep r_pl=  8.93sep min_r_pl=   603R_p v=3.758e-02 interval=3665
+   h: kicks_sampled=1277 t_end= 12.106P r_star= 13.10sep r_pl= 12.25sep min_r_pl=    42R_p v=7.626e-02 interval=894
+
+== a2 storm tail (v>0.15, n=4700): dt*y=A: mean=2.62 min=2.60 max=2.64 (constant to 1.4%; constants give ds/b=3.69)
+   -> dt = A/y with y = v^2/2 (last ratio 1.002); ratchet dv/kick median=6.52e-07 IQR=(6.5e-07,6.5e-07) all_positive=True
+   v 0.150->0.199; interval 232->132 ticks; energy minted vs orbital KE (v_orb=4.35e-5): x2.1e+07
+   freeze: the last 25600 kicks of the 1.5M run advance the clock 579431 ticks = 7.5e-09 P; the 16 P horizon is unreachable

@@ -1,0 +1,11 @@
+Working...
+**Grade: gold** — written to `lab/results/20261018-0543-taleb-6de0/check2.md`. Tree restored (patch reversed; nothing outside `lab/results/` touched; `check.md` never read).
+
+**What I did as the blind second checker:**
+
+- **Reproduction from a clean tree**: applied `work/patch.diff` myself, rebuilt, regenerated both ensembles and deep traces in fresh directories (removed after — folder left as found). Every dossier number matched: 10/144 capped holding 52.3% of 1.98 M events, median 7,329 / 230 kicks/P / 9 dead; μ=1e-3 control 0/144, 276 kicks/P; grinder walk 424→964→400,000 events/P with the lock at 10.2 P; freeze 579,431 ticks = 7.51e-9 P — the dossier's exact digits.
+- **Mechanism closed against shipped code**: `ext.rs` clamps `y` only from below, `ticks()` floors at 1, `MIN_STEP` never enters `kick_clock`'s step. The drift law closes **exactly**: Δs rounds down to 2⁻²⁶, so dt·y = Δs/b = 2.6176 against measured 2.617 (mean of 32,825 samples); the full two-term identity closes to 2×10⁻⁵. The dossier's "30% gap" was that missing power-of-two floor — the page's checker bracket is right, re-derived independently.
+- **Adversarial, two beyond the author's domain**: 32 P horizon → 31/144 capped (69.6%, new storms still entering at 17.8–31.2 P); **μ = 3e-2 at only 8 P → 19/144 capped (79.6%)** — a mass never tested; an untraced capped IC is ejected at 11.7 sep (never inside 909 R_p) minting through the register, y = 1.33·v²/2; chunk 20000/5000/500 bit-identical. My 1.5 M trace pushes the ratchet to **v = 0.489** (dossier stopped at 0.199) — unboundedness undersold, not overstated.
+- **Novelty**: the live wiki's open direction 3 posed exactly this question; 80fe recorded only the cost wall. No prior record of the clock freeze. The proposed page needed no correction — every bracket in it matches my numbers.
+
+One caveat recorded: I could not hand-reproduce the kick branch's magnitude constant (6.4e-7) from outside the crate — its one-signed constancy and all consequences are verified, and the storm's actual engine (the drift collapse) closes exactly. That, plus the honestly-reported refuted predictions (P1, P3, P5a) and the deciding storm clause holding exactly, is why this clears the gold bar: reproduced, premise-killing, adoptable in one step.
