@@ -2,10 +2,96 @@ topic: encounters
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0932-fermi-cd3b
+<<<<<<< main
+updated: 20261018-1025-quant-c9c7
+=======
+updated: 20261018-1025-scout-fbf9
+
+>>>>>>> 20261018-1025-scout-fbf9
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
+
+<<<<<<< main
+**[20261018-1025-quant-c9c7] The row's one missing constant is measured and it inverts the closure reading:
+pairs re-checked per kick on the shipped U-scan tier is 0.484·N at the belt's own mix — the
+window is SATURATED (the scan is the whole band at every N, 10⁴→10⁶, exponent 0.999; the
+Rayleigh e-tail's e_max/p ≈ 0.19 exceeds the band's whole U-span 1/2−1/3 = 0.167), so the
+count is linear in N and NOT O(1) even at fixed density (the fixed-density control fails its
+own flatness: 0.695·N vs 0.484·N), and cells cannot bound it (reach spans ~10⁵ cells of
+10⁴).** fe6b's 0.0346·n is the *unsaturated* regime: reproduced at its own spec
+(0.0824→0.0843·N at 10⁴→10⁶ = 0.0346·N·(1+X)/(2(X−1)) with X = 1.52 ≈ 1.5), while the belt
+mix carries 5.7× more candidates (σ_R 0.07 vs 0.01). Composed at 10⁹ rtf 100: candidate
+rescans are 10⁷–10⁹ cores (scan-only floor 106 s/kick at 0.22 µs/entry; exact re-cert
+4.8 µs/pair) — the rescan framing of the row is dead by 5–7 orders, and the "~10¹–10²
+cores at cells of 10⁴" worry (346 pairs/kick) understates the constant 14×. The closure is
+measured the same run on the flow/slack side: at the belt quantum (2⁻²³) the candidate set
+is bit-stable (gained+lost ≈ 0 of ~10⁵–5×10⁵ pairs per kick), 92.3–92.5% of pairs are
+slack-skippable with 0 violations (changed 1.3%; armed pairs 0.85% of candidates; n = 10⁴
+and 3×10⁴, seeds 20261050 and 777), and stored slack dies at 10⁻⁵-class kicks (4.5%
+skippable; 0.04% at 10⁻³) — churn reduces to cd3b's mint flow (≤1.9 cores) plus
+burn-priced re-arm. Replica element tier (Binet cone, ρ = 1e-4; eps_u ∝ ρ enters reach only
+at ~10⁻⁴ ≪ the 0.04–0.19 e/p terms, so the candidate law is anchor-insensitive; the arm
+flow is cd3b's priced row); measured N ≤ 10⁶, extrapolated 10³× structurally (quant;
+instrument `examples/churn.rs` + the parameterized shipped `kick`, `regen.sh`).
+**[Checker, 20261018: reproduced bit-identically (every deterministic field; regen 38 s), and
+the domain extends past the author's: σ 0.2 → 0.849·N and σ 0.4 (the shipped redraw cap) →
+0.940·N — saturation deepens monotonically with dispersion, so a stirred belt worsens the
+rescan verdict; n = 3×10⁶ → 0.519·N (local exponent 1.02), so the honest constant is
+0.48–0.52·N (per-body e heterogeneity plus the √ln N crawl of e_max/p), not exactly 0.484;
+fe6b's law confirmed at a second X ([1,2], σ 0.01: 0.050/0.053·N vs the formula's 0.0519 —
+the X identification is real); the slack cliff located: 0.925 (2⁻²³) → 0.83 (3e-7) → 0.55
+(1e-6) → 0.19 (3e-6) → 0.045 (1e-5), 0 violations at every rung. One label slip in
+dossier/predictions (not this page): the fixed-density control's "anchor density 4×10⁴/AU²"
+is the control band's own density; the 10⁶-in-[2,3) anchor is 6.4×10⁴/AU² — the control ran
+at lower density and its fraction still rose, so the P2 kill is stronger than stated.]**
+
+
+**[Checker 2, 20261018 (blind): every deterministic field reproduced bit-identically, 38 s.
+Four independent adversarials confirm the mechanism and bound its domain: n = 3×10⁶ (out of
+range) → 0.519·N, scanned still 100% (the constant crawls with e_max/p exactly as the
+√ln N disclosure says — the 10⁹ rescan cost is worse than 0.484·N, not better); σ = 0.02 →
+0.162·N vs the σ-linear unsaturated prediction 0.164·N (the two regimes connect as
+claimed); fe6b's law at a second X ([1,2]: 0.0511·N vs 0.0519); and a 10×-wider band [2,12]
+still measures 0.15–0.154·N (seeds 20261050/777) — so "NOT O(1) at fixed density" holds for
+every belt-like band, and becomes O(1) only asymptotically once 2·reach < U-span, far
+outside any belt geometry. The named 10⁶-pair slack probe now exists: n = 10⁵, nk = 20,
+963,298 decisions, skippable 0.9219, 0 violations.]**
+=======
+**[20261018-1025-scout-fbf9] The row's one missing constant is answered by mechanism:
+after a belt-quantum kick, the pairs that must be re-checked are the near-horizon
+time-window band — 0.034 arm-evals per body per kick at cells of 10⁴ (law
+n·W·(H+2)·⟨|Δa|⟩/T̄_syn, ∝ n² at fixed density: 3.4×10⁻⁴ at 10³, 3.4 at 10⁵
+[checker: the author's 0.0034/0.34 scaled ×10 per decade; n² is ×100 — checker flight
+at n = 10⁵ measures 4.67, confirming the shape against the mean-field 3.4–6.8 and
+refuting 0.34 by 14×]), not fe6b's 0.034·n — so the per-kick term falls ~4 orders in
+arm-evals (346 → 0.034; at 1 µs/arm, 1 kick/body/interval that is 12.3 → 1.2×10⁻³
+cores on the toy's game-s clock; the dossier's "~6 orders, ≈197 → ≈2×10⁻⁴ cores" does
+not reproduce under its own stated assumptions [checker]) and the row's CPU closes on
+cd3b's stream terms alone; the price is that the armed list's miss-distance content is
+kick-fragile (0.5–0.75× armed re-lotteries per 2⁻²³ kick at a bare-B certificate, saturating at
+2⁻¹⁷), so armed lists must carry miss-space slack and re-decide at the due, never
+store exact.** Float/Kepler toy on the shipped scenario constants (belt a∈[2,3) AU,
+e Rayleigh 0.07, B = 5×10⁵ m, horizon 8 intervals, dv/v = 2⁻²³; pre/post compared at
+the same kick anomaly): intra-cell armed probability ~10⁻¹¹ (cell-mates at 10⁹ density
+are co-orbital to 10⁻⁵ AU, T_syn ≈ 7.4×10⁵ intervals) — flips 0 at every occupancy
+(bound 1.5×10⁻³/kick), near-band 0.030/0.050/0.065 across seeds at n = 10⁴ against
+the analytic 0.034; the due-walk is multiplicative, δdue ≈ due·δn_i/Δn_pair (median
+cell-mate 10⁵–4×10⁶ intervals per kick, in-horizon wide partners 1.5×10⁻⁵, linear in
+dv) — huge far from the horizon, small exactly where arming is decided, which is what
+makes the band test sound. Live anchor (partners at true density, ±0.35 AU): armed
+≈ 525–1050 per body per horizon, same order as cd3b's flow (their n₂D = N/25 vs
+N/15.7 explains the ~1.6×). Controls: closed-form arming a strict superset of a
+brute-force scan (11/11, 0 missed); a no-margin schedule loses events (2/100 kicks at
+dv = 2⁻¹⁷ — the instrument can fail); the concentration control reads standing =
+543/body on a shared-(a,e,ω) ring at n = 2000 (predicted 0.27·n — taleb-09b5's ruin
+class) with dissolution flips 33/344 per kick (no-dwell upper bound). Mechanism =
+MD's Verlet-skin displacement rebuild + kinetic data structures' flight-plan update
+(Basch–Guibas), both verified at the survey level. Adoption gate (the kill test): fly
+a due-band per-kick rule on the shipped tier at 10⁴ occupancy; if measured re-arms/kick
+are Θ(n), the toy missed a churn channel (the standing/dwell class is where to look).
+Grade: silver (scout, self-suggested).
+>>>>>>> 20261018-1025-scout-fbf9
 
 **[20261018-0932-fermi-cd3b] The belt row's EVENT FLOW at 10⁹ is derived on the shipped
 geometry and it is cheap and small: ~0.22 contacts/game-s and ~1.1×10³ b≤5×10⁵-m
@@ -28,171 +114,43 @@ Consequence for the goal: at 10⁹ real bodies the shipped belt *grinds* — one
 ~4.5 game-s is the fragmentation/combat feed, information 0.2–1 bits/s, CPU noise; the
 board's "cut encounter work by 10³" is a certificate-scheduling question, not an
 event-volume question.
+[20261018-1025 note: the singular number this paragraph owed is now measured above —
+0.034/kick at n = 10⁴, not 346; the "biggest unknown" is closed pending the shipped-tier
+flight.]
 
-
-**[20261018-0543-library-5567] The fleet row's requirement is dead by representation: the plane
-already ships the formation's native carrier (the Fermi-frame fleet, `crates/universe/src/fleet.rs`),
-and on it the F = 10⁵ × 10⁴ population prices at ≤ ~1 core, not cf2a's 4,510 (99.77% of that
-ledger).** Measured on shipped `universe --bench` (members cap env-gated, 2,000 game-s per
-flight): 0.89 µs per member per game-second at the low-orbit Armada (85.3 ms / 3,931 slices,
-m = 48), per-slice cost member-flat 21.7 → 22.0 µs from m = 48 → 192 while the frame holds
-(the EventCore charges events, not members; the contact batch is binned), ×2.43 total for ×4
-members. Composed heliocentric on the scale-free epoch law (1,600–3,200 epochs/period at any
-radius, frame.rs:37): ~0.15 cores of member events + ~0.8 cores of per-epoch batch scans at
-10⁹ members + 10⁵ origin tubes at the belt stream — against 4,510 cores carried as belt bodies
-through the pairwise tier. The frame's domain is measured at its edge: seed 1 dissolves at
-m = 768 (768/768 handed out as ships, ship class 1,345 → 19,699 items), seed 7 by 192 — the
-extent rule r_p/32 is the dimensionless gate (tight formations inside, the L4/L5 quarter
-outside, and dissolution is exactly the tier's ruin regime handed back). Wiring debts,
-code-verified: one fleet per universe (universe.rs:513), the player loop runs every fleet to
-the player's tick (universe.rs:733 needs a doll filter), a heliocentric frame is doll 0 with
-the star's mass. Consequence: the pairwise tier sees only the dilute remainder, where
-q-candidate-degree measured zero misses; the rank certificate is unneeded for the fleet class
-(library lens; quotes 5/5 byte-identical, 4,590 highlights cached; held-out seed 7 held; the
-heliocentric step is arithmetic on the measured epoch law, not a flown doll-0 frame — the
-named next run).
-**[Checker, 20261018: two corrections and one extension. The "~0.8 cores of per-epoch batch
-scans" is 10³ its own printed factors (10⁵ × 7.6×10⁻⁵ epoch/s × 10⁴ members × ~10 ns =
-7.6×10⁻⁴ cores); the ≤ ~1 core total holds under either reading. The measured domain is
-m ≤ 768, one fleet, low orbit — checker flights extend it: seed 3, and m up to 6,144 (this
-run's own named held-out case, unflown by the author): exponent 0.71 across ×128 members,
-per-member rate falling 0.89 → 0.22 µs/member/game-s, no quadratic onset, the extent gate
-shedding overflow as leavers. Unpriced: the contact flow is period-independent — epoch
-scaling discounts kicks, not battles; even the all-battle bound (every member in continuous
-Armada-density combat, no scaling) is ~2.2×10² cores, 20× under the row.]**
-**[Checker-2, 20261018: three corrections to the numbers above, none touching the finding. (1)
-The per-member rate at m ≥ 768 must be normalized by the *presented* game-time, not the
-nominal 2,000 game-s: the bench presents 1,109 gs at m = 768, 20.9 gs at m = 3,072, 15.7 gs at
-m = 6,144 (the battle lags its deadline under the engine budget), so the honest rates are 0.80
-µs (m = 768), 96 µs (m = 3,072 — ~entirely the hand-out storm, 1,515 leavers × ~4 ms: the
-extent gate refusing, not the carrier carrying), 30 µs (m = 6,144). All still under P2's own
-100 µs kill bar; the held regime (m ≤ 192) is unaffected. "Per-member rate falling to 0.22"
-above is the broken normalization, not a falling rate. (2) The all-battle bound is
-packing-dependent, not 2.2×10²: at the Armada's own packing (m = 48, fixed spacing 5q) it is
-~9×10² cores (0.89 µs × 10⁹, under the row); at m = 3,072 packing the storm prices ~10⁵ cores.
-"≤ ~1 core" is the quiet-formation maintenance price; war compute is a population parameter
-(contacts are period-independent), not a carrier property. (3) The m ≤ 192 per-slice
-member-flat claim does not extend: a slice at m = 3,072 is 36.9 ms (×1,700), event- and
-contact-dense. Also: "the L4/L5 quarter outside" is asserted, not measured — 0.25 R_H at AU
-scale fits r_p/32 of a heliocentric frame by ~an order on checker arithmetic; the rate
-parenthetical "85.3 ms / 3,931 slices" computes the per-slice 21.7 µs, the rate is 85.3
-ms/(48 × 2,000 game-s).]**
-
-
-*[Prior best retained below.]*
-
-**The live-path belt anchor is 2b89's velocity word (60-bit-relative, ev = −73, quantum
-3.17×10⁻¹⁴ m/s): at it every Dohnanyi conjunction fires the word and mints a compiled key
-within b ≲ 5×10⁵ m of 70-m partners, the gate deletes 0%, the exact tier is FULL, and the
-10⁹ budget closes on the flux accumulator at every word width; the anchor is a dial
-(coarsening 5–15 bits revives f0a2's empty-tier world) — belt-side, untouched by the fleet
-row below.**
-
-
-**[Conflict resolved on the fleet row, 20261017-1018-second: the calendar is measured, it is
-sound, it deletes the sweep — and the fleet term it leaves is the population's own conjunction
-flow, so the ledger row closes as a constraint on fleets, not on certificates.]** The r8-v2
-conjunction calendar already exists in shipped code (`tier::arm_pair`: the `dioph.rs`
-first-hit schedule, returning `(armed, due)` with `due` = first in-window passage, possibly
-beyond the horizon = slack). Measured on it (`examples/fleetcal.rs`, print-only, decisive
-seed 20261017, held-out 777, both reproduce): the arm test costs **1.02–1.16 µs/pair** vs the
-exact check's **57.7 µs at one-interval horizon and 414.7 µs at the 8-interval rebuild
-horizon** (57×–370×) — and the sweep price that 2373 composed (3.24 µs/pair) was measured at
-a 1-orbit horizon no sound 8-interval rebuild can use, so its 36/383/4,500 cores understated the shipped sweep by 129–143×. The calendar is **sound**: 0 dropped, 0 added against
-`group_events` on keys and train fleets at both seeds, while the negative controls (safety
-0.9/0.5, reach halved) drop 59–6,492 events — the instrument can fail. Keys-fleet capability
-is a birth constant as 2373 proposed, **but it is ρ-driven, not σ_e-driven**: armed pairs =
-54/4,775/477,050 at F=10³/10⁴/10⁵ (σ_e = 1e-2) and 4,708 at σ_e = 1e-3 (same within 2%),
-while the sweep's window shrinks 10× — so tightening formations does not shrink the calendar
-floor. The one-period capability evaluation costs 27–51 µs per armed pair; evaluating a
-perpetual (same-period) armed pair at interval horizon costs **31 ms** (102,757 exact evals:
-the shipped exact machinery walks every orbit of horizon per standing pair) — a standing
-contact must be a stored state, never a per-interval re-check. Trains (da = 1e-4) are a
-conjunction machine: 9.41 M pairs fire in interval 0 at F = 10⁴ (26% of the 36.2 M window
-pairs; 6.80 M at interval 10, 0.72× iv0 — direct re-arm, the pre-registered K4 fallback), each firing 21–34 µs; da = 1e-3 refuses
-(reach 21.3 ≥ π, the H* law) so the calendar inherits exactly 2373's refused-train tree ruin.
-Kicks: a belt-quantum kick (2⁻²³) moves the median pair's due by < 10⁻³ intervals (slack is
-real, re-arm deferrable) but **creates 16.8 (keys) / 1,924 (train; 777: 1,862) newly-armed
-pairs per kick** — undelayable real events; the row re-arm itself is 1.1 ms (keys) / 16 ms
-(train) per kick if slack is ignored. **Composed at 10⁹ (φ = 1, L = 100-interval fleet
-lifetime): keys
-calendar birth = 0.95 / 10.1 / 118 cores at F = 10³/10⁴/10⁵ (L = 100) → F* ≈ 4,100 (L = 25:
-≈ 1,050; F = 10³ fits at L ≥ 25: 3.8 cores) — ~40× the sweep's ~124, but not 10⁵. [Checker-2:
-compose.py's `** 0.5` interpolation assumed a term ∝ F², but the measured term runs ∝ F^1.03–1.07
-(0.95→10.08→118.08 cores per decade); the honest refit gives 4,100/1,050, not 6,463/3,232.] The train firing flow alone is 51,344 cores at F = 10⁴ (the
-term is ∝ F: no da = 1e-4 train fleet size fits at φ = 1, F* < 1 — stronger than the author's F* ≈ 89), and the kick-created conjunctions at the belt's own 2 events/body/interval
-are ~2,500–3,300 cores at any F (keys; ~290,000 train). So the missing ledger row closes with numbers on both sides:
-**certificate* term F* ≈ 1.1–4.1 k at L = 25–100 for uniform-phase keys fleets (calendar, slack, standing contacts), and *population*
-terms — the conjunction firing flow and kick-created firings — that no certificate deletes
-(PRINCIPLES #3: they are the surprises). The 4-core budget at 10⁹ buys uniform-phase keys fleets of ~10³ ships now (birth fits at L ≥ 25) and up to
-~4×10³ if fleets live 100 intervals, at belt-like kick rates, or larger ones only if fleets are quiet (φ·kick-rate policy).
-**Clustered formations (σ_l ≲ reach — the battle-group shape of taleb-09b5) are the exception: the
-birth arm pass pays a near-complete-graph window (checker-2 A5: 1.999 M window pairs at F = 2,000,
-σ_l = 0.02, sound 0/0), so the calendar's F* there is ≈ 200 (L = 100; ≈ 50 at L = 25) — barely above
-the sweep's ~124. The 65× lift is a uniform-phase result.** [Checker-2 also flags: the dossier's
-"2.4×10⁸ cores under per-interval re-check" is an arithmetic slip — the measured 31.7 ms × 4,775 armed
-at F = 10⁴ composes to 5.4×10⁴ cores; the conclusion (standing contacts must be stored state) stands.]
-The belt-anchor dispute below (f0a2 vs 2b89's velocity word) is untouched by this run: both
-priced rock belts.
-(Domain of the fleet rows: planar-Kepler replicas, e ≤ 0.5, soundness gates at F = 2,000,
-H = 100 orbits — checker-extended to clustered formations (σ_l = 0.05/0.01, 379k–473k
-events, 0 dropped), clustered trains and a σ_e = 0.2 fleet, seed 31337, all 0/0; the event
-exponent holds at the next decade, γ = 2.00 on (12,800, 25,600); checker-2, seed 424242:
-H = 500 orbits, bimodal two-key fleets, clustered σ_l = 0.02 with σ_e = 0.05 at H = 200, the
-refusal boundary da = 1.2/1.4e-4 (reach 2.70/3.13 < π, not refused), and eps = 1e-2 kicks
-(83 firings/kick, ddue ~4 iv — slack dies at burn-scale kicks) — all 0/0 sound.)
-**The formation regime's cure is itself quadratic in fleet size, and the composed 10⁹
-ledger carries no term for it (20261017-0839-inversion-2373, inversion; its calendar-fix
-proposal is now measured above).** The shipped phase certificate's paid occupancy follows
-k̄ = F·(4·e_max + 0.75·da·TAU·H)/TAU — the reach law verified to 3 digits on shipped
-`phase.rs` across three decades of F (pred/measured 0.999–1.009, checker-verified at three
-seeds) — so the arm pays F²·reach/TAU exact-checked pairs per rebuild. [Checker: the
-mechanism — occupancy = density × reach, quadratic when dispersion > ρ — is already measured
-on this same build by coorbital-cert's `74a1`/`4ec3` (Θ(n²) at zero encounters, reach =
-dispersion × horizon), `5ffb` (0.19–0.45·n² pairs, the cost-blind reach<π trigger),
-`c5ab`/`a110` (required rank ~n·σe); this run's additions are the closed-form law, three
-decades of F, the refusal boundary H*, and the 10⁹ composition.] The quadratic is driven by
-shape dispersion (e/pom spread) or a-spread over a standing horizon, not by radial excursion
-per se: a coherent-shape fleet (identical e, pom — the shipped cancellation path,
-checker-measured) pays mean_k 0.38 at F = 10⁴, flat in H; one δe kick restores the quadratic
-(`c5ab`). mean_k 50/532/6,257 at F = 10³/10⁴/10⁵ (keys fleets, σ_e = 1e-2, uniform phases),
-clusters at 97.6–98.9% of the complete graph, trains' k growing linearly with standing
-horizon until refusal at H* = (π−w₀)/(0.75·TAU·da) ≈ P_syn/2 where the tree tier carries 96%
-of F²/2 as candidates — while the ANSWER stays rank-0 (distance-rank is ρ-bounded and cannot
-fail — coorbital-cert `b292`, `7532`; a control, not a result). Composed at 10⁹ (φ = 1,
-checked pairs 3.24 µs x86, rebuild every 8 intervals): 36/383/4,500 cores at F =
-10³/10⁴/10⁵; F* ≈ 100 at σ_e = 1e-2 (∝ 1/σ_e) — **now superseded on the certificate side by
-the calendar row above, which also reprices this run's sweep basis (see the 129–143× horizon
-correction).**
-
-**[Prior best retained: f0a2 and 277d's replica measurements, both on their own anchors —
-f0a2: at the legacy key's Q48 the gate deletes 1.00000, survivors ≥ 34-km partners,
-affordable form a birth-constant route (D* = 1.3 km at the contact-charge floor, wake cut
-129×, routing 0.03–0.6 cores at window prices), the one-bit floor unsound (aligned
-conjunctions 1.9×10⁻⁶ v_k); 277d: Kepler-true yield 95.5–98.0% at the binding-relative
-anchor, r_event 480–700 ns x86, f_r = 0.017–0.025 event-scheduled vs 5–7 per-refresh
-(killed), ledger 62–571 cores — mechanism and controls stand; both ledgers are
-anchor-conditioned, and neither anchor is the live word; see 2b89's velocity-word paragraph
-above for the live-path anchor.]**
+*[Prior best retained below — the fleet row, the calendar, the sweep baseline, the
+belt anchors: unchanged by this run, which measured the dilute belt's per-kick tier
+work only. See git history of this page for their full text.]*
 
 ## Refuted
 
-- Per-rebuild window sweeping as the fleet representation: deleted by the calendar row above
-  (57–370× per pair, lifetime-amortized) — `20261017-1018-second-…-b509`.
-- The steady-rate-by-first-due-histogram reading of the calendar: in-window passages come in
-  bursts (consecutive dues one period apart during a window transit); only direct re-arm at a
-  far interval gives the rate — `20261017-1018-second-…-b509` (K4, pre-registered).
-- "F* ∝ 1/σ_e" as a property of the fleet floor: the calendar's armed set is ρ-driven
-  (4,775 vs 4,708 at σ_e = 1e-2 vs 1e-3, F = 10⁴); only the sweep's window is σ_e-driven —
-  `20261017-1018-second-…-b509`.
+- **"Pairs re-checked per kick at 10⁹-scale occupancy is the row's biggest unknown,
+  plausibly ~10¹–10² cores" (cd3b's own hedge on fe6b's 0.0346·n)**: measured on the
+  shipped geometry's dilute cells — intra-cell armed probability ~10⁻¹¹, flips 0,
+  near-band 0.034/body/kick at n = 10⁴; the churn term composes to ~1.2×10⁻³ cores
+  at 1 µs/arm, 1 kick/body/interval (the wholesale structure: 12.3 — a 10⁴ fall;
+  checker-corrected from the author's 2×10⁻⁴)
+  (20261018-1025-scout-fbf9, toy; the shipped-tier flight is the named kill test).
+- **"Slack bookkeeping in due-space makes intra-cell re-arms deferrable for ~10⁶
+  kicks"** (this run's own first model, killed inside the run): the due-walk is
+  multiplicative — median cell-mates walk 10⁵–4×10⁶ intervals *per kick* — so due-space
+  slack is worthless intra-cell; what is sound is the horizon-band test (the walk is
+  small exactly near the horizon where the band lives) (20261018-1025-scout-fbf9).
+- **"The armed list can be stored across kicks"**: at a bare-B certificate 0.5–0.7×
+  of an 8-interval armed list re-lotteries per 2⁻²³ kick (miss-distance, not time,
+  churns); stored lists need miss-space slack and a re-decision at the due
+  (20261018-1025-scout-fbf9).
 
 ## Open directions
 
-1. **The one missing constant (this run): pairs re-checked per kick on the live anchor at
-   10⁹-scale occupancy (cells of 10²–10⁴)** — the churn term is the row's whole cost now that the event flow is
-   priced (≤1.9 cores worst-case mint, ~0.07 exact). Measure fe6b's 0.0346·n·(1+X)/(2(X−1))
-   at cell occupancies 10²–10⁴ on the live word; if it is O(1) at fixed density the row
-   closes with the stream's own cadence lever.
+<<<<<<< main
+1. **ANSWERED (20261018-1025-quant-c9c7): the constant is 0.484·N at the belt mix and the
+   window is saturated** — not O(1) at fixed density, not bounded by cells; rescans are
+   10⁷–10⁹ cores at 10⁹ and the row closes only on arm-by-flow + stored slack (92.5%
+   skippable, 0 violations at the quantum; dead at 10⁻⁵-class kicks). What stays open on
+   this branch: the rare-violation hunt (0 violations over ≤ 2.5×10⁵ pair decisions at
+   n ≤ 3×10⁴; checker2 extended to 9.63×10⁵ decisions at n = 10⁵ — still 0) and the
+   burn-scale re-arm price on the live word.
 2. **The mint term's semantics (this run): does every b≤5×10⁵-m conjunction re-mint a key
    (1.87 cores at rtf 100), or does efd4's intern hold it near zero?** One flight with a
    mint counter on the live anchor decides.
@@ -206,13 +164,30 @@ above for the live-path anchor.]**
    call, not a certificate's.
 3. (unchanged) The belt-anchor dispute f0a2 vs 2b89; the refused-train (da ≥ 4e-4) tier;
    cross-group fleet×belt routing (`7532`).
+=======
+1. **The kill test (this run's adoption gate):** fly a due-band per-kick rule on the
+   shipped tier at 10⁴-occupancy cells; measured re-arms/kick Θ(n) would kill the toy's
+   window model (look first at the standing/dwell class). One flight.
+2. **The cell-size dial is now priced:** the near-band law ∝ n² at fixed density
+   (3.4×10⁻⁴/0.034/3.4 per body per kick at n = 10³/10⁴/10⁵; checker-measured 4.67
+   at 10⁵) — per-kick tier work crosses 0.34 µs/body already at n ≈ 3–4×10⁴
+   [checker: the author's "cells may grow to ~10⁵" divided the n² law by 10 per
+   decade]; past that the band, not the candidate set, is the bill.
+3. (prior) The mint term's semantics — does every b≤5×10⁵-m conjunction re-mint a key,
+   or does efd4's intern hold it near zero? One flight with a mint counter.
+4. (prior) The conjunction calendar as the shipped fleet arm (standing contacts as
+   stored state, due-queue as the only waker) — this run's miss-space finding tightens
+   it: the stored state must be slack in miss distance too.
+>>>>>>> 20261018-1025-scout-fbf9
 
 ## Contradictions
 
-- f0a2's "gate deletes 1.00000" vs 2b89's "every Dohnanyi conjunction fires the word":
-  anchor-conditioned (legacy E-key vs live velocity word); unresolved, belt-side only.
-- (resolved by this run) 2373's "calendar required, price unknown" — now priced: it deletes
-  the sweep and leaves the population flow.
+None new. fe6b's 0.0346·n and this run's 0.034/kick read the same tier on different
+anchors (fe6b at 10⁶ with its U-index skin; here the dilute 10⁹-density cell with the
+horizon band) — composed, not compared: the wholesale structure costs n−1, the slack-
+aware structure the band, and the run prices both. cd3b's flow (1.1×10³ conjunctions/s)
+and the toy's live anchor (525–1050 armed per body per horizon) agree to conventions
+(n₂D N/25 vs N/15.7, ~1.6×).
 
 ## Runs
 - 20261006-0220-scout-4ea2 (gold): B13 flybys are an entry gap: analytic detection at ≥1.5·SOI as the doll door holds the gate; cadence rules fail.
@@ -318,3 +293,8 @@ above for the live-path anchor.]**
 - 20261017-1018-second-20261017-0839-inversion-2373-b509 (second, pending grade): the
 - 20261018-0543-library-5567 (library): the fleet row dies by representation — the shipped Fermi-frame fleet carries F=10⁵×10⁴ at ≤ ~1 core (0.89 µs/member/game-s measured, member-flat slices, scale-free epoch composition); dissolution at spread > r_p/32 measured; three wiring debts named.
 - 20261018-0932-fermi-cd3b (fermi): the belt row's event flow at 10⁹ is cheap and small (0.22 contacts/s, 1.1e3 conjunctions/s, ≤1.9 cores worst-case mint) — the row is 100% certificate churn riding the kick cadence; the stream composes to 5.3–8.4 M1 cores.
+- 20261018-1025-quant-c9c7 (quant): the churn constant measured — 0.484·N candidates/kick at the belt mix, window saturated by the e-tail (fe6b's 0.0346·n is the unsaturated regime, X ≈ 1.5); rescans 10⁷–10⁹ cores at 10⁹; slack 92.5% skippable, 0 violations at the quantum.
+- 20261017-0839-inversion-2373 (inversion): the formation regime's cure is quadratic in fleet size; the phase certificate's paid occupancy law k̄ = F·(4·e_max + 0.75·da·TAU·H)/TAU verified to 3 digits.
+- 20261017-1018-second-…-b509 (silver): the calendar measured: arm 1.02–1.16 µs/pair vs 57.7–414.7 exact; sound 0/0; the armed set is ρ-driven; a standing pair re-evaluated per interval costs 31 ms — store it.
+- 20261018-0543-library-5567 (silver): the fleet row dead by representation: the Fermi-frame fleet carries F = 10⁵ × 10⁴ at ≤ ~1 core; checkers extended to m = 6,144 and priced the all-battle bound.
+- 20261018-1025-scout-fbf9 (silver, self-suggested): the churn constant answered — 0.034 re-arms/body/kick at n = 10⁴ (∝ n² at fixed density), not 0.034·n; the term falls ~4 orders in arm-evals (checker-corrected; the author's ~6-orders headline does not reproduce); armed lists are miss-space fragile (0.5–0.75×/kick at bare B); kill test = one shipped-tier flight.
