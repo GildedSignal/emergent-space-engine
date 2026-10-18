@@ -1,0 +1,115 @@
+ARM P mu_octave=-10 kind=Player burn=true
+BURN done t=67108864 events=588 r=5.0650e8 v=1.0212e-3 v_esc=6.2838e-5
+EV P ship_ev=588 t=67108864 interval=278943355570 r=5.065000e8 v=1.021197e-3 wall=0.045
+EV P ship_ev=588 t=67108864 interval=278943355570 r=5.065000e8 v=1.021197e-3 wall=0.045
+EV P ship_ev=588 t=67108864 interval=278943355570 r=5.065000e8 v=1.021197e-3 wall=0.045
+EV P ship_ev=588 t=67108864 interval=278943355570 r=5.065000e8 v=1.021197e-3 wall=0.045
+EV P ship_ev=588 t=67108864 interval=278943355570 r=5.065000e8 v=1.021197e-3 wall=0.045
+EV P ship_ev=588 t=67108864 interval=278943355570 r=5.065000e8 v=1.021197e-3 wall=0.045
+EV P ship_ev=588 t=67108864 interval=278943355570 r=5.065000e8 v=1.021197e-3 wall=0.045
+EV P ship_ev=1300 t=192528912308865 interval=1206695 r=1.962282e11 v=1.013630e-3 wall=0.191
+LAD P ship_ev=1361 interval<=1048576 r=1.962283e11 v=1.012847e-3
+EV P ship_ev=3301 t=192529346959512 interval=202658 r=1.962287e11 v=9.897770e-4 wall=0.482
+LAD P ship_ev=8295 interval<=65536 r=1.962289e11 v=9.519715e-4
+EV P ship_ev=8501 t=192529627004410 interval=63744 r=1.962289e11 v=9.511202e-4 wall=1.050
+EV P ship_ev=22001 t=192529872870243 interval=22622 r=1.962291e11 v=1.020619e-3 wall=2.168
+EV P ship_ev=56001 t=192530098359773 interval=8343 r=1.962293e11 v=1.873352e-3 wall=4.520
+LAD P ship_ev=107184 interval<=4096 r=1.962293e11 v=3.599307e-3
+EV P ship_ev=145001 t=192530310810701 interval=2908 r=1.962292e11 v=4.935295e-3 wall=10.682
+EV P ship_ev=375001 t=192530493762255 interval=912 r=1.962288e11 v=1.321608e-2 wall=26.304
+LAD P ship_ev=573669 interval<=512 r=1.962285e11 v=2.040654e-2
+EV P ship_ev=970001 t=192530630417226 interval=237 r=1.962278e11 v=3.476590e-2 wall=65.664
+LAD P ship_ev=1428149 interval<=128 r=1.962272e11 v=5.137120e-2
+FRAMEWIN P window_ticks=338375 events=5261 us_per_ev=61.330 alive=true wall=0.32
+CAP wall P (100.0s)
+END P ship_ev=1484271 t=192530673978510 interval=121 r=1.962272e11 v=5.340548e-2 alive=true frozen_at=None wall=100.0
+EXIT P events_to_leave_edge~=1.398e11 (leave=2^40, per-step displacement v*interval)
+ARM S mu_octave=-10 kind=Ship burn=false
+EV S ship_ev=2 t=278944851958 interval=278383061892 r=5.069547e8 v=8.884771e-5 wall=0.000
+EV S ship_ev=6 t=835162954821 interval=277300389786 r=5.105598e8 v=8.869217e-5 wall=0.000
+EV S ship_ev=12 t=1665512765275 interval=275775414973 r=5.224392e8 v=8.819068e-5 wall=0.001
+EV S ship_ev=30 t=4131412201987 interval=272003137818 r=5.972027e8 v=8.543682e-5 wall=0.002
+EV S ship_ev=76 t=10353083904747 interval=272019818441 r=9.298554e8 v=7.812807e-5 wall=0.005
+EV S ship_ev=201 t=32835431169795 interval=612196013719 r=2.409178e9 v=6.915143e-5 wall=0.016
+EV S ship_ev=501 t=72690053253754 interval=109982521229 r=5.034380e9 v=6.590677e-5 wall=0.049
+EV S ship_ev=1300 t=770650946612881 interval=4516265 r=4.916555e10 v=6.048705e-5 wall=0.155
+LAD S ship_ev=2625 interval<=1048576 r=4.916562e10 v=7.697563e-5
+EV S ship_ev=3301 t=770652566215752 interval=750948 r=4.916563e10 v=9.412596e-5 wall=0.293
+EV S ship_ev=8501 t=770653596843840 interval=232320 r=4.916566e10 v=2.675718e-4 wall=0.600
+EV S ship_ev=22001 t=770654478069518 interval=79230 r=4.916562e10 v=7.525168e-4 wall=1.417
+LAD S ship_ev=26013 interval<=65536 r=4.916560e10 v=8.975750e-4
+EV S ship_ev=56001 t=770655238354016 interval=26737 r=4.916544e10 v=1.983652e-3 wall=3.685
+EV S ship_ev=145000 t=770655868296216 interval=7798 r=4.916501e10 v=5.209710e-3 wall=9.543
+LAD S ship_ev=226299 interval<=4096 r=4.916468e10 v=8.156980e-3
+EV S ship_ev=375001 t=770656302346496 interval=1861 r=4.916420e10 v=1.354797e-2 wall=24.520
+LAD S ship_ev=799109 interval<=512 r=4.916328e10 v=2.892360e-2
+EV S ship_ev=970001 t=770656545955713 interval=362 r=4.916301e10 v=3.511915e-2 wall=63.190
+CAP wall S (90.0s)
+END S ship_ev=1386975 t=770656600360249 interval=188 r=4.916250e10 v=5.023620e-2 alive=true frozen_at=None wall=90.0
+EXIT S events_to_leave_edge~=1.112e11 (leave=2^40, per-step displacement v*interval)
+ARM B mu_octave=-7 kind=Ship burn=false
+EV B ship_ev=2 t=338481600434 interval=337314344981 r=5.071687e8 v=8.884627e-5 wall=0.000
+EV B ship_ev=6 t=1011980563725 interval=335091111776 r=5.124442e8 v=8.863474e-5 wall=0.000
+EV B ship_ev=12 t=2014115830042 interval=332024920764 r=5.296209e8 v=8.794387e-5 wall=0.001
+EV B ship_ev=30 t=4971725446204 interval=325076051040 r=6.332811e8 v=8.443765e-5 wall=0.002
+EV B ship_ev=76 t=12460956087407 interval=335684624715 r=1.062826e9 v=7.670669e-5 wall=0.005
+EV B ship_ev=201 t=55327368681965 interval=377959299731 r=3.897529e9 v=6.630287e-5 wall=0.017
+EV B ship_ev=501 t=76341908227196 interval=98020442244 r=5.267582e9 v=6.576997e-5 wall=0.052
+EV B ship_ev=1301 t=195609851778264 interval=18058826 r=1.295845e10 v=1.192247e-4 wall=0.131
+EV B ship_ev=3301 t=195616938290259 interval=3250027 r=1.295824e10 v=5.531549e-4 wall=0.259
+LAD B ship_ev=6913 interval<=1048576 r=1.295750e10 v=1.344599e-3
+EV B ship_ev=8501 t=195620925457444 interval=760597 r=1.295719e10 v=1.690298e-3 wall=0.572
+EV B ship_ev=22001 t=195623258883209 interval=160291 r=1.295524e10 v=4.593435e-3 wall=1.377
+LAD B ship_ev=36657 interval<=65536 r=1.295385e10 v=7.701314e-3
+EV B ship_ev=56001 t=195624440153656 interval=30405 r=1.295257e10 v=1.176186e-2 wall=3.391
+EV B ship_ev=145001 t=195624993395357 interval=5121 r=1.294935e10 v=3.012482e-2 wall=8.545
+LAD B ship_ev=163031 interval<=4096 r=1.294894e10 v=3.380439e-2
+EV B ship_ev=375001 t=195625229296898 interval=827 r=1.294586e10 v=7.651106e-2 wall=21.570
+LAD B ship_ev=480275 interval<=512 r=1.294492e10 v=9.746884e-2
+EV B ship_ev=970001 t=195625326991229 interval=131 r=1.294220e10 v=1.937366e-1 wall=55.472
+LAD B ship_ev=978711 interval<=128 r=1.294217e10 v=1.954353e-1
+FRAMEWIN B window_ticks=338375 events=5274 us_per_ev=56.284 alive=true wall=0.30
+CAP wall B (80.0s)
+END B ship_ev=1401029 t=195625346768246 interval=65 r=1.294075e10 v=2.774011e-1 alive=true frozen_at=None wall=80.0
+EXIT B events_to_leave_edge~=6.026e10 (leave=2^40, per-step displacement v*interval)
+ARM C mu_octave=-20 kind=Ship burn=false
+EV C ship_ev=2 t=382226869410 interval=382117577153 r=5.073534e8 v=8.882957e-5 wall=0.000
+EV C ship_ev=6 t=1146355769628 interval=381907950148 r=5.141200e8 v=8.853706e-5 wall=0.000
+EV C ship_ev=12 t=2291781322923 interval=381615963571 r=5.362372e8 v=8.762626e-5 wall=0.001
+EV C ship_ev=30 t=5723444653252 interval=380978362826 r=6.687383e8 v=8.330292e-5 wall=0.002
+EV C ship_ev=75 t=14495606493986 interval=383088120877 r=1.192185e9 v=7.500843e-5 wall=0.005
+EV C ship_ev=201 t=39629876641617 interval=414687874590 r=2.860032e9 v=6.817595e-5 wall=0.016
+EV C ship_ev=501 t=95020939677014 interval=402433622571 r=6.488252e9 v=6.524509e-5 wall=0.049
+EV C ship_ev=1301 t=246591606512339 interval=562600723615 r=1.621415e10 v=6.381237e-5 wall=0.153
+EV C ship_ev=3301 t=602632056143954 interval=919607702461 r=3.879580e10 v=6.324731e-5 wall=0.456
+EV C ship_ev=8501 t=1691945660240735 interval=6126768 r=1.074986e11 v=6.285499e-5 wall=1.389
+EV C ship_ev=22001 t=1691961771962413 interval=1163147 r=1.074996e11 v=6.230957e-5 wall=4.914
+LAD C ship_ev=23821 interval<=1048576 r=1.074996e11 v=6.223614e-5
+EV C ship_ev=56001 t=1691972539805111 interval=381892 r=1.075002e11 v=6.094140e-5 wall=16.107
+EV C ship_ev=145000 t=1691982339188731 interval=138229 r=1.075008e11 v=5.739696e-5 wall=29.599
+LAD C ship_ev=299271 interval<=65536 r=1.075012e11 v=5.140328e-5
+EV C ship_ev=375001 t=1691991721627531 interval=52067 r=1.075013e11 v=4.854797e-5 wall=56.777
+CAP wall C (60.0s)
+END C ship_ev=404389 t=1691992457706131 interval=48218 r=1.075014e11 v=4.745851e-5 alive=true frozen_at=None wall=60.0
+EXIT C events_to_leave_edge~=4.335e11 (leave=2^40, per-step displacement v*interval)
+ARM D mu_octave=-10 kind=Ship burn=false
+EV D ship_ev=3 t=606728676527 interval=313669156749 r=3.292250e9 v=1.743054e-5 wall=0.000
+EV D ship_ev=5 t=920397833276 interval=321069606544 r=3.292250e9 v=1.743173e-5 wall=0.000
+EV D ship_ev=13 t=2253652903960 interval=355444213980 r=3.292249e9 v=1.743674e-5 wall=0.000
+EV D ship_ev=31 t=5876900109502 interval=475271819272 r=3.292239e9 v=1.744972e-5 wall=0.001
+EV D ship_ev=75 t=22189707980196 interval=888672997127 r=3.291803e9 v=1.747512e-5 wall=0.002
+EV D ship_ev=200 t=45535097969411 interval=192937566336 r=3.290034e9 v=1.741368e-5 wall=0.004
+EV D ship_ev=501 t=69774300110654 interval=203325471931 r=3.289001e9 v=1.742225e-5 wall=0.011
+EV D ship_ev=1301 t=197171496927576 interval=198754178526 r=3.283718e9 v=1.744959e-5 wall=0.028
+EV D ship_ev=3301 t=454137100212139 interval=245797318162 r=3.281342e9 v=1.747466e-5 wall=0.074
+EV D ship_ev=8501 t=1187407106710415 interval=201060875620 r=3.291886e9 v=1.740709e-5 wall=0.178
+EV D ship_ev=22001 t=3032271773892018 interval=150547286173 r=3.288379e9 v=1.740476e-5 wall=0.450
+EV D ship_ev=56001 t=7704154779141768 interval=599305336389 r=3.286299e9 v=1.749004e-5 wall=1.138
+EV D ship_ev=145001 t=19946885053533791 interval=150462969250 r=3.296778e9 v=1.736030e-5 wall=2.939
+EV D ship_ev=375001 t=51572186885518177 interval=174224227185 r=3.287211e9 v=1.742155e-5 wall=7.487
+CAP events D
+END D ship_ev=500001 t=68774905348752817 interval=163557462649 r=3.288946e9 v=1.740823e-5 alive=true frozen_at=None wall=9.9
+EXIT D events_to_leave_edge~=3.850e5 (leave=2^40, per-step displacement v*interval)
+ARM E mu_octave=-10 kind=Ship burn=false
+END E ship_ev=400000 t=19047467973998 interval=267 r=9.217406e11 v=1.385080e-2 alive=true frozen_at=None wall=25.2
+EXIT E events_to_leave_edge~=4.807e10 (leave=2^40, per-step displacement v*interval)

@@ -1,0 +1,159 @@
+diff --git a/crates/universe/examples/ruin_mint.rs b/crates/universe/examples/ruin_mint.rs
+new file mode 100644
+index 00000000..4c223a09
+--- /dev/null
++++ b/crates/universe/examples/ruin_mint.rs
+@@ -0,0 +1,153 @@
++// One minted unbound body on the shipped restricted scene (public API only): does the root clock's
++// storm fire at the flyable mass, what does one frozen body cost per frame, and does the leave edge
++// ever collect it? Arms: P player-burn mint (μ=2^-10), S state mint (2^-10), B state mint (μ≈1e-2),
++// C state mint (2^-20), D bound control (2^-10). Cloud box; orders of magnitude only.
++use emergent_space::orbit::Scalar;
++use emergent_universe::scenario::{AU, STAR_RADIUS};
++use emergent_universe::thrust::word;
++use emergent_universe::{Budget, Config, Kind, Mass, OrbitSpec, Universe};
++use std::time::Instant;
++
++const SEP: i64 = 5 * AU;
++const PR: i64 = 47_400;
++const FRAME: i64 = 338_375;
++const MILES: [u64; 18] = [2, 5, 12, 30, 75, 200, 500, 1300, 3300, 8500, 22_000, 56_000, 145_000, 375_000, 970_000, 2_500_000, 6_400_000, 16_000_000];
++const LADDER: [i64; 7] = [1 << 20, 1 << 16, 1 << 12, 1 << 9, 128, 16, 1];
++
++fn s(v: i64) -> Scalar { Scalar::integer(v) }
++fn f(x: f64) -> Scalar { Scalar::raw((x * 2f64.powi(40)) as i128, -40).unwrap() }
++
++struct Arm<'a> {
++    tag: &'a str,
++    mu: Mass,
++    kind: Kind,
++    burn: bool,
++    ev_cap: u64,
++    wall_cap: f64,
++}
++
++fn scene(arm: &Arm, pos: [f64; 2], vel: [f64; 2]) -> (Universe, usize) {
++    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
++    u.threads = 1;
++    let planet = u.add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(SEP), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    u.add_doll("planet", planet, arm.mu, Scalar::raw(PR as i128, -arm.mu.octave).unwrap()).unwrap();
++    let i = u.add_body_state(arm.kind, 0, [f(pos[0]), f(pos[1])], [f(vel[0]), f(vel[1])], Scalar::ZERO).unwrap();
++    u.start().unwrap();
++    (u, i)
++}
++
++/// (r, |v|) of body `i` at tick `t`, root units; (-1, NaN) if unreadable.
++fn state(u: &Universe, i: usize, t: i64) -> (f64, f64) {
++    match emergent_universe::observe::root_state(&u.ctx(), i, t) {
++        Ok((p, v)) => ((p[0] * p[0] + p[1] * p[1]).sqrt(), (v[0] * v[0] + v[1] * v[1]).sqrt()),
++        Err(_) => (-1.0, f64::NAN),
++    }
++}
++
++fn run(arm: &Arm, pos: [f64; 2], vel: [f64; 2]) {
++    let (mut u, i) = scene(arm, pos, vel);
++    let mut t = 0i64;
++    let mut miles = 0usize;
++    let mut lad = 0usize;
++    let mut frozen_at: Option<u64> = None;
++    let t0 = Instant::now();
++    let v_esc = (2.0 / SEP as f64).sqrt();
++    println!("ARM {} mu_octave={} kind={:?} burn={}", arm.tag, arm.mu.octave, arm.kind, arm.burn);
++
++    // The player mint: burn prograde from a bound birth until past escape, then release.
++    if arm.burn {
++        u.input(0, word(1, 8)).unwrap();
++        let mut burnt = 0i64;
++        loop {
++            let a = u.advance(t + (1 << 26), Budget::events(200_000));
++            t += 1 << 26;
++            burnt += a.events as i64;
++            let (_, v) = state(&u, i, t);
++            if v >= 1.3 * v_esc || t0.elapsed().as_secs_f64() > 30.0 || a.events == 0 {
++                u.input(t, word(0, 8)).unwrap();
++                let (r, v) = state(&u, i, t);
++                println!("BURN done t={} events={} r={:.4e} v={:.4e} v_esc={:.4e}", t, burnt, r, v, v_esc);
++                break;
++            }
++        }
++    }
++
++    let wall0 = t0.elapsed().as_secs_f64();
++    loop {
++        let rec = u.rec(i);
++        if !rec.alive {
++            println!("DEAD {} ship_ev={} interval={} t={} fault={:?} refusals={}", arm.tag, rec.events, rec.interval, t, rec.fault, rec.refusals);
++            break;
++        }
++        if rec.fault.is_some() || rec.refusals > 0 {
++            println!("FAULT {} ship_ev={} interval={} fault={:?} refusals={}", arm.tag, rec.events, rec.interval, rec.fault, rec.refusals);
++            break;
++        }
++        let ev = rec.events;
++        if ev >= arm.ev_cap { println!("CAP events {}", arm.tag); break; }
++        if t0.elapsed().as_secs_f64() - wall0 > arm.wall_cap { println!("CAP wall {} ({:.1}s)", arm.tag, t0.elapsed().as_secs_f64() - wall0); break; }
++
++        while miles < MILES.len() && ev >= MILES[miles] {
++            let (r, v) = state(&u, i, t);
++            println!("EV {} ship_ev={} t={} interval={} r={:.6e} v={:.6e} wall={:.3}", arm.tag, ev, t, rec.interval, r, v, t0.elapsed().as_secs_f64());
++            miles += 1;
++        }
++        while lad < LADDER.len() && rec.interval <= LADDER[lad] {
++            let (r, v) = state(&u, i, t);
++            println!("LAD {} ship_ev={} interval<={} r={:.6e} v={:.6e}", arm.tag, ev, LADDER[lad], r, v);
++            if LADDER[lad] == 128 && frozen_at.is_none() {
++                frozen_at = Some(ev);
++                let (t_start, ev_start, w) = (t, u.rec(i).events, Instant::now());
++                let target = t + FRAME;
++                loop {
++                    let a = u.advance(target, Budget::events(400_000));
++                    if a.events == 0 || w.elapsed().as_secs_f64() > 30.0 { break; }
++                }
++                let dev = u.rec(i).events as f64 - ev_start as f64;
++                let dt = w.elapsed().as_secs_f64();
++                println!("FRAMEWIN {} window_ticks={} events={} us_per_ev={:.3} alive={} wall={:.2}", arm.tag, target - t_start, dev, if dev > 0.0 { dt * 1e6 / dev } else { f64::NAN }, u.rec(i).alive, dt);
++            }
++            lad += 1;
++        }
++
++        let w = rec.interval.max(1);
++        u.advance(t + w, Budget::events(400_000));
++        t += w;
++    }
++    let rec = u.rec(i);
++    let (r, v) = state(&u, i, t);
++    println!("END {} ship_ev={} t={} interval={} r={:.6e} v={:.6e} alive={} frozen_at={:?} wall={:.1}", arm.tag, rec.events, t, rec.interval, r, v, rec.alive, frozen_at, t0.elapsed().as_secs_f64());
++    if r > 0.0 && v > 0.0 && rec.interval >= 1 {
++        let exit = ((1i64 << 40) as f64 - r) / (v * rec.interval.max(1) as f64);
++        println!("EXIT {} events_to_leave_edge~={:.3e} (leave=2^40, per-step displacement v*interval)", arm.tag, exit);
++    }
++}
++
++fn main() {
++    let vc = (1.0 / SEP as f64).sqrt();
++    let which = std::env::args().nth(1).unwrap_or_default();
++    let arms: Vec<Arm> = match which.as_str() {
++        "smoke" => vec![
++            Arm { tag: "D", mu: Mass::pow2(-10), kind: Kind::Ship, burn: false, ev_cap: 60_000, wall_cap: 20.0 },
++        ],
++        "edge" => vec![
++            Arm { tag: "E", mu: Mass::pow2(-10), kind: Kind::Ship, burn: false, ev_cap: 100_000, wall_cap: 20.0 },
++        ],
++        "all" => vec![
++            Arm { tag: "P", mu: Mass::pow2(-10), kind: Kind::Player, burn: true, ev_cap: 4_000_000, wall_cap: 100.0 },
++            Arm { tag: "S", mu: Mass::pow2(-10), kind: Kind::Ship, burn: false, ev_cap: 3_000_000, wall_cap: 90.0 },
++            Arm { tag: "B", mu: Mass::ratio(1, 99).unwrap(), kind: Kind::Ship, burn: false, ev_cap: 2_000_000, wall_cap: 80.0 },
++            Arm { tag: "C", mu: Mass::pow2(-20), kind: Kind::Ship, burn: false, ev_cap: 1_000_000, wall_cap: 60.0 },
++            Arm { tag: "D", mu: Mass::pow2(-10), kind: Kind::Ship, burn: false, ev_cap: 500_000, wall_cap: 40.0 },
++        ],
++        _ => { eprintln!("usage: ruin_mint [smoke|all]"); return; }
++    };
++    for arm in &arms {
++        match arm.tag {
++            "D" => run(arm, [0.0, 6.5 * SEP as f64], [-(1.0 / (6.5 * SEP as f64)).sqrt(), 0.0]),
++            "E" => run(arm, [0.9 * (1i64 << 40) as f64, 0.0], [1.0e-3, 0.0]),
++            "P" => run(arm, [0.0, SEP as f64], [-vc, 0.0]),
++            _ => run(arm, [0.0, SEP as f64], [-2.0 * vc, 0.0]),
++        }
++    }
++}
