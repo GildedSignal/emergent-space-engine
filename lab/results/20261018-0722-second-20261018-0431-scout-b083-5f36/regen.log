@@ -1,0 +1,13 @@
+== flight: the shipped capture+answer path on rigid keys rings ==
+ring K=10000 angle=0x20000000 e_q48=1 r_ring=1.573e9 reach=1.573e4 rho=1.000e-5 near_over_r=1.024e-2 build=0.30s bodies=10028
+scan interval=2 h=5.243e5 | candidates=10009 (ring 9999) | near_set(read list)=32 in_window=32 | INTEGER d.w: ==0:2 <0:5001 >0:5006 | IN-WINDOW ring 32: dw<0:15 ==0:2 >0:15 cos(d,w) med 3.8e-2 | ANSWERS=15 (ring 15, contacts 0) | capture 1186 us answer 18919 us (1890 ns/cand)
+  t+536870912: ANSWERS=31 ids [29, 30, 31, 32, 33, 34, 35, 36, 37, 39]
+  t+1073741824: ANSWERS=12 ids [30, 32, 35, 37, 40, 10014, 10016, 10017, 10019, 10021]
+scan interval=4096 h=1.074e9 | candidates=10009 (ring 9999) | near_set(read list)=32 in_window=32 | INTEGER d.w: ==0:0 <0:4989 >0:5020 | IN-WINDOW ring 32: dw<0:17 ==0:0 >0:15 cos(d,w) med 7.1e-6 | ANSWERS=18 (ring 17, contacts 0) | capture 1161 us answer 18504 us (1849 ns/cand)
+scan interval=16777216 h=4.398e12 | candidates=10009 (ring 9999) | near_set(read list)=2590 in_window=32 | INTEGER d.w: ==0:0 <0:5050 >0:4959 | IN-WINDOW ring 32: dw<0:15 ==0:0 >0:17 cos(d,w) med 1.3e-9 | ANSWERS=16 (ring 15, contacts 0) | capture 1048 us answer 21079 us (2106 ns/cand)
+ring K=100000 angle=0x20000000 e_q48=1 r_ring=1.573e9 reach=1.572e3 rho=9.995e-7 near_over_r=1.023e-3 build=2.96s bodies=100028
+scan interval=2 h=5.243e5 | candidates=100009 (ring 99999) | near_set(read list)=32 in_window=32 | INTEGER d.w: ==0:2 <0:50009 >0:49998 | IN-WINDOW ring 32: dw<0:15 ==0:2 >0:15 cos(d,w) med -5.0e-4 | ANSWERS=15 (ring 15, contacts 0) | capture 13337 us answer 182116 us (1821 ns/cand)
+scan interval=4096 h=1.074e9 | candidates=100009 (ring 99999) | near_set(read list)=21601 in_window=32 | INTEGER d.w: ==0:0 <0:50113 >0:49896 | IN-WINDOW ring 32: dw<0:15 ==0:0 >0:17 cos(d,w) med 4.8e-6 | ANSWERS=16 (ring 15, contacts 0) | capture 13578 us answer 197473 us (1975 ns/cand)
+scan interval=16777216 h=4.398e12 | candidates=100009 (ring 99999) | near_set(read list)=24923 in_window=32 | INTEGER d.w: ==0:0 <0:50021 >0:49988 | IN-WINDOW ring 32: dw<0:13 ==0:0 >0:19 cos(d,w) med 2.6e-9 | ANSWERS=14 (ring 13, contacts 0) | capture 11961 us answer 196988 us (1970 ns/cand)
+== replica: exact law::hit branch structure, soundness sweep + store costs ==
+regen OK: 0 selector misses over 48 cells; max unwidened miss 83.5%; lookup 3.2 us; tier scan 0.67 ms vs shipped 1.9 s (flown rate)

@@ -1,0 +1,9 @@
+Working...
+**Grade: silver** — written to `check2.md`, with the page corrected in place.
+
+**What I verified:**
+- **Reproduction:** `regen.sh` from a clean tree + `patch.diff` — exit 0, every deterministic count bit-for-bit (windows 32/32 at both (K, ρ), answers 15/18/16, swing 15→31→12, candidates 1.00·K+10, 0/48 selector misses, lookup 3.2 µs, tier 0.67 ms). Replica fidelity checked against the shipped sources: `tier2.py::hit_exact` copies `law.rs`'s approaching-in-every-branch structure exactly, and the shipped scan really runs at interval `max(step, 2)` (universe.rs:1162), which makes the window claim load-bearing.
+- **Adversarial (one beyond the author's domain):** the 2D selector held at **0 misses on 15 cells outside every swept axis** (h=90, h=0.05, σ_a=3e-3, ρ=1e-5, σ_φ 0.005–0.05) — but its price grows to 68× reads/hits at h=90, so the two-horizon sweep understates the dial. Flights at **e=0.3** (replica still matches the engine 10/10, 11/11, 11/11; swing **10→32→0**) and **K=3·10⁴** (window 96 vs analytic 97.9, crowd law holds) — but the answer residual there is **18/96 ≈ 19%**, not ≈ half: "≈ half" was a two-scene coin bias stated as a law. Corrected on the page.
+- **Why silver, not gold:** everything load-bearing reproduces and the ~3×10³× closure is now flown end-to-end — but prediction B3 pre-registered "sizes within ±25%" and the flown 15→31→12 violates it 2.6× while the dossier's summary says "B3 held". The lab's own precedent (1 October red-team) caps exactly this pattern at silver. The gold experiment is named: fly the answer fraction as a distribution (0–100% observed) or adopt the same-key d·w ≡ 0 certificate.
+
+Tree restored to as-found (only `lab/results/` untracked); minor dossier nits (window formula's dropped factor-of-2, e=0.05→0.1 typo) recorded in check2.md.
