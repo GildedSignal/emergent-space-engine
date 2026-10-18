@@ -1,0 +1,4 @@
+Working...
+Run complete: `predictions.md` pre-registered, seven flights logged in `work/`, `dossier.md`, `regen.sh` (~4 min), and `wiki/view.md` folded — probe is print-only beside the shipped `gather_cached`; the tree carries only the patch.
+
+**The claim, one sentence:** The seen stream's content law survives the burning player — under continuous burns at L8 and the L15 top dial the far sky's churn is one shared observer-side aberration warp (displayed angle p99 = |dβ| per frame, K-flat at 10³-10⁵ as dβ/θ_f demands, root-frame motion 2-6× below), with 0 of ~6.8×10⁶ far row-pairs ever moving half a display cell in one frame — so a window record over the cold store serves the wildcard at O(2π/θ_f cells) + O(~350 near rows) per frame, and the O(K) walk the shipped gather pays every frame is deletable under burn, not only on coast.

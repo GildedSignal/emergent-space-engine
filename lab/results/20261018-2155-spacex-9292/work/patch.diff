@@ -1,0 +1,211 @@
+diff --git a/crates/universe/examples/skycensus.rs b/crates/universe/examples/skycensus.rs
+new file mode 100644
+index 00000000..4a40d836
+--- /dev/null
++++ b/crates/universe/examples/skycensus.rs
+@@ -0,0 +1,205 @@
++//! Sky census of the wire's own `seen` array, coast and burn (lab run 20261018-2155-spacex-9292).
++//!
++//! Print-only probe beside the shipped gather (`gather_cached`, the same call the page flies):
++//! every `stride` frames it takes the `View` and asks two questions the coast census (cc75) left
++//! open. (1) Does the content law survive the burning player: far rows (light-seconds ≥ 100),
++//! sky cells occupied at the 800-px floor θ_f = 8e-3, alone-in-cell, near-set size. (2) Is the
++//! per-interval churn of a far row observer-side (aberration: the displayed `direction` moves
++//! while the root-frame `offset` direction stands still) or emitter-side (the root-frame
++//! direction itself moves): the decomposition that decides whether a record over the cold store
++//! can serve the burn by recomposing β at O(cells) instead of re-walking K bodies.
++//!
++//! cargo run --release -p emergent-universe --example skycensus [-- <N> <coast|burn> [frames [rtf [stride]]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache};
++use emergent_universe::{Budget, Config};
++use std::collections::HashMap;
++use std::time::{Duration, Instant};
++
++/// The display floor cc75 used: one cell of an 800-px panel across 2π.
++const THETA_F: f64 = 8e-3;
++/// cc75's near set: closer than this (light-seconds) counts as resolvable content.
++const NEAR_LS: f64 = 100.0;
++
++fn ang(v: [f64; 2]) -> f64 {
++    v[1].atan2(v[0])
++}
++
++fn cell(a: f64) -> i64 {
++    ((a + std::f64::consts::PI) / THETA_F).floor() as i64
++}
++
++struct Row {
++    id: usize,
++    far: bool,
++    disp: f64,
++    root: f64,
++    cell: i64,
++    shift: f64,
++}
++
++fn rows(v: &emergent_universe::view::View) -> Vec<Row> {
++    v.seen
++        .iter()
++        .map(|s| Row {
++            id: s.id,
++            far: s.light_seconds >= NEAR_LS,
++            disp: ang(s.direction),
++            root: ang(s.offset),
++            cell: cell(ang(s.direction)),
++            shift: s.shift,
++        })
++        .collect()
++}
++
++fn pct(sorted: &mut Vec<f64>, p: f64) -> f64 {
++    if sorted.is_empty() {
++        return 0.0;
++    }
++    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let frames: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(360);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let stride: usize = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let burn = flight == "burn";
++    let level: u8 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(8);
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    println!("skycensus N={n} ({bodies} bodies) {flight} level={level} rtf={rtf} frames={frames} stride={stride} theta_f={THETA_F} near_ls={NEAR_LS} build={build:.2}s");
++    let mut cache = ViewCache::default();
++    let mut prev: Option<(Vec<Row>, HashMap<i64, u32>, [f64; 2], f64)> = None;
++    // accumulators over the censused intervals
++    let (mut intervals, mut warm_ms) = (0u64, 0.0f64);
++    let (mut far_pairs, mut moved_disp, mut moved_root, mut crossed) = (0u64, 0u64, 0u64, 0u64);
++    let (mut near_pairs, mut near_moved) = (0u64, 0u64);
++    let mut ddisp = Vec::new();
++    let mut droot = Vec::new();
++    let mut dshift = Vec::new();
++    let mut cells_changed = Vec::new();
++    let mut dbeta = Vec::new();
++    let mut first_census = true;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(52) {
++            println!("(truncated at frame {f})");
++            break;
++        }
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, level));
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) },
++            i64::MAX,
++        );
++        if f % stride != 0 || f < 60 {
++            continue;
++        }
++        let tg = Instant::now();
++        let Some(v) = gather_cached(&p.u, &p.names, &mut cache) else { continue };
++        warm_ms += tg.elapsed().as_secs_f64() * 1e3;
++        let rs = rows(&v);
++        let mut counts: HashMap<i64, u32> = HashMap::new();
++        for r in rs.iter().filter(|r| r.far) {
++            *counts.entry(r.cell).or_default() += 1;
++        }
++        let beta = v.beta;
++        let rate = v.rate;
++        // the census itself (first and last censused frame)
++        if first_census || t_start.elapsed() > Duration::from_secs(48) {
++            let occupied = counts.len();
++            let alone = counts.values().filter(|&&c| c == 1).count();
++            let near = rs.iter().filter(|r| !r.far).count();
++            let far = rs.iter().filter(|r| r.far).count();
++            let maxc = counts.values().copied().max().unwrap_or(0);
++            println!(
++                "census frame {f}: rows {} (far {far}, near {near}); far cells occupied {occupied} (capacity {:.1}), alone {}/{:.4}, max rows/cell {maxc}; beta {:.4e}, rate {:.6}, tick {}",
++                rs.len(), std::f64::consts::TAU / THETA_F, alone, alone as f64 / occupied.max(1) as f64, beta[0].hypot(beta[1]), rate, v.tick
++            );
++            first_census = false;
++        }
++        if let Some((prs, pcounts, pbeta, _prate)) = prev.take() {
++            intervals += 1;
++            let db = (beta[0] - pbeta[0]).hypot(beta[1] - pbeta[1]);
++            dbeta.push(db);
++            let pmap: HashMap<usize, &Row> = prs.iter().map(|r| (r.id, r)).collect();
++            let mut cc = 0u32;
++            for c in counts.keys().copied().collect::<Vec<_>>() {
++                if counts.get(&c).copied().unwrap_or(0) != pcounts.get(&c).copied().unwrap_or(0) {
++                    cc += 1;
++                }
++            }
++            for c in pcounts.keys() {
++                if !counts.contains_key(c) {
++                    cc += 1;
++                }
++            }
++            cells_changed.push(cc as f64);
++            for r in &rs {
++                let Some(q) = pmap.get(&r.id) else { continue };
++                if !r.far {
++                    continue;
++                }
++                far_pairs += 1;
++                let mut dd = (r.disp - q.disp).abs();
++                let mut dr = (r.root - q.root).abs();
++                if dd > std::f64::consts::PI {
++                    dd = std::f64::consts::TAU - dd;
++                }
++                if dr > std::f64::consts::PI {
++                    dr = std::f64::consts::TAU - dr;
++                }
++                ddisp.push(dd);
++                droot.push(dr);
++                dshift.push((r.shift / q.shift).ln().abs());
++                moved_disp += (dd > THETA_F / 2.0) as u64;
++                moved_root += (dr > THETA_F / 2.0) as u64;
++                crossed += (r.cell != q.cell) as u64;
++            }
++            for r in &rs {
++                if r.far {
++                    continue;
++                }
++                if let Some(q) = pmap.get(&r.id) {
++                    near_pairs += 1;
++                    let mut dd = (r.disp - q.disp).abs();
++                    if dd > std::f64::consts::PI {
++                        dd = std::f64::consts::TAU - dd;
++                    }
++                    near_moved += (dd > THETA_F / 2.0) as u64;
++                }
++            }
++        }
++        prev = Some((rs, counts, beta, rate));
++    }
++    let ip = intervals.max(1) as f64;
++    println!(
++        "deltas over {intervals} intervals (stride {stride}): far pairs {far_pairs}; displayed angle moved >theta_f/2 {moved_disp} ({:.4}%), crossed cell {crossed} ({:.4}%), ROOT-frame angle moved >theta_f/2 {moved_root} ({:.4}%)",
++        100.0 * moved_disp as f64 / far_pairs as f64, 100.0 * crossed as f64 / far_pairs as f64, 100.0 * moved_root as f64 / far_pairs as f64
++    );
++    println!(
++        "angle change per interval (rad): displayed p50 {:.3e} p99 {:.3e} max {:.3e}; root-frame p50 {:.3e} p99 {:.3e} max {:.3e}; ratio p99 disp/root {:.2e}",
++        pct(&mut ddisp, 0.5), pct(&mut ddisp, 0.99), pct(&mut ddisp, 1.0), pct(&mut droot, 0.5), pct(&mut droot, 0.99), pct(&mut droot, 1.0), pct(&mut ddisp, 0.99) / pct(&mut droot, 0.99).max(1e-30)
++    );
++    println!(
++        "|d ln shift| per interval: p50 {:.3e} p99 {:.3e} max {:.3e}; near rows moved >theta_f/2 {}/{} ({:.3}%); cells with changed far-count per interval p50 {:.1} p99 {:.1} max {:.0}; |dbeta| per interval p50 {:.3e} p99 {:.3e}",
++        pct(&mut dshift, 0.5), pct(&mut dshift, 0.99), pct(&mut dshift, 1.0), near_moved, near_pairs, 100.0 * near_moved as f64 / near_pairs.max(1) as f64, pct(&mut cells_changed, 0.5), pct(&mut cells_changed, 0.99), pct(&mut cells_changed, 1.0), pct(&mut dbeta, 0.5), pct(&mut dbeta, 0.99)
++    );
++    println!(
++        "skycensus: n={n} bodies={bodies} flight={flight} level={level} stride={stride} intervals={intervals} far_pairs={far_pairs} moved_disp_pct={:.4} crossed_pct={:.4} moved_root_pct={:.4} disp_p99={:.3e} root_p99={:.3e} shift_p99={:.3e} cells_p50={:.1} dbeta_p50={:.3e} warm_ms={:.1} wall_s={:.1}",
++        100.0 * moved_disp as f64 / far_pairs.max(1) as f64, 100.0 * crossed as f64 / far_pairs.max(1) as f64, 100.0 * moved_root as f64 / far_pairs.max(1) as f64, pct(&mut ddisp, 0.99), pct(&mut droot, 0.99), pct(&mut dshift, 0.99), pct(&mut cells_changed, 0.5), pct(&mut dbeta, 0.5), warm_ms / ip, t_start.elapsed().as_secs_f64()
++    );
++}
