@@ -1,0 +1,374 @@
+diff --git a/crates/engine/tests/xdense.rs b/crates/engine/tests/xdense.rs
+new file mode 100644
+index 00000000..c624598e
+--- /dev/null
++++ b/crates/engine/tests/xdense.rs
+@@ -0,0 +1,206 @@
++//! The crossover falsifier for docs/representation.md §3 (two evaluation orders): the
++//! density at which lockstep (the dense order's CPU arm) becomes cheaper than the
++//! sparse event core has never been measured — the shipped cost probe (`cost.rs`) and
++//! the r5 rung both sit at the battle scene's one fixed density (5q spacing).
++//!
++//! Here the density is the swept axis. Scenes are seeded grids of equal radii (q/2, so
++//! the touching floor is exact) under `es-lattice-relativistic-v1`, c = 1 quantum per
++//! chronon, so a q×q cell's light-crossing is one chronon and the doc's Knudsen-like
++//! number K is events per q²-cell per chronon. Every cell asserts both orders give the
++//! same bits (the r5 property) before its timings count.
++//!
++//! - `gas`: a confined hot gas (a sustained grind: battle scrum / cluster core), box
++//!   side ~ √n·spacing, spacing swept 8q → q (q = touching), speeds q/{8,4,2}.
++//! - `slam`: the battle shape — two grids closing, with and without shared fleet
++//!   velocities (the sparse core's velocity classes).
++//! - `miss`: the slam offset so the fleets never meet (the empty-flight control).
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Law, Response, Tick, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Stepper};
++use emergent_lattice_event::EventCore;
++use std::time::Instant;
++
++const Q: i64 = 1024;
++
++/// One seeded world of radius-q/2 bodies: responses 80/10/10 as the shipped battles.
++fn responses(rng: &mut Rng) -> Response {
++    match rng.next() % 10 {
++        0 => Response::Pass,
++        1 => Response::Stop,
++        _ => Response::Bounce,
++    }
++}
++
++/// The gas box side for n bodies at spacing (mirrors `gas`).
++fn per_row_side(n: i64, spacing: i64) -> i64 {
++    ((n as f64).sqrt().ceil() as i64) * spacing + 4 * Q
++}
++
++/// A hot gas confined to a box: `n` bodies on a jittered grid of side `spacing`,
++/// uniform velocities in ±q/`speed_div` per axis (no shared classes).
++fn gas(n: i64, spacing: i64, speed_div: i64, seed: u64) -> World {
++    let mut rng = Rng(seed ^ 0x9E37_79B9 ^ ((n as u64) << 20));
++    let per_row = (n as f64).sqrt().ceil() as i64;
++    let side = per_row * spacing + 4 * Q;
++    let jitter = (spacing - Q).max(0) / 4;
++    let v = Q / speed_div;
++    let mut bodies = Vec::with_capacity(n as usize);
++    for j in 0..n {
++        let x = [
++            ((j % per_row) - per_row / 2) * spacing + rng.range(-jitter, jitter),
++            ((j / per_row) - per_row / 2) * spacing + rng.range(-jitter, jitter),
++        ];
++        let k = [rng.range(-v, v), rng.range(-v, v)];
++        bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), Q / 2, responses(&mut rng)));
++    }
++    let c = Container { min: [-side / 2, -side / 2], max: [side / 2, side / 2] };
++    World::new(Q, Some(c), bodies).unwrap().with_law(Law::RelativisticV1).unwrap()
++}
++
++/// The battle shape: two grids of n/2 bodies closing at q/`speed_div` each, gap 40q,
++/// offset so they meet off-axis; `formation` gives each fleet one shared velocity.
++/// `miss` shifts fleet 1 past fleet 0's side so they never meet.
++fn slam(n: i64, spacing: i64, speed_div: i64, formation: bool, miss: bool, seed: u64) -> (World, i64) {
++    let mut rng = Rng(seed ^ 0x00BA_771E ^ ((n as u64) << 16));
++    let per_row = ((n / 2) as f64).sqrt().ceil() as i64;
++    let side = per_row * spacing;
++    let jitter = (spacing - Q).max(0) / 4;
++    let v = Q / speed_div;
++    let scatter = if formation || miss { 0 } else { (v / 4).max(1) };
++    let offset = if miss { 2 * side + 8 * Q } else { rng.range(-side / 2, side / 2) };
++    let mut bodies = Vec::with_capacity(n as usize);
++    for (f, size) in [(0usize, n / 2), (1usize, n - n / 2)] {
++        let (x0, dir, y0) = if f == 0 { (-(20 * Q) - side, 1i64, -side / 2) } else { (20 * Q, -1i64, offset - side / 2) };
++        for j in 0..size {
++            let x = [
++                x0 + (j % per_row) * spacing + rng.range(-jitter, jitter),
++                y0 + (j / per_row) * spacing + rng.range(-jitter, jitter),
++            ];
++            let k = [dir * v + rng.range(-scatter, scatter), rng.range(-scatter, scatter)];
++            bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), Q / 2, responses(&mut rng)));
++        }
++    }
++    (World::new(Q, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap(), 40 * Q + 2 * side)
++}
++
++/// What one cell measured.
++struct Row {
++    label: String,
++    n: i64,
++    horizon: Tick,
++    cells_q2: f64, // q×q cells the action is spread over
++    lock_wall: f64,
++    sp_wall: f64,
++    lock_ops: u64,
++    sp_ops: u64,
++    contacts: u64,
++    walls: u64,
++}
++
++/// Run one world in both orders, assert identical bits, and time them.
++fn run_both(w: &World, horizon: Tick, label: &str, cells_q2: f64) -> Row {
++    let mut lock = Chronon::new(w.clone(), false).unwrap();
++    let t = Instant::now();
++    lock.run_to(horizon);
++    let lock_wall = t.elapsed().as_secs_f64();
++
++    let mut sp = EventCore::new(w.clone(), false).unwrap();
++    let t = Instant::now();
++    sp.run_to(horizon);
++    let sp_wall = t.elapsed().as_secs_f64();
++
++    assert_eq!(
++        (lock.world().digest(), lock.log().digest()),
++        (sp.world().digest(), sp.log().digest()),
++        "{label}: the two orders disagree"
++    );
++    Row {
++        label: label.to_string(),
++        n: w.bodies.len() as i64,
++        horizon,
++        cells_q2,
++        lock_wall,
++        sp_wall,
++        lock_ops: lock.metrics().ops,
++        sp_ops: sp.metrics().ops,
++        contacts: sp.log().contacts,
++        walls: sp.log().walls,
++    }
++}
++
++fn report(r: &Row) {
++    let events = r.contacts + r.walls;
++    let per_body = events as f64 / (r.n as f64 * r.horizon as f64);
++    let k = events as f64 / (r.cells_q2 * r.horizon as f64);
++    println!(
++        "{:<30} n {:>5} T {:>5} events {:>7} ({:>6.3}/body/ch, K {:>6.3}) | lock {:>8.4} s ({:>10} ops) sparse {:>8.4} s ({:>10} ops) | lock/sparse {:>7.2}x",
++        r.label,
++        r.n,
++        r.horizon,
++        events,
++        per_body,
++        k,
++        r.lock_wall,
++        r.lock_ops,
++        r.sp_wall,
++        r.sp_ops,
++        r.lock_wall / r.sp_wall,
++    );
++}
++
++fn machine_state(when: &str) {
++    let up = std::fs::read_to_string("/proc/loadavg").unwrap_or_default().trim().to_string();
++    println!(
++        "machine {when}: load {up} | nproc {}",
++        std::thread::available_parallelism().map(|p| p.get()).unwrap_or(0)
++    );
++}
++
++#[test]
++fn the_crossover_between_the_two_orders() {
++    machine_state("before");
++
++    println!("== miss control (the empty flight: same worlds, fleets offset past each other) ==");
++    for spacing in [8 * Q, 3 * Q] {
++        let (w, span) = slam(1600, spacing, 8, false, true, 8);
++        let horizon = span / (2 * (Q / 8)) + 64;
++        report(&run_both(&w, horizon, &format!("miss s={:.2}q", spacing as f64 / Q as f64), 1.0));
++    }
++
++    println!("== gas (confined grind): spacing x speed ==");
++    for speed_div in [8i64, 4, 2] {
++        for spacing in [8 * Q, 5 * Q, 3 * Q, 2 * Q, Q + Q / 2, Q + Q / 4, Q] {
++            let w = gas(1600, spacing, speed_div, 8);
++            let cells = (per_row_side(1600, spacing) as f64 / Q as f64).powi(2);
++            let label = format!("gas s={:.2}q v=q/{speed_div}", spacing as f64 / Q as f64);
++            report(&run_both(&w, 400, &label, cells));
++        }
++    }
++
++    println!("== gas N sweep at s=1.5q, v=q/4 (fixed density) ==");
++    for n in [400i64, 1600, 6400] {
++        let w = gas(n, Q + Q / 2, 4, 8);
++        let cells = (per_row_side(n, Q + Q / 2) as f64 / Q as f64).powi(2);
++        report(&run_both(&w, 400, &format!("gas N={n}"), cells));
++    }
++
++    println!("== slam (the battle shape): spacing, formation on/off ==");
++    for formation in [false, true] {
++        for spacing in [5 * Q, 3 * Q, 2 * Q, Q + Q / 2] {
++            let (w, span) = slam(1600, spacing, 8, formation, false, 8);
++            let horizon = span / (2 * (Q / 8)) + 64;
++            let side = ((800i64 as f64).sqrt().ceil() as i64) * spacing;
++            let cells = (side as f64 / Q as f64).powi(2) * 2.0;
++            let label = format!("slam s={:.2}q {}", spacing as f64 / Q as f64, if formation { "formation" } else { "scatter" });
++            report(&run_both(&w, horizon, &label, cells));
++        }
++    }
++
++    println!("== repeatability (the hottest cell, second pass) ==");
++    let w = gas(1600, Q, 2, 8);
++    let cells = (per_row_side(1600, Q) as f64 / Q as f64).powi(2);
++    report(&run_both(&w, 400, "gas s=1.00q v=q/2 (pass 2)", cells));
++
++    machine_state("after");
++}
+diff --git a/crates/engine/tests/xdense_check.rs b/crates/engine/tests/xdense_check.rs
+new file mode 100644
+index 00000000..740ca05b
+--- /dev/null
++++ b/crates/engine/tests/xdense_check.rs
+@@ -0,0 +1,156 @@
++//! Checker's adversarial arms for 76f8. Mirrors the author's helpers (xdense.rs) so rows are
++//! directly comparable. Four arms, each outside the author's tested range:
++//! - A1: N = 25600 at s=1.5q v=q/4 (author topped at 6400).
++//! - A2: the slam at s=1.0q (touching; author's slam sweep stopped at 1.5q).
++//! - A3: the grind at v=q/16 (author's slowest was q/8).
++//! - A4: horizon 800/1600 at s=1.5q/1.25q (does the confined grind cool and leave ρ*?).
++//! Digests asserted equal in every cell.
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Law, Response, Tick, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Stepper};
++use emergent_lattice_event::EventCore;
++use std::time::Instant;
++
++const Q: i64 = 1024;
++
++fn responses(rng: &mut Rng) -> Response {
++    match rng.next() % 10 {
++        0 => Response::Pass,
++        1 => Response::Stop,
++        _ => Response::Bounce,
++    }
++}
++
++fn per_row_side(n: i64, spacing: i64) -> i64 {
++    ((n as f64).sqrt().ceil() as i64) * spacing + 4 * Q
++}
++
++fn gas(n: i64, spacing: i64, speed_div: i64, seed: u64) -> World {
++    let mut rng = Rng(seed ^ 0x9E37_79B9 ^ ((n as u64) << 20));
++    let per_row = (n as f64).sqrt().ceil() as i64;
++    let side = per_row * spacing + 4 * Q;
++    let jitter = (spacing - Q).max(0) / 4;
++    let v = Q / speed_div;
++    let mut bodies = Vec::with_capacity(n as usize);
++    for j in 0..n {
++        let x = [
++            ((j % per_row) - per_row / 2) * spacing + rng.range(-jitter, jitter),
++            ((j / per_row) - per_row / 2) * spacing + rng.range(-jitter, jitter),
++        ];
++        let k = [rng.range(-v, v), rng.range(-v, v)];
++        bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), Q / 2, responses(&mut rng)));
++    }
++    let c = Container { min: [-side / 2, -side / 2], max: [side / 2, side / 2] };
++    World::new(Q, Some(c), bodies).unwrap().with_law(Law::RelativisticV1).unwrap()
++}
++
++fn slam(n: i64, spacing: i64, speed_div: i64, formation: bool, miss: bool, seed: u64) -> (World, i64) {
++    let mut rng = Rng(seed ^ 0x00BA_771E ^ ((n as u64) << 16));
++    let per_row = ((n / 2) as f64).sqrt().ceil() as i64;
++    let side = per_row * spacing;
++    let jitter = (spacing - Q).max(0) / 4;
++    let v = Q / speed_div;
++    let scatter = if formation || miss { 0 } else { (v / 4).max(1) };
++    let offset = if miss { 2 * side + 8 * Q } else { rng.range(-side / 2, side / 2) };
++    let mut bodies = Vec::with_capacity(n as usize);
++    for (f, size) in [(0usize, n / 2), (1usize, n - n / 2)] {
++        let (x0, dir, y0) = if f == 0 { (-(20 * Q) - side, 1i64, -side / 2) } else { (20 * Q, -1i64, offset - side / 2) };
++        for j in 0..size {
++            let x = [
++                x0 + (j % per_row) * spacing + rng.range(-jitter, jitter),
++                y0 + (j / per_row) * spacing + rng.range(-jitter, jitter),
++            ];
++            let k = [dir * v + rng.range(-scatter, scatter), rng.range(-scatter, scatter)];
++            bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), Q / 2, responses(&mut rng)));
++        }
++    }
++    (World::new(Q, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap(), 40 * Q + 2 * side)
++}
++
++struct Row {
++    label: String,
++    n: i64,
++    horizon: Tick,
++    cells_q2: f64,
++    lock_wall: f64,
++    sp_wall: f64,
++    lock_ops: u64,
++    sp_ops: u64,
++    contacts: u64,
++    walls: u64,
++}
++
++fn run_both(w: &World, horizon: Tick, label: &str, cells_q2: f64) -> Row {
++    let mut lock = Chronon::new(w.clone(), false).unwrap();
++    let t = Instant::now();
++    lock.run_to(horizon);
++    let lock_wall = t.elapsed().as_secs_f64();
++
++    let mut sp = EventCore::new(w.clone(), false).unwrap();
++    let t = Instant::now();
++    sp.run_to(horizon);
++    let sp_wall = t.elapsed().as_secs_f64();
++
++    assert_eq!(
++        (lock.world().digest(), lock.log().digest()),
++        (sp.world().digest(), sp.log().digest()),
++        "{label}: the two orders disagree"
++    );
++    Row {
++        label: label.to_string(),
++        n: w.bodies.len() as i64,
++        horizon,
++        cells_q2,
++        lock_wall,
++        sp_wall,
++        lock_ops: lock.metrics().ops,
++        sp_ops: sp.metrics().ops,
++        contacts: sp.log().contacts,
++        walls: sp.log().walls,
++    }
++}
++
++fn report(r: &Row) {
++    let events = r.contacts + r.walls;
++    let per_body = events as f64 / (r.n as f64 * r.horizon as f64);
++    let k = events as f64 / (r.cells_q2 * r.horizon as f64);
++    println!(
++        "{:<30} n {:>5} T {:>5} events {:>7} ({:>6.3}/body/ch, K {:>6.3}) | lock {:>8.4} s ({:>10} ops) sparse {:>8.4} s ({:>10} ops) | lock/sparse {:>7.2}x",
++        r.label, r.n, r.horizon, events, per_body, k, r.lock_wall, r.lock_ops, r.sp_wall, r.sp_ops,
++        r.lock_wall / r.sp_wall,
++    );
++}
++
++#[test]
++fn checker_adversarial_arms() {
++    // A1: N one 4x step beyond the author's largest (6400), fixed density s=1.5q v=q/4.
++    let w = gas(25600, Q + Q / 2, 4, 8);
++    let cells = (per_row_side(25600, Q + Q / 2) as f64 / Q as f64).powi(2);
++    report(&run_both(&w, 400, "A1 gas N=25600 s=1.5q v=q/4", cells));
++
++    // A2: the battle shape at touching packing (author's slam sweep stopped at 1.5q).
++    for formation in [false, true] {
++        let (w, span) = slam(1600, Q, 8, formation, false, 8);
++        let horizon = span / (2 * (Q / 8)) + 64;
++        let side = ((800i64 as f64).sqrt().ceil() as i64) * Q;
++        let cells = (side as f64 / Q as f64).powi(2) * 2.0;
++        report(&run_both(&w, horizon, &format!("A2 slam s=1.00q {}", if formation { "formation" } else { "scatter" }), cells));
++    }
++
++    // A3: the grind below the author's slowest speed (q/8): touching packing, v=q/16.
++    {
++        let w = gas(1600, Q, 16, 8);
++        let cells = (per_row_side(1600, Q) as f64 / Q as f64).powi(2);
++        report(&run_both(&w, 400, "A3 gas s=1.00q v=q/16", cells));
++    }
++
++    // A4: does the confined grind cool? Horizons 800 and 1600 at the two crossover spacings.
++    for spacing in [Q + Q / 2, Q + Q / 4] {
++        for t in [800i64, 1600] {
++            let w = gas(1600, spacing, 4, 8);
++            let cells = (per_row_side(1600, spacing) as f64 / Q as f64).powi(2);
++            report(&run_both(&w, t, &format!("A4 gas s={:.2}q v=q/4 T={t}", spacing as f64 / Q as f64), cells));
++        }
++    }
++}

@@ -1,0 +1,39 @@
+machine before: load 1.63 1.04 0.97 2/517 1147567 | nproc 8
+miss s=8.00q                   n  1600 T  2080 events       0 ( 0.000/body/ch, K  0.000) | lock   1.0612 s (   6656000 ops) sparse   0.0002 s (     13673 ops) | lock/sparse 4381.58x
+miss s=3.00q                   n  1600 T   920 events       0 ( 0.000/body/ch, K  0.000) | lock   0.4606 s (   2994508 ops) sparse   0.0002 s (     13673 ops) | lock/sparse 1861.79x
+gas s=8.00q v=q/8              n  1600 T   400 events    1422 ( 0.002/body/ch, K  0.000) | lock   0.2148 s (   1866650 ops) sparse   0.0120 s (    259913 ops) | lock/sparse   17.92x
+gas s=5.00q v=q/8              n  1600 T   400 events    3452 ( 0.005/body/ch, K  0.000) | lock   0.2304 s (   2021040 ops) sparse   0.0230 s (    453384 ops) | lock/sparse   10.03x
+gas s=3.00q v=q/8              n  1600 T   400 events    9614 ( 0.015/body/ch, K  0.002) | lock   0.2798 s (   2459398 ops) sparse   0.0524 s (    923172 ops) | lock/sparse    5.34x
+gas s=2.00q v=q/8              n  1600 T   400 events   23895 ( 0.037/body/ch, K  0.008) | lock   0.3763 s (   3375957 ops) sparse   0.1150 s (   1836141 ops) | lock/sparse    3.27x
+gas s=1.50q v=q/8              n  1600 T   400 events   47990 ( 0.075/body/ch, K  0.029) | lock   0.4947 s (   4600013 ops) sparse   0.2667 s (   4632638 ops) | lock/sparse    1.86x
+gas s=1.25q v=q/8              n  1600 T   400 events   80622 ( 0.126/body/ch, K  0.069) | lock   0.6179 s (   5926258 ops) sparse   0.4535 s (   7811480 ops) | lock/sparse    1.36x
+gas s=1.00q v=q/8              n  1600 T   400 events  168977 ( 0.264/body/ch, K  0.218) | lock   0.8678 s (   8283198 ops) sparse   1.0336 s (  18883076 ops) | lock/sparse    0.84x
+gas s=8.00q v=q/4              n  1600 T   400 events    2720 ( 0.004/body/ch, K  0.000) | lock   0.2226 s (   1931441 ops) sparse   0.0220 s (    467404 ops) | lock/sparse   10.12x
+gas s=5.00q v=q/4              n  1600 T   400 events    6600 ( 0.010/body/ch, K  0.000) | lock   0.2492 s (   2216149 ops) sparse   0.0437 s (    837864 ops) | lock/sparse    5.71x
+gas s=3.00q v=q/4              n  1600 T   400 events   18103 ( 0.028/body/ch, K  0.003) | lock   0.3500 s (   3071633 ops) sparse   0.0982 s (   1701642 ops) | lock/sparse    3.56x
+gas s=2.00q v=q/4              n  1600 T   400 events   42399 ( 0.066/body/ch, K  0.015) | lock   0.4840 s (   4570812 ops) sparse   0.2763 s (   5242929 ops) | lock/sparse    1.75x
+gas s=1.50q v=q/4              n  1600 T   400 events   82262 ( 0.129/body/ch, K  0.050) | lock   0.6593 s (   6672910 ops) sparse   0.6171 s (  12410262 ops) | lock/sparse    1.07x
+gas s=1.25q v=q/4              n  1600 T   400 events  130339 ( 0.204/body/ch, K  0.112) | lock   0.8652 s (   8704098 ops) sparse   1.0323 s (  20391666 ops) | lock/sparse    0.84x
+gas s=1.00q v=q/4              n  1600 T   400 events  237297 ( 0.371/body/ch, K  0.306) | lock   1.2249 s (  12177416 ops) sparse   2.0406 s (  43033383 ops) | lock/sparse    0.60x
+gas s=8.00q v=q/2              n  1600 T   400 events    5186 ( 0.008/body/ch, K  0.000) | lock   0.2347 s (   2050948 ops) sparse   0.0401 s (    851941 ops) | lock/sparse    5.86x
+gas s=5.00q v=q/2              n  1600 T   400 events   12477 ( 0.019/body/ch, K  0.001) | lock   0.2767 s (   2463161 ops) sparse   0.0790 s (   1530499 ops) | lock/sparse    3.50x
+gas s=3.00q v=q/2              n  1600 T   400 events   32797 ( 0.051/body/ch, K  0.005) | lock   0.3956 s (   3652741 ops) sparse   0.1735 s (   2976276 ops) | lock/sparse    2.28x
+gas s=2.00q v=q/2              n  1600 T   400 events   73505 ( 0.115/body/ch, K  0.026) | lock   0.6005 s (   5890453 ops) sparse   0.4087 s (   7323943 ops) | lock/sparse    1.47x
+gas s=1.50q v=q/2              n  1600 T   400 events  134934 ( 0.211/body/ch, K  0.082) | lock   0.8609 s (   8880990 ops) sparse   0.8425 s (  15856627 ops) | lock/sparse    1.02x
+gas s=1.25q v=q/2              n  1600 T   400 events  199518 ( 0.312/body/ch, K  0.171) | lock   1.1270 s (  11646330 ops) sparse   1.3334 s (  26046205 ops) | lock/sparse    0.85x
+gas s=1.00q v=q/2              n  1600 T   400 events  325762 ( 0.509/body/ch, K  0.421) | lock   1.7079 s (  16522351 ops) sparse   2.2692 s (  45805416 ops) | lock/sparse    0.75x
+gas N=400                      n   400 T   400 events   17713 ( 0.111/body/ch, K  0.038) | lock   0.1373 s (   1343808 ops) sparse   0.1132 s (   2135569 ops) | lock/sparse    1.21x
+gas N=1600                     n  1600 T   400 events   82262 ( 0.129/body/ch, K  0.050) | lock   0.6639 s (   6672910 ops) sparse   0.6162 s (  12410262 ops) | lock/sparse    1.08x
+gas N=6400                     n  6400 T   400 events  363606 ( 0.142/body/ch, K  0.059) | lock   3.0513 s (  30770373 ops) sparse   2.8215 s (  55134912 ops) | lock/sparse    1.08x
+slam s=5.00q scatter           n  1600 T  1384 events    8522 ( 0.004/body/ch, K  0.000) | lock   0.7894 s (   5293913 ops) sparse   0.0883 s (   1929080 ops) | lock/sparse    8.94x
+slam s=3.00q scatter           n  1600 T   920 events   18157 ( 0.012/body/ch, K  0.001) | lock   0.6351 s (   4572924 ops) sparse   0.1447 s (   2884585 ops) | lock/sparse    4.39x
+slam s=2.00q scatter           n  1600 T   688 events   29679 ( 0.027/body/ch, K  0.006) | lock   0.6031 s (   4789482 ops) sparse   0.1998 s (   3715750 ops) | lock/sparse    3.02x
+slam s=1.50q scatter           n  1600 T   572 events   37838 ( 0.041/body/ch, K  0.017) | lock   0.5863 s (   5059294 ops) sparse   0.2536 s (   4343689 ops) | lock/sparse    2.31x
+slam s=5.00q formation         n  1600 T  1384 events    8336 ( 0.004/body/ch, K  0.000) | lock   0.7643 s (   5081457 ops) sparse   0.0936 s (   1696531 ops) | lock/sparse    8.16x
+slam s=3.00q formation         n  1600 T   920 events   18261 ( 0.012/body/ch, K  0.001) | lock   0.6378 s (   4566186 ops) sparse   0.1560 s (   3006030 ops) | lock/sparse    4.09x
+slam s=2.00q formation         n  1600 T   688 events   32910 ( 0.030/body/ch, K  0.007) | lock   0.6186 s (   5197469 ops) sparse   0.2752 s (   5347853 ops) | lock/sparse    2.25x
+slam s=1.50q formation         n  1600 T   572 events   41009 ( 0.045/body/ch, K  0.019) | lock   0.6154 s (   5806687 ops) sparse   0.3551 s (   7257130 ops) | lock/sparse    1.73x
+gas s=1.00q v=q/2 (pass 2)     n  1600 T   400 events  325762 ( 0.509/body/ch, K  0.421) | lock   1.6471 s (  16522351 ops) sparse   2.2933 s (  45805416 ops) | lock/sparse    0.72x
+machine after: load 1.97 1.22 1.03 3/523 1148559 | nproc 8
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 43.29s
+regen ok: 35 scene rows, digests asserted equal in every cell by the test itself
