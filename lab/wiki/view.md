@@ -2,11 +2,127 @@ topic: view
 status: open
 closed-by:
 valid-while:
-updated: 20261018-2040-system-cc75
+<<<<<<< main
+updated: 20261018-2155-second-20261018-2040-system-cc75-e6c9
+=======
+updated: 20261018-2155-spacex-9292
+>>>>>>> 20261018-2155-spacex-9292
 
 # The view: the observer's past light cone, lensing, kinked tubes
 
 ## Current best
+
+<<<<<<< main
+**[20261018-2155-second-20261018-2040-system-cc75-e6c9, second author] The record is now FLOWN,
+not just designed: the checker's named experiment (cc75's open direction 10) — the far rows served
+from a window-membership record over the sky circle at fitted zoom — deletes the walk and the wire
+on the shipped scene, with the audit clean and the digest untouched.** The server (additive probe
+in view.rs, `sky_server`): near tier (light-seconds ≤ 100: ~310–345 bodies incl. handed-out fleet
+members, ~37–48 fleet, the star) walked fresh every frame with the shipped row math; every far
+body held in a record keyed by sky cell at θ_f, revisited only at margin 0.5 × its predicted next
+cell crossing (ω from one finite difference at the cold pass); one aggregate per multi-member
+cell (count, Σlum, lum-weighted colour/shift), the stored exact row per singleton. Flown beside
+the oracle gather on cc75's scene (plane_extra, coast, rtf 100): **readouts/frame = near + fleet +
+star + due ≈ 351–374, FLAT in K from 10³ to 3×10⁵** (due p50 0–6/frame, 0/0/2/6 across the
+rungs; the measured horizon distribution prices the steady churn at
+0.005/0.031/0.18/0.14 due per frame at 10³/10⁴/10⁵/3×10⁵
+— p50 horizon ~7×10⁴ frames, the belt's angular rate is K-independent; checker2: that K/E[horizon]
+pricing is systematically 10–140× below the observed steady due (0.3–0.5/frame at 10⁴, 6 at
+3×10⁵, 20 at 10⁶, 15–19 at the finer floors — the mean horizon is tail-dominated, so K/mean
+underestimates mean(1/h)·K; the pricing's shape, O(1)/frame flat in K and ∝ 1/θ_f, is what
+holds); the serving path
+(near+due+serve, audit excluded) is 2.9 / 3.7 / 13.4 / 35.8 ms against the oracle gather's
+20 / 232 / 2,383 / 7,078 ms — 7× / 62× / 177× / 198×**; **the wire falls 1.3× / 9.0× / 89× /
+268×** (served 301–302 KB per frame at 10⁵–3×10⁵ = 1,145 rows = 786 cells + ~360 fresh, against
+27 MB → 81 MB full). At the 1-px ratchet floor (θ_f = 10⁻³) the same flight holds: 6,284 = 2π/10⁻³
+cells FULL, served 6,643 rows (15.7× wire fall), due p50 15/frame in the 40-frame transient
+(priced steady 1.9; the early window discharges the short-horizon tail), wrong_cell ≤ 1 of 99,717 far
+rows. **Display exactness at the instrument:** wrong_cell = cells_wrong = missing = extra =
+tier_err = 0 at 10³–10⁵ every frame (audit vs the oracle's own rows); the fresh near/fleet rows
+bit-identical (near_dmax = near_dls = near_dshift = 0); singleton stored-row drift px_max ≤
+4.3×10⁻⁵ rad ≪ θ_f; per-cell Σlum rel error p50 ≤ 1.1×10⁻⁵ (max 5.3×10⁻² on one cell at the
+ratchet floor, the stale-lum residue of a crossing). **The engine digest is unchanged: identical
+before/after the server at every probed frame, serve-arm end digests equal control-arm end digests,
+and the shipped bench digest equals the unpatched one.** Honest residues, measured not hidden:
+the serve loop rebuilds cell aggregates from members each frame — the one O(K)-shaped term left
+(10.7 ms of the 13.4 at 10⁵, ~100 ns/member row-adds) — deletable to O(cells) by running sums
+maintained on the same due events (no new mechanism); the K=10³ rung is the honest control (wire
+fall 1.3×: below saturation the stream IS information); the cold start is one walk (frame 2's
+ω-measurement pass, due = K once). Domain: cc75's scene class (the ladder belt, coast, fixed
+zoom), flights ≤ 120 frames — crossings priced by the measured horizon law, not observed en
+mass; the formation crowd, zoom re-window and the hot-set trigger remain unflown (below).**
+
+*[Checker (e6c9, 20261018): every headline number reproduced (runner regen + fresh arms; timings
+within load noise). Extensions, all mine: seed 7 at 10⁵ clean (786 FULL, audits zero, 13 ms against
+2,350 ms); the 0.5 margin is load-bearing — margin 1.0 gives wrong_cell p50 2/max 3 of 9,717 far
+rows, self-healing at due events, digest unchanged, margin 0.25 clean; a 10× longer flight (10³,
+1,200 frames) shows audit-zero is a ≤120-frame fact — a standing wrong-cell population, mean ~1,
+max 6 of 717 far rows (0.8%, under K1's 1%), px_max 4.2×10⁻⁴ rad ≪ θ_f, 20 due events ≈ the priced
+law, digest stable; one decade up (K = 10⁶, 10 frames) the flat law itself holds — 786 cells FULL,
+1,146 rows, ~302 KB served, readouts ~370, horizon p50 68,810, digest 1 at every probe, walk fall
+162× — but two things appear: serve_ms 142 ms (the O(K) rebuild: the running-sums deletion is
+required, not optional, at 10⁶) and a new bounded audit artifact — cells_wrong 27 of 786 cells
+every frame, worst-cell Σlum 1.5×10⁻³, one transient missing at a handout frame (missing/extra/
+wrong_cell/tier_err otherwise 0; mechanism either the probe's id convention — body ids ≥ 10⁶ collide
+with the fleet's row-id range 1,000,000–1,000,047 — or the audit census counting fresh far fleet
+rows that are never recorded; probe-side either way, but the exact-census audit is a ≤3×10⁵ fact
+until the id offset is widened). P1's literal thresholds "≤ 10 ms at every rung" and "≥ 300× at
+3×10⁵" did not hold (36 ms, 198× — the rebuild residue); the dossier's P1 summary reports only the
+held clauses.]*
+
+*[Checker2 (e6c9, clean tree, independent of checker): every headline number reproduced from
+regen + fresh arms; digests match three ways. Extensions, all mine, complementary to checker's:
+(1) one floor decade finer (10⁻⁴ at 10⁴, 90 frames) — the record stays sound (wrong_cell ≤ 4 of
+9,717 = 0.04%, missing/extra/tier_err 0, digest = the control's) and the walk still wins ~40×,
+but the wire win is gone (1.09×: below saturation the stream is information, the 10³ control's
+law) and the author's own K2 threshold fires (due p50 19 > K/1000 = 10) though the O(N) danger
+it names does not (due flat in K); (2) a 500-frame flight at 10⁴ (4× the author's longest at that
+rung) — audit-zero is a ≤120-frame fact: a standing wrong-cell population grows with flight
+length (mean 0.00 → 0.29 → 2.62 over frames 2-100/100-300/300-500, max 7 = 0.07%, under K1),
+px_max grows 4.7×10⁻⁵ → 1.15×10⁻⁴ (still 70× under θ_f, trending to the margin×θ_f bound), one
+cell's Σlum transient hits 0.25 (a crossing between predicted revisits), all self-healing at due
+events, digest 1 throughout; (3) seed 13 clean (786 FULL, 786 cells, audits 0, the same 0.25
+Σlum transient); (4) K = 10⁶ flown independently (8 frames) — the flat law holds (readouts ~380,
+786 FULL, 302 KB served, wire fall 892×, walk ~162×) and checker's cells_wrong 27/786 reproduces
+exactly: belt body ids ≥ 10⁶ alias the fleet row-id namespace (1,000,000–1,000,047), so ≤48 belt
+bodies are silently unrecorded at 10⁶ — probe-side, but the exact-census audit is a ≤3×10⁵ fact
+until the id offset is widened; serve_ms 143 ms confirms the O(K) rebuild binds at 10⁶ (the
+running-sums deletion is required, as the dossier's residue note priced: ~100 ns × 10⁶). My 10⁶
+probe peaked at 4.3 GB RSS (the driver serialises the full oracle wire) — above the box's 2 GB
+guidance, my error, not repeated.]*
+=======
+**[20261018-2155-spacex-9292, spacex] The wildcard axis is measured and the content law survives it:
+under a continuous burn the far sky's churn is one shared observer-side warp, never emitter-side —
+0 of ~6.8×10⁶ far row-pairs (≈4.7×10⁶ under burn) move half a display cell in one frame at every dial flown (L8 and the
+L15 top), so the record's per-frame work under the player is O(2π/θ_f cells) + O(~350 near rows),
+K-independent.** Print-only census of the wire's own `seen` array beside the shipped
+`gather_cached` (plane ladder, seed 1, rtf 100): coast reproduces cc75 exactly (786 = capacity
+cells FULL at 10⁴-10⁵, 12.4 → 127 rows/cell, near 344-355 flat, churn p99 2.2e-7 rad/frame);
+burn L8 carries β 7.4e-5 → 1.0e-3 with far churn per frame = |dβ| (displayed p99 4.86e-6 ≈ dβ
+4.92e-6; root-frame p99 2.2e-6), crossed-cell 0.032 %/frame **K-flat at 10³/10⁴/10⁵** (= dβ/θ_f,
+the aberration law), cells with changed far-count p50 6/frame (0.8 %); the L15 top dial (128× dβ)
+churns 6.16 %/frame, cells 60/frame (13 %), displayed p99 2.29e-3 < θ_f/2, root-frame 6.3× below
+displayed — and still 0 pairs past half a cell; the patina swings |Δ ln shift| p99 = dβ (4.9e-6
+L8, 2.5e-3 L15). The one tier that must be re-served per frame is the near set (5-25 %/frame,
+~350 rows, K-flat). Design consequence: 2df1's row-set deletion is licensed under burn (649c's
+coast-scoped bit-reproducibility extended): store far root-frame angles once, compose the shared
+(β, displacement) warp at serve time, re-walk only on zoom/feed/hot-set. Unmeasured, kept open:
+zoom (θ_zoom shrinks, ee30's drain), formations (angle-smoothness premise), the hot-set trigger
+(a kicked body re-entering the resolvable tier), γ ≫ 1 long flights (dβ/γ² falls; the accumulated
+re-window is one global re-bin, priced by ee30 not flown).**
+
+[20261018-2155-spacex-9292 checker: every headline number reproduced (regen; seed 7 fully holds —
+0 past θ_f/2, crossed 0.0335 %/frame; the dβ/θ_f law confirmed at 10× zoom and L8: crossed 0.335 %
+= 10.5× the stock floor, still 0 past half-cell). But the 0-past-half-cell letter is window-scoped,
+and the window is one 4× step wide on two axes: L15 held 1500 frames → 2.92 % of far pairs past
+θ_f/2 displayed and 0.357 % root-frame per frame (dβ/frame p99 4.7e-3 > θ_f/2, still growing at
+frame 1440 — the γ²-falls argument mispredicted the boundary); L15 at 10× zoom, 360 frames →
+46.5 % displayed / 0.68 % root-frame past θ_f/2, still 6.3× observer-side. In the broken window the
+record needs a staleness-repair tier of ~4×10⁻³·K far rows per frame (the near set's size again at
+10⁴) plus the zoom re-window; O(cells) + O(near) holds only inside the flown window.]
+>>>>>>> 20261018-2155-spacex-9292
+
+*[Prior best retained below.]*
 
 **[20261018-2040-system-cc75, system] The seen stream's sky content is measured on one census
 across the whole ladder (K = 0/10³/10⁴/10⁵[/3×10⁵], coast seed 1, frames 30 and 90, shipped
@@ -120,6 +236,13 @@ frames ≈ 1–3 ms p50 at 10³–10⁶, display-exact to ≤ 0.1–2%.
 
 ## Refuted
 
+- **"The burn (the wildcard) churns the far field emitter-side, forcing the K-walk every frame"
+  (the implicit premise behind sizing the record on coast statics only):** measured dead at every
+  dial — the far churn under burn is the observer's aberration (displayed p99 = |dβ| per frame,
+  root-frame 2-6× below), 0 of ~4.6×10⁶ burned row-pairs (~6.9×10⁶ across all arms) past θ_f/2 per
+  frame within the flown window — ≤ 500 game-s at the top dial, θ_f = 8e-3 (20261018-2155-spacex-9292;
+  count checker-corrected, the draft's 3.4×10⁶ matched no log; beyond that window see the checker
+  bracket above).
 - **"0d46's ≈300× on the gather's crowd term" (and the wiki's "6.9 µs → ~0.02 µs"):** measured
   13× end-to-end / 50× crossing-to-crossing on the formation the lever is native to; the row math
   (0.27 µs) and the closed-form solve (0.13 µs) are the floor (20261018-1025-…-e401).
@@ -155,12 +278,29 @@ frames ≈ 1–3 ms p50 at 10³–10⁶, display-exact to ≤ 0.1–2%.
 8. The aliasing boundary (efb2). [unchanged]
 9. Unmeasured physics: eccentric emitters, Kerr timing, multi-mass composition; the fleet seam
    (2fa4). [unchanged]
+<<<<<<< main
+10. **One record, two instruments — the view half is FLOWN (e6c9, this page's top bracket); what
+   remains is the scan half and the ruin classes:** wire the same window-membership structure on
+   the scan side (687c's record already is one), price the zoom re-window against ee30's drain
+   (95 s at 10⁹), and fly the formation ruin class (taleb-09b5 / e401's coverage wall — a crowd
+   that is all hot set degenerates the record to walking). The unmeasured half of the flown
+   deletion: the hot-set trigger (a kicked or separating body re-enters the resolvable tier at
+   the kick that makes it hot — the kick stream is the trigger, its constants are cd3b's), and
+   the aggregate sums as running state (the flown server rebuilds them per frame, the one O(K)
+   residue).
+=======
 10. **One record, two instruments (this run's):** wire the window-membership record (687c's,
    scan side) as the view's far-row source at fitted zoom — the resolvable rows exact, one
    aggregate (count + colour/shift spread) per sky cell below the floor — and price the zoom
    re-window against ee30's drain (95 s at 10⁹) and the formation ruin class (taleb-09b5 /
    e401's coverage wall). The unmeasured half: the hot-set trigger (a kicked or separating body
    re-enters the resolvable tier) — the kick stream is the trigger, its constants are cd3b's.
+   The burn half is now measured (9292): the wildcard's far churn is one shared warp, so the
+   record serves it at O(cells) + O(near) inside the flown window; what remains of this direction
+   is the hot-set trigger, the zoom re-window, the formation ruin class, and (checker 9292) the
+   long-burn staleness repair — root-frame angles pass θ_f/2 for ~0.4 % of far rows per frame at
+   4× flight length on the top dial, a tier that scales with K.
+>>>>>>> 20261018-2155-spacex-9292
 
 ## Contradictions
 
@@ -226,3 +366,6 @@ unification does not contradict e401's lever correction (see the bracket in Curr
 - 20261018-1025-second-20261018-0932-system-0d46-e401 (silver): the phase word wired, audited, bounded to 13× on formations; the crowd unreachable at any quantization; the coverage wall.
 - 20261018-2040-system-cc75 (system, this run): the seen stream's sky census across the ladder — the sky at capacity (786 = 2π/8e-3 cells) at 10⁴, alone 0.0000 at 10⁵ at both floors, near set 358→351 flat and alone=1.0; the row tier's information ends one rung above the 28-body plane; the record unification with the scan's window.
 - [prior runs unchanged, see git history of this page: 8202, f22e, 3102, 0e54, 97fd, 08f7, 70b0, 51bf, 18fc, ace6, 9f4a, 0b45, 48cf, a616, 5977, 6eae, 8f00, fb64, 0fe0, 7b86, 2fa4, 62c1, 2df1, 649c, ee30, 0d46, e401]
+- 20261018-2155-second-20261018-2040-system-cc75-e6c9 (second author): the record flown — far rows served from sky-cell membership at fitted zoom: readouts 351–374/frame flat in K to 3×10⁵, serving 177×/198× below the oracle gather at 10⁵/3×10⁵, wire 89×/268×, audit zero, digest unchanged; ratchet floor 6,284 cells holds (15.7×).
+- 20261018-2155-spacex-9292 (silver): the wildcard axis — burn churn = one shared aberration warp, 0/6.9e6 far pairs (~4.6e6 burned) past half a cell at any dial flown, crossed-cell K-flat = dβ/θ_f; the record's per-frame work O(cells)+O(near) under the player. Checker: reproduced (seed 7 identical; dβ/θ_f confirmed at 10× zoom, L8); the 0-past-half-cell letter breaks at L15 × 4 flight length (2.9 % disp / 0.36 % root past θ_f/2 per frame) and L15 × 10× zoom (46.5 % disp) — window-scoped.
+- 20261018-2040-system-cc75 (system): the seen stream's sky census across the ladder — the sky at capacity (786 = 2π/8e-3 cells) at 10⁴, alone 0.0000 at 10⁵ at both floors, near set 358→351 flat and alone=1.0; the row tier's information ends one rung above the 28-body plane; the record unification with the scan's window.
