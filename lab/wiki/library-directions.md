@@ -2,11 +2,42 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0035-library-6793
+updated: 20261018-0814-library-6faa
 
 # Library lessons for the ladder's open decisions
 
 ## Current best
+
+**The kick bottleneck (the board's #3; its CPU decision table untouched by this lens until
+now) is composed from measured constants, and it splits by population: the Carlson wiring is a
+3.3–9.4× lever on the plane rebind (compile share 86%, term 18–23×) but a 3.1–11.0% lever
+at 10⁹ (the belt's compile is 4.45 µs of a 50.4 µs kick, c4d3/3570), the knot table it
+deletes is 75% of the 5,060 B live plateau (3.97× flyable N, composing 6793's 3.9×), and
+the composed belt kick after EVERY landed deletion (5ade −17%, 9c67/d65c −9…−11%, Carlson
+3–5.5 µs) is 32.1–36.1 µs against the 23 µs requirement that closes the 10⁹ row — 1.40–1.57×
+over, so no measured per-kick lever reaches it and the split (S* ≈ 20×) stays the 10⁹
+lever, kick cost and cadence redundant as e7ef held (20261018-0814-library-6faa, library;
+no flight — ledger.py on page-cited constants; 4,590 highlights fetched fresh, quotes 5/5
+byte-identical; predictions P1/P3/P4 held, P2 half-held as stated, P5 missed on "exactly
+three" — five unadopted wins exist).** The five lessons, each holding a different decision:
+(1) Feynman's box of tools — "So I got a great reputation for doing integrals, only because
+my box of tools was different from everybody else's, and they had tried all their tools on
+it before giving the problem to me" — the walk is a tool choice, not the law: wire the
+kernels (kick-jet open 1), the walk keeps oracle status; (2) Naval — "Tools and leverage
+create this disconnection between inputs and outputs" — rank on the composed ledger (rate ×
+cost), delete the scoreboard's independent kick row; (3) Musk via Isaacson — "It's about
+building the machine that builds the machine" — on the belt the factory (bind/refit walks,
+sources, decodes, 84–93%) is the bill, not the product (compile 4.45 µs): the ≤23 µs
+requirement's lever list is walks/sources, not the compile; (4) Confucius via Bevelin — "A
+man who has committed a mistake and doesn't correct it, is committing another mistake" —
+five digest-identical kick-side wins sit unadopted behind bookkeeping (b583's regen,
+2ae0's gate flip, 5ade, 9c67, the wiring): one adoption window clears the class; (5)
+Asimov — "We abandoned the appearance of power to preserve the essence of it" — f64
+exactness to 10⁻¹⁵ is appearance, the Q30 integer quantum is essence: port the kernels
+inside the wiring, keep the exact bisection key (open 3's 3% prize never justifies a law
+change).
+
+*[Prior best retained below.]*
 
 **The 10⁹ memory wall is composed from measured constants and its decision structure is
 two dials plus a split freeze: the scar quantum (q16 3.0 GB / q24 4.8–5.2 GB / the
@@ -42,7 +73,6 @@ decide the irreversible scar quantum late (carries cannot recover information be
 own resolution, r2); never bundle the two freezes.
 
 *[Prior best retained below.]*
-
 
 **The certificate's angle bars are frozen from the shipped consumers, and the freeze deletes
 two components: the re-kick leaves the flight law (T*(q_view) = 5.99×10⁷ / 3.37×10⁷ game-s at
@@ -138,8 +168,8 @@ quote verification was itself the held-out property).
 >paid pairs per real contact" clause is withdrawn — it divides the CLUSTER population's
 >4.45×10⁸ pairs at F = 3×10⁴ by the KEYS population's 60 contacts at F = 400; no run
 >measured contacts at F ≥ 10⁴, and under any physical contact scaling (per-ship or
->per-pair rate fixed) the honest same-population ratio at F = 3×10⁴ is 10³–10⁵, not
->10⁶, while the ratio's growth in F is unsupported (contacts scale with F too). The
+>per-pair rate fixed) the honest same-population ratio at F = 3×10⁴ is 10³–10⁵, not 10⁶,
+>while the ratio's growth in F is unsupported (contacts scale with F too). The
 >measured statement that stands is per body: the search pays k̄ ∝ F (6,257 at F = 10⁵)
 >while every contacting partner is rank ≤ 4 (2373's own ~1,500× gap). (b) "no shipped
 >path finds a 49-m fleet contact" holds within `crates/encounters` and the doll store's
@@ -255,6 +285,15 @@ Linux, fermi-lens precedent):**
 
 ## Refuted
 
+- **"The scoreboard's kick row (75–160 µs vs a ~42–55 ns floor, gap 10³·³) is an
+  independent gap": double-counts** — kick cost and cadence are one product (e7ef's
+  redundancy, confirmed by composition: after every landed deletion the belt kick is
+  32.1–36.1 µs, 1.40–1.57× over the 23 µs requirement, with no measured per-kick lever
+  reaching it); the Carlson wiring's 10⁹ CPU content is 3.1–11.0%, its plane content
+  3.3–9.4× and its memory content 3.97× (20261018-0814-library-6faa).**
+- **kick-jet open 1's "~10× on the whole rebind" letter: the top edge, not the
+  expectation** — the composed kick lands 8–19 µs against a 62.6–75.4 µs rebind =
+  3.3–9.4×; the compile TERM is the 18–23× (20261018-0814-library-6faa).**
 - **"Memory ~2× over in the worst case" (the scoreboard's reading of a driven belt at 126
   bits/body) is not a 2× miss but a nonexistence result at that quantum:** 15.75 GB busts
   the 8 GB machine with zero live bodies and zero fences; the worst case that EXISTS is
@@ -306,12 +345,12 @@ Linux, fermi-lens precedent):**
 - **Library direction 0 (chaining alone retires the comb):** inert for one-tick births;
    stands refuted on nladder's own Refuted list (4fa8), not repeated here.
 - **"The boundary comb is a comb to stretch, first of all" (kick-cadence direction 1's
-   implicit framing): reclassified (10c4)** — 99.974% of belt boundaries are plain
-   (certificates + anchor + replan, one flight at 10⁴/rtf 600) and no engine reader
-   consults a belt body between kick and boundary, so the requirements question (merge
-   into the kick) precedes the scheduling question (does BELT_SPLIT stretch it). The
-   comb's EXISTENCE as a fact stands (8ffc); what is refuted is its priority as the
-   cheapest next question.
+  implicit framing): reclassified (10c4)** — 99.974% of belt boundaries are plain
+  (certificates + anchor + replan, one flight at 10⁴/rtf 600) and no engine reader
+  consults a belt body between kick and boundary, so the requirements question (merge
+  into the kick) precedes the scheduling question (does BELT_SPLIT stretch it). The
+  comb's EXISTENCE as a fact stands (8ffc); what is refuted is its priority as the
+  cheapest next question.
 - [checker 20261017] The census above says "the belt's": the shipped stats print counts the
   whole scene, and at 10⁴ the belt is ~15% of it (one comb; `belt_first`); the belt-specific
   bound is the N-scaling one, ≥ 99.98% plain (10⁵ arm, non-plain constant at 16). The
@@ -321,38 +360,51 @@ Linux, fermi-lens precedent):**
 
 ## Open directions
 
-1. **The scar-quantum consumer derivation (this run's lesson 2):** compose the regenerated
+1. **The kick wiring's one gate (this run's L1): resolver-level digest identity.** The
+   channel-level agreement is done (29 keys, de99); the wiring into `Rebinding::from_state`
+   behind an env gate plus a765's harness and frame_digest's 8 schedules decides it. If it
+   fails, the plane multiple collapses toward the compile-only bound and the wiring is a
+   memory-only lever.
+2. **The adoption window (L4):** b583's regen fix (build xtask per arm, interleave,
+   restore the two deleted kick-bench fields), 2ae0's gate flip, 5ade's and 9c67's
+   deletions, then the wiring; then one stage-census flight on the belt kick (L3's test)
+   re-prices the ≤23 µs gap on the post-adoption baseline.
+3. **The integer kernel port (L5):** RF at Q30 vs de99's f64 oracle on the 29-key grid,
+   inside the same adoption; decides whether open 3's ulp-standard ever applies again.
+
+4. **The scar-quantum consumer derivation (6793's lesson 2):** compose the regenerated
    body's readout bar (q_view-class, per population) and check whether q24's extra
    1.8–2.2 GB serves any consumer q16 misses; ab9d's chaos result (|Δz| = 43× the quantum
    at q24) predicts no. If none, q16 is derived, not tuned, and the driven belt exists at
    10⁹ (3.0 GB compact + 2.3–3.9M post-Carlson live).
-2. **Measure the ~1.3 kB post-Carlson plateau (this run's softest input):** one flight
+5. **Measure the ~1.3 kB post-Carlson plateau (6793's softest input):** one flight
    with the knot-table share of the plateau counted on a shipped dump (lesson 3's test);
-   until then the post-C columns are an interlock, not a measurement.
-3. **The demotion half (lesson 4):** efd4's eviction + the shipped census ratios against
+   until then the post-C columns are an interlock, not a measurement. [This run's P4
+   composes it from the scoreboard's 43×88 B = 75%; the flight still owes it.]
+6. **The demotion half (6793's lesson 4):** efd4's eviction + the shipped census ratios against
    Forte's band; if the shipped flights already sit inside the band, the pyramid freeze
    is free.
 
 
-1. **The fleet row's representation (the encounters queue's next rung, ordered by this
-   run):** charge fleet contact capability at birth (fixed relative phase ⇒ fixed
+7. **The fleet row's representation (the encounters queue's next rung, ordered by
+   cf2a):** charge fleet contact capability at birth (fixed relative phase ⇒ fixed
    min-distance), train pairs on `dioph.rs::first_hit` as per-pair due dates, delete the
    standing F²·reach/TAU rebuild. Cheapest falsifier: on the crate's coherent verify
    fleets, birth-constant min-distances must explain 54 of every 55 paid pairs (2373's
    own ratio); if they cannot, the birth-constant escape dies and the dial is the only
    lever (20261017-1018-library-cf2a).
-2. **The word-width dial (ev) as the encounters page's direction 1, now priced for
+8. **The word-width dial (ev) as the encounters page's direction 1, now priced for
    fleets:** it spans the fleet row 4.5×10⁵–1.1×10⁸×, and its coarse end deletes the
    only fleet finder with the row — so the dial decision and the contact-delivery probe
    (does any shipped path find a 49-m fleet hit at ev = −45 without the standing
    certificate?) are one rung, not two.
-3. **The 10⁹ CPU ledger as a population table** (belt / dolls / fleets), headline = the
-   sum at the worst mix: one script (this run's compose_ledger.py pattern) the integrator
+9. **The 10⁹ CPU ledger as a population table** (belt / dolls / fleets), headline = the
+   sum at the worst mix: one script (the ledger.py/compose_ledger.py pattern) the integrator
    can re-run whenever a row is measured.
-4. **The boundary-item bench** (10c4's L1): split the boundary's 13 µs into readout vs
+10. **The boundary-item bench** (10c4's L1): split the boundary's 13 µs into readout vs
    item machinery (12db's kick-bench pattern) — decides whether the merge is worth
    ×0.95 or ×0.80 of belt CPU (S* 19.7× vs 16.6×); then the merge's B-gate flight.
-5. **Frozen (20261017-2142-library-e29c): the bars are per consumer** — q_view(N) (the
+11. **Frozen (20261017-2142-library-e29c): the bars are per consumer** — q_view(N) (the
    map's pixel at neighbour resolution, N^−1/2) for the belt, the r9-class 10⁻²° for the
    locals (the individuals), q_mass deleted, contacts by margins. Remaining: the locals'
    pixel derivation (one frame dump of the fitted view's `near`), the fence's burn arm, and
@@ -362,20 +414,20 @@ Linux, fermi-lens precedent):**
 re-kick even at flyable N; f5bd's note already flagged that boundary. The delete also survives
 my adversarial arm: 24× the measured drift at 1e6, and the dense inner-edge density (e-smear
 only) moves k* at 10⁹ only 213 → 123.]
-6. **The sampled-readout ensemble gate** (10c4's L3): re-grade components-98bc's
+12. **The sampled-readout ensemble gate** (10c4's L3): re-grade components-98bc's
    0.126-bit belt program on N=100 sampled readouts vs full population (adversarial
    sample, not uniform — the tail is the point); if it holds, the compact mass's
    certificate is O(sample).
-7. **The split-21 legality probe** (10c4's L5): B14-class at ~6 kicks/orbit on the quiet
+13. **The split-21 legality probe** (10c4's L5): B14-class at ~6 kicks/orbit on the quiet
    far belt — 1db4's ~2/orbit and 06a8's 8/orbit Jupiter floor bracket it; prediction:
    pass outside the resonance bands, fail inside (10c4's untested prediction 3).
-8. The burst-gap histogram on the shipped burn read stream; per-body last-gap residency vs
+14. The burst-gap histogram on the shipped burn read stream; per-body last-gap residency vs
    the dial (kill: cliff at 80–100 gs not at the burst-gap upper quantile).
-9. The 18,000-gs slope-vs-band arm for the doll-born gate (slope predicts OFF median ≥1e-4).
+15. The 18,000-gs slope-vs-band arm for the doll-born gate (slope predicts OFF median ≥1e-4).
 
 ## Contradictions
 
-The 1a46 "debt is sub-quantum and carried" reading and this run's "no fence ever held" are
+The 1a46 "debt is sub-quantum and carried" reading and this page's "no fence ever held" are
 not a contradiction but a print-precision artifact, resolved here: 2.6×10⁻⁴° was real and
 above every acting grid; it was invisible only at 3 decimals. The curve's mechanism (whose
 precession the max tracks as the kicked bodies' orbits evolve; why the median runs ~t^2
@@ -396,3 +448,4 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261017-1330-library-7bd9 (library): the FLOW attributed (held-scans queue) — five lessons order the fence: bytes-not-count, load-arm protocol, the unread counter, diet-vs-pin, peak-not-drain.
 - 20261017-2142-library-e29c (library): the bars frozen from the shipped consumers — the re-kick leaves the flight law (0 firings flyable, 0.28% at 10⁹), q_mass deleted, contacts forced to margins (11× below the acting grid); all five predictions held.
 - 20261018-0035-library-6793 (library): the 10⁹ memory wall composed — two dials (scar quantum, live plateau), complements not substitutes, split freeze; the 126-bit worst is nonexistence, not 2×.
+- 20261018-0814-library-6faa (library): the kick bottleneck taken — the wiring is a 3.3–9.4× plane and 3.97× memory lever but 3.1–11.0% at 10⁹; the composed belt kick 32–36 µs misses 23 µs at every measured lever, so the split stays the 10⁹ lever; five fresh lessons (Feynman/Naval/Musk/Confucius/Asimov), 5/5 byte-identical.

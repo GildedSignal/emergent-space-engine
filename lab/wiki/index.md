@@ -17,8 +17,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [representation-premises](representation-premises.md) | open | 7 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
-| [library-directions](library-directions.md) | open | 8 | **The 10⁹ memory wall is composed from measured constants and its decision structure is |
 | [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
+| [library-directions](library-directions.md) | open | 9 | **The kick bottleneck (the board's #3; its CPU decision table untouched by this lens until |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [read-stream](read-stream.md) | open **conflict to resolve** | 13 | <<<<<<< main |
