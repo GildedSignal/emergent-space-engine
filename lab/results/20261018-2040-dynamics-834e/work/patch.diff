@@ -1,0 +1,277 @@
+diff --git a/crates/lattice/examples/fill.rs b/crates/lattice/examples/fill.rs
+new file mode 100644
+index 00000000..7d0b4a97
+--- /dev/null
++++ b/crates/lattice/examples/fill.rs
+@@ -0,0 +1,271 @@
++//! The dense order's filling-fraction ladder (dynamics lens): collision rate against
++//! Enskog-Henderson kinetic theory, contact-count Fano (avalanche law), per-chronon ops
++//! quantiles (frame spikes), per-tick connected components (batch structure) and the
++//! distinct-partner fraction (caging). Shipped reference stepper `Chronon` under
++//! `Law::RelativisticV1` at the shipped Q = 2^20, on the ladder's own trapped-gas
++//! generator `worlds::gas`. One JSON line per arm; the first arm reruns itself as a
++//! determinism control.
++use emergent_lattice::Kind;
++use emergent_lattice::Stepper;
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Law, World};
++use emergent_lattice::worlds;
++
++fn q(pct: f64, v: &mut Vec<f64>) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let i = ((pct / 100.0) * (v.len() - 1) as f64).round() as usize;
++    v[i]
++}
++
++/// Union-find largest-component size over one tick's contact pairs.
++fn largest_component(pairs: &[(u64, u64)]) -> (usize, f64) {
++    let mut parent: std::collections::HashMap<u64, u64> = std::collections::HashMap::new();
++    let mut find = |p: &mut std::collections::HashMap<u64, u64>, mut x: u64| -> u64 {
++        loop {
++            let r = *p.entry(x).or_insert(x);
++            if r == x {
++                break;
++            }
++            x = r;
++        }
++        x
++    };
++    let mut size: std::collections::HashMap<u64, usize> = std::collections::HashMap::new();
++    let mut comps = 0usize;
++    for &(a, b) in pairs {
++        let (ra, rb) = (find(&mut parent, a), find(&mut parent, b));
++        if ra != rb {
++            let (sa, sb) = (*size.get(&ra).unwrap_or(&1), *size.get(&rb).unwrap_or(&1));
++            parent.insert(ra, rb);
++            size.insert(rb, sa + sb);
++            comps += 1;
++        }
++    }
++    let mut bodies: std::collections::HashSet<u64> = std::collections::HashSet::new();
++    for &(a, b) in pairs {
++        bodies.insert(a);
++        bodies.insert(b);
++    }
++    let maxc = size.values().copied().max().unwrap_or(0);
++    // Mean size over the involved bodies (sum of sizes² / sum of sizes needs per-root sizes).
++    let mut per_root: std::collections::HashMap<u64, usize> = std::collections::HashMap::new();
++    for &b in &bodies {
++        let r = find(&mut parent, b);
++        *per_root.entry(r).or_insert(0) += 1;
++    }
++    let mean = if bodies.is_empty() {
++        0.0
++    } else {
++        let s2: usize = per_root.values().map(|&s| s * s).sum();
++        s2 as f64 / bodies.len() as f64
++    };
++    let _ = comps;
++    (maxc, mean)
++}
++
++#[derive(Clone)]
++struct Stats {
++    contacts: u64,
++    walls: u64,
++    rate_per_body: f64,
++    nu_enskog: f64,
++    mean_w: f64,
++    fano1: f64,
++    fano64: f64,
++    p50: f64,
++    p99: f64,
++    max_ops: f64,
++    mean_ops: f64,
++    max_component: usize,
++    mean_component: f64,
++    active_frac: f64,
++    distinct_frac: f64,
++    max_batch: u64,
++    max_pairs_tick: u64,
++    max_walls_tick: u64,
++    ops_per_fired: f64,
++    min_gap_units: f64,
++    beta_max: f64,
++}
++
++fn run(n: u64, phi: f64, vmax: i64, seed: u64, horizon: i64, burnin: i64) -> (Stats, World, String) {
++    let qi = 1 << 20;
++    let w0 = worlds::gas(n, phi, qi, vmax, seed).with_law(Law::RelativisticV1).expect("subluminal");
++    // Genesis instruments: min pair gap and mean |w| over all pairs.
++    let mut min_gap2 = f64::INFINITY;
++    let mut sum_w = 0.0f64;
++    let mut pairs_count = 0u64;
++    for i in 0..w0.bodies.len() {
++        for j in (i + 1)..w0.bodies.len() {
++            let (a, b) = (&w0.bodies[i], &w0.bodies[j]);
++            let dx = (a.x[0] - b.x[0]) as f64;
++            let dy = (a.x[1] - b.x[1]) as f64;
++            min_gap2 = min_gap2.min(dx * dx + dy * dy);
++            let wx = (a.k[0] - b.k[0]) as f64;
++            let wy = (a.k[1] - b.k[1]) as f64;
++            sum_w += (wx * wx + wy * wy).sqrt();
++            pairs_count += 1;
++        }
++    }
++    let min_gap = min_gap2.sqrt() / qi as f64;
++    let mean_w = sum_w / pairs_count as f64;
++    let g = (1.0 - 7.0 * phi / 16.0) / (1.0 - phi).powi(2);
++    let nu_enskog = (4.0 * phi / std::f64::consts::PI) * g * (mean_w / qi as f64);
++
++    let mut c = Chronon::new(w0.clone(), true).expect("world");
++    let mut per_ops: Vec<f64> = Vec::with_capacity(horizon as usize);
++    let mut per_contacts: Vec<f64> = Vec::with_capacity(horizon as usize);
++    let mut max_component = 0usize;
++    let mut max_pairs_tick = 0u64;
++    let mut max_walls_tick = 0u64;
++    let mut sum_component = 0.0f64;
++    let mut comp_ticks = 0u64;
++    let mut distinct: std::collections::HashSet<(u64, u64)> = std::collections::HashSet::new();
++    let mut total_pairs_after = 0u64;
++    let mut t0_contacts = 0u64;
++    for t in 1..=horizon {
++        let ops0 = c.metrics().ops;
++        let len0 = c.log().events.len();
++        c.step();
++        let tick_ops = (c.metrics().ops - ops0) as f64;
++        let mut pairs: Vec<(u64, u64)> = Vec::new();
++        let mut nw = 0u64;
++        let mut nc = 0u64;
++        for e in &c.log().events[len0..] {
++            if e.kind == Kind::Contact {
++                pairs.push((e.a, e.b));
++                nc += 1;
++            } else {
++                nw += 1;
++            }
++        }
++        if t > burnin {
++            per_ops.push(tick_ops);
++            per_contacts.push(nc as f64);
++            max_pairs_tick = max_pairs_tick.max(nc);
++            max_walls_tick = max_walls_tick.max(nw);
++            if !pairs.is_empty() {
++                let (mc, mn) = largest_component(&pairs);
++                max_component = max_component.max(mc);
++                sum_component += mn;
++                comp_ticks += 1;
++                for &p in &pairs {
++                    distinct.insert(p);
++                }
++                total_pairs_after += nc;
++            }
++            t0_contacts += nc;
++        }
++    }
++    let st = c.metrics();
++    let m = per_contacts.iter().sum::<f64>() / per_contacts.len() as f64;
++    let v = per_contacts.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / per_contacts.len() as f64;
++    let mut w64: Vec<f64> = Vec::new();
++    for ch in per_contacts.chunks(64) {
++        w64.push(ch.iter().sum::<f64>());
++    }
++    let m64 = w64.iter().sum::<f64>() / w64.len() as f64;
++    let v64 = w64.iter().map(|x| (x - m64) * (x - m64)).sum::<f64>() / w64.len() as f64;
++    let wf = c.world();
++    let beta_max = wf
++        .bodies
++        .iter()
++        .map(|b| (((b.k[0] as f64).powi(2) + (b.k[1] as f64).powi(2)).sqrt() / qi as f64))
++        .fold(0.0f64, f64::max);
++    let contacts_total = c.log().contacts;
++    let stats = Stats {
++        contacts: t0_contacts,
++        walls: c.log().walls,
++        rate_per_body: 2.0 * t0_contacts as f64 / (n as f64 * (horizon - burnin) as f64),
++        nu_enskog,
++        mean_w,
++        fano1: v / m,
++        fano64: v64 / m64,
++        p50: q(50.0, &mut per_ops.clone()),
++        p99: q(99.0, &mut per_ops.clone()),
++        max_ops: per_ops.iter().cloned().fold(0.0, f64::max),
++        mean_ops: per_ops.iter().sum::<f64>() / per_ops.len() as f64,
++        max_component,
++        mean_component: if comp_ticks > 0 { sum_component / comp_ticks as f64 } else { 0.0 },
++        active_frac: per_contacts.iter().filter(|&&x| x > 0.0).count() as f64 / per_contacts.len() as f64,
++        distinct_frac: if total_pairs_after > 0 {
++            distinct.len() as f64 / total_pairs_after as f64
++        } else {
++            1.0
++        },
++        max_batch: st.max_batch,
++        max_pairs_tick,
++        max_walls_tick,
++        ops_per_fired: st.ops as f64 / st.fired as f64,
++        min_gap_units: min_gap,
++        beta_max,
++    };
++    let digest = format!("{}:{}:{}", contacts_total, c.log().digest(), wf.digest());
++    (stats, wf, digest)
++}
++
++fn print_arm(tag: &str, n: u64, phi: f64, vmax: i64, seed: u64, horizon: i64, burnin: i64, s: &Stats) {
++    println!(
++        "{{\"tag\":\"{}\",\"n\":{},\"phi\":{},\"vmax\":{},\"seed\":{},\"horizon\":{},\"burnin\":{},\
++\"contacts\":{},\"walls\":{},\"rate_per_body\":{:.6},\"nu_enskog\":{:.6},\"ratio\":{:.4},\"mean_w\":{:.0},\
++\"fano1\":{:.4},\"fano64\":{:.4},\"p50ops\":{:.0},\"p99ops\":{:.0},\"maxops\":{:.0},\"meanops\":{:.1},\
++\"spike_ratio\":{:.3},\"max_component\":{},\"mean_component\":{:.2},\"active_frac\":{:.4},\
++\"distinct_frac\":{:.4},\"max_batch\":{},\"max_pairs\":{},\"max_walls\":{},\"ops_per_fired\":{:.1},\"min_gap_units\":{:.3},\"beta_max\":{:.4}}}",
++        tag, n, phi, vmax, seed, horizon, burnin,
++        s.contacts, s.walls, s.rate_per_body, s.nu_enskog,
++        s.rate_per_body / s.nu_enskog, s.mean_w,
++        s.fano1, s.fano64, s.p50, s.p99, s.max_ops, s.mean_ops,
++        s.p99 / s.p50, s.max_component, s.mean_component, s.active_frac,
++        s.distinct_frac, s.max_batch, s.max_pairs_tick, s.max_walls_tick, s.ops_per_fired, s.min_gap_units, s.beta_max
++    );
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).map(String::as_str).unwrap_or("all");
++    let on = |m: &str| mode == "all" || mode == m;
++    let (horizon, burnin) = (8192i64, 1024i64);
++    let vmax = 1 << 17;
++
++    if on("phi") {
++        // Determinism control on the first arm: two fresh runs must agree exactly.
++        let (s1, w1, d1) = run(400, 0.1, vmax, 1, horizon, burnin);
++        let (s2, w2, d2) = run(400, 0.1, vmax, 1, horizon, burnin);
++        assert!(w1 == w2 && d1 == d2, "determinism control failed");
++        println!("{{\"determinism_control\":\"equal\",\"digest\":\"{}\"}}", &d1[..16]);
++        print_arm("phi", 400, 0.1, vmax, 1, horizon, burnin, &s1);
++        for &phi in &[0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.7, 0.78] {
++            for &seed in &[2u64, 3] {
++                let (s, _, _) = run(400, phi, vmax, seed, horizon, burnin);
++                print_arm("phi", 400, phi, vmax, seed, horizon, burnin, &s);
++            }
++            if phi != 0.1 {
++                let (s, _, _) = run(400, phi, vmax, 1, horizon, burnin);
++                print_arm("phi", 400, phi, vmax, 1, horizon, burnin, &s);
++            }
++        }
++    }
++    if on("speed") {
++        for &v in &[1i64 << 15, 1 << 16, 1 << 18] {
++            for &seed in &[1u64, 2] {
++                let (s, _, _) = run(400, 0.3, v, seed, horizon, burnin);
++                print_arm("speed", 400, 0.3, v, seed, horizon, burnin, &s);
++            }
++        }
++    }
++    if on("heldout") {
++        for &phi in &[0.1, 0.3, 0.7] {
++            for &seed in &[5u64, 6] {
++                let (s, _, _) = run(400, phi, vmax, seed, horizon, burnin);
++                print_arm("heldout", 400, phi, vmax, seed, horizon, burnin, &s);
++            }
++        }
++        for &phi in &[0.3, 0.7] {
++            let (s, _, _) = run(1600, phi, vmax, 1, horizon, burnin);
++            print_arm("heldout", 1600, phi, vmax, 1, horizon, burnin, &s);
++        }
++    }
++}
