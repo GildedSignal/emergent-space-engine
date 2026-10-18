@@ -2,7 +2,7 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261017-1829-second-20261017-1447-dynamics-fd35-e517
+updated: 20261018-0035-inversion-bf83
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
@@ -49,6 +49,37 @@ Checker extension (same invariants, wider domain): the batch driver fired 4/9
 (viol 16 = D exact, armed from publish ~20 with ~240-publish leads, `out=` shut)
 and the crossing family, window 8/32 and seeds 21/23 held the equality law with
 2,632 further RB events, `out=` never opening.
+
+**NEW (bf83, inversion — direction 5's first half answered on shipped code, unsabotaged):**
+the game's own scene shapes are separable by fire: the FLEET battle (lattice `worlds::galaxy`,
+12 power-law fleets, `Law::Relativistic`) fires the finality assert on main at protocol
+(1 fire / 14 draws, seeds 11-16 × 2, rate 2400, 4.5 s ≈ present 3.5k-10.8k; `min_region 32`
+shipped, `speed_margin 0.5`, sabotage off; seed-11-skewed with a replicate split — the
+wall-clock race), while the belt's shapes stay clean: a churny 3×3 bounce clump grid 0/12
+(9-27 rollbacks, final lead to 1,504 at `min_region 1`), cold Pass crossing trains 0/6
+(10-12 rollbacks — crossings conflict without contacts — no fire at this horizon; bc0f's
+crossing crash lives in other windows), and one dense slow gas
+blob 0/6 at 135-171 rollbacks with final lead 0. **The two-ingredient law: fire needs light
+slack (publish-ahead) AND an unplanned meeting; churn alone is inert** — the page's crash
+family is gas-shaped, but gas without slack cannot fire at all, so the fix's test scene
+should be converging fleets, not gas. At the shipped default margin 2.0 nothing fires (0/6
+battle; gas conflicts fully absorbed), and margin 0.0 — the shipped finality tests' value —
+degrades sharply at `min_region 1` (present 8,355→~3.1-4.7k, rollbacks 0→~256, regions to
+~2.3k on the author's draw) but never stalls in three checker replicates — the chronon-3
+stall was one draw, not a law. Harness:
+`crates/allocator/examples/exposure.rs` (the run's only code change; one process per draw;
+fire = exit 101 + the assert message). Checker-measured since (gold check): 3 further fires
+in 12 fresh battle draws, all seed 11 (0 on ~40 draws of seeds 12-24; pooled 4/62 at margin
+0.5), one at a 4x horizon (20 s, present ~15k); fires are load-coupled (0/8 in a quiet
+loop, 0/53 in the runner's regen); rate 600 is the keeping-up rate (present pinned at
+2,698, lead ~240, 0/12 — the axis is dead). Checker2 (independent): fires are not
+seed-11-specific — s19 fired 1/6 at 4352, and the first N rung above the author's range
+(galaxy 8704, 24 fleets, span 12, margin 0.5) fired 2/4, both with the exact assert
+(fin_hi 1232 vs s0 1216): incidence rises with the battle's scale, the direction the 10⁹
+game cares about; gas margin-0.0 never stalled in 3 further replicates (present 3.9-4.7k,
+rb 247-254, regions 512→1), and rate-600 gas under load gives final lead 0 (present
+1.2-1.7k), so the keeping-up lead is machine-load-coupled. Still unmeasured: the fire's internal state
+(no fin_hi/PRE instrument; e517's instrument on the fleet scene is the named next step).
 
 **The state side (fd35, direction 7 answered, now with its positive half):** the
 race is measurable as a state property on shipped code, and on every draw flown it
@@ -180,9 +211,13 @@ as a complete rule by the churn class above).
    window-fat-tailed — invisible at endpoints and in single windows (9b46, b966,
    01e7, bc0f: vmax-16 0/6 in the checker's window, 3/6 in bc0f's; e517: 9/18 on
    the same family at higher load).
-5. The real conflict rate of the flown universe (encounters, burns, the belt) — the
-   churn class here is synthetic Bounce gas; a stirred belt or a battle is sustained
-   overlap by construction (e704; 9b46; 01e7's exposure note).
+5. The real conflict rate of the flown universe (encounters, burns, the belt) — **first
+   half answered (bf83): the battle class fires unsabotaged on shipped code (1/14 at margin
+   0.5, 0/6 at the default 2.0); the belt's clump and crossing shapes stay clean at
+   protocol; churn without slack cannot fire.** Still open: the incidence tail (windows,
+   rate 600 long-horizon, more seeds), the plane's own flown battle once wired, and the
+   fire's internal state (which lineage crossed the published tick). The e517 state
+   certificate should be evaluated on fleet scenes (e704; 9b46; 01e7's exposure note).
 6. Margin from the law, not from history (relativistic scenes): the c-cap makes the
    conflict window one stride; no-conflict throughput ceiling unmeasured at every size
    ≥ 128 cells (e704 checkers).
@@ -226,3 +261,4 @@ as a complete rule by the churn class above).
 - 20261017-1149-second-20261017-1018-taleb-01e7-bc0f (this run, awaiting grade):
 - 20261017-1447-dynamics-fd35 (this run, awaiting grade): the race as state — equality
 - 20261017-1829-second-20261017-1447-dynamics-fd35-e517 (this run, awaiting grade):
+- 20261018-0035-inversion-bf83 (this run, awaiting grade): the game shapes separated by fire — fleets fire unsabotaged (1/14, margin 0.5), belt shapes clean, churn without slack inert; margin 0 is its own ruin.

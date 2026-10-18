@@ -2,11 +2,36 @@ topic: handoff
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2330-scout-be13
+updated: 20261018-0035-second-20261017-2330-scout-be13-cf6f
 
 # Handoffs between dolls and the doll boundary
 
 ## Current best
+**[The galaxy program's production half is measured on the corrected, regenerating
+record (20261018-0035-second-…-cf6f, second author on be13; the checker's named
+experiment):] COM-centred cells beat geometric-centre cells at every grid ≥ 128×512
+on both scene shapes (1.14–11.9× in med; the coarsest 64×256's ~1.05× margin is
+within seed noise — checker2: geom wins 1 of 6 fresh seeds there and at N = 10⁷;
+3.0× at the passing grid), converge ~h³ — per-halving ratios 4.3×/9.3×/7.8×,
+med 1.2×10⁻⁴ at 512×2048, where geom floors at 0.00138 on cell granularity (~1.8
+bodies/cell; COM with ~2 bodies per cell is nearly the bodies themselves) — erase
+the inner-disc p90 failure (inner annulus 0.02–0.2: COM 0.00011/0.00100 PASS vs
+geom 0.00063/0.00807 over bar — the pass domain becomes the whole sampled disc
+[0.02, 5.0]), and halve the clustered scene's passing grid (clusters pass OUTRIGHT
+at 128×512 under COM, 0.00178/0.00679). The azimuthal tail above m ≈ 8 is NOT
+white shot-noise (checker2): the truncation error decays monotonically — COM
+p90 at 256×1024 m≤8 0.0134, m≤16 0.0117, m≤32 0.0102, m≤64 0.0066–0.0076 PASS
+on 3 seeds and at N = 10⁷, m≤96 0.0053 — so "no m* passes" held only to the
+m ≤ 8 actually measured; the shipped point-mass evaluation still needs the
+full-azimuth 256×1024 log-polar grid,
+~2.6×10⁵ numbers ≈ 2.1 MB, each cell's mass at its COM; softening–grid coupling
+survives the fix (ε 0.05→0.02→0.01: geom 0.0028→0.018→0.049, COM 0.0009→0.009→
+0.029 — ε halving ≈ one grid doubling). Controls C1–C5 (mass, cell-count equality,
+COM-in-ring, m=0-fails, chunk step) now ship IN the instrument; bugdemo.py
+regenerates be13's 148599-vs-221937 mismatch from be13's own binning line — the
+bug class is now unshippable, not just caught. Two fresh seeds pass (beside the
+checker's 3); be13's geom PASS row regenerates exactly (0.00279/0.00621).]**
+
 **[The port is pure float, counted and priced (20261017-2142-second-…-e1a4,
 second author on scout-8dfb; the checker's named experiment):] all six
 constants close in exactly 8 distinct Carlson kernels per (E, L_z, Q) key
@@ -349,46 +374,61 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
    the v4 sampler should run [12, 80]M — the 1% crossing is ≈79M at e = 0.9 (checker2);
    inside 12M nothing analytic vouches without an
    NR-calibrated EOB (the next refinement, one run).
-5. **The galaxy doll's production half: measured, and the program PASSES at a priced
-   grid on both scene shapes** (20261017-2330-scout-be13, scout, this run; checker
-   probes folded in). A polar log-grid monopole program built from the bodies
-   themselves (two-arm exponential disc, N = 10⁶, same softened kernel both sides,
-   mass-conservation control shipped) holds the field to **med 0.0028 / p90 0.0062
-   against 2da8's eps_eff ≈ 0.008 switch-on at 256×1024 cells** (~2.6×10⁵ numbers ≈
-   2.1 MB, no per-body bytes), converging ~h² (0.039 → 0.0115 → 0.0028 per grid
-   halving). The measured shape: **multipole order is not the lever on smooth
-   scenes at coarse grids** (64×256: m = 2 at the floor, flat through m = 128; m = 0
-   fails at 0.044) — but at the passing grid itself truncation is no longer free
-   (checker: m ≤ 4 gives 0.0077 med, 4% headroom, with p90 0.0147 ≈ 2× the bar; the
-   measured pass is the full-azimuth grid); **the coarse-grid residual is N-weak
-   binning bias** (0.041 → 0.039 smooth, 0.014 → 0.011 clusters, 10⁵ → 10⁶), not √N
-   sampling; seed-robust (checker: 3 fresh seeds 0.0024–0.0028 med, all PASS). **The
-   COM-centring claim as shipped is inverted — a third instrument bug** (checker):
-   `com_program` binned radial mass to extent R_MAX = 5.0 instead of log(R_MAX), a
-   1.6× coarser log grid occupying ~62% of rings, which made centre-of-mass cells
-   look worse (0.053/0.027/0.0041); on matched bins COM centring is **better at
-   every grid** (0.0372/0.0087/0.00094 vs geom 0.0388/0.0115/0.0028; at 256×1024 COM
-   passes med AND p90, 0.00094/0.0030) — put each cell's mass at its COM, never the
-   bare geometric centre (the dipole is free headroom). **The softening couples to
-   the grid** (ε 0.05 → 0.02 → 0.01 at 256×1024: geom 0.0028 → 0.0179 → 0.0491,
-   COM 0.0009 → 0.0090 → 0.0285, checker-corrected constants — a finer aggregate
-   quantum demands finer cells; the author's constants sat on the bugged grid).
-   **Clustered scene at fine grids (checker, the run's named open experiment):
-   passes** — 128×512 med 0.0041 (p90 0.0101, marginal), 256×1024 **0.0014/0.0031
-   PASS** with more headroom than the smooth scene; the near-ring (Barnes–Hut
-   opening) fallback is not needed for field fidelity at N = 10⁶. Test-point domain
-   (checker): the author's R ∈ [0.2, 4.8] annulus is the easy middle — the inner
-   disc (0.02–0.2) passes on median (0.0006) but its p90 0.013 is over the bar, the
-   outer rim (4.8–5.0) marginal (0.0037/0.0083). **Instrument lessons on the
-   record:** the first decisive pass was killed by the author's own grid mask
-   dropping r < 0.02 bodies (2–5% of the mass, N-invariantly) — the "N-invariant
-   1.8% floor" was the instrument, caught by a mass-conservation check now shipped
-   (plus a chunk double-count caught by magnitude); the COM-extent bug above was
-   caught only by the checker's cell-count control — mass conservation does not see
-   it (the lab's memo-artifact lesson, lived twice). Still open: 10⁹ sampling, the
-   inner-disc p90, the kick-layer re-anchoring that owns bar churn (eps_eff ≈
-   0.008–0.025, 6765's checker; aac1; 2da8), and the 3-D thickness of a real disc
-   (this run is 2-D; float, orders of magnitude).
+5. **The galaxy doll's production half: measured, passing at a priced grid on both
+   scene shapes, on the corrected record (cf6f, second author on be13 — the
+   checker's named experiment; be13 + checker probes folded in).** A polar log-grid
+   monopole program built from the bodies themselves (two-arm exponential disc /
+   Zipf-cluster lab shape, N = 10⁶, same softened kernel both sides) holds the
+   field to **med 0.00094 / p90 0.00303 at 256×1024 cells under COM centring**
+   against 2da8's eps_eff ≈ 0.008 switch-on (~2.6×10⁵ numbers ≈ 2.1 MB, no
+   per-body bytes; geom centring passes at 0.0028/0.0062, converging ~h²).
+   **COM centring is the program, not headroom (cf6f, every grid ≥ 128×512, both
+   scenes; the coarsest 64×256's ~1.05× margin is within seed noise — checker2:
+   geom wins 1 of 6 fresh seeds there and at N = 10⁷):**
+   on matched bins (be13's extent bug fixed) COM beats geom 1.14–11.9× in med
+   (3.0× at the passing grid, 11.9× at 512×2048),
+   converges ~h³ (4.3×/9.3×/7.8× per halving; med 1.2×10⁻⁴ at 512×2048, where
+   geom floors at 0.00138 on cell granularity — ~1.8 bodies/cell; a COM cell with
+   ~2 bodies is nearly the bodies themselves), **erases the inner-disc p90
+   failure** (0.02–0.2: COM 0.00011/0.00100 PASS vs geom 0.00063/0.00807 over
+   bar; outer rim 0.00070/0.00354 PASS — the pass domain is the whole sampled
+   disc [0.02, 5.0]) and **halves the clustered scene's passing grid** (clusters
+   pass outright at 128×512: 0.00178/0.00679; geom needs 256×1024:
+   0.00135/0.00314). The near-ring (Barnes–Hut opening) fallback stays unneeded
+   for field fidelity at N = 10⁶ (checker: essentially exact outside the grid to
+   r = 11 R_d, med ~1e-5, worst 2.3e-3 — the doll's near-radial r_a ≈ 11 orbits
+   read a fine field). **Cheap m-truncation is dead, and the tail is NOT white
+   noise (checker2 refutes cf6f's clause):** m ≤ 8 fails p90 at 256×1024 (1.8×
+   bar), m = 0 fails at 0.018/0.059 — but the truncation error decays
+   monotonically in m*, and **COM m ≤ 64 PASSES med and p90 on 3 seeds and at
+   N = 10⁷** (0.0032–0.0035/0.0066–0.0076; m ≤ 96 at 0.0024–0.0032/0.0053 with
+   headroom; geom needs m ≈ 96). be13's "m* ≈ 2–4" clause and its 256×(2m*+1)
+   arithmetic slip both stay dead. The shipped point-mass evaluation needs the
+   full-azimuth grid; whether a coefficient-native store (129–193 of 1024
+   numbers per ring, ~5–8× fewer bytes than the 2.1 MB grid) can be read
+   directly is the pricing experiment this opens. **The softening couples to the
+   grid** (ε 0.05 → 0.02 → 0.01 at 256×1024: geom 0.0028 → 0.018 → 0.049, COM
+   0.0009 → 0.009 → 0.029 — ε halving ≈ one grid doubling; constants from the
+   corrected instrument, cf6f-regenerating). **The coarse-grid residual is N-weak
+   binning bias** (0.041 → 0.039 smooth, 0.014 → 0.011 clusters, 10⁵ → 10⁶), not
+   √N sampling; seed-robust (checker: 3 fresh seeds; cf6f: 2 more, geom med
+   0.0026–0.0028, COM 0.0009 — all PASS; be13's geom row regenerates exactly;
+   checker2: also PASS at N = 10⁷ — COM 0.00126/0.00324 vs geom 0.00155/0.00427
+   at 256×1024 — and on a new scene shape, 35% Gaussian bulge σ = 0.12 + two-arm
+   disc: mid and inner both PASS under COM, inner p90 0.00061 vs geom 0.00498).
+   **Instrument lessons on the record:** be13's first decisive pass was killed by
+   its own grid mask dropping r < 0.02 bodies (2–5% of the mass, N-invariantly;
+   caught by a mass-conservation check), a chunk double-count (caught by
+   magnitude), and the COM-extent bug (caught only by the checker's cell-count
+   control — mass conservation does not see it; the lab's memo-artifact lesson,
+   lived twice). cf6f ships controls C1–C5 IN the instrument (mass, cell-count
+   equality, COM-in-ring, m=0-fails, chunk step = slice width) and `bugdemo.py`
+   regenerates the 148599-vs-221937 mismatch from be13's own binning line: the bug
+   class is unshippable now, not merely caught. Still open: 10⁹ sampling (the
+   composition rests on measured N-weakness + spectrum-floor scaling,
+   [INFERENCE]), the kick-layer re-anchoring that owns bar churn (eps_eff ≈
+   0.008–0.025, 6765's checker; aac1; 2da8), and the 3-D thickness of a real
+   disc (this line is 2-D; float, orders of magnitude).
 6. **Land the Kerr guard** (19 lines, gate-neutral, verified): `main` carries the
    compiler without it, so the whirl cap's silent band (k ≥ 44, errors to 1.1e−2) and
    the negative-a `isco` slide ship unfixed (fa4b; 6586).
@@ -455,3 +495,4 @@ measured against +3.10%; at 20M the sign flips, −3.1% vs +6.03%) (97b0). de98'
 - 20261017-2142-second-20261017-2038-scout-8dfb-e1a4 (this run): the port pure float — 8 Carlson kernels/key, 0.86 µs; J closed form 1.9e-15; root case = spurious solve 3.7%; LT control 0.98×LT; freeze B19Q written.
 - 20261017-1240-scout-f666 (scout): the surface rule class — per-apse, per-cycle radial extent vs the empirical stability radius (Λ-continuous); shipped predicate's chatter 9.4/orbit unbounded killed to 0, 1/transition, kick-robust vs hysteresis's 76.
 - 20261017-2330-scout-be13 (scout, this run; silver, checker): the galaxy Φ program produced from cells and passing at a priced grid — 256×1024 monopoles, 2.1 MB, med 0.0028 (smooth) and 0.0014 (clusters, checker) vs the 0.008 churn bar, h², N-weak; COM centring BETTER on matched bins (shipped claim inverted by a third instrument bug); the first kill was the author's own mass-dropping mask.
+- 20261018-0035-second-20261017-2330-scout-be13-cf6f (this run): corrected record regenerates — COM beats geom everywhere (~h³), clusters pass at 128×512, inner-disc p90 erased, no m-truncation passes; controls shipped.

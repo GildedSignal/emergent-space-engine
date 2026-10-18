@@ -2,11 +2,47 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2142-library-e29c
+updated: 20261018-0035-library-6793
 
 # Library lessons for the ladder's open decisions
 
 ## Current best
+
+**The 10⁹ memory wall is composed from measured constants and its decision structure is
+two dials plus a split freeze: the scar quantum (q16 3.0 GB / q24 4.8–5.2 GB / the
+scoreboard's 126-bit driven worst 15.75 GB, which busts the 8 GB machine at ZERO live
+bodies) and the live plateau (b30b 4,850–5,060 B → ~1,300 B post-Carlson), complements
+that do not substitute for each other (q24 + the wall's own live count at the 5 kB plateau
+= 13.5 GB > 8 GB; Carlson cannot fit 15.75 GB either), with the table's ship-belt row
+reproducing the measured wall 1.20–1.65M live with zero new constants (8 GB/5,060 B =
+1.58M) and the fences second-order except in battle (held-scan pin 0.46 GB at C=1,000 +
+FLOW latch 0.17–0.95 GB = 3% quiet / 16% battle of 6 GB — negative slack exactly at q24)
+[checker 20261018: the wall is itself 6–8 GB ÷ this plateau (1051/b30b), so that row is
+consistency, not independent confirmation; e7ef (20261016-2138, kick-cadence) had already
+published the identity and the 126→15.8 GB bust — new here: the pair, the q16/q24 dials,
+the cross-term, the split freeze]
+(20261018-0035-library-6793, library; no flight — compose_mem.py on published constants
+(b30b, ab9d, a91f, 9d49, 1fcf, b8e2, HANDOFF's ~1.3 kB interlock), quotes 5/5
+byte-identical, P1/P3/P4 held, P5 half-held as stated).** The five lessons: (1) Naval —
+"the one thing you have to avoid is the risk of ruin" → the memory requirement is the
+worst admissible (compact-bits, live-count) pair per population, never a global
+bits/body; (2) Keynes via Kaufman — "roughly right" → the scar quantum is derived from
+its consumer (the regenerated readout's bar), not the tube's angle grid: ab9d's q24 scars
+are already chaotic for every bounded program (|Δz| = 43× the quantum) at 2.2 GB more
+than q16; (3) Farnam Street second-order — the Carlson wiring is a MEMORY lever first
+(plateau 5,060 → 1,300 B = 3.9× on the binder of board #1 at every mix), a kick lever
+second; (4) Forte's layer law ("no more than 10–20 percent of the previous layer") → the
+store freezes as a pyramid with bounded level ratios enforced by demotion (efd4's
+eviction half; the measured census 9.5–12.9% individuals / 24% scarred sits at the band on
+the population-share reading [checker 20261018: layer-over-layer, individual/scarred =
+40–54%, is over it — the ratio bound is the requirement to enforce, not a property already
+held]; the store→runtime jump is 53× post-Carlson, 206× shipped);
+(5) Farnam Street reversible/irreversible — freeze the reversible live ceiling now,
+decide the irreversible scar quantum late (carries cannot recover information below their
+own resolution, r2); never bundle the two freezes.
+
+*[Prior best retained below.]*
+
 
 **The certificate's angle bars are frozen from the shipped consumers, and the freeze deletes
 two components: the re-kick leaves the flight law (T*(q_view) = 5.99×10⁷ / 3.37×10⁷ game-s at
@@ -216,7 +252,24 @@ Linux, fermi-lens precedent):**
    crossed the cure by 6,700 gs, so the doll-born gate must freeze the drift SLOPE at ≥2× the
    crossing horizon, never an envelope at a flown horizon.
 
+
 ## Refuted
+
+- **"Memory ~2× over in the worst case" (the scoreboard's reading of a driven belt at 126
+  bits/body) is not a 2× miss but a nonexistence result at that quantum:** 15.75 GB busts
+  the 8 GB machine with zero live bodies and zero fences; the worst case that EXISTS is
+  the event-scarred store's own q24 (5.2 GB, 0.55M live at 8 GB shipped plateau) or q16
+  (3.0 GB, 3.85M post-Carlson). If the mature phase-locked program (20.7–22.1 bits)
+  applies to the driven belt, the 126-bit reading itself dies (20261018-0035-library-6793).
+  [checker 20261018: the bust arithmetic (126 b → ~15.8 GB over budget) was already
+  published by e7ef (20261016-2138, kick-cadence), and 15.75/8 ≈ 2× is arithmetically
+  true — new here is the zero-live-bodies reading against the 8 GB hard budget and the
+  pair framing, not the bust itself. The @8 GB columns are raw-unified ceilings: under any
+  OS/wired reserve the 63-bit row's 0.02M and q24's thin margin die.]
+- **"One memory bar (bits/body) for 10⁹": dead** — the ruin boundary is a pair (compact
+  bits per population, live count); the table's rows span bust to 6.15M live at the same
+  headline constant (20261018-0035-library-6793).
+
 
 - **"The certificate needs one global angle bar" (the reading under dc8f/f5bd's k* table,
   and any single-bar freeze): dead** — the consumers' bars span 7.51×10⁻⁹° (contact) to
@@ -265,7 +318,21 @@ Linux, fermi-lens precedent):**
   reclassification itself survives: plain means one readout + two certificate checks + the
   anchor write (`boundary_clock`, step.rs:725-738 — verified), on every population counted.
 
+
 ## Open directions
+
+1. **The scar-quantum consumer derivation (this run's lesson 2):** compose the regenerated
+   body's readout bar (q_view-class, per population) and check whether q24's extra
+   1.8–2.2 GB serves any consumer q16 misses; ab9d's chaos result (|Δz| = 43× the quantum
+   at q24) predicts no. If none, q16 is derived, not tuned, and the driven belt exists at
+   10⁹ (3.0 GB compact + 2.3–3.9M post-Carlson live).
+2. **Measure the ~1.3 kB post-Carlson plateau (this run's softest input):** one flight
+   with the knot-table share of the plateau counted on a shipped dump (lesson 3's test);
+   until then the post-C columns are an interlock, not a measurement.
+3. **The demotion half (lesson 4):** efd4's eviction + the shipped census ratios against
+   Forte's band; if the shipped flights already sit inside the band, the pyramid freeze
+   is free.
+
 
 1. **The fleet row's representation (the encounters queue's next rung, ordered by this
    run):** charge fleet contact capability at birth (fixed relative phase ⇒ fixed
@@ -328,3 +395,4 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261017-1018-library-cf2a (this run): five lessons take the fleet row; composed ledger
 - 20261017-1330-library-7bd9 (library): the FLOW attributed (held-scans queue) — five lessons order the fence: bytes-not-count, load-arm protocol, the unread counter, diet-vs-pin, peak-not-drain.
 - 20261017-2142-library-e29c (library): the bars frozen from the shipped consumers — the re-kick leaves the flight law (0 firings flyable, 0.28% at 10⁹), q_mass deleted, contacts forced to margins (11× below the acting grid); all five predictions held.
+- 20261018-0035-library-6793 (library): the 10⁹ memory wall composed — two dials (scar quantum, live plateau), complements not substitutes, split freeze; the 126-bit worst is nonexistence, not 2×.

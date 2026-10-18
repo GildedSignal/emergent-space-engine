@@ -2,7 +2,7 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2142-redteam-e59e
+updated: 20261018-0035-redteam-22d1
 
 # The premises of docs/representation.md: a census against the record
 
@@ -46,6 +46,34 @@ names occlusion six times, including "eclipse status unchanged" as an invariant 
 "check whether that null segment intersects the worldtube of an occluding planet"
 (original-conversation.md L984/4283/4864/4872/5032/6450/7375) — dropped in the pivot's
 rewrite without a recorded decision (it survived in September's approved-build-plan G6).
+
+**NEW (22d1, premise red-team): the occlusion cure this page proposed — "static occlusion
+is one interval test per row" — is the wrong law at the game's own velocities, in both
+natural wirings (20261018-0035-redteam-22d1, exact 2-D flat geometry, e59e's scene).**
+The snapshot test (occluder at frame time) mis-times every eclipse by the full light time
+d/c — −2/−10/−100 s at d = 2/10/100 planet radii, speed-independent — and once
+β·d/R ≳ 2 its occluded arc is a disjoint sky patch (Jaccard 0.000 at β 0.5–0.9 beyond 10R;
+a planet at 2R passed at β 0.5 already sits at β·d/R = 1, Jaccard 0.401). The
+render-consistent sprite wiring (everything drawn retarded, exact quadratic retarded time)
+is **not** parity either, but through the arc, not the timing: the sprite sits at retarded
+distance γd, so its occluded arc is the true arc shrunk by exactly 1/γ — centres coincide
+(sprite direction atan(βγ) = true centre asin β) — arc Jaccard 0.855–0.875 at β0.5 and
+0.42–0.45 at β0.9 (the 1/γ = 0.866/0.436 row deficit, plus edge asymmetry at close
+approach), while its timing error is bounded O(R/β): onset +0.24…+0.62 s, rim +0.28…+0.44 s
+across 2–100R (checker-corrected, bisection-solved retarded time; the run's
++1.25…+125.13 s onset column was an instrument artifact — see Runs). The naive per-row
+offset (d·cosψ) is worse at speed: the
+encounter retarded time carries the sweep factor (1+β²)⁻¹ (at β0.5: 0.784 vs the
+sprite's 0.855 at 2R, 0.307 vs 0.865 at 10R, 0.000 at 100R). Only the exact per-row
+segment-vs-worldtube test is the law — and it prices at **69–79 ns/row** (10⁵ rows ≈ 7–8 ms,
+under the screen cap): the price premise was right, the geometry was wrong (principle 19).
+Observer arm: the occluded half-arc appears at 17.58°/49.77° at β_O 0.5 (reproduces
+check2's 17.6°/49.8° independently; −41%/+66% of static), while row parity itself is
+frame-consistent (2/10⁴) — the failing observable is the seen arc size, so the parity gate
+judges in the observer's frame at player β. Strong field: the sprite-consistent
+differential Shapiro delay at r_o 20M, b 10.26M is 0.782 s = 19.6% of a β0.5 transit
+(invisible at planet β); the naive no-cancel 8.66 s delay is not the observable. No rung
+or gate sees any of it; the rung spec is below (direction 2).
 
 The census, ranked by player visibility (the rest of this page's standing record):
 
@@ -153,6 +181,12 @@ The census, ranked by player visibility (the rest of this page's standing record
   and the player sees through black holes and planets at measured rates (16.7% of the
   sky at a 2-radii planet approach; 25.0% inside the shadow arc at r_o = 6 M)
   (20261017-2142-redteam-e59e; the shipped gather is straight light, `view.rs` L15).**
+- **"Static occlusion is one interval test per row" as the occlusion law** (this page's
+  direction 5 as stated, and any snapshot or sprite wiring of it): the snapshot errs by
+  the light time d/c (2–100 s) and goes arc-disjoint at β·d/R ≳ 2; the exact sprite's
+  arc is the true arc shrunk by 1/γ (Jaccard 0.42–0.88 at β 0.5–0.9) with timing error
+  bounded O(R/β) (checker-corrected; the run's "+125 s, unbounded in d" onset column was
+  an instrument artifact, not physics); the law is the per-row worldtube test, 69–81 ns/row
 - **"A kick updates the cycle by a multiply-add" as a cost claim** (representation.md L67 +
   L114): three golds killed the jet (20261006-1249-redteam-4978,
   20261008-1757-second-…-0ccd-b33f, 20261012-1227-second-…-4808-d617, via law.md L36), and
@@ -195,13 +229,17 @@ The census, ranked by player visibility (the rest of this page's standing record
    recorded, checker silver): the view's cost and presence are now guardable mechanically
    at rtf 100; the next rung is exactness, and the checker's bisection oracle already
    certifies warm's ticks 23,170/23,170 at the frozen scale — no smaller scene needed —
-   plus bars that the negative fails at every cadence and a window past frame 178.
-   **New (e59e): the rung that does not exist is eclipse parity — rows whose retarded
+   **new (e59e): the rung that does not exist is eclipse parity — rows whose retarded
    null segment meets an occluder's worldtube must be absent, emitters near the rim
    present via their true deflected images; negative control = the shipped straight
    gather (must fabricate at e59e's measured rates). The wiring decision (keep-straight
    vs drop-on-None at b ≤ b_c) must be frozen before lensing lands: both fail parity.**
-   Check2: rim-emitter presence needs the deflection readout the shipped view lacks
+   **22d1's frozen form: the occlusion predicate is the per-row worldtube test (the
+   snapshot and sprite wirings are the negative controls — the snapshot must mis-time by
+   d/c and the sprite by a bounded O(R/β) while missing the 1/γ arc-width share of rows,
+   at the checker-corrected rates); judged in the observer's frame at player
+   β (arc sizes 17.6°/49.8°, not 30°), plus onset/egress times within one frame at
+   β·d/R ≤ 1 and a duration-distortion bar ≤ 5% at the strong-field scene.**
    ("no lensing yet") — freeze the absence half now, the rim-presence half with the
    lensing memo.
 3. **Adopt r5 and r5-starve into `lab/rungs/`** (`lab/results/20261017-1330-redteam-68e7/r5-dense-order.md`
@@ -211,16 +249,16 @@ The census, ranked by player visibility (the rest of this page's standing record
    configs and `metal_identity.rs`'s scenes, same criteria, starved wrapper included).
 4. The EOB strong-field flank: closed by 97b0's oracle (→ handoff); the merger scene's
    licence below p̄ ≈ 12M still wants an NR-calibrated EOB.
-5. **Price the moving-occluder eclipse (e59e's named follow-up):** "eclipse status
-   unchanged" (Julien's invariant) needs delay(b) (5977's missing memo) for onset/egress
-   timing; static occlusion is one interval test per row — price it per frame at the
-   view's own scales (10³–10⁵ rows) before the lensing memo, so the two land together.
-   Check2 correction (the first check's direction label was inverted and its 54.9% does
-   not reproduce): the arc is observer-velocity-dependent by aberration of the arrival
-   interval, tanψ′ = sinψ/(γ(cosψ+β)) — the 2 R planet's 30° half-arc shrinks to 17.6°
-   approaching at β 0.5 (9.8% of the sky) and grows to 49.8° receding (27.7%; 45.1% at
-   β 0.9 receding, the arc through the far side) — the parity gate must judge in the
-   observer's frame at player β, not on static arcs.
+5. **~~Price the moving-occluder eclipse~~ MEASURED (22d1): the price premise was right
+   (69–79 ns/row, ≈7–8 ms at 10⁵ rows — not the bill) and the geometry was wrong.** The
+   occlusion law is the per-row segment-vs-worldtube test; delay(b) (5977's missing memo)
+   enters as the sprite-consistent differential (0.782 s, 19.6% of a β0.5 transit at
+   r_o 20M — a duration-distortion bar for the rung), not as the naive 8.66 s delay.
+   Check2's aberrated arcs (17.6°/49.8° at β_O 0.5) reproduce independently (17.58°/
+   49.77°); row parity is frame-consistent — the gate judges the seen arc size and the
+   onset/egress times, in the observer's frame at player β. Unmeasured: occluder and
+   observer moving together, extended occluders (fleet dolls), aggregate emitters
+   (partial dimming, not row drops).
 
 ## Contradictions
 
@@ -237,3 +275,4 @@ falsehood; the nuance is recorded here, the entry stands.
 - 20261017-1330-redteam-68e7 (awaiting grade): r5 created and PASSES on Linux — dense≡sparse 20/20, the "uncreatable here" blocker refuted; GPU arm stays M1-side
 - 20261017-1447-second-20261017-1330-redteam-68e7-506c (awaiting grade): r5-starve frozen and executed — dense≡sparse holds under starvation and load, 11/11 + 27 allocator cells, allocator arm first for EventCore
 - 20261017-2142-redteam-e59e (awaiting grade): opacity missing from the view's premises — stars through planets (16.7% of sky at 2R) and black holes (25% at r_o 6M); no rung sees it
+- 20261018-0035-redteam-22d1 (silver, checker-corrected): the occlusion cure measured —
