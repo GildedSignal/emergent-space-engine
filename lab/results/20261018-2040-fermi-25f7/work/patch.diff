@@ -1,0 +1,168 @@
+diff --git a/crates/universe/examples/vladder.rs b/crates/universe/examples/vladder.rs
+new file mode 100644
+index 00000000..cca592f0
+--- /dev/null
++++ b/crates/universe/examples/vladder.rs
+@@ -0,0 +1,115 @@
++//! The ladder as the player sees it: `nladder.rs`'s flight with the view IN the loop.
++//! The ladder's frame certificate is flown viewless (its loop never gathers); the game as
++//! played (`flight_sweep.rs`) gathers every frame, and the gather is Theta(n_bodies) by
++//! physics (every tube crosses the observer's past light cone once; no cull). This times
++//! the engine and the view separately per frame and reports both laws against N.
++//!
++//! cargo run --release -p emergent-universe --example vladder [-- <N> <view|blind> [wall s] [rtf] [budget ms]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return 0.0;
++    }
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn hwm_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmHWM:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<f64>().ok()))
++        })
++        .map(|kb| kb / 1024.0)
++        .unwrap_or(0.0)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let mode = args.get(2).cloned().unwrap_or_else(|| "view".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let in_view = mode != "blind";
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let mut cache = ViewCache::default();
++    // per frame: total wall, engine wall, view wall
++    let mut rows: Vec<(f64, f64, f64)> = Vec::new();
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    let mut alive = true;
++    let mut seen = 0usize;
++    let mut readouts = 0u64;
++    let mut ran = 0usize;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) {
++            break;
++        }
++        if f == 60 {
++            late_stats = Some((p.u.stats, p.u.now));
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) },
++            i64::MAX,
++        );
++        let eng = start.elapsed();
++        let eng_ms = eng.as_secs_f64() * 1e3;
++        let mut view_ms = 0.0;
++        if in_view && f >= 60 {
++            let tv = Instant::now();
++            if let Some(v) = gather_cached(&p.u, &p.names, &mut cache) {
++                seen = v.seen.len();
++            }
++            readouts += cache.readouts;
++            view_ms = tv.elapsed().as_secs_f64() * 1e3;
++        }
++        let total = start.elapsed().as_secs_f64() * 1e3;
++        rows.push((total, eng_ms, view_ms));
++        ran += 1;
++        let _ = frame.events;
++        let rec = p.u.rec(p.player);
++        if !rec.alive {
++            alive = false;
++            break;
++        }
++    }
++    let tail: Vec<(f64, f64, f64)> = rows.iter().skip(60.min(rows.len())).copied().collect();
++    let mut tot: Vec<f64> = tail.iter().map(|r| r.0).collect();
++    let mut eng: Vec<f64> = tail.iter().map(|r| r.1).collect();
++    let mut vw: Vec<f64> = tail.iter().filter(|r| r.2 > 0.0).map(|r| r.2).collect();
++    tot.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    eng.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    vw.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = tail.iter().filter(|r| r.0 > budget_ms).count();
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let wall_s = t_start.elapsed().as_secs_f64();
++    let per_body_us = if seen > 0 && !vw.is_empty() { pct(&vw, 0.5) * 1e3 / seen as f64 } else { 0.0 };
++    println!(
++        "vladder n={n} bodies={bodies} mode={mode} rtf={rtf} budget_ms={budget_ms} build_s={build:.2} frames={ran} hwm_mb={:.0}",
++        hwm_mb()
++    );
++    println!(
++        "  frame ms p50 {:.3} p99 {:.3} max {:.3} | engine p50 {:.3} p99 {:.3} | view p50 {:.3} p99 {:.3} max {:.3} ({:.2} us/body warm, {seen} seen, {readouts} readouts) | over budget {over}",
++        pct(&tot, 0.5), pct(&tot, 0.99), pct(&tot, 1.0), pct(&eng, 0.5), pct(&eng, 0.99), pct(&vw, 0.5), pct(&vw, 0.99), pct(&vw, 1.0), per_body_us
++    );
++    println!(
++        "  game_s {game_s:.1} (wall {wall_s:.1}, kept {:.1}%), player alive {alive}, kicks {}/body/game-s",
++        if wall_s > 0.0 { 100.0 * game_s / (wall_s * rtf) } else { 0.0 },
++        if game_s > 0.0 { (p.u.stats.kicks - s0.kicks) as f64 / bodies as f64 / game_s } else { 0.0 }
++    );
++}
+diff --git a/lab/wiki/nladder.md b/lab/wiki/nladder.md
+index 66fce015..521a13b0 100644
+--- a/lab/wiki/nladder.md
++++ b/lab/wiki/nladder.md
+@@ -2,9 +2,7 @@ topic: nladder
+ status: open
+ closed-by:
+ valid-while:
+-<<<<<<< main
+-<<<<<<< main
+-updated: 20261018-1717-fermi-dcf1
++updated: 20261018-2040-fermi-25f7
+ 
+ # The N ladder: 28 live bodies toward 10⁹
+ 
+@@ -46,12 +44,6 @@ pre-registered, its kill criterion fired: the page's law was missing the scene t
+ 
+ *[Prior best retained below.]*
+ 
+-**NEW (2403, taleb — the pin's multiplier is the wildcard's pacing, not a law constant): the
+-=======
+-updated: 20261018-1717-second-20261018-1617-taleb-2403-99da
+-
+-# The N ladder: 28 live bodies toward 10⁹
+-
+ **NEW (99da, second author on 2403 — the 10⁶ gap sliced and the record's letter fixed): the
+ burn mint stream is BIT-IDENTICAL in count and census from K = 10⁵ to K = 6.5×10⁵** (coast
+ 145 entries, burn 2,069; census t/L/0 equal to the line; λ_distinct 0.0497 coast / 0.835
+@@ -73,18 +65,6 @@ Convexity at K_max: engine p99 5.3 → 10.9 ms coast → burn in the same frames
+ (20261018-1717-second-20261018-1617-taleb-2403-99da, second author; ES_MINT probe
+ unchanged, digest-neutral 20a45aa4…, my from-source build reproduces the second checker's
+ 10⁵ coast flight's deterministic content identically).
+-
+-[Second checker 99da: the bit-identity extends one rung past the author's K_max — at 3×10⁵
+-and 7×10⁵ (fresh flights, this check) coast and burn streams stay byte-identical (145/131
+-and 2,069/1,722, census equal; the 24 ms arm 2,071/1,726), held 199/186 at 12 ms and 0
+-engine-held at 24 ms (the push-peak 31 unchanged), b_per_body 2,338–2,340, peak 1,666 MB at
+-7×10⁵ — so the measured domain is now 10⁵→7×10⁵ and only the last ~1.4× to 10⁶ rides the
+-per-body law. Two record notes: the "peak 1.61 GB" is author-monitor only (the ladder's own
+-VmHWM tops at 1,550 MB), and 2403's P1/P6 correction checks out against its published
+-branch. Gold.]
+-
+-**2403 (taleb — the pin's multiplier is the wildcard's pacing, not a law constant): the
+->>>>>>> 20261018-1717-second-20261018-1617-taleb-2403-99da
+ 0.0526 mints/game-s every fence number was sized on is the COASTING player's rate.** A
+ burning player mints 13.5× at continuous level 8 (nladder 10⁴: distinct 0.728 vs 0.054
+ /game-s over ~1,830 game-s, acf2's own coast control reproduced at 0.054) and ~116× inside

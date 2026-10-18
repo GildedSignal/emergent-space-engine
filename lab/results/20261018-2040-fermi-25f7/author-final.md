@@ -1,0 +1,6 @@
+# Author fiAll artifacts complete and verified. Final reply:
+
+**The ladder's N-flat frame certificate is a blind-player certificate: with the view in the loop (the game as `flight_sweep.rs` actually plays it, and Θ(n_bodies) by physics — every tube crosses the player's past light cone once), the flyable N on shipped code is ~6×10² bodies (frame p99 crosses 12 ms between N=500 and N=1000; 420/420 frames over at N=1000; the view owns 94–99% of the frame), so the view — running its crossing memo half-cold in-loop (15–23 µs/body, readouts/seen 1.23→1.95, vs the settled 5.0 µs dcf1 measured post-flight) — is the flyable engine's first break, 3–4 orders below the capture-volume wall (~5×10⁴), the build wall (3.4×10⁶ on the 8 GB M1) and the unbroken N-flat engine itself (blind controls: p99 6.9/7.1 ms, 0 over at N=2000/8000), which makes an aggregate/row-set view a requirement for any flyable N past ~10³ and prices a per-body view at 10⁹ at ~10⁵–10⁶ core·s per game-second.**
+Mechanism found beyond the break point: the in-loop gather runs the crossing memo
+half-cold (readouts/seen 1.23→1.95 as N grows, against warm ≈ 1.0), so the in-loop law is
+15–23 µs/body, not the settled 5.0 µs dcf1 measured post-flight.
