@@ -2,9 +2,57 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0143-second-20261018-0035-redteam-22d1-9ffc
+updated: 20261018-1126-redteam-1885
 
 # The premises of docs/representation.md: a census against the record
+
+
+**NEW (1885, premise red-team): the aggregate readout premise is dead at high γ and its
+failure is a closed form in the rapidity dispersion — "Aggregates are one sample each…
+about one sample per pixel" (L59, L116) with "beaming k⁴, which in log form are
+additions… a type × log k table gives the sprite" (L58) is refuted in the flagship
+regime and safe only where nothing relativistic flies (20261018-1126-redteam-1885,
+exact-SR float; the fleet model is exact, not a toy: for approach k = e^φ, so a LOS
+velocity dispersion σ_β is a rapidity dispersion s = σ_φ = γ²σ_β and ln k is exactly
+normal — every arm lognormal by construction, per-arm analytic assertion passed 12/12).
+At β 0.9 with σ_β 0.03: one-sample sprite error median 40% (p90 86%), frame-to-frame
+strobe 58%/frame, samples for a 5% flux bar 196; at β 0.9/σ_β 0.05: 63% median,
+strobe 2.6×/frame (94%/frame), 799 samples, colour band off 28% median; at β 0.99/σ_β 0.01:
+**the top 1% of members carry 37.2% of the fleet's seen flux** (top 0.1%: 13.6%) —
+principle 20's crushed tail made physical — and the 5% bar needs 1.7×10⁴ samples.
+Closed forms (checker2: CV and log-word exact for the lognormal arms, per-arm assertion
+<0.02; strobe ≈ 4s itself a loose coefficient — exact half-normal median 3.82s — and
+verified within 6–10% at s ≥ 0.25): CV(k⁴)=√(e^{16s²}−1), log-word miss e^{8s²}, strobe ≈ 4s,
+visibility boundary s* ≈ 0.005 ⇔ σ_β* = 0.005/γ² (0.095% of c at β 0.9). The player's
+own motion alone breaks it with ZERO internal dispersion: β_O 0.5, a static formation
+spanning ±0.05 rad at 90° — 7% error, 9%/frame strobe, 88% of frames above 2%
+contrast; β_O 0.9 same crowd: 12% (p90 30%)/16% (gone dead ahead, exactly d ln k/dθ). Controls:
+Newtonian k=1 under-reports the β 0.9 fleet 628×; the belt control (β 10⁻⁵, σ_β 10⁻⁵)
+reads all zeros — the premise is safe exactly where B18 tests it, i.e. the belt rung's
+regime hides the failure (predictions 9/10 held, the miss conservative). No rung judges
+a seen value (r6 gates per-emitter cost/presence; B18 gates storage at β ≈ 0; 2fa4's
+"no gate judges a seen value" extended to the aggregate readout with magnitudes).**
+**Checker (independent, additions only): the refutation is parameterization-robust and
+the table's numbers are lower bounds — a velocity-Gaussian fleet at the same σ_β is
+worse than the rapidity-Gaussian model (measured s runs 17–40% above γ²σ_β, artanh
+curvature; CV(k⁴) 165–609 where the closed form gives 0.9–2.3; top-1% share 98–100% at
+β 0.9/σ_β 0.05), the boundary collapses beyond the swept grid (σ_β* = 1.0×10⁻⁵ c at
+γ 22.4, 1.0×10⁻⁶ at γ 70.7, held-out direct-β draws; β 0.999/σ_β 0.0003 already sits
+at s 0.18), and the "samples for 5%/2%" columns are a 1σ scale — a p99-within-5% bar
+(the criterion proposed below) needs ×6.6 more (5,422 at s 0.263, 600 trials). Strobe
+figures are median |Δ ln F|: "58%/frame" is ×1.79 linear, "5.7×" already linear.**
+**Checker2 (independent): reproduced bit-exact (regen.sh; every table number matches
+results.json). Confirmed outside the swept range (γ 22.4, β 0.999): s = γ²σ_β holds to the
+digit (σ_β 10⁻⁴ c → s 0.050, 14% one-sample; 3×10⁻⁴ → 38%), receding mirrors approach
+(40.3% at s 0.158), a bounded uniform-rapidity crowd fails as hard (72.5% at s 0.263), and
+a two-squadron bimodal formation with ZERO internal dispersion still errs 41% median
+(square-wave strobe: the median-|Δln F| statistic reads 0 for bimodal crowds — use the
+>2%-visible fraction there). One domain limit on the observer arm: its σ_θ is the whole
+crowd's span, valid when the crowd is one aggregate (the letter's own reading); if
+aggregates were re-clipped per pixel, σ_θ per aggregate is bounded by the pixel FOV
+(~1.5 mrad) and the pure-angular observer arm falls to 0.4–0.7% at β_O 0.9 — the
+LOS-dispersion fleet arms are untouched by that clipping (velocity dispersion survives
+pixel subdivision). Dossier nit: the boundary at β 0.5 is 0.4% of c, not 0.7%.**
 
 ## Current best
 **The design doc teaches three dead letters and one unmeasured cost, and its perturbation
@@ -193,6 +241,14 @@ The census, ranked by player visibility (the rest of this page's standing record
   and the player sees through black holes and planets at measured rates (16.7% of the
   sky at a 2-radii planet approach; 25.0% inside the shadow arc at r_o = 6 M)
   (20261017-2142-redteam-e59e; the shipped gather is straight light, `view.rs` L15).**
+- **"Aggregates are one sample each… ~1 sample per pixel" + "beaming k⁴… in log form
+  additions… a type × log k table gives the sprite" as the aggregate readout law**
+  (representation.md L58–59, L116): a point k cannot express a crowd's k⁴-moment; at
+  β 0.9/σ_β 0.03 the one-sample sprite errs 40% median and strobes 58%/frame, the
+  shared log-word under-reports by e^{8s²}, and at β 0.99/σ_β 0.01 the top 1% of
+  members carry 37% of the seen flux; safe only at s = γ²σ_β ≲ 10⁻⁴ (the belt regime
+  B18 tests) — the visibility boundary is σ_β* = 0.005/γ²
+  (20261018-1126-redteam-1885; closed forms, exact-SR instrument, controls both sides).
 - **"Static occlusion is one interval test per row" as the occlusion law** (this page's
   direction 5 as stated, and any snapshot or sprite wiring of it): the snapshot errs by
   the light time d/c (2–100 s) and goes arc-disjoint at β·d/R ≳ 2; the exact sprite's
@@ -278,6 +334,17 @@ The census, ranked by player visibility (the rest of this page's standing record
    onset/egress times, in the observer's frame at player β. Unmeasured: occluder and
    observer moving together, extended occluders (fleet dolls), aggregate emitters
    (partial dimming, not row drops).
+6. **A seen-flux rung for aggregates (1885's freeze-ready criterion), and the moment
+   representation beside the sample:** at β_bulk 0.9, σ_β 0.03, an aggregate drawn from
+   10⁶ members must match Σk_i⁴ within 5% at p99 over 60 frames with |Δ ln F| < 2% at
+   95%; negative controls: the one-sample readout (must strobe ~58%/frame) and the
+   shared-log-word readout (must sit at −18%); observer-motion arm: β_O 0.9, a static
+   crowd at ±0.05 rad must hold 2% (one-sample fails at 16%/frame). The design's own
+   cure for smooth programs is derivation (the belt program's k-moments in closed form —
+   "nothing is evolved that can be derived when looked at"); for real crowds the readout
+   law must be s-aware (sample count ∝ CV(k⁴)², or tracked observer-dependent moments —
+   unpriced, deserves its own run). Amend L58/L59/L116 with it when the integrator next
+   touches the doc (folds into direction 1).
 
 ## Contradictions
 
@@ -296,3 +363,4 @@ falsehood; the nuance is recorded here, the entry stands.
 - 20261017-2142-redteam-e59e (awaiting grade): opacity missing from the view's premises — stars through planets (16.7% of sky at 2R) and black holes (25% at r_o 6M); no rung sees it
 - 20261018-0035-redteam-22d1 (silver, checker-corrected): the occlusion cure measured —
 - 20261018-0143-second-20261018-0035-redteam-22d1-9ffc (awaiting grade): instrument fixed in the run's own script; every corrected number regenerates, closed-form certified per row (0 mismatches, onsets to 1e-12 s); the W2 deficit is the 1/γ arc exactly
+- 20261018-1126-redteam-1885 (awaiting grade): the aggregate one-sample readout refuted

@@ -2,11 +2,46 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0543-spacex-7fcf
+updated: 20261018-1126-inversion-7581
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**The composed law's last unflown scene class is the crowd itself, and the transfer is the
+delete's alone (20261018-1126-inversion-7581, inversion; 604c's formation harness verbatim +
+f134's arms verbatim + a comb/ledger instrument, seed 1, 600 frames, rtf 100, 12-ms budget).**
+On the co-orbital fleet formation (the game's own crowd: `form` ships within ±2% of the
+player's circle, home doll, plain ships) the composed law is strictly dominant and N-flat:
+max events/frame 1,013→28 at K=10³ and 10,013→31 at K=10⁴, over-budget frames 68/85→0,
+kicks −98.3/−99.8% (34,585→593 at 10³), p99_ms 45.3→4.9, game time fully kept (898.6 gs;
+OFF reproduces 604c's and 2e42's record exactly: p99 45.3 ms/68 over at 10³, 445 ms/85 over
+at 10⁴, OFF digest wall-clock-stable across two runs). The formation's comb is a STANDING
+metronome — 75 beats of mean 1,004 events at 8-frame gaps (census {8: 73, 9: 1} — checker),
+no decay to frame 599 —
+so a same-circle population's event rate is intrinsic: **a de-phase can only spread it,
+never delete it.** CHAIN+STAGGER alone collapses the peak (max 396, over 0) by flattening
+it: p50_ev 2→323 (×160), total event rate ×1.9, slices ×47 (1,869→87,181), the encounter
+counter 162→0 — and at K=10⁴ every frame pins at the budget (p50_ms = p99_ms = 11.9) with
+sim time starved 6.2× (game_s 144.8 vs 898.6; the over count reads 3 because the deadline
+stops work cleanly — game_s is the honest metric). The delete is the only arm that deletes
+a crowd's comb; **never ship the de-phase without it at crowd scale.** The delete's ledger
+is clean on this scene: encounters 224 vs OFF's 162, lost=15 identical in every arm at
+both scales — the player's conjunctions are scan-side, not metronome-side (the counter
+itself is cadence-coupled, not arm-invariant: 0/29/0 at 10⁴). Open: the crowd-aggregate
+clause (if ships' aggregate mass becomes a source, PRINCIPLES 6, the secular test's
+perturber list must include it); the ×1.9/×47 mechanism unattributed; one seed, one shape.
+[Checker 7581, held-out extensions: seed 2 cures the same (OFF max 1,013/over 68 → composed
+max 26/over 0/game_s 899.2); 1,200 frames hold (OFF's beats still standing at frame 1,199,
+composed max 28); rtf 10 holds (composed max 9); form=100 holds (kicks 609 — flat in K both
+ways); chain beside a 10⁴ belt at form=200 keeps full game time (no poison pill off the pure
+crowd). But at K=5×10⁴ the metronome stays N-flat (max_ev 29, kicks 539) while the frame is
+NOT held: over 33, game_s 747 of 898.6 — the crowd-proportional scan channel (2e42's own
+bill) binds beyond 10⁴, so the cure's frame claim is bounded at 10⁴ pending the observer
+fix. Also: the dossier's "every formation-scene number bit-identical" overstates — the
+CHAIN rows are deadline-coupled and move between executions (disclosed in fix-final).]
+
+*[Prior best retained below.]*
 
 **The composed law's single remaining adoption debt is flown and it is empty: at the worst
 horizons the doll-born drift band under the composed arm carries NO median channel — the
@@ -253,6 +288,13 @@ section is additive and sides with neither standing conflict.]*
 
 ## Refuted
 
+- **"CHAIN+STAGGER cures the comb" as a scene-independent law (f134's letter, and this
+   page's mechanism reading "the envelope decays 41→3"):** at crowd scale the de-phase
+   spreads an intrinsic, standing rate instead of deleting it — p50_ev 2→323, rate ×1.9,
+   slices ×47 at K=10³; every frame pinned at the 12-ms budget and game_s starved 6.2× at
+   K=10⁴ (144.8 vs 898.6). The ladder's decay belongs to a dissolving population, not to
+   the cure; the delete (ES_SECULAR) is the load-bearing arm on crowds
+   (20261018-1126-inversion-7581).**
 - **The hybrid's residual storm at 83.5 (proportional) and the legality headlines "100%" (author)
    and "top octave 1.1–49× over" (checker): measured 131 at the record beat frame (134 wins);
    in-situ 85.8% legal, the Moon's line at 116,333 ru; the checker's Attack-1 magnitudes
@@ -514,3 +556,4 @@ direction 1.
 - 20261016-1459-second-20261016-1319-system-4fa8-21a7 (awaiting grade): the gates blind to the comb law (every gate body root-doll); ES_LOCAL_PHASE = chain+stagger on every instrument; parsimony decides.
 - 20261017-2330-spacex-f134 (spacex, awaiting grade): delete + chain composed — strictly dominant (max 41 vs 52/131, p99 12, ledger −72% with no slice bill, envelope decays 41→3, N-flat, horizon-stable, 13/13 schedule-determinism); patch-off bit-identical to the frozen record; the comb question closes.
 - 20261018-0543-spacex-7fcf (spacex, awaiting grade): the composed law's doll-born drift
+- 20261018-1126-inversion-7581 (inversion, awaiting grade): the composed law on the crowd

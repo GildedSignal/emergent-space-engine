@@ -16,9 +16,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
-| [representation-premises](representation-premises.md) | open | 7 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
+| [representation-premises](representation-premises.md) | open | 8 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
-| [library-directions](library-directions.md) | open | 10 | **The wiring is flown and it splits the decision: the Carlson compile term collapses exactly |
+| [library-directions](library-directions.md) | open | 11 | **The board's #1 bottleneck, the N ladder's 10⁷ rung, is composed from the levers measured |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [read-stream](read-stream.md) | open **conflict to resolve** | 13 | <<<<<<< main |
@@ -33,6 +33,6 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
-| [encounters](encounters.md) | open **conflict to resolve** | 108 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
-| [nladder](nladder.md) | open | 151 | **The composed law's single remaining adoption debt is flown and it is empty: at the worst |
+| [encounters](encounters.md) | open | 114 | **[20261018-1126-second-20261018-1025-scout-fbf9-1a29] The silver's kill test is flown |
+| [nladder](nladder.md) | open | 152 | **The composed law's last unflown scene class is the crowd itself, and the transfer is the |
