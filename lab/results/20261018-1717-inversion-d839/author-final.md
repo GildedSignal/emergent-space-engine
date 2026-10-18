@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261018-1717-inversion-d839/`: `predictions.md` (pre-registered; P1 held on existence/timing, missed on kind — the 27.5k wave is the step-end boundary, not a kick), `dossier.md`, `regen.sh` (analysis verified against the logs; ~3 min), `work/patch.diff` (print-only: /proc footprint, `LADDER_CAP_S`, 500-game-s probe), `wiki/nladder.md`, six flight logs + wave map + machine state.
+
+**Claim:** the ladder's per-body memory wall is a constant, not a ratchet in play time — flown past one full root-doll step for the first time (45,498 game-s at 3×10⁴ and 10⁵, versus 20,000 for every prior wave flight), the second full belt kick wave (+107k kicks at 10⁵) and the step-end boundary wave move footprint by +0.2–0.7%, the compiled-orbit catalogue does not leak, F1 holds at both waves (0 frames over 12 ms), and the steady per-body event rate is ~11× the 20-s rung's reading.
