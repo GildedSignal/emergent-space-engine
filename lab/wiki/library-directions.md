@@ -2,11 +2,46 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0814-library-6faa
+updated: 20261018-0932-second-20261018-0814-library-6faa-e106
 
 # Library lessons for the ladder's open decisions
 
+## Current best (amended by the fix run, same id)
+
+**The wiring flight described below is now FROZEN, non-regenerating evidence: the run's
+`work/patch.diff` was captured empty (the author's regen.sh reversed its own patch in an
+exit trap before run.sh captured the diff), so every wired-arm number below is what ran on
+2026-10-18 10:03 and nothing more. What regenerates (`regen.sh`, shipped code): the base
+arm bit-identically — cut digests incl. a765's seed-1 anchor `e622722a…`, all 8
+frame_digest flights, made 35.1–35.4 µs, leavers 196–203 µs. The refutation of the exact
+lever stands only on the frozen record until a rebuilt wiring re-earns it.**
+
 ## Current best
+
+**The wiring is flown and it splits the decision: the Carlson compile term collapses exactly
+as composed (5.8–236 µs → 2.3–2.5 µs flat over a 24-key ladder, 2.5–95.7×; increments ≤5.2e-10,
+readouts ≤7.4e-9 vs the walk) and the knot table never allocates (88 B vs 3.8–15.8 KB per
+compiled cycle, the shipped per-body estimator) — but digest identity FAILS (kick-bench
+replay and cut digests differ on 3/3 seeds; frame_digest 8/8 flights differ, kicks 2,363→178
+on key mashing; within the wired arm all 4 schedules still agree, so it is a deterministic
+different law, not a scheduling break), and the NET resolver effect on the plane's own bench
+is a REGRESSION: made kicks 35.1–35.8 → 46.7–46.9 µs (0.76× every seed; base band per the
+dossier and both regenerations 35.1–35.4, the in-session 10:03 base 35.5–35.8), leavers 199–204 →
+419–472 µs, because the read half regresses 4.0–5.3 → 2.6–14.2 µs warm, ~20 µs cold at
+e 0.999 (e-monotone) and the
+resolver is read-bound, not compile-bound, per kick (20261018-0932-second-20261018-0814-library-6faa-e106, second author on 6faa; the
+checker's named gold experiment: Carlson wired into `Rebinding::from_state` behind
+ES_CARLSON=1, digest identity on a765's harness + frame_digest, wired rebind measured;
+baseline cut digest bit-identical to a765's stored seed-1 anchor; bench timing arms are
+population-shifted once digests move — the fixed-key instrument carries the clean cost
+record).** Consequence for the composed table below: the plane row's "3.3–9.4× on the
+rebind" is dead as an exact adoption (a law change needing recertification, like the
+ulp-level key change the taste log already rules) and dead as a net CPU lever on the
+shipped read path; alive and now measured: the compile term's collapse (the walk keeps
+oracle status) and the memory deletion (the plateau's knot share never exists). The 10⁹
+belt row (3.1–11.0%, closing on the cadence split) is untouched by this refutation —
+the belt's reads are the cheap half there (c4d3/3570), and the read regression is
+e-monotone.
 
 **The kick bottleneck (the board's #3; its CPU decision table untouched by this lens until
 now) is composed from measured constants, and it splits by population: the Carlson wiring is a
@@ -285,6 +320,12 @@ Linux, fermi-lens precedent):**
 
 ## Refuted
 
+- **The Carlson wiring as a digest-identical net CPU lever on the plane rebind (6faa's
+  open-1 letter, "3.3–9.4×"): REFUTED by the flight** (20261018-0932-second-20261018-0814-library-6faa-e106). Digests differ on every seed
+  and flight; the net made-kick effect is 0.76× (reads regress e-monotonically and
+  dominate). The compile term (2.3–2.5 µs, up to 95.7×) and the knot-table deletion (88 B)
+  survive as FROZEN measurements (non-regenerating; see the amendment above).
+
 - **"The scoreboard's kick row (75–160 µs vs a ~42–55 ns floor, gap 10³·³) is an
   independent gap": double-counts** — kick cost and cadence are one product (e7ef's
   redundancy, confirmed by composition: after every landed deletion the belt kick is
@@ -449,3 +490,4 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261017-2142-library-e29c (library): the bars frozen from the shipped consumers — the re-kick leaves the flight law (0 firings flyable, 0.28% at 10⁹), q_mass deleted, contacts forced to margins (11× below the acting grid); all five predictions held.
 - 20261018-0035-library-6793 (library): the 10⁹ memory wall composed — two dials (scar quantum, live plateau), complements not substitutes, split freeze; the 126-bit worst is nonexistence, not 2×.
 - 20261018-0814-library-6faa (library): the kick bottleneck taken — the wiring is a 3.3–9.4× plane and 3.97× memory lever but 3.1–11.0% at 10⁹; the composed belt kick 32–36 µs misses 23 µs at every measured lever, so the split stays the 10⁹ lever; five fresh lessons (Feynman/Naval/Musk/Confucius/Asimov), 5/5 byte-identical.
+- 20261018-0932-second-20261018-0814-library-6faa-e106 (second, fix): wiring flight frozen (patch lost, regen.sh trap), base arm regenerates bit-identically incl. a765 anchor; wired numbers await a rebuild.

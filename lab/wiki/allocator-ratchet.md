@@ -2,12 +2,47 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0035-inversion-bf83
+updated: 20261018-0932-dynamics-c749
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
-## Current best
 
+**NEW (c749, dynamics — od 5's named next step done: the fire's internal state on the
+game's own fleet battle, e517's instrument verbatim on bf83's harness).** Six fires
+pooled over two executions whose incidence moved with the wall clock (execution 1: 3/8
+at galaxy 8704/24 fleets margin 0.5, 0/6 at 4352/12, 0/2 at margin 2.0, replicates of
+fired seeds clean; execution 2: 2/8 at 8704, 1/6 at 4352 — a seed of bf83's 4/62 class)
+— **every fire state-decided at certify: PRE's D equals the assert's own violation
+exactly (6/6, violations 16–96 chronons = 1–6 windows, s0 exact), and the last pre-fire
+HAZ armed pair names the fatal clash (exact 4/6; same lineage, identical margins 1/6 —
+a split moved the busy id; publish-blind 1/6: regen g8704_s23's fatal pair 53↔36 at
+s0 704 never appears armed at its own margins (lineage 36 armed only earlier, A = 112–256
+at s0 256, resolved) — e517's
+soundness note made a measured fact: the A ≤ 0 publish-side certificate misses fires;
+D at certify is the complete decider, so the fix must gate certifies, not
+publications).** The violated region is in every case a merged giant descendant of the
+armed pair (bbox 302–2553 units wide, not fleet-scale), carrying the closure's max
+fin_hi over an old stride's start — the identity to watch is PRE's box. Containment
+holds under the battle's real merge/split topology: `out=` empty and mo = 0 on all 267
+RB lines, fires included. m > 0 ⟺ fire (6/6 fatal, 261/261 non-fatal at m ≤ 0). **But
+two halves of e517's churn record do not transfer: 94/261 non-fatal restores land
+strictly inside the boundary (record execution m ∈ [−432, −48], median −224 —
+"publication rides the boundary" is the churn scene's property, not the law's), and at
+the shipped default margin 2.0 the battle stays armed at over half its publishes yet
+rolls back zero times — the planner absorbs every meeting (the fire is a margin ≤ 0.5
+exposure, bf83's reading confirmed from inside the state).** Shared-instrument caveat:
+PRE/HAZ are e517's code; this run's independence is the different scene family, the
+moved incidence, and the m < 0 finding contradicting the shared instrument's earlier
+record (20261018-0932-dynamics-c749).**
+**(Checker c749: law reproduced with an independent parser on two further executions —
+11 fresh fires, every one D = violation exact with s0 exact, `out=` shut on 419 RBs
+total, non-fatal m ≤ 0 with no exception; fires are the shipped assert itself
+(alloc.rs:1499, exit 101). The stated ranges are observations, not bounds: violations
+to 192 (12 windows) and fire bboxes to 3,384 units measured on regen. Publish-blind
+confirmed operationally: 2–13 fully quiet publishes (A ≤ 0 at every pair) before each
+blind fire, one (margin 0.25) whose fatal pair appears in no armed line at all.
+Adversarial: min_region 8 holds containment (161 RBs, out= shut); galaxy 12288/36
+fleets 0/4 fires — incidence is not monotone in scale.)**
 **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed
 both ways):** the finality assert's FIRING is a pure state property at certify time.
 On 01e7's selfchurn harness (finpol) with fd35's print-only instrument plus one field
@@ -153,6 +188,17 @@ as a complete rule by the churn class above).
 
 ## Refuted
 
+- **"Publication rides the boundary as an attractor — every realized non-fatal clash
+  restores at exactly fin_hi == s0" (fd35/e517) as a law of the shipped allocator**:
+  true on the churn family; on the fleet battle 94/261 non-fatal restores land strictly
+  inside the boundary (m ∈ [−432, −48], median −224), so the boundary is the *limit*,
+  not the typical restore point — the fix's test cannot assume it
+  (20261018-0932-dynamics-c749).
+- **"The negative certificate's publish-side half (armed A ≤ 0 at every publish) helps
+  rule out fires" beyond the strides-between-publishes caveat**: measured blind — a
+  galaxy-battle fire (regen g8704_s23, fatal pair 53↔36 at s0 704) appears in no armed
+  HAZ line at its own margins (lineage 36 armed only in an earlier, differently-shaped
+  episode, resolved); only the certify-side D saw it (20261018-0932-dynamics-c749).
 - **"The crash is a window-grid defect of chunked batch drivers, not a live-path
   hazard"** (20261017-0839-second-…-5d87, as a complete claim): frames panics on one
   self-churning cluster at scene start (3/9 twice), on-grid chunk targets crash on the
@@ -214,10 +260,14 @@ as a complete rule by the churn class above).
 5. The real conflict rate of the flown universe (encounters, burns, the belt) — **first
    half answered (bf83): the battle class fires unsabotaged on shipped code (1/14 at margin
    0.5, 0/6 at the default 2.0); the belt's clump and crossing shapes stay clean at
-   protocol; churn without slack cannot fire.** Still open: the incidence tail (windows,
-   rate 600 long-horizon, more seeds), the plane's own flown battle once wired, and the
-   fire's internal state (which lineage crossed the published tick). The e517 state
-   certificate should be evaluated on fleet scenes (e704; 9b46; 01e7's exposure note).
+   protocol; churn without slack cannot fire.** [c749, 20261018: the second half is done
+   for the fleet class — the fire's internal state measured on `worlds::galaxy` battles,
+   6/6 fires state-decided (D = violation, out= shut), the violated region the armed
+   pair's merged giant descendant; the boundary attractor and the publish-side armed
+   certificate do not transfer (see Current best and Refuted). The fix must gate
+   certifies, not publications.] Still open: the incidence tail (windows, rate 600
+   long-horizon, more seeds), the plane's own flown battle once wired, and whether the
+   publish-blind fire class is always a between-publish dispatch.
 6. Margin from the law, not from history (relativistic scenes): the c-cap makes the
    conflict window one stride; no-conflict throughput ceiling unmeasured at every size
    ≥ 128 cells (e704 checkers).
@@ -262,3 +312,4 @@ as a complete rule by the churn class above).
 - 20261017-1447-dynamics-fd35 (this run, awaiting grade): the race as state — equality
 - 20261017-1829-second-20261017-1447-dynamics-fd35-e517 (this run, awaiting grade):
 - 20261018-0035-inversion-bf83 (this run, awaiting grade): the game shapes separated by fire — fleets fire unsabotaged (1/14, margin 0.5), belt shapes clean, churn without slack inert; margin 0 is its own ruin.
+- 20261018-0932-dynamics-c749 (dynamics, awaiting grade): the fire's state on the game's

@@ -2,10 +2,33 @@ topic: encounters
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0543-library-5567
+updated: 20261018-0932-fermi-cd3b
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
+
+**[20261018-0932-fermi-cd3b] The belt row's EVENT FLOW at 10⁹ is derived on the shipped
+geometry and it is cheap and small: ~0.22 contacts/game-s and ~1.1×10³ b≤5×10⁵-m
+conjunctions/game-s (2-D Poisson sweep on scenario.rs's own constants — planar a∈[2,3) AU,
+49-m ships, n₂D = N/25 AU², v_rel 1.8 km/s; anchor `belt_first 10000` reproduces 14,071
+to the digit), so the whole flow costs ≤1.9 M1 cores at rtf 100 even if every conjunction
+re-mints a key at the measured 16.4 µs (0.068 cores at 277d's exact-eval cost; with efd4's
+intern only distinct pairs pay). The 62–571-core row span is therefore 100% certificate
+churn, and churn scales with KICKS — one dial with the belt stream, which itself composes
+to 5.3–8.4 M1 cores on this week's levers (split 8 × survival 0.615–0.385 × the boundary
+fast path's ~20×; 4e2d's 10.3 carried the pre-fast-path +25% boundary; closure = 14.6 µs
+or one more cadence octave — 1.3–2.1×, not 10×). The number the row still owes is singular:
+pairs re-checked per kick on the live anchor at 10⁹-scale occupancy (fe6b's 0.0346·n law —
+if n is the cell's 10⁴ bodies it is ~10¹–10² cores after split 8 and the row stays the CPU
+ledger's biggest unknown). Cross-checks: model rate ∝ density vs ec74's λ ∝ Ψ^0.95 (silver;
+1b1f's 0.105–0.247/body/orbit at N=800 implies their b was 2.7×10⁸ m; contacts 0.22/s ×
+~4 bits ≈ 09a1's gold 0.9 bits/s contacts term (fermi; ledger.py arithmetic + shipped
+`belt_first`, predictions pre-registered, one honest miss: the mint term).**
+Consequence for the goal: at 10⁹ real bodies the shipped belt *grinds* — one contact every
+~4.5 game-s is the fragmentation/combat feed, information 0.2–1 bits/s, CPU noise; the
+board's "cut encounter work by 10³" is a certificate-scheduling question, not an
+event-volume question.
+
 
 **[20261018-0543-library-5567] The fleet row's requirement is dead by representation: the plane
 already ships the formation's native carrier (the Fermi-frame fleet, `crates/universe/src/fleet.rs`),
@@ -165,6 +188,14 @@ above for the live-path anchor.]**
 
 ## Open directions
 
+1. **The one missing constant (this run): pairs re-checked per kick on the live anchor at
+   10⁹-scale occupancy (cells of 10²–10⁴)** — the churn term is the row's whole cost now that the event flow is
+   priced (≤1.9 cores worst-case mint, ~0.07 exact). Measure fe6b's 0.0346·n·(1+X)/(2(X−1))
+   at cell occupancies 10²–10⁴ on the live word; if it is O(1) at fixed density the row
+   closes with the stream's own cadence lever.
+2. **The mint term's semantics (this run): does every b≤5×10⁵-m conjunction re-mint a key
+   (1.87 cores at rtf 100), or does efd4's intern hold it near zero?** One flight with a
+   mint counter on the live anchor decides.
 1. **The conjunction calendar as the shipped fleet arm** (this run): wire standing contacts
    as stored state (31 ms per interval-horizon re-evaluation of a perpetual pair is the
    exact machinery's own horizon-walk), the due-queue as the only waker, and slack-deferred
@@ -286,3 +317,4 @@ above for the live-path anchor.]**
 - 20261017-0839-inversion-2373 (inversion, silver): the phase certificate's k priced — quadratic in F for every fleet with shape dispersion, 36–4,500 cores at 10⁹ fleets; the composed ledger's encounter row is population-dependent and missing.
 - 20261017-1018-second-20261017-0839-inversion-2373-b509 (second, pending grade): the
 - 20261018-0543-library-5567 (library): the fleet row dies by representation — the shipped Fermi-frame fleet carries F=10⁵×10⁴ at ≤ ~1 core (0.89 µs/member/game-s measured, member-flat slices, scale-free epoch composition); dissolution at spread > r_p/32 measured; three wiring debts named.
+- 20261018-0932-fermi-cd3b (fermi): the belt row's event flow at 10⁹ is cheap and small (0.22 contacts/s, 1.1e3 conjunctions/s, ≤1.9 cores worst-case mint) — the row is 100% certificate churn riding the kick cadence; the stream composes to 5.3–8.4 M1 cores.

@@ -2,46 +2,105 @@ topic: view
 status: open
 closed-by:
 valid-while:
-updated: 20261015-1615-scout-ee30
+updated: 20261018-0932-system-0d46
 
 # The view: the observer's past light cone, lensing, kinked tubes
 
 ## Current best
 
-**The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2.4–3.4×10⁻⁸ flips/s per belt body (one flip per body per ~year), ~10⁻⁴ cores composed at 10⁹ against the scan's 8.75 — and at fitted zoom the belt is envelope-disjoint from the window (margin 79–86×W, permanent at coast, held under a 0.05c burn: 0 events), so the tracked set is O(locals) and the Θ(N) term deletes at every N (20261015-1615-scout-ee30, scout).** Float replica on the ladder scene's own birth law with the shipped client's map criterion verbatim (drawMap: star's-frame box centred on the observer's current position, retarded offsets; fitted W = 3.5 ls, belt W = 750 ls): steady coast 3.3e-3 events/s at 10⁵ (held-out seed 3.4e-3; per-body rates 2.4–3.4e-8 across N and orbital phase), a 0.05c radial burn adds 507 entries at 10⁵ with worst frame 6, and the one moment needing a drain is the zoom-out fill: worst frame 2,722 entries at 10⁵ (9.5 ms at 3.5 µs/entry) and 5,539 at 2×10⁵ (19.4 ms — the 16.7 ms budget crossing sits between 10⁵ and 2×10⁵, linear in N; ~1 s at 10⁹ un-drained). The certificate form to wire: a group envelope (window box vs belt annulus in retarded coordinates, O(1), re-checked on burns and zooms), a per-tracked-row next-boundary time that is a 1-D root on the observer's compiled tube computed at emission-step time (rides the doll's clock, no new state), and the zoom drain. Prior art mapped: kinetic data structures (scheduled certificates; the flight plan is the compiled orbit), incremental view maintenance (the map is a materialized view; cost ∝ delta), netcode interest management (boundary hysteresis). The row-value rail remains the steady engine cost: emission steps × in-window fraction × ~4 µs → ~0.14 cores at 10⁹ at full zoom; the view's engine-side total ~0.15 cores, 25× under budget.
+**The crowd's gather law is anchored on the shipped plane itself, and the page's missing lever is
+named: the phase word the scan already flies.** On the shipped CLI's own crowd (28 locals + the
+400-member fleet, 428 bodies; `--bench --seed 1 --rtf 100 --seconds 30 --members 400 --threads 1`,
+1,800 frames, 30 probe windows, print-only probe; digest at the canonical cut): the gather walks
+every body every frame at **6.9 µs/body p50 (2.94 ms p50/frame, max 4.19 ms = 25% of the 12-ms
+budget)**, against 16.6 µs/body at 32 bodies — per-body falls as the fixed per-frame cost
+amortises, the walk never leaves. This is b77d-1fcf's 10⁴ law (66.8–74.1 ms ≈ 7 µs/member)
+reproduced at the CLI's clamp on shipped code: **10⁶ crowd ⇒ ~6.9 s/frame on this term.** On the
+same flight the scan re-reads **213 candidates ≈ 50% of all bodies per capture** (0.45 µs each,
+224 B pinned each, ≈ 48 KB/scan) and its answer half (6.1–6.9 µs/candidate on the 32-body control)
+is starved to `settle` — 12 answers in the whole crowd flight against the control's 97 (the FLOW
+law, memory-h-live's; checker: the count is budget-scheduled and load-dependent — 5 on the loaded
+regen, 0 on seed 7 — the starvation is the law, the count is not). **The unification:** all three
+prices buy one fact, "member j's binding at t", whose compiled content is O(1)-distinct on a
+formation (efd4's census: 513 entries → 2 keys);
+the phase-word tier b083/5f36 flew for the scan (4.4 µs → 19.2 ns vectorised, ~10 ns native; the
+window-lookup aggregation figure was retired by 5f36 for a stronger O(log K) 3.2 µs) is the same
+lever for
+gather's crowd term, and no page had connected them. Scope: the run does NOT decompose the gather
+into crossing vs row math (51bf found the crossing loop 95% on the 28-body plane; unmeasured on a
+crowd) — if row math dominates, the gather half weakens; the near-field draw (O(visible)
+~73–313 rows) is untouched by the word (20261018-0932-system-0d46, system).**
 
-**The in-band gather is priced and its floor is measured exact: between the tube's own time quanta a view row is bit-reproducible from one cached emission and the fresh observer state, so the shipped per-frame O(N) crossing walk buys literally zero information change on far rows — at 10⁵, 99,701/100,028 far rows are bit-exact (p99 drift 3.1e-17) through the flight while the gather crawls at rtf 0.68 (196.6 s of wall for 80 frames, the engine ≤0.06 ms of each); the free-run horizon at the map half-pixel is 2.7e4 frames p99 at 10³ and unbounded-by-window at 10⁴-10⁵, the burn does not touch it (drift 6.02e-8 vs 6.10e-8 rad/frame coast vs L8 at 10³; at 10⁵ coast and L8 are digit-identical at 3.084e-17; L15 bit-frozen 4e-16 with the emission step at the same curv… (20261015-1338-components-649c; unchanged)]
+Checker (20261018-0932): reproduced with the digest bit-identical (4fb49739…; timings shift 1.8×
+at load 1.2–1.6 — the regen band is 12.3 µs/body crowd, 20.8 control, same orders), and the laws
+hold outside the swept domain: seed 7 (13.3 µs/body at ~390 bodies, ~280 cands/capture, 0 answers)
+and a clamp-lifted 2.3×10³-body crowd (10.6 µs/body, 24–26 ms/frame — the linear law and the 10⁶
+extrapolation stand; one capture read 2,172/2,204 = 98.5% of all bodies; its one answered scan cost
+6.8 µs/cand, the answer law now measured on the crowd itself). The "≈50% of bodies" is the
+428-body point of the 1.00·K candidate law (604c/promotion), not a constant ratio.
 
-**Checker's regime correction (649c): the 10⁴-10⁵ exactness windows end before the belt's first light.** Those arms stop at game 433/133 s while the first emission steps land at 356-543 game-s (≈ the inner belt's light time; before first light `view.rs` returns the tick-0 state, constant by construction), so their bit-exactness (8.5e-18 / 3.1e-17) and "unbounded-by-window" horizons are the pre-light regime, and "9,714/10,028 rows never step in 260 frames" is contradicted by the same arm's own max slope (4.16e-7 ⇒ at least one stepper; ≥99% is what is measured). The permanent regime is the run's own 10³ 899-frame arm: far drift 1.96e-7 rad/frame p99 — the emission point advancing along the emitter's orbit, not observer parallax (it scales with the frame's gam…
+**The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame
+membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window
+through the belt — 2.4–3.4×10⁻⁸ flips/s per belt body, ~10⁻⁴ cores composed at 10⁹ against the
+scan's 8.75 — and at fitted zoom the belt is envelope-disjoint from the window, so the tracked set
+is O(locals) and the Θ(N) term deletes at every N (20261015-1615-scout-ee30, scout).**
 
-**The row-set deletion is built on the shipped crossings and the flyable frame collapses: steady map frames ≈ 1-3 ms p50 at 10³-10⁶ at both the fitted and the belt zoom (86-160× at 10³, ~10³× at 10⁶ against the linear law), display-exact to ≤ 0.1-2% of drawn rows per frame, and the turn costs the server nothing (20261014-1221-second-20261014-1137-inversion-62c1-2df1).** [unchanged]
-
-**Checker's correction (2df1, silver): the collapse is p50-only.** The probe's steady p99 is Θ(N) — the birth/death scan stand-in costs ~3.5 µs/body (37 ms at 10⁴, 360 at 10⁵, 3,480 ms at 10⁶, recurring every 240 frames), so against the smoothness rule the probe still crosses 16.7 ms at ~10⁴ until the engine's birth feed replaces the scan. [scout-ee30 now prices that feed: the replacement composes to ~10⁻⁴ cores at 10⁹ vs the scan's 8.75; the drain is required at the zoom fill (worst frame ~2.7e7 entries ≈ 95 s at 10⁹) and, per the checker's recomposition, at the burn too at 10⁹ (worst frame ~6e4 entries ≈ 0.2 s — the dossier's "2 ms, under budget" was a 100× scaling slip on the worst frame)]
-
-**The flyable frame is the view's, and the view's Θ(N) row set is a far-row tax: 93-99.9% of its rows buy zero pixels in map mode on the ladder scenes, so the flyable ceiling is ~10³ bodies, not the gate's 10⁶ (62c1, silver, reproduced by its checker to 3×10⁵).** [unchanged]
+**The in-band gather is priced and its floor is measured exact: between the tube's own time quanta a
+view row is bit-reproducible from one cached emission and the fresh observer state, so the shipped
+per-frame O(N) crossing walk buys literally zero information change on far rows — at 10⁵,
+99,701/100,028 far rows bit-exact through the flight; checker 649c: the 10⁴–10⁵ windows end before
+the belt's first light (the pre-light regime); the permanent regime is the 10³ arm's far drift
+1.96e-7 rad/frame.** The row-set deletion is built on the shipped crossings (62c1/2df1): steady map
+frames ≈ 1–3 ms p50 at 10³–10⁶ at fitted and belt zoom, display-exact to ≤ 0.1–2%; its p99 Θ(N)
+moment (the rescan stand-in, ~3.5 µs/body) is what the feed replaces. The flyable frame is the
+view's: 93–99.9% of map-mode rows buy zero pixels at fitted zoom (62c1, silver).
 
 ## Refuted
 
-- **The 240-frame membership rescan as a needed component (2df1's stand-in):** the set it recomputes changes at 2.4–3.4×10⁻⁸ flips/s per belt body (the observer's orbital sweep of the window; one flip per body per ~year, confirmed over a full observer year at 3.08×10⁻⁸ by the checker), and at fitted zoom the belt is envelope-disjoint from the window with margin 79–86×W on the author's 5×10⁶-s window, 68–71×W over a full observer year and 31×W at the all-e=0.4 tail (checker), permanent at coast and held under a 0.05c burn — the scan's 8.75 cores at 10⁹ buy nothing the envelope plus per-row boundary roots do not (20261015-1615-scout-ee30).
-- **View open 3's "the served set is then O(visible)" for the burn (2df1's contract):** measured on the shipped crossings, a burn (L8; L15 same) changes only the observer side of a far row, which the closed form takes fresh; far-row drift is unchanged to 1.3% in the run's own windows (6.02e-8 vs 6.10e-8 rad/frame — but those windows end before the belt's first light; see the regime correction above). The burn's re-read set is the near set, O(313), not O(visible). (20261015-1338-components-649c)
-- [unchanged entries: "10⁶ bodies in the flyable engine" (62c1/2df1 reading); "the display-quantum row cache is dead" (0e54's plane-scene domain); "the turn is a burst the server must pay"; the physics holes (time transfer, deflection key, crosses-once)]
+- **"The phase/along-orbit axis is the scan's lever alone" (this page's implicit scope after
+  b083/5f36):** the same stored phase word is the gather's crowd lever — the walk (6.9 µs/body,
+  shipped) reads member-individual copies of O(1)-distinct content (efd4); wiring it into the
+  emitter loop is the page's cheapest next experiment (20261018-0932-system-0d46).
+- **"The two per-member walkers are peers on the shipped crowd" (this run's own P3, as
+  pre-registered):** one-sided — the gather walks ~25,700 body-reads per 60-frame window against the
+  scan's ~1,100 candidate reads; the scan's price at crowd load is deferred memory and settle spikes
+  (260 candidates answered at once), not in-flight CPU.
+- **The 240-frame membership rescan as a needed component (2df1's stand-in):** the set it recomputes
+  changes at 2.4–3.4×10⁻⁸ flips/s per belt body (scout-ee30).
+- **View open 3's "the served set is then O(visible)" for the burn:** measured on the shipped
+  crossings, a burn changes only the observer side of a far row (649c).
+- [unchanged entries: "10⁶ bodies in the flyable engine" (62c1/2df1 reading); "the display-quantum
+  row cache is dead" (0e54's plane-scene domain); "the turn is a burst the server must pay"; the
+  physics holes (time transfer, deflection key, crosses-once)]
 
 ## Open directions
 
-1. **Wire the feed (scout-ee30's certificate form, the engine half 2df1 named):** the group envelope (window box vs belt annulus in retarded coordinates, O(1)) replaces the rescan at fitted zoom; per tracked row, the next-boundary time is a 1-D root on the observer's compiled tube computed at emission-step time (rides the doll's clock); the zoom drain (budgeted admission, the 4487 pattern — worst frame 19.4 ms at 2×10⁵ undrained, 27,321 entries ≈ 96 ms at 10⁶ (checker, linear in N), ~2.7e7 entries ≈ 95 s at 10⁹) and the burn drain (checker: worst frame ~6e4 entries ≈ 0.2 s at 10⁹) sit inside the presented-tick discipline; digest-neutral by 2df1's display-exactness.
-2. **The sky's near field:** unchanged — O(locals) rows move a measurable fraction of a pixel per frame; 649c folds the burn into this same set (observer-side closed form on frozen rows, exact). The sky mode's log-polar placement is not feed-priced (scout-ee30's domain gap).
-3. ~~The burn burst~~ — answered at the physics level (649c): observer-side, exact, O(near); what remains unmeasured is the wire/draw cost of re-aberrating O(visible) rows client-side (a page question, not an engine readout question).
-4. Build the converged memo (delay(b) beside deflection(b), keyed (b, sense|Q), plus the k = 0 image pair). [unchanged]
+1. **Wire the feed (scout-ee30's certificate form)** — unchanged; the group envelope replaces the
+   rescan at fitted zoom; the zoom/burn drains sit inside the presented-tick discipline.
+2. **NEW (this run): the phase word in the gather.** Extend b083/5f36's rigidring tier to the
+   emitter loop: rows of a shared-key crowd derived from the stored phase word (one compiled key,
+   per-member offset), bit-compared against the shipped gather with 2df1's display-exactness audit.
+   Expected: the crowd's 6.9 µs/body → ~0.02 µs (b083's native compare); the 10⁶ crowd's ~6.9
+   s/frame → O(visible) rows. Must degrade to the individual read on scarred members (a kicked
+   member de-keys: efd4's scattered belt stands 2,044/2,036); measure first the gather's
+   crossing-vs-row decomposition on a crowd (unmeasured).
+3. The sky's near field (unchanged; O(locals) rows, observer-side closed form on frozen rows).
+4. Build the converged memo (delay(b) beside deflection(b), keyed (b, sense|Q), plus the k = 0 image
+   pair). [unchanged]
 5. The Σμ = 1 sum rule as a magnification-conservation check (9f4a). [unchanged]
-6. Newborn photon-ring images at the shadow rim — grade a616 before trusting the k = 0 fix at the rim. [unchanged]
-7. The gated cache on the M1 (08f7) and the 6-9 µs row (0e54) — row µs, now secondary to row-set deletion at scale. [unchanged]
+6. Newborn photon-ring images at the shadow rim — grade a616 first. [unchanged]
+7. The gated cache on the M1 (08f7) and the 6-9 µs row (0e54) — secondary to row-set deletion.
+   [unchanged]
 8. The aliasing boundary (efb2). [unchanged]
-9. Unmeasured physics: eccentric emitters for the timing error, Kerr timing, multi-mass composition; the fleet seam (2fa4). [unchanged]
+9. Unmeasured physics: eccentric emitters for the timing error, Kerr timing, multi-mass composition;
+   the fleet seam (2fa4). [unchanged]
 10. The one-line fleet fix and its gate (2fa4). [unchanged]
 
 ## Contradictions
 
-None open. 649c's bit-frozen far rows vs 2df1's "≥99.6% of sky rows are pixel-static per frame" (62c1): the same fact at two resolutions — 649c measures the staticness exact (1e-16) between the tube's time quanta and attributes the residual per-frame motion to observer parallax; 62c1 measured it at pixel scale. 7b86's reads/body/frame 2.5-3.8 vs 649c's 1.5-2.0: different scenes (plane vs ladder). scout-ee30's steady flux (3.3e-3/s at 10⁵) vs 2df1's 240-frame rescan cadence: not a contradiction — the rescan was a stand-in, and the feed's measured rates are what its replacement must serve.
+None open. This run's 6.9 µs/body (crowd, 428 bodies, shipped plane) and b77d-1fcf's ~7 µs/member
+(10⁴, flowcrowd patch) are one law, now anchored at both ends; 62c1/2df1's 1–3 ms steady map frames
+are the far-row deletion on ladder scenes (not a crowd scene), so no conflict with the crowd term.
 
 ## Runs
 - 20261006-0030-m-obscure-8202 (silver): view streams: single-orbit recurrence exact (5e-14); incommensurate eccentric pairs admit no order ≤ 96.
@@ -90,3 +149,5 @@ None open. 649c's bit-frozen far rows vs 2df1's "≥99.6% of sky rows are pixel-
 - [prior runs unchanged, see git history of this page]
 - 20261015-1615-scout-ee30 (silver): the birth/death feed priced — steady flux 2.4-3.4e-8/s per body (3.08e-8 over a full observer year, checker), ~10⁻⁴ cores at 10⁹ vs the scan's 8.75; fitted-zoom envelope disjoint (79-86×W author window, 68-71×W full year, 31×W e-tail, checker); drain required at zoom (95 s at 10⁹) and burn (0.2 s at 10⁹, checker's recomposition); certificate form + KDS/IVM/interest-management mapping.
 - 20261015-1338-components-649c (awaiting grade): in-band gather priced (19-22 µs/body/frame, ≥97% of the flown frame at 10⁵) and floored exactly: far rows bit-reproducible between tube time quanta (first step 355-542 game-s), horizon 2.7e4/8.3e3 frames p99 map (4.5e3/1.4e3 sky), burn-exempt (drift unchanged, readouts/emitter 1.96-2.00), near set O(313) the per-frame reads.
+- 20261018-0932-system-0d46 (this run, system): the crowd's gather law on the shipped plane
+- [prior runs unchanged, see git history of this page: 8202, f22e, 3102, 0e54, 97fd, 08f7, 70b0,

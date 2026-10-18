@@ -18,21 +18,21 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [representation-premises](representation-premises.md) | open | 7 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
-| [library-directions](library-directions.md) | open | 9 | **The kick bottleneck (the board's #3; its CPU decision table untouched by this lens until |
+| [library-directions](library-directions.md) | open | 10 | **The wiring is flown and it splits the decision: the Carlson compile term collapses exactly |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [read-stream](read-stream.md) | open **conflict to resolve** | 13 | <<<<<<< main |
 | [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
-| [allocator-ratchet](allocator-ratchet.md) | open | 17 | **NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
+| [allocator-ratchet](allocator-ratchet.md) | open | 18 | (no current best yet) |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
-| [view](view.md) | open | 45 | **The missing engine half is priced and it is free: the birth/death feed that replaces the 240-frame membership rescan (this page's p99 owner) costs the observer's own orbital sweep of the map window through the belt — 2 |
+| [view](view.md) | open | 46 | **The crowd's gather law is anchored on the shipped plane itself, and the page's missing lever is |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
-| [encounters](encounters.md) | open | 102 | **[20261018-0543-library-5567] The fleet row's requirement is dead by representation: the plane |
+| [encounters](encounters.md) | open | 103 | **[20261018-0932-fermi-cd3b] The belt row's EVENT FLOW at 10⁹ is derived on the shipped |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [nladder](nladder.md) | open | 151 | **The composed law's single remaining adoption debt is flown and it is empty: at the worst |
