@@ -1,0 +1,136 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..dfd95d6b 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -70,13 +70,12 @@ impl Catalogue {
+ /// `event_time`). The tube holds the post-kick velocity from `M` on, so it is first order wrong inside the
+ /// window; a reader completes it by a linear ramp ([`crate::observe::credit`]). A binding that is not a kick
+ /// (a body's creation, a handoff, a burn's flush) has `len == 0`.
+-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++#[derive(Clone, Copy, Debug, PartialEq)]
+ pub struct Kick {
+     /// The window's length in ticks (the step of its level), or zero for a binding that is not a kick.
+     pub len: i64,
+     /// The level of the changeover (0 is the whole step, `len = H >> 2·level`).
+     pub level: u8,
+-    /// The velocity the kick added, in quanta of the binding's velocity exponent.
+     pub dv: [i64; 2],
+     /// The motion law v2's kick or start ([`crate::ext`]): `len` is the physical length of the step it planned, `boundary` the tick
+     /// of the synchronised state the next step starts from, `lead` how long before this binding's tick the step it closes started.
+@@ -84,9 +83,16 @@ pub struct Kick {
+     pub clock: bool,
+     pub boundary: i64,
+     pub lead: i64,
++    /// The two-word field ([`crate::observe::partial`]'s `A_WORD=2` arm): this kick's own evaluation of the
++    /// sources' field — at this binding's tick, the middle of the step it closed — and the field's slope per
++    /// physical second, differenced against the previous kick's word. Read by the view only: never an outcome,
++    /// never hashed. `None` on the per-read arm, before a first kick, and after any break in the chain.
++    pub word: Option<([f64; 2], [f64; 2])>,
+ }
++/// The word is written finite only, so bit equality is equality.
++impl Eq for Kick {}
+ impl Kick {
+-    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], clock: false, boundary: 0, lead: 0 };
++    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], clock: false, boundary: 0, lead: 0, word: None };
+ }
+ 
+ /// Everything needed to read one body's state at any time after its binding event.
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..c550dacd 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -11,7 +11,7 @@ use crate::bind::{Binding, Kick};
+ use crate::body::{BodyRec, BodyStore};
+ use crate::force;
+ use crate::ctx::Ctx;
+-use crate::num::{add2, scale2, time_of, to_f64, Res, Tick, V2};
++use crate::num::{add2, from_f64, scale2, time_of, to_f64, Error, Res, Tick, V2};
+ use crate::{step, thrust};
+ use emergent_space::orbit::Scalar;
+ 
+@@ -140,6 +140,28 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+         return base.cartesian(t).or_else(|_| raw());
+     }
+     let step = || -> Res<(V2, V2)> {
++        // The two-word arm (`A_WORD=2`): reconstruct the field from the kick's own evaluation — `a` at this
++        // binding's tick, the middle of the step being completed, carried by its slope — instead of one
++        // evaluation of the sources per read. Second order at the handover by construction: the slope is
++        // continuous across boundaries where a constant word jumps (the one-word's measured failure).
++        if let Some((a, adot)) = a_word().then_some(()).and(b.kick.word) {
++            let sec = 2f64.powi(base.clock_exp as i32);
++            let tw = (b.event_time - start) as f64 * sec;
++            let ts = to_f64(time_of(tau, base.clock_exp)?);
++            let (mut dv, mut dx) = ([0f64; 2], [0f64; 2]);
++            for c in 0..2 {
++                dv[c] = a[c] * ts + adot[c] * (ts * ts / 2.0 - ts * tw);
++                dx[c] = a[c] * ts * ts / 2.0 + adot[c] * (ts * ts * ts / 6.0 - ts * ts * tw / 2.0);
++                if !(dv[c].is_finite() && dx[c].is_finite()) {
++                    return Err(Error::Refused("the word left its range"));
++                }
++            }
++            let (p, v) = base.cartesian(t)?;
++            return Ok((
++                add2(p, [from_f64(dx[0]), from_f64(dx[1])])?,
++                add2(v, [from_f64(dv[0]), from_f64(dv[1])])?,
++            ));
++        }
+         let mid = start + tau / 2;
+         let (x_mid, _) = base.cartesian(mid)?;
+         let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
+@@ -152,6 +174,14 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     step().or_else(|_| raw())
+ }
+ 
++/// Whether readers between kicks reconstruct the field from the kicks' stored two-word (`a`, slope)
++/// instead of evaluating the sources once per read. The word is the view's only; the arm changes no
++/// outcome, and with it off the engine runs the shipped per-read evaluation bit for bit.
++pub fn a_word() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("A_WORD").ok().as_deref() == Some("2"));
++    *ON
++}
++
+ /// Body `i`'s binding at `t` and its state there, completed between kicks ([`partial`], or the ramp [`credit`]), in the units of its doll.
+ pub fn ramped(ctx: &Ctx, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
+     let b = ctx.bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..ef9dd169 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -648,7 +648,7 @@ impl Work<'_, '_> {
+         self.rec.interval = 2 * half;
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+-        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
++        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0, word: None };
+         insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
+         self.plan_terminal(t)
+     }
+@@ -678,6 +678,19 @@ impl Work<'_, '_> {
+         let f = force::field(&secs, x)?;
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
++        // The two-word's write (`A_WORD=2`): this kick's own evaluation of the field, and its slope by the
++        // backward difference against the previous kick's word — no extra evaluation of the sources. The
++        // word is the view's alone; with the arm off it stays `None` and nothing else moves.
++        let word = crate::observe::a_word().then(|| {
++            let prev = self.ctx.bodies.binding_at(self.i, t - 1)?;
++            let (pa, _) = prev.kick.word?;
++            let dt = (t - prev.event_time) as f64 * 2f64.powi(self.rec.b.clock_exp as i32);
++            let a = [crate::num::to_f64(f.accel[0]), crate::num::to_f64(f.accel[1])];
++            let adot = [(a[0] - pa[0]) / dt, (a[1] - pa[1]) / dt];
++            (dt > 0.0 && a[0].is_finite() && a[1].is_finite() && adot[0].is_finite() && adot[1].is_finite())
++                .then_some((a, adot))
++        })
++        .flatten();
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+@@ -710,7 +723,7 @@ impl Work<'_, '_> {
+         if fired {
+             // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
+             // closes had been running.
+-            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
++            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor, word };
+         }
+         self.rec.interval = full;
+         self.rec.step = full;

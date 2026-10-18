@@ -1,0 +1,44 @@
+=== arm ON (A_WORD=2): the three frozen readout gates + the no-jump gate ===
+  ship 0: ramped readout 2.77e-6 -> 1.73e-7 (16.0x), raw tube 7.62e-4 -> 5.93e-5 (12.8x), map output 16.6x
+  ship 1: ramped readout 4.93e-7 -> 3.08e-8 (16.0x), raw tube 4.75e-5 -> 9.58e-6 (5.0x), map output 14.9x
+  ship 2: ramped readout 5.14e-6 -> 2.80e-7 (18.3x), raw tube 6.93e-4 -> 1.24e-4 (5.6x), map output 16.9x
+  ship 3: ramped readout 6.45e-7 -> 4.02e-8 (16.0x), raw tube 4.79e-5 -> 1.09e-5 (4.4x), map output 16.1x
+  ship 4: ramped readout 9.98e-7 -> 6.29e-8 (15.9x), raw tube 9.88e-5 -> 5.35e-5 (1.8x), map output 15.9x
+  ship 5: ramped readout 4.97e-7 -> 3.11e-8 (16.0x), raw tube 3.68e-5 -> 1.04e-5 (3.5x), map output 16.1x
+6 ships judged, 6 with a second-order map (6.4 s); the raw tube falls at most 12.8x
+worst readout error 5.29e-6
+  ship  0: map 8.96e-7, ramped readout 8.79e-7 (0.98x), raw tube 4.56e-4 (509.0x)
+  ship  1: map 1.22e-7, ramped readout 1.23e-7 (1.00x), raw tube 2.82e-5 (230.6x)
+  ship  2: map 1.06e-6, ramped readout 1.08e-6 (1.01x), raw tube 3.90e-4 (367.2x)
+  ship  3: map 1.63e-7, ramped readout 1.63e-7 (1.00x), raw tube 2.46e-5 (151.1x)
+  ship  4: map 1.35e-6, ramped readout 1.50e-6 (1.11x), raw tube 2.57e-4 (189.7x)
+  ship  5: map 1.24e-7, ramped readout 1.25e-7 (1.00x), raw tube 2.47e-5 (198.6x)
+  ship  6: map 1.31e-7, ramped readout 1.30e-7 (1.00x), raw tube 4.90e-5 (375.2x)
+  ship  7: map 2.12e-7, ramped readout 2.21e-7 (1.04x), raw tube 4.49e-5 (211.5x)
+  ship  8: map 2.83e-7, ramped readout 2.83e-7 (1.00x), raw tube 1.41e-4 (497.3x)
+  ship  9: map 1.46e-7, ramped readout 1.47e-7 (1.01x), raw tube 2.37e-5 (162.3x)
+  ship 10: map 5.29e-6, ramped readout 5.29e-6 (1.00x), raw tube 4.22e-4 (79.9x)
+  ship 11: map 1.75e-7, ramped readout 1.75e-7 (1.00x), raw tube 1.54e-4 (876.1x)
+worst readout 5.29e-6 (raw tube 4.56e-4); worst ratio to the map's error 1.11x (17.0 s)
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 17.05s
+=== arm OFF: the same gates, shipped per-read evaluation (bit-identical path) ===
+6 ships judged, 6 with a second-order map (6.5 s); the raw tube falls at most 12.8x
+worst readout 5.29e-6 (raw tube 4.56e-4); worst ratio to the map's error 1.11x (16.9 s)
+worst readout error 5.29e-6
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 17.00s
+=== arm ON: digests and outcomes (replay, memo, clock, origin) ===
+running 3 tests
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 17.11s
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+running 4 tests
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+=== arm ON: burns and flight (the clock re-plans under thrust; the word must re-arm) ===
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.60s
+running 1 test
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 8 tests
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.15s
