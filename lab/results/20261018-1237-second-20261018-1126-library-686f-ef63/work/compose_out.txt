@@ -1,0 +1,267 @@
+{
+ "window_wall_s": 14.83,
+ "budget_in_window_s": 10.68,
+ "anchor_check": {
+  "flown_work_s": 15.0,
+  "composed_work_s": 15.0,
+  "flown_lag_game_s": 0.45,
+  "note": "composition reproduces the flown wave work of the 5x10^5 anchor exactly (15 s vs 15.0 s); the flown verdict there was 'frames within 12 ms, presented time lags'"
+ },
+ "T_star_law": {
+  "exp": -0.25,
+  "bars": {
+   "1e+05": 59900000.0,
+   "1e+06": 33700000.0,
+   "1e+09": 5990000.0
+  },
+  "fit_error_per_bar": {
+   "1e+05": "+0.00%",
+   "1e+06": "-0.05%",
+   "1e+09": "+0.00%"
+  },
+  "identity_cadence_x_Tstar_1e9": 212.645,
+  "e29c_k_star": 213.0,
+  "T_star_1e7_gs": 18942043.184408594,
+  "T_star_1e8_gs": 10651893.666133147
+ },
+ "crossover_N": {
+  "lo": 54988226.87372991,
+  "hi": 31707520.510067042,
+  "note": "the lazy+RES wave equals the in-window budget at N in [cross_hi, cross_lo]; below it the arm passes, above it fails"
+ },
+ "stale_constant_reading": {
+  "T_star_gs": 33700000.0,
+  "rekick_1e9_s_per_s": 0.09737252225519287,
+  "note": "the ORIGINAL run's constant (T* frozen at the 10^6 bar for every N, and its 'q_view only grows T*' cite contradicted by e29c's own bars, which SHRINK: 5.99e7 -> 3.37e7 -> 5.99e6). This is the reading the checker named (0.098); the fence's own 10^9 bar is the honest one."
+ },
+ "rows": [
+  {
+   "N": 1000000.0,
+   "arm": "shipped",
+   "birth_GB": 2.55,
+   "build_s": 29.5,
+   "wave_ratio": 2.809620139357159,
+   "wave_ratio_hi": 4.720161834120026,
+   "wave_live_GB": 5.06,
+   "steady_s_per_s": 0.108,
+   "steady_s_per_s_hi": 0.18144,
+   "rekick_s_per_s": 0.0,
+   "rekick_via_e29c_s_per_s": [
+    0.0,
+    0.0
+   ],
+   "rekick_pct_budget": 0.0
+  },
+  {
+   "N": 10000000.0,
+   "arm": "shipped",
+   "birth_GB": 25.5,
+   "build_s": 295.0,
+   "wave_ratio": 28.09620139357159,
+   "wave_ratio_hi": 47.20161834120027,
+   "wave_live_GB": 50.6,
+   "steady_s_per_s": 1.08,
+   "steady_s_per_s_hi": 1.8144,
+   "rekick_s_per_s": 0.0,
+   "rekick_via_e29c_s_per_s": [
+    0.0,
+    0.0
+   ],
+   "rekick_pct_budget": 0.0
+  },
+  {
+   "N": 10000000.0,
+   "arm": "lazy birth only",
+   "birth_GB": 0.1575,
+   "build_s": 0.0,
+   "wave_ratio": 32.26380460028471,
+   "wave_ratio_hi": 55.81778676856222,
+   "wave_live_GB": 50.6,
+   "steady_s_per_s": 1.08,
+   "steady_s_per_s_hi": 1.8144,
+   "rekick_s_per_s": 0.0,
+   "rekick_via_e29c_s_per_s": [
+    0.0,
+    0.0
+   ],
+   "rekick_pct_budget": 0.0
+  },
+  {
+   "N": 10000000.0,
+   "arm": "lazy + ES_SECULAR",
+   "birth_GB": 0.1575,
+   "build_s": 0.0,
+   "wave_ratio": 19.848953926912415,
+   "wave_ratio_hi": 34.33955454409231,
+   "wave_live_GB": 31.12952986,
+   "steady_s_per_s": 0.6643820224719101,
+   "steady_s_per_s_hi": 1.116161797752809,
+   "rekick_s_per_s": 0.0006703676354434655,
+   "rekick_via_e29c_s_per_s": [
+    0.00036565507387825393,
+    0.0006143005241154664
+   ],
+   "rekick_pct_budget": 0.0009310661603381465
+  },
+  {
+   "N": 10000000.0,
+   "arm": "lazy + RES",
+   "birth_GB": 0.1575,
+   "build_s": 0.0,
+   "wave_ratio": 0.18455541507454903,
+   "wave_ratio_hi": 0.31928890387353037,
+   "wave_live_GB": 0.2894421200000007,
+   "steady_s_per_s": 0.006067415730337094,
+   "steady_s_per_s_hi": 0.010193258426966317,
+   "rekick_s_per_s": 0.0017321908244305603,
+   "rekick_via_e29c_s_per_s": [
+    0.0009448313587803056,
+    0.0015873166827509136
+   ],
+   "rekick_pct_budget": 0.0024058205894868893
+  },
+  {
+   "N": 100000000.0,
+   "arm": "lazy + RES",
+   "birth_GB": 1.575,
+   "build_s": 0.0,
+   "wave_ratio": 1.8158713780102969,
+   "wave_ratio_hi": 3.141536549474998,
+   "wave_live_GB": 2.847869086292142,
+   "steady_s_per_s": 0.06067415730337094,
+   "steady_s_per_s_hi": 0.10193258426966316,
+   "rekick_s_per_s": 0.030806042977828536,
+   "rekick_via_e29c_s_per_s": [
+    0.016803296169724653,
+    0.02822953756513742
+   ],
+   "rekick_pct_budget": 0.04278617080253964
+  },
+  {
+   "N": 1000000000.0,
+   "arm": "lazy + RES",
+   "birth_GB": 15.75,
+   "build_s": 0.0,
+   "wave_ratio": 18.12903100736777,
+   "wave_ratio_hi": 31.36401300548967,
+   "wave_live_GB": 28.43213874921355,
+   "steady_s_per_s": 0.6067415730337095,
+   "steady_s_per_s_hi": 1.0193258426966318,
+   "rekick_s_per_s": 0.5478225877822588,
+   "rekick_via_e29c_s_per_s": [
+    0.29881232060850477,
+    0.502004698622288
+   ],
+   "rekick_pct_budget": 0.7608647052531372
+  }
+ ],
+ "constants": {
+  "kick_us_wave": {
+   "value": 30.0,
+   "cite": "ladder.txt: 'the wave is N kicks at ~30 us'"
+  },
+  "kick_us_belt": {
+   "value": 50.4,
+   "cite": "kick-cadence 3570: belt kick p50 50.4 us (range band top)"
+  },
+  "budget": {
+   "value": 0.72,
+   "cite": "ladder.txt: '0.72 s of budget per wall second' (12 ms/frame, 60 fps)"
+  },
+  "window_gs": {
+   "value": 1483.0,
+   "cite": "ladder.txt: first belt kicks 13,051-14,534 game-s (one wave)"
+  },
+  "rtf": {
+   "value": 100.0,
+   "cite": "ladder.txt rung protocol; conversion at ladder.txt:143: '357 kicks a game-second = 36,000 a wall second at rtf 100'"
+  },
+  "steady_kicks_per_wall_s_1e7": {
+   "value": 36000.0,
+   "cite": "ladder.txt: 10^7 = 357 kicks/game-s = 36,000/wall-s (~1.4 cores)"
+  },
+  "build_us": {
+   "value": 29.5,
+   "cite": "ladder.txt: 28-31 us a body at birth (10^7 ~ 290 s)"
+  },
+  "birth_B": {
+   "value": 2550.0,
+   "cite": "ladder.txt: 2,407-2,700 B a body at birth (10^6 measured 2,407)"
+  },
+  "compile_us_lo": {
+   "value": 4.45,
+   "cite": "promotion.md: mint = the compile, 3.7-5.3 us p50 on the flown store"
+  },
+  "compile_us_hi": {
+   "value": 9.2,
+   "cite": "promotion.md: shipped add_body promotion path 9.2 us p50 (c4d3)"
+  },
+  "plateau_B": {
+   "value": 5060.0,
+   "cite": "6793/b30b: live plateau 5,060 B after the first kick"
+  },
+  "compact_bits_hi": {
+   "value": 126.0,
+   "cite": "HANDOFF scoreboard: 126 bits (driven belt, worst)"
+  },
+  "belt_deleted_plain": {
+   "value": 0.3848314606741573,
+   "cite": "nladder.md: frozen exclusion deletes 274/712 of the belt"
+  },
+  "belt_deleted_res": {
+   "value": 0.9943820224719101,
+   "cite": "nladder.md: RES deletes 434 more = 708/712 (checker2: tail bit-identical under RES)"
+  },
+  "rekick_us": {
+   "value": 33.0,
+   "cite": "library-directions f5bd: one sparse re-kick 29-37 us"
+  },
+  "rekick_cost_ratio": {
+   "value": 0.6,
+   "cite": "e29c bars.py: REKICK_COST = 0.6 of one fired kick (f5bd: 0.51-0.6x)"
+  },
+  "cadence_ev_B_gs": {
+   "value": 3.55e-05,
+   "cite": "e29c bars.py / f5bd: the belt's metronome stream rate, ev/(body.game-s)"
+  },
+  "ram_GB": {
+   "value": 8.0,
+   "cite": "the machine"
+  },
+  "rung_s": {
+   "value": 60.0,
+   "cite": "AGENTS.md: each test finishes within 60 s"
+  },
+  "gate_GiB": {
+   "value": 4.0,
+   "cite": "gate N1: under 4 GiB"
+  },
+  "anchor_N": {
+   "value": 500000.0,
+   "cite": "ladder.txt wave flight: 5x10^5"
+  },
+  "anchor_work_s": {
+   "value": 15.0,
+   "cite": "ladder.txt: 'at 5x10^5 it is ~15 s of work ... lags 0.45 s (frames stay within 12 ms)'"
+  }
+ }
+}
+
+arm                        N  birth GB  build s   wave x-bud  live GB   steady s/s  +re-kick   e29c ratio  %bud
+---------------------------------------------------------------------------------------------------------------
+shipped                1e+06      2.55       30   2.8-4.7        5.06 0.108-0.181     0.0000   0.000-0.000  0.0%
+shipped                1e+07     25.50      295  28.1-47.2      50.60 1.080-1.814     0.0000   0.000-0.000  0.0%
+lazy birth only        1e+07      0.16        0  32.3-55.8      50.60 1.080-1.814     0.0000   0.000-0.000  0.0%
+lazy + ES_SECULAR      1e+07      0.16        0  19.8-34.3      31.13 0.664-1.116     0.0007   0.000-0.001  0.1%
+lazy + RES             1e+07      0.16        0   0.2-0.3        0.29 0.006-0.010     0.0017   0.001-0.002  0.2%
+lazy + RES             1e+08      1.57        0   1.8-3.1        2.85 0.061-0.102     0.0308   0.017-0.028  4.3%
+lazy + RES             1e+09     15.75        0  18.1-31.4      28.43 0.607-1.019     0.5478   0.299-0.502 76.1%
+
+window 14.8 wall s; budget in window 10.7 s; frame budget 0.72 s/s; RAM 8.0 GB; rung 60 s; gate 4.0 GiB
+delete fractions: plain 0.385 (spare 0.615), RES 0.9944 (spare 0.0056)
+T* law N^-0.25: fit error per bar 1e+05:+0.00%, 1e+06:-0.05%, 1e+09:+0.00%; T*(1e7)=1.894e+07 gs, T*(1e8)=1.065e+07 gs; identity cadence x T*(1e9) = 212.6 ~= k* 213
+lazy+RES crossover (wave = budget): N in [3.17e+07, 5.50e+07] -- the 1e7 pass is rung-exact; 1e8 fails
+STALE original constant (T* = 3.37e7 held for every N): 1e9 add-back 0.097 s/s -- the checker's 0.098; honest 10^9 bar (5.99e6 gs): 0.548 s/s
+1e9 one-thread total: spared stream 0.607-1.019 + re-kick 0.548 = 1.155-1.567 s/s against 0.72 (memory: birth 15.75 GB, live 28.43 GB -- both over the 8.0 GB machine; partitioned per doll)
+wave x-bud: wave work (first kicks + lazy promotions) as a multiple of the window's engine budget, low-high kick cost
++re-kick: (N_del/T*(N)) x rtf x 33 us, the checker's named formula; e29c ratio: 0.6/(T* x cadence) of the deleted stream at kick 30-50.4 us

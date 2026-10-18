@@ -1,0 +1,36 @@
+== the corrected 10^7-rung composition (dossier table, ~0.1 s) ==
+arm                        N  birth GB  build s   wave x-bud  live GB   steady s/s  +re-kick   e29c ratio  %bud
+---------------------------------------------------------------------------------------------------------------
+shipped                1e+06      2.55       30   2.8-4.7        5.06 0.108-0.181     0.0000   0.000-0.000  0.0%
+shipped                1e+07     25.50      295  28.1-47.2      50.60 1.080-1.814     0.0000   0.000-0.000  0.0%
+lazy birth only        1e+07      0.16        0  32.3-55.8      50.60 1.080-1.814     0.0000   0.000-0.000  0.0%
+lazy + ES_SECULAR      1e+07      0.16        0  19.8-34.3      31.13 0.664-1.116     0.0007   0.000-0.001  0.1%
+lazy + RES             1e+07      0.16        0   0.2-0.3        0.29 0.006-0.010     0.0017   0.001-0.002  0.2%
+lazy + RES             1e+08      1.57        0   1.8-3.1        2.85 0.061-0.102     0.0308   0.017-0.028  4.3%
+lazy + RES             1e+09     15.75        0  18.1-31.4      28.43 0.607-1.019     0.5478   0.299-0.502 76.1%
+
+window 14.8 wall s; budget in window 10.7 s; frame budget 0.72 s/s; RAM 8.0 GB; rung 60 s; gate 4.0 GiB
+delete fractions: plain 0.385 (spare 0.615), RES 0.9944 (spare 0.0056)
+T* law N^-0.25: fit error per bar 1e+05:+0.00%, 1e+06:-0.05%, 1e+09:+0.00%; T*(1e7)=1.894e+07 gs, T*(1e8)=1.065e+07 gs; identity cadence x T*(1e9) = 212.6 ~= k* 213
+lazy+RES crossover (wave = budget): N in [3.17e+07, 5.50e+07] -- the 1e7 pass is rung-exact; 1e8 fails
+STALE original constant (T* = 3.37e7 held for every N): 1e9 add-back 0.097 s/s -- the checker's 0.098; honest 10^9 bar (5.99e6 gs): 0.548 s/s
+1e9 one-thread total: spared stream 0.607-1.019 + re-kick 0.548 = 1.155-1.567 s/s against 0.72 (memory: birth 15.75 GB, live 28.43 GB -- both over the 8.0 GB machine; partitioned per doll)
+wave x-bud: wave work (first kicks + lazy promotions) as a multiple of the window's engine budget, low-high kick cost
++re-kick: (N_del/T*(N)) x rtf x 33 us, the checker's named formula; e29c ratio: 0.6/(T* x cadence) of the deleted stream at kick 30-50.4 us
+
+== the checker's named numbers regenerate ==
+OK   stale-constant reading 0.097 (checker: 0.098)
+OK   e29c-bar reading 0.548 (checker: ~0.55)
+OK   crossover [3.17e7, 5.50e7] (checker: 3.2-5.5e7)
+OK   1e8 wave 1.8-3.1x budget (checker: 1.8-3.1x)
+OK   T* N^-1/4 law reproduces e29c's three bars within 0.05%
+OK   cadence x T*(1e9) = 212.6 ~= e29c's k* 213
+
+== constants trace to e29c's gold record (guarded; skip if branch absent) ==
+OK   T* bars 5.99e7/3.37e7/5.99e6 gs verbatim in e29c's dossier
+OK   cadence 3.55e-5 ev/B/gs verbatim in e29c's dossier
+OK   the 0.6/213 cost identity verbatim in e29c's dossier
+OK   REKICK_COST = 0.6 verbatim in e29c's bars.py (0.6 is a cost ratio, f5bd 0.51-0.6x)
+143:    kicks 128 times per 88 days each: 10^7 bodies = 357 kicks a game-second = 36,000 a wall second at rtf 100 (~1.4 cores). Not the plane's
+
+REGEN DONE (exit 0)
