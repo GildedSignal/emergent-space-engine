@@ -5,14 +5,14 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [scan-locality](scan-locality.md) | open | 1 | **The player-neighbourhood scan's walked set and its answer are measured decoupled, |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
-| [contact-speed](contact-speed.md) | open | 3 | **[20261018-0722-scout-6362] The skip's open design question ("a real fix needs the contact |
 | [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
+| [scan-locality](scan-locality.md) | open | 3 | **The record that serves every hit is measured, priced and sound: the window-membership record.** |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
+| [contact-speed](contact-speed.md) | open | 4 | **[20261018-1617-spacex-37c1] Open direction 3 is measured on the flown plane: the shipped |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
@@ -22,7 +22,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [representation-premises](representation-premises.md) | open | 9 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
-| [library-directions](library-directions.md) | open | 13 | **The board's #1 bottleneck, the N ladder's 10⁷ rung, is composed from the levers measured |
+| [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
 | [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
@@ -37,4 +37,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open **conflict to resolve** | 116 | **[20261018-1530-components-e87d] Open directions 1 and 2 are measured dead at the design |
-| [nladder](nladder.md) | open | 154 | **The pin behind "pending the observer fix" is measured directly (Drop-counted distinct |
+| [nladder](nladder.md) | open | 155 | (no current best yet) |

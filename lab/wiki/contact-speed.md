@@ -2,10 +2,39 @@ topic: contact-speed
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0722-scout-6362
+updated: 20261018-1617-spacex-37c1
+
 # The contact law's speed domain: which detected contacts exchange an impulse
 
 ## Current best
+
+**[20261018-1617-spacex-37c1] Open direction 3 is measured on the flown plane: the shipped
+fleet battle never skips (0 in 1,620 detected contacts; the checker's seed-2 shipped arm adds
+1,532 more, still 0; ρ = reach/|w| ≥ 10⁴ — the scene's own
+radius scale, r ∈ [q/2, q] with q = 2²⁰ against |w| ≤ ~2·10²–10³ quanta/chronon at the
+shipped speed_div 2¹⁵, gives v\* ≈ 1.4 c, unreachable), and when the closing speed is pushed
+to ~0.84 c (speed_div 2) 2–12% of detected contacts ghost (12.2% on seed 1) — at ρ = 0.93–9.6, where the driven-
+pair law max(0, 1−ρ) predicts exactly zero.** Census at the resolver's receding gate
+(`relativity.rs::resolve_law`, print-only, both steppers): every pair reaching a response
+batch logs (|w|², d·w, reach); skip ⟺ d·w ≥ 0, exact integers. Mechanism (checker-corrected):
+skip ⟺ τ\* = −d·w/|w|² ≤ 0 is definitional, and the crossing completed before the resolve
+instant — within the chronon before it for 51/56 skips across the fast arms, but at 400
+members 5/46 reach τ\* = −8.4 [checker: the τ\*-window is not universal; the resolve window
+widens with members, so the binding fact is resolve-instant receding, not the window's
+width]. The rate falls with the arm's dwell 2ρ across arms (0 at arm ρ p50 ≥ 9, 4.5% at
+3.8, 12% at 1.7 on seed 1 — seed-noisy: seeds 1/2/3 give 12.2/9.4/2.0% [checker, seed 3];
+≈ 0.1–0.2/ρ to within that noise), i.e., set by the fraction of contacts whose whole
+crossing fits in the detection-to-resolve window, not by ρ alone. The
+skip set is bit-identical between the sparse (EventCore) and dense (Chronon) steppers
+(`cmp`-identical censuses; the contract's bit-identity extends to the skip decision), so the
+dense arm is a second instrument, not a contrast. Held-out seed 2: 9.4% (3/32); checker
+seed 3: 2.0% (1/49, τ\* = −0.50, ρ = 1.92, dense census again `cmp`-identical). Domain: the
+plane's fleet battle (two armies, `scenes::battle`'s radius draw, 30–55 s of game at rtf 100,
+seeds 1–3 [3 is the checker's], members 48/400 — the CLI's own `--members` clamp, so the
+surface's full N domain); the player's own contacts with fleet members are doll-level and
+only logged (`universe.rs`), outside this census by construction; a future scene with
+ship-scale lattice bodies (reach ~ 10²–10³ quanta, v\* at 10⁻³–10⁻² c) would sit in the
+driven-pair law's regime instead.
 
 **[20261018-0722-scout-6362] The skip's open design question ("a real fix needs the contact
 root |d| = reach — an integer-law design question", 1648) is answered in closed form: the
@@ -50,8 +79,8 @@ fleet lattice, and every ship-scale contact above a few 10⁻³–10⁻² c clos
 max(0, 1−ρ) over arrival phase; the boundary is scale-invariant (reach 7–709 quanta, |w|
 2–9.4×10⁵ quanta/chronon, closing β to 0.9 — checker2 corrected from the dossier's
 1.9×10⁶, which no measured arm reaches); the gate is the batch convention, not a v1
-artifact (the Newtonian resolver has it too, `law.rs:598` beside `relativity.rs:236`); the consumed
-bookkeeping never re-fires a skipped pair (no exchange in 300 later chronons). Thresholds:
+artifact (the Newtonian resolver has it too, `law.rs:598` beside `relativity.rs:236`); the
+consumed bookkeeping never re-fires a skipped pair (no exchange in 300 later chronons). Thresholds:
 1 m reach → 6.8×10⁻⁴ c; 10 m → 6.8×10⁻³ c; the design's 0.5 m missile vs a 50 m ship →
 3.4×10⁻² c (at its design speed it never collides); 100 m → 6.8×10⁻² c; 1 km → 0.68 c.
 Belt conjunctions (~10⁻⁵ c) sit far below every threshold — the belt is safe, matching the
@@ -90,9 +119,24 @@ at |k| ≥ 150 quanta (contacts within 5% — d1 is 4.4%; skip fraction equal), 
 crawl speeds (|k| ~ 8: 826 vs 900 contacts, faster equilibration) — the velocity quantum,
 not the skip, is the crawl-speed channel.
 
-
 ## Refuted
 
+- **"The driven-pair law max(0, 1−ρ) governs the flown fleet's skip rate" (this page's own
+  reading of 8144/1648, and the author's pre-registered P2/P3): measured false in the flown
+  battle at relativistic closing — 12% of detected contacts skip at ρ = 0.93–9.6 (5/41 at
+  speed_div 2; 3/32 at seed 2; 46/1,451 at 400 members; 1/49 at the checker's seed 3), where
+  the law predicts exactly zero; the flown skip is the resolve-instant gate (τ\* < 0, mostly
+  ∈ (−1, 0) at 48 members but reaching −8.4 at 400 [checker]), a batch-scheduling ghost whose
+  rate tracks the dwell 2ρ, not the arrival-phase law. The driven-pair law keeps its own
+  domain (single pairs detected one bin ahead; 8144's 294/294) (20261018-1617-spacex-37c1).**
+- **"The sparse (EventCore) stepper is immune to the skip because it resolves a pair at its
+  root tick, where `hit` guarantees approaching" (the author's pre-registered mechanism,
+  predictions.md P2): measured false — the skip set is bit-identical across steppers, and
+  in a many-body component the resolve instant is not the pair's own root-bin start
+  (20261018-1617-spacex-37c1).**
+- **"The skip channel is open in ordinary play" (the danger od 3 was written to price):
+  measured closed at the shipped speeds and radius scale — 0 skips in 1,620 contacts,
+  ρ ≥ 10⁴, v\* ≈ 1.4 c unreachable by any legal closing (20261018-1617-spacex-37c1).**
 - "Contacts use the exact integer special-relativity law" (representation.md §2) below the
   dwell threshold: the contact is detected, logged, and resolved **never** — the receding
   gate drops the impulse of any pair whose closest approach is inside the detection bin
@@ -134,15 +178,22 @@ not the skip, is the crawl-speed channel.
    head-on pair must exchange the exact v1 impulse; the shipped skip is the negative
    control; 8144's domain note: the shipped arms reach β 0.9, not 1.9×10⁶ quanta/chronon);
    (c) multi-pair-bin root ordering (event-driven MD's classical failure mode; ≤ 1.6%
-   contamination at fleet speeds, 1648).
+   contamination at fleet speeds, 1648 — but 12% at 0.84 c closing in the flown battle,
+   37c1: the contamination grows with speed exactly as the dwell shrinks). The plane
+   itself needs none of this at today's speeds and radius scale (37c1: 0 skips, ρ ≥ 10⁴);
+   the fix is for the day fast crossers or missiles fly in the lattice frame — and the
+   flown-fleet rate it must beat is ~0.1–0.2/ρ, the resolve-window fraction, not the
+   driven-pair law.
 2. ~~**The slow grazing half**~~ **Measured innocent** (20261015-0724-dynamics-1648).
    What remains of this direction: *bound* pairs (the pump's 55–62% skip inside a trap —
    dwell under the skip vs a resolving twin is f50d's domain) and filling fractions ≫ 2%.
-3. **The real rate in a flown fleet:** members share the frame velocity; the player's and
-   leavers' relative speeds decide how often the threshold is crossed in play — unmeasured.
-   The gas numbers bound it: at manoeuvre-scale relative speeds the skip channel is
-   ≤ 10⁻² of transport; it bites only for deliberately fast crossers (missiles, flybys at
-   a large fraction of v\*) — the class direction 1's fix restores.
+3. ~~**The real rate in a flown fleet**~~ **Measured** (20261018-1617-spacex-37c1): 0 in
+   the shipped plane (structural margin 10⁴ in ρ), ~0.1–0.2/ρ at relativistic closing,
+   stepper-independent bit for bit. Residues the run names: the player-side contact path
+   (doll-level, logged not resolved) is where a game would first meet a fast crosser —
+   unmeasured; leaver re-entries after minutes (30 s of game per arm here); and a
+   ship-scale-radius lattice scene (reach ~ 10²–10³ quanta), which would sit in the
+   driven-pair law's regime and is the natural r5 companion scene for adoption gate (b).
 
 ## Contradictions
 
@@ -151,9 +202,14 @@ f3ce/33f1's r5 arms sit in the exchanging regime by construction, a domain bound
 conflict — recorded so no run reads r5's pass as contact-law correctness at speed. The
 innocence and fast-half danger are the same fence read from two sides: the boundary is
 |w| ~ depth, and both sides are measured. The toy's 0%-shipped column and 8144's
-294/294 closed form are the same law at one vs many arms.
+294/294 closed form are the same law at one vs many arms. 8144's per-pair law and 37c1's
+flown-fleet rate are two laws of the same gate, not a conflict: the driven pair is detected
+one bin ahead (skip ⟺ ρ < 1 over arrival phase); the flown many-body contact can be
+detected/resolved late (skip ⟺ the crossing fits in the resolve window, rate ≈ 0.1–0.2/ρ,
+nonzero to ρ = 9.6) — the gate is one, the arrival distribution is the scene's.
 
 ## Runs
 - 20261015-0358-redteam-8144 (awaiting grade): the skip solved in closed form — skip ⟺ τ* ≤ 1,
 - 20261015-0724-dynamics-1648 (awaiting grade): the slow grazing half measured innocent
 - 20261018-0722-scout-6362 (silver): the fix's integer design answered — the root
+- 20261018-1617-spacex-37c1 (awaiting grade): the flown fleet's rate measured — 0 at shipped

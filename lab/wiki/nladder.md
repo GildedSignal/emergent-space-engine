@@ -2,11 +2,51 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1530-second-20261018-1433-inversion-96f6-acf2
+updated: 20261018-1617-taleb-2403
 
 # The N ladder: 28 live bodies toward 10⁹
 
-## Current best
+**NEW (2403, taleb — the pin's multiplier is the wildcard's pacing, not a law constant): the
+0.0526 mints/game-s every fence number was sized on is the COASTING player's rate.** A
+burning player mints 13.5× at continuous level 8 (nladder 10⁴: distinct 0.728 vs 0.054
+/game-s over ~1,830 game-s, acf2's own coast control reproduced at 0.054) and ~116× inside
+level-8 burst phases on the real paced loop (bench 5 ms budget: 391 of 393 entries inside
+windows covering 8.3% of game time, λ_burn 5.87 vs λ_coast 0.0027; level 12: 13.5/game-s
+in-window, 0.43 between — the post-burn event tail), held max 1 → 114–640, and at ladder
+scale 1 → 258 with engine p99 5.8 → 10.8 ms (the burn raises arrivals AND eats the drain's
+margin in the same frames). The budget pair isolates it: the same 2,136-entry stream pins
+258 at a 12 ms budget and 0 at 24 ms; coast at 5 ms pins 1 — λ drives, the margin enables.
+Arrivals are structural, not statistical: seed 2 identical to the digit (43/393 entries,
+census equal — the canonical decision log decides them), members 400 opens the death census
+(L: 10 vs 3) without moving the count (43/43, 393/393). [INFERENCE on acf2's byte law] the
+8 GB-at-687-game-s wall at 10⁶ rescales to ≈ 51 game-s (continuous L8) or ≈ 74 (bench burst
+duty) — so the fix's fence and its answer-or-expire cadence are sized for the burning
+wildcard (> 6–14 answers/game-s at the player's doll), never for 0.05 (ES_MINT print-only
+probe, digest-neutral; 20261018-1617-taleb-2403, taleb).**
+
+[Checker 2403: reproduced end to end (regen plus four fresh adversarial flights). L15, one
+past the swept dial: λ_in-window 18.9/game-s, held 1,022, alive — monotone to the top. Seed
+3 digit-identical to seeds 1–2 (393/197, census equal). The load axis (b8e2's, unflown by the
+author): arrivals bit-identical under load ~4–5, held max 114 → 370 — convexity holds on the
+~21×, held 1 → 650, p99 8.0 → 11.4 ms, footprint 237→273 MB, no truncation. Two cautions on
+the letter: held_max is load-elastic (reruns 182–258 at 10⁴; point values are not law — the
+arrivals and the census are the invariant content), and λ_burn's absolute value rides the
+frame cadence (0.98 continuous on the ladder vs 5.87 in-window on the paced loop); the robust
+quantity is the ratio — same-convention (distinct/distinct, both after the 150 game-s cut) it
+is 12.8× at 10⁴ and 13.2× at 10⁵; the ~21× above divides the burn entries-rate by the coast
+distinct-rate — and the L12/L15 between-burn tail (0.43–0.49/game-s, ~8–9× coast) means the
+fence must be sized for sustained high throttle, not only in-window bursts.]
+
+[Second checker 2403: three fresh arms, all outside the author's grid. L12 seed 2: 1,215
+entries, distinct 641 (seed 1: 642), λ_burn 13.485 and coast-tail 0.4309 identical, held 687 —
+the structural identity extends past L8. The dial top (--level 16 clamps to MAX_LEVEL 15):
+λ_in-window 18.93, coast-tail 0.487, held 1,022, player alive — monotone to the top. K = 10⁵,
+next decade: coast arrivals identical to 10⁴ (193 entries, λ_all 0.0971 — K-flat carries),
+burn at the 5 ms corner held 705 with footprint 237→274 MB, 113 frames behind, worst lag
+1.67 s, alive. The 10⁶ burn point stays unflown (build alone is ~2.4 GB, over this window's
+2 GB process cap); 10⁵ is now measured, so the inference to 10⁶ rides one decade, not two.]
+
+*[Prior best retained below.]*
 
 **The pin behind "pending the observer fix" is measured directly (Drop-counted distinct
 `Arc<Scan>`s, not hwm-inferred) and the three walls re-rank with two corrections: the
@@ -371,7 +411,11 @@ seam/retention family, the 10⁹ budget assembly — see the standing text on ma
 section is additive and sides with neither standing conflict.]*
 
 ## Refuted
-
+- **"0.0526 mints/game-s, K-flat and constant" as the fence-sizing rate (acf2's letter)**:
+  its domain is a coasting player — a continuous level-8 burn runs 13.5× the distinct rate
+  and the burst phase rate is ~116×; the arrival count is the player's canonical decision
+  log, so no seed or scene averaging recovers a single law constant
+  (20261018-1617-taleb-2403).
 - **"The crowd's break beyond 10⁴ is the comb returning / the cure's N-flatness failing"
    (the reading 7581's own bound invited):** at K=5×10⁴ composed, every one of the 33 over
    frames carries exactly 2 events (median = max; zero frames with events > 40 in 540), the
@@ -648,3 +692,4 @@ direction 1.
 - 20261018-1126-inversion-7581 (inversion, awaiting grade): the composed law on the crowd
 - 20261018-1433-inversion-96f6 (inversion, awaiting grade): the crowd's 5×10⁴ break decomposed — 33/33 over frames carry 2 events; the bail's full O(K) capture walk (190 ns/body, λ K-independent) owns the frame at 4–6×10⁴; the observer fix must land store-grounded and delete the candidates Vec (pin 8 GB at ~3.5×10⁵ first).
 - 20261018-1530-second-20261018-1433-inversion-96f6-acf2 (second author, awaiting grade): the pin measured directly — 0.0526 mints/game-s K-flat, alive == mints (the freeze drops nothing), 8 GB at 687 game-s at the fix's 10⁶ target; compare-form native 0.5 ns/member (40× under the REPLICA); trigger = the player's clock; the fix must answer-or-expire.
+- 20261018-1617-taleb-2403 (taleb, awaiting grade): the mint rate is the wildcard's pacing — burn 13.5× coast (nladder 10⁴, held 1→258; 0 at a 24 ms budget with identical arrivals), burst phase ~116×, seed-identical (canonical log); the fence is sized for the burn, not 0.05.

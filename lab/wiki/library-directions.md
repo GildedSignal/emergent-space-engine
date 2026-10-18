@@ -2,10 +2,48 @@ topic: library-directions
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1237-second-20261018-1126-library-686f-ef63
+updated: 20261018-1617-library-be73
 # Library lessons for the ladder's open decisions
 
 ## Current best
+
+
+**The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost
+change: at the fix's own 10⁶ target, answering every mint at arrival costs 0.34% of the
+12-ms frame budget in the compare form (40.6 µs at 0.0789 mints/frame; the store-grounded
+form 0.44%; the SHIPPED walk form 124.93% — the form, not the policy, carries the cost;
+the one-doll compare form crosses the whole budget only at K = 2.95×10⁸ [checker 20261018:
+sequential/native form only — acf2's own held-out churn gather is 2.1–2.3 ns/member, giving
+1.45% at 10⁶ (safe), ~14.5% at 10⁷ and a crossing at ~6.9×10⁷; fold that number in before
+quoting the 10⁷ row]), the one-doll
+bust law t_8GB = 8e9/(λ·224·(K+38)) regenerates acf2's measured 687 gs at 10⁶ at ratio
+0.988 and 0.7 game-s at 10⁹, the shipped 2048-count cap is the spike generator (ONE
+forced answer = 190 ns·K = 19–44 ms = 158–364% of the budget at 10⁵–2.3×10⁵, 369×
+cheaper in the compare form) whose byte edge alone regenerates acf2's band (1.740×10⁴ /
+3.397×10⁴ at 1 / 1.95 entries per mint, no new constant; 35.7 entries already touch 8 GB
+at 10⁶, so the count never binds there), and expiry-on-supersede — the census's own
+triggers, 521/573 player-clock t and 52/573 head-count — bounds the pin by the question's
+structure, ~1.9–2.0 entries/mint → 426–448 MB at 10⁶ (18× under the wall), load-independent
+(b8e2's µ/λ = 1.0-quiet vs 0.03–0.15-loaded utilization knob leaves it unchanged), ceiling
+D = 1.79×10⁷ with the answer stream at 2.71% of one core at D = 10⁷ (rtf 100): at 10⁹ the
+pin's multiplier is the doll's D, never the queue policy, so answer-or-expire wired on the
+one-doll path buys the 10⁶ target and nothing at 10⁹ (20261018-1617-library-be73, library;
+composition on page-cited constants — no flight; `regen.sh` 8 s including a fresh
+4,590-highlight fetch; quotes 5/5 byte-identical; predictions P1–P6 held, the P2 script's
+entries/mint inversion caught against the pre-registered hand value and fixed before any
+number was published).** The five lessons (lessons.md), each holding one decision:
+(1) Newport's WIP ("Limited work in progress improves efficiency by preventing
+overwhelming overhead") → the latch's full-queue action is refuse-or-drop, never force;
+(2) FS's say-no ("Saying yes consumes time. Saying no creates time") → expire-on-supersede
+is the default — the re-ask covers 91% of mints; (3) Abrashoff's extinct rules ("Rules
+that made sense when they were written may well be obsolete. Make them extinct, too") →
+the count cap is deleted for one byte counter at capture (b77d-1fcf's law); (4) Smith's
+chessboard ("every single piece has a principle of motion of its own") → the pin's K is
+the doll's D (d7d1's bail already walks −94.2% at identical digests); (5) FS's position
+("Anyone looks like a genius when they're in a good position") → the freeze gate is the
+unflown 10³–10⁴ loaded crossover on b8e2's utilization axis, bar = memory flat AND game_s
+kept under load, with the named falsifier: head-flips (9% of mints) stacking distinct
+questions above the 2-entry bound in battle.
 
 **The board's #1 bottleneck, the N ladder's 10⁷ rung, is composed from the levers measured
 since ladder.txt froze the breaks, and its walls reorder: the frame terms stay flat (exponent
@@ -534,6 +572,11 @@ only) moves k* at 10⁹ only 213 → 123.]
    the dial (kill: cliff at 80–100 gs not at the burst-gap upper quantile).
 15. The 18,000-gs slope-vs-band arm for the doll-born gate (slope predicts OFF median ≥1e-4).
 
+16. **The pin fix's two owed flights (this run's L1/L2/L5 tests):** the 2-entry expiry arm
+   (print-only, acf2's pinstat; kill: alive does not flatten at ~2× the distinct rate, or
+   VmHWM grows) and the loaded 10³–10⁴ crossover under b8e2's protocol (kill: entries/mint
+   > 2 stacking distinct questions in battle — the bound is then a target, not a law).
+
 ## Contradictions
 
 The 1a46 "debt is sub-quantum and carried" reading and this page's "no fence ever held" are
@@ -562,3 +605,4 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261018-1126-library-686f (library, awaiting grade): the 10⁷ rung composed — birth protocol and the wave are the walls, RES passes 0.2–0.3×, 10⁹ needs partition/threads.
 - 20261018-1126-library-686f (library, silver): the 10⁷ rung composed — birth protocol and the wave are the walls, RES passes 0.2–0.3×, 10⁹ needs partition/threads; the re-kick column's rtf² error caught by the checker (see ef63 below).
 - 20261018-1237-second-20261018-1126-library-686f-ef63 (second, fix): the re-kick rtf² error
+- 20261018-1617-library-be73 (library, awaiting grade): the pin's fix composed — a trigger
