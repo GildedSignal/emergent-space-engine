@@ -1,0 +1,60 @@
+diff --git a/crates/allocator/src/alloc.rs b/crates/allocator/src/alloc.rs
+index 8e8d8dc2..d2db1793 100644
+--- a/crates/allocator/src/alloc.rs
++++ b/crates/allocator/src/alloc.rs
+@@ -61,6 +61,14 @@ pub struct Config {
+     pub observer: [i64; 2],
+     /// Radius of what the frame draws around the observer (1/Q units).
+     pub view_radius: i64,
++    /// Commit-at-GVT finality: publish only at or below the all-verified frontier (the
++    /// light-cone ahead-publication is disabled). Every future clash restores its lineages
++    /// to stride starts, and every stride starts at or after the frontier, so no restore
++    /// can cross a published tick: Time Warp's irrevocable-output rule.
++    pub gvt_finality: bool,
++    /// The same cap one notch lower, at the sync floor (the last grid tick at or below the
++    /// frontier), for cascaded rollbacks whose walk-back may reach below the frontier.
++    pub gvt_sync_floor: bool,
+     /// SITA: regions costing more than a fair share of the workers run on pinned performance
+     /// workers; small regions never queue behind them.
+     pub lanes: bool,
+@@ -93,6 +101,8 @@ impl Default for Config {
+             split_lookahead: 2,
+             split_every: 2,
+             min_region: 32,
++            gvt_finality: false,
++            gvt_sync_floor: false,
+             hard_speed: None,
+             observer: [0, 0],
+             view_radius: 0,
+@@ -1536,7 +1546,12 @@ impl<S: Stepper + Send + 'static> State<S> {
+     /// the region is final if it stays alone.
+     fn finalize(&mut self) {
+         self.last_finalize = Some(Instant::now());
+-        let front = self.frontier();
++        let front = if self.cfg.gvt_sync_floor {
++            let f = self.frontier();
++            self.t0 + (f - self.t0).div_euclid(self.sync()) * self.sync()
++        } else {
++            self.frontier()
++        };
+         for r in self.regions.values_mut() {
+             let next = r.history.iter().rev().find(|e| e.complete && e.tick <= front && e.tick >= r.fin_hi && e.tick > r.fin).map(|e| e.snaps.clone());
+             if let Some(parts) = next {
+@@ -1544,6 +1559,9 @@ impl<S: Stepper + Send + 'static> State<S> {
+             }
+         }
+         let Some(v) = self.lightcone else { return };
++        if self.cfg.gvt_finality || self.cfg.gvt_sync_floor {
++            return;
++        }
+         if self.cfg.fast_finality {
+             return self.finalize_shared(v);
+         }
+@@ -1552,7 +1570,6 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 .regions
+                 .values()
+                 .map(|r| (r.id, r.fin_parts.iter().map(|p| (p.tick, p.bbox)).collect(), r.fin, r.fin_parts.iter().map(|p| p.rmax).max().unwrap_or(0)))
+-                .collect();
+             let mut changed = false;
+             let ids: Vec<u64> = self.regions.keys().copied().collect();
+             for id in ids {
