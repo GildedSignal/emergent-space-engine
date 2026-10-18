@@ -1,0 +1,23 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.68s
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.71s
+== arm A: the shipped bench crowd (400 members, 428 bodies; 0d46's scene) ==
+== control: --members 4 (32 bodies) ==
+== arm B: the formation (one shared compiled key, K=4000, e=2^-48) ==
+== arm B2: the same, smaller (K=1000) ==
+arm400: windows=30 bodies=428 | ship us/body=10.76 (cross 4.46 ms, row 0.14 ms, share 0.97) | tier us/body=0.000 (solve 0.000, row 0.000) -> walk x10759345794393 | census us/body=0.43 | groups/gather=0.0 gmax=0 eligible/gather=0 tiered/gather=0 kick_inel/gather=0 rebound/gather=0 solve_fail/gather=0
+    audit(all windows): audited=0 px_viol=0 panel_viol=0 te0=0 te1=0 te2=0 max_dth_px=0.000 max_dls_tol=0.00e+00 max_dshift_tol=0.00e+00 max_dclosing_tol=0.00e+00 exact_keys_last=215
+ctl4: windows=10 bodies=32 | ship us/body=45.62 (cross 1.42 ms, row 0.04 ms, share 0.97) | tier us/body=0.000 (solve 0.000, row 0.000) -> walk x45625000000000 | census us/body=1.56 | groups/gather=0.0 gmax=0 eligible/gather=0 tiered/gather=0 kick_inel/gather=0 rebound/gather=0 solve_fail/gather=0
+    audit(all windows): audited=0 px_viol=0 panel_viol=0 te0=0 te1=0 te2=0 max_dth_px=0.000 max_dls_tol=0.00e+00 max_dshift_tol=0.00e+00 max_dclosing_tol=0.00e+00 exact_keys_last=29
+ring4000: windows=4 bodies=4071 | ship us/body=7.24 (cross 28.39 ms, row 1.08 ms, share 0.95) | tier us/body=0.555 (solve 0.132, row 0.278) -> walk x13 | census us/body=0.41 | groups/gather=1.1 gmax=4000 eligible/gather=4000 tiered/gather=200 kick_inel/gather=3792 rebound/gather=8 solve_fail/gather=0
+    audit(all windows): audited=48000 px_viol=0 panel_viol=0 te0=48000 te1=0 te2=0 max_dth_px=0.000 max_dls_tol=1.26e-11 max_dshift_tol=1.09e-12 max_dclosing_tol=1.01e-04 exact_keys_last=4058
+ring1000: windows=4 bodies=1071 | ship us/body=6.94 (cross 7.15 ms, row 0.28 ms, share 0.95) | tier us/body=0.476 (solve 0.126, row 0.251) -> walk x15 | census us/body=0.35 | groups/gather=1.1 gmax=1000 eligible/gather=1000 tiered/gather=50 kick_inel/gather=948 rebound/gather=2 solve_fail/gather=0
+    audit(all windows): audited=12000 px_viol=0 panel_viol=0 te0=12000 te1=0 te2=0 max_dth_px=0.000 max_dls_tol=1.26e-11 max_dshift_tol=1.09e-12 max_dclosing_tol=9.18e-05 exact_keys_last=1058
+== the bench crowd's key spread at coarser quantization (the domain probe) ==
+QBITS=8 groups=413 gmax=3 eligible=886
+QBITS=5 groups=2497 gmax=11 eligible=7597
+QBITS=3 groups=2781 gmax=37 eligible=12286
+  "bodies": 428,
+    "view_gather": {

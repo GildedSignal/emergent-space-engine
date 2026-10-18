@@ -1,0 +1,424 @@
+diff --git a/crates/universe/examples/phasegather.rs b/crates/universe/examples/phasegather.rs
+new file mode 100644
+index 00000000..683650ec
+--- /dev/null
++++ b/crates/universe/examples/phasegather.rs
+@@ -0,0 +1,40 @@
++//! The phase-word gather probe (lab run 20261018-1025-second-…-e401): a formation ring — K ships
++//! on ONE compiled orbit (same OrbitSpec but the phase) in Home's doll beside the shipped plane —
++//! flown through the shipped `gather_cached` with the run's print-only tier probe inside it.
++//! The audit and the prices print as TIERPROBE lines; nothing feeds back into the View.
++//! cargo run --release -p emergent-universe --example phasegather -- [K [frames [rtf]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane_extra, Plane};
++use emergent_universe::{Budget, Config};
++use emergent_space::orbit::Scalar;
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let k: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(4_000);
++    let frames: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(600);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let e_q48: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let Plane { mut u, dolls, names, player, .. } =
++        plane_extra(Config::default(), 1, Order::Sparse, 1, 48, 0).expect("the plane");
++    let home = dolls[1];
++    let peri = Scalar::raw(6_000, 18).unwrap(); // 6000 root units: above the player's 4,740
++    let angle = 0x2000_0000u32;
++    for j in 0..k {
++        let phase = (((j as u128) << 32) / (k as u128)) as u32;
++        let id = u
++            .add_body(emergent_universe::body::Kind::Ship, emergent_universe::OrbitSpec { doll: home, periapsis: peri, e_q48, clockwise: false, angle, phase }, Scalar::raw(3, -2).unwrap())
++            .expect("ring member");
++        let _ = id;
++    }
++    u.start().expect("start");
++    let mut cache = emergent_universe::view::ViewCache::default();
++    let mut names = names;
++    names.resize(u.n_bodies(), String::new());
++    let _ = player;
++    let t0 = std::time::Instant::now();
++    for _ in 0..frames {
++        let _ = u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: None }, i64::MAX);
++        let _ = emergent_universe::view::gather_cached(&u, &names, &mut cache);
++    }
++    println!("phasegather: K={k} frames={frames} rtf={rtf} e_q48={e_q48} bodies={} wall={:.2}s", u.n_bodies(), t0.elapsed().as_secs_f64());
++}
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..5837aa5e 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -330,13 +330,17 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     }
+     // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
++    let __dec = std::time::Instant::now(); // probe e401: the body loop as a whole, split below
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+             continue;
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        let __c0 = std::time::Instant::now();
++         let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        tier_add(T_CROSS, __c0.elapsed().as_nanos() as u64);
++        let __r0 = std::time::Instant::now();
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -362,7 +366,9 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             Some((fi, m)) => push(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64),
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+-    }
++        tier_add(T_ROW, __r0.elapsed().as_nanos() as u64);
++     }
++    tier_add(T_LOOP, __dec.elapsed().as_nanos() as u64);
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
+@@ -399,6 +405,10 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    // probe e401: the phase-word tier, run after every row exists so the audit sees them all.
++    let __tier_probe = std::time::Instant::now();
++    tier_probe(&ctx, &seen, p, t_now, xo, vo, rate_obs);
++    tier_add(T_OTHER, __tier_probe.elapsed().as_nanos() as u64);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+@@ -479,3 +489,332 @@ pub fn clock_text(s: f64) -> String {
+         format!("{} d {} h", (s / 86_400.0).floor(), ((s % 86_400.0) / 3600.0).floor())
+     }
+ }
++
++// ---- print-only probe (lab run 20261018-1025-second-20261018-0932-system-0d46-e401) -----------------------------
++// The phase-word tier for the gather: rows of a shared-key crowd (handed-out fleet members whose
++// tubes share one compiled orbit key and one periapsis angle, differing only by the periapsis-time
++// word) are derived from one shared closed form (R, ω, sense — two reference decodes), a shared
++// per-frame doll-centre line (C(t) ≈ C0 + VC·(t − t_now)) and one shared rate readout, plus the
++// per-member word. Audited against the shipped rows with 2df1's standard and priced. Nothing here
++// feeds the View; no law path is touched.
++
++use std::cell::RefCell;
++
++pub const T_CROSS: usize = 0;
++pub const T_ROW: usize = 1;
++pub const T_LOOP: usize = 2;
++pub const T_OTHER: usize = 3;
++
++#[derive(Default)]
++struct TierAcc {
++    gathers: u64,
++    cross_ns: u64,
++    row_ns: u64,
++    loop_ns: u64,
++    other_ns: u64,
++    census_ns: u64,
++    tier_ns: u64,
++    tier_setup_ns: u64,
++    solve_ns: u64,
++    trow_ns: u64,
++    solve_fail: u64,
++    born_fail: u64,
++    bodies: u64,
++    groups: u64,
++    group_max: usize,
++    eligible: u64,   // members of shared-key groups (from-set, clean kick, key present)
++    tiered: u64,     // eligible and still on the same tube at t_e (rows built)
++    rebound: u64,    // the binding at t_e differs from the census binding (the scar; degrades)
++    kick_inel: u64,  // live kick/partial step at read time (degrades)
++    singleton: u64,  // bodies whose (quantized) group has one member
++    exact_distinct: u64,
++    failed: u64,     // solve failures
++    audited: u64,
++    px_viol: u64,
++    panel_viol: u64,
++    te0: u64,
++    te1: u64,
++    te2: u64,
++    max_dth_px: f64,
++    max_dls_rel: f64,
++    max_dshift_rel: f64,
++    max_dclosing_rel: f64,
++}
++
++thread_local! {
++    static TIER: RefCell<TierAcc> = RefCell::new(TierAcc::default());
++}
++
++fn tier_add(which: usize, ns: u64) {
++    TIER.with(|t| {
++        let mut t = t.borrow_mut();
++        match which {
++            T_CROSS => t.cross_ns += ns,
++            T_ROW => t.row_ns += ns,
++            T_LOOP => t.loop_ns += ns,
++            _ => t.other_ns += ns,
++        }
++    });
++}
++
++fn tier_row_seen(id: usize, name: &str, kind: u8, temp: f64, lum: f64, pos: [f64; 2], vel: [f64; 2], rate: f64, radius_root: f64, t_e: f64, t_now: Tick, xo: [f64; 2], vo: [f64; 2], rate_obs: f64) -> Seen {
++    // The shipped `push` math, verbatim, for a fleet member row (temp 3500, lum 1e-6, kind 4).
++    let d = [pos[0] - xo[0], pos[1] - xo[1]];
++    let dist = dot(d, d).sqrt().max(1e-9);
++    let toward = [d[0] / dist, d[1] / dist];
++    let n_prop = [-toward[0], -toward[1]];
++    let shift = ((1. - dot(n_prop, vo)) / rate_obs) / ((1. - dot(n_prop, vel)) / rate);
++    let (dir, _) = aberration(toward, vo);
++    Seen {
++        id,
++        name: name.to_string(),
++        kind,
++        direction: dir,
++        light_seconds: dist * TICK_SECONDS,
++        offset: [d[0] * TICK_SECONDS, d[1] * TICK_SECONDS],
++        closing: dot(toward, vo) - dot(toward, vel),
++        color: blackbody(temp * shift),
++        luminosity: lum * shift.powi(4),
++        shift,
++        age: (t_now as f64 - t_e) * TICK_SECONDS,
++        lag: 0.0,
++        angular_radius: (radius_root / dist).atan(),
++    }
++}
++
++fn tier_probe(ctx: &crate::ctx::Ctx, seen: &[Seen], p: usize, t_now: Tick, xo: [f64; 2], vo: [f64; 2], rate_obs: f64) {
++    use std::collections::HashMap;
++    TIER.with(|acc| acc.borrow_mut().gathers += 1);
++    let bodies = ctx.info.len();
++    // The census: one walk (the scan's own capture walk), grouping handed-out members by
++    // (compiled orbit key, doll, sense). The periapsis angle is NOT in the key: members of one
++    // compiled orbit differ by (angle, periapsis time) = one phase offset, the word below.
++    let t_cens = std::time::Instant::now();
++    // The exact-key count (what efd4 interned) and the quantized groups (the tier's representation):
++    // the compiled orbit key quantized to PHASE_QBITS relative (default 14) — the audit is the judge.
++    let qbits: u32 = std::env::var("PHASE_QBITS").ok().and_then(|s| s.parse().ok()).unwrap_or(14).min(48);
++    let (psh, ksh) = (62 - qbits, 48 - qbits);
++    let mut groups: HashMap<((i16, i64, u64, i16, bool), u16, bool), Vec<usize>> = HashMap::new();
++    let mut exact: HashMap<(emergent_space::orbit::OrbitKey, u16, bool), ()> = HashMap::new();
++    let mut bindings: Vec<Option<crate::bind::Binding>> = Vec::new();
++    let mut singleton = 0u64;
++    for i in 0..bodies {
++        if i == p || !ctx.bodies.alive(i) {
++            continue;
++        }
++        let Some(b) = ctx.bodies.binding_at(i, t_now) else { continue };
++        let Some(k) = b.entry.trajectory.key() else { continue };
++        exact.insert((k, b.doll, b.entry.clockwise), ());
++        let q = ((k.periapsis.exponent(), k.periapsis.significand() >> psh, k.k >> ksh, k.k_exponent, k.null), b.doll, b.entry.clockwise);
++        groups.entry(q).or_default().push(i);
++        bindings.resize(i + 1, None);
++        bindings[i] = Some(b);
++    }
++    let census_ns = t_cens.elapsed().as_nanos() as u64;
++    let mut by_id: HashMap<usize, &Seen> = HashMap::with_capacity(seen.len());
++    for s in seen {
++        by_id.insert(s.id, s);
++    }
++    let exact_distinct = exact.len() as u64;
++    let mut centre_cache: HashMap<u16, ([f64; 2], [f64; 2])> = HashMap::new();
++    let mut tier_ns = 0u128;
++    let mut setup_ns = 0u128;
++    let (mut eligible, mut tiered, mut rebound, mut kick_inel, mut failed) = (0u64, 0u64, 0u64, 0u64, 0u64);
++    let (mut audited, mut px_viol, mut panel_viol, mut te0, mut te1, mut te2) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
++    let (mut max_dth_px, mut max_dls_rel, mut max_dshift_rel, mut max_dclosing_rel) = (0f64, 0f64, 0f64, 0f64);
++    let mut group_max = 0usize;
++    let mut n_groups = 0u64;
++    let rpx = |ls: f64| 432.0 * ((ls.max(1e-6).log10() + 5.0) / 8.6).clamp(0.0, 1.0);
++    for ((_, doll_id, _cw), ms) in groups.iter() {
++        if ms.len() < 2 {
++            singleton += ms.len() as u64;
++            continue;
++        }
++        n_groups += 1;
++        group_max = group_max.max(ms.len());
++        eligible += ms.len() as u64;
++        let doll = &ctx.dolls[*doll_id as usize];
++        let k_scale = 2f64.powi(-(doll.shift as i32));
++        let Some(centre) = doll.centre else { continue };
++        let t_setup = std::time::Instant::now();
++        let r0 = ms[0];
++        let Some(bref) = bindings[r0].as_ref() else { continue };
++        let Ok((x1, v1)) = bref.cartesian(t_now) else { continue };
++        let (x1, v1) = ([to_f64(x1[0]), to_f64(x1[1])], [to_f64(v1[0]), to_f64(v1[1])]);
++        let r_fit = (x1[0] * x1[0] + x1[1] * x1[1]).sqrt();
++        let sp = (v1[0] * v1[0] + v1[1] * v1[1]).sqrt();
++        if !(r_fit > 0.0 && sp > 0.0 && r_fit.is_finite()) {
++            continue;
++        }
++        let omega = sp / r_fit; // rad per doll time, circular fit
++        let sense = if x1[0] * v1[1] - x1[1] * v1[0] >= 0.0 { 1.0 } else { -1.0 };
++        let theta0 = x1[1].atan2(x1[0]); // the reference's geometric angle at t_now
++        let ce = 2f64.powi(bref.clock_exp as i32); // doll time per root tick
++        let tref_word = bref.tube.periapsis_time.get() as i64;
++        let aref = bref.tube.periapsis_angle as i64;
++        let (c0, vc) = *centre_cache.entry(*doll_id).or_insert_with(|| crate::observe::root_state(ctx, centre, t_now).unwrap_or(([0.0; 2], [0.0; 2])));
++        setup_ns += t_setup.elapsed().as_nanos();
++        // The phase word: one offset per member (angle + periapsis time on the shared compiled key).
++        let t_tier = std::time::Instant::now();
++        let mut solve_ns_local = 0u128;
++        let mut row_ns_local = 0u128;
++        let solve_fail = std::cell::Cell::new(0u64);
++        let born_fail = std::cell::Cell::new(0u64);
++        let theta_base = |t: Tick| theta0 + sense * omega * (t - t_now) as f64 * ce;
++        let theta_of = |phi: f64, t: Tick| theta_base(t) + phi;
++        let pos_of = |phi: f64, t: Tick| -> [f64; 2] {
++            let th = theta_of(phi, t);
++            let dt = (t - t_now) as f64;
++            [c0[0] + vc[0] * dt + k_scale * r_fit * th.cos(), c0[1] + vc[1] * dt + k_scale * r_fit * th.sin()]
++        };
++        let vel_of = |phi: f64, t: Tick| -> [f64; 2] {
++            let th = theta_of(phi, t);
++            [vc[0] - sense * sp * th.sin(), vc[1] + sense * sp * th.cos()]
++        };
++        let g = |phi: f64, t: Tick| -> f64 { let q = pos_of(phi, t); t as f64 + ((q[0] - xo[0]) * (q[0] - xo[0]) + (q[1] - xo[1]) * (q[1] - xo[1])).sqrt() - t_now as f64 };
++        let solve = |phi: f64| -> Option<Tick> {
++            let mut t = {
++                let pn = pos_of(phi, t_now);
++                let d0 = ((pn[0] - xo[0]) * (pn[0] - xo[0]) + (pn[1] - xo[1]) * (pn[1] - xo[1])).sqrt();
++                t_now - d0 as i64
++            };
++            let mut steps = 0;
++            if g(phi, t) > 0.0 {
++                while g(phi, t) > 0.0 {
++                    t -= 1;
++                    steps += 1;
++                    if steps > 4096 { return None; }
++                }
++            } else {
++                while g(phi, t + 1) <= 0.0 {
++                    t += 1;
++                    steps += 1;
++                    if steps > 4096 { return None; }
++                }
++            }
++            Some(t)
++        };
++        let Some(te_ref) = solve(0.0) else { failed += ms.len() as u64; continue; };
++        let Ok((_, _, rate_ref_full)) = crate::observe::state_rate(ctx, r0, te_ref) else { failed += ms.len() as u64; continue; };
++        let vref_root = vel_of(0.0, te_ref);
++        let rate_base = rate_ref_full * (1.0 + vc[0] * vref_root[0] + vc[1] * vref_root[1]);
++        // Per member: the word, the solve, the row (fleet members keep their fleet identity).
++        let rows: Vec<(usize, Seen, Tick)> = ms.iter().filter_map(|&j| {
++            let b = bindings[j].as_ref()?;
++            let word = b.tube.periapsis_time.get() as i64;
++            let dturns = (b.tube.periapsis_angle as i64 - aref).rem_euclid(1i64 << 32) as f64 / (1u64 << 32) as f64;
++            let phi = std::f64::consts::TAU * dturns + sense * omega * ce * (tref_word - word) as f64;
++            let ts = std::time::Instant::now();
++            let Some(te) = solve(phi) else {
++                solve_fail.set(solve_fail.get() + 1);
++                return None;
++            };
++            solve_ns_local += ts.elapsed().as_nanos();
++            if te < ctx.info[j].born { born_fail.set(born_fail.get() + 1); return None; }
++            let tr = std::time::Instant::now();
++            let _ = tr;
++            let pos = pos_of(phi, te);
++            let vel = vel_of(phi, te);
++            let rate = rate_base / (1.0 + vc[0] * vel[0] + vc[1] * vel[1]);
++            let radius_root = to_f64(ctx.info[j].radius) * k_scale;
++            let (id, kind, temp, lum) = match ctx.info[j].from {
++                Some((fi, m)) => (1_000_000 + fi as usize * 1000 + m as usize, 4u8, 3500f64, 1e-6f64),
++                None => {
++                    let kb = match ctx.info[j].kind { Kind::Planet => 1u8, Kind::Moon => 2u8, _ => 3u8 };
++                    let (t0, l0) = rest(ctx.info[j].kind, j, doll.name);
++                    (j, kb, t0, l0)
++                }
++            };
++            let out = Some((j, tier_row_seen(id, "?", kind, temp, lum, pos, vel, rate, radius_root, te as f64, t_now, xo, vo, rate_obs), te));
++            row_ns_local += tr.elapsed().as_nanos();
++            out
++        }).collect();
++        tier_ns += t_tier.elapsed().as_nanos();  // the whole span; solve/row counted inside it
++        TIER.with(|a| { let mut x = a.borrow_mut(); x.solve_ns += solve_ns_local as u64; x.trow_ns += row_ns_local as u64; x.solve_fail += solve_fail.get(); x.born_fail += born_fail.get(); });
++        // The audit and the degrade checks (not priced): pure tube at te, still on the census tube.
++        for (j, row, te) in rows {
++            let Some(b) = bindings[j].as_ref() else { failed += 1; continue; };
++            let b2 = match ctx.bodies.binding_at(j, te) {
++                Some(b2) => b2,
++                None => { rebound += 1; continue; }
++            };
++            if b2.tube != b.tube {
++                rebound += 1;
++                continue;
++            }
++            let ramped_window = b2.kick.len != 0 && te >= b2.event_time && te - b2.event_time < b2.kick.len;
++            let partial_window = b2.kick.clock && te >= b2.kick.boundary && te - b2.kick.boundary <= 2 * b2.kick.len.max(1);
++            if ramped_window || partial_window {
++                kick_inel += 1;
++                continue;
++            }
++            tiered += 1;
++            let Some(ship) = by_id.get(&row.id) else { failed += 1; continue; };
++            audited += 1;
++            let dth = (row.direction[1].atan2(row.direction[0]) - ship.direction[1].atan2(ship.direction[0])).abs();
++            let dth = dth.min(std::f64::consts::TAU - dth);
++            let rp = rpx(ship.light_seconds);
++            let dth_px = dth * rp;
++            // 2df1's panel rule verbatim: |Δ| > 1e-4·|x| + 1e-12 is the violation.
++            let (dls_rel, dshift_rel, dclosing_rel) = (
++                (row.light_seconds - ship.light_seconds).abs() / (1e-4 * ship.light_seconds.abs() + 1e-12).max(1e-300) * 1e-4,
++                (row.shift - ship.shift).abs() / (1e-4 * ship.shift.abs() + 1e-12).max(1e-300) * 1e-4,
++                (row.closing - ship.closing).abs() / (1e-4 * ship.closing.abs() + 1e-12).max(1e-300) * 1e-4,
++            );
++            let dls_px = (rpx(row.light_seconds) - rpx(ship.light_seconds)).abs();
++            let te_ship = t_now as f64 - ship.age / TICK_SECONDS;
++            let dte = (te as f64 - te_ship).round().abs() as u64;
++            if dte == 0 { te0 += 1; } else if dte == 1 { te1 += 1; } else { te2 += 1; }
++            if dth_px >= 1.0 || dls_px >= 1.0 { px_viol += 1; }
++            if dls_rel > 1.0 || dshift_rel > 1.0 || dclosing_rel > 1.0 { panel_viol += 1; }
++            max_dth_px = max_dth_px.max(dth_px);
++            max_dls_rel = max_dls_rel.max(dls_rel);
++            max_dshift_rel = max_dshift_rel.max(dshift_rel);
++            max_dclosing_rel = max_dclosing_rel.max(dclosing_rel);
++        }
++    }
++    let tier_probe_ns = t_cens.elapsed().as_nanos() as u64;
++    TIER.with(|acc| {
++        let mut a = acc.borrow_mut();
++        a.census_ns += census_ns;
++        a.tier_ns += tier_ns as u64;
++        a.tier_setup_ns += setup_ns as u64;
++        a.bodies = bodies as u64;
++        a.groups += n_groups;
++        a.group_max = a.group_max.max(group_max);
++        a.eligible += eligible;
++        a.tiered += tiered;
++        a.rebound += rebound;
++        a.kick_inel += kick_inel;
++        a.singleton += singleton;
++        a.exact_distinct = a.exact_distinct.max(exact_distinct);
++        a.failed += failed;
++        a.audited += audited;
++        a.px_viol += px_viol;
++        a.panel_viol += panel_viol;
++        a.te0 += te0;
++        a.te1 += te1;
++        a.te2 += te2;
++        a.max_dth_px = a.max_dth_px.max(max_dth_px);
++        a.max_dls_rel = a.max_dls_rel.max(max_dls_rel);
++        a.max_dshift_rel = a.max_dshift_rel.max(max_dshift_rel);
++        a.max_dclosing_rel = a.max_dclosing_rel.max(max_dclosing_rel);
++        if a.gathers % 60 == 0 {
++            println!(
++                "TIERPROBE gathers=60 bodies={} exact_keys={} | ship: loop_ms={:.2} cross_ms={:.2} row_ms={:.2} cross_share={:.2} | census_ms={:.2} setup_ms={:.2} tier_ms={:.2} solve_ms={:.3} trow_ms={:.3} solve_fail={} born_fail={} | groups={} gmax={} eligible={} tiered={} rebound={} kick_inel={} singleton={} failed={} | audit: audited={} px_viol={} panel_viol={} te=0:{}/1:{}/2+:{} max_dth_px={:.3} max_dls_tol={:.2e} max_dshift_tol={:.2e} max_dclosing_tol={:.2e} | probe_ms={:.2}",
++                a.bodies, a.exact_distinct,
++                a.loop_ns as f64 / 60.0 / 1e6, a.cross_ns as f64 / 60.0 / 1e6, a.row_ns as f64 / 60.0 / 1e6,
++                a.cross_ns as f64 / (a.loop_ns.max(1)) as f64,
++                a.census_ns as f64 / 60.0 / 1e6, a.tier_setup_ns as f64 / 60.0 / 1e6, a.tier_ns as f64 / 60.0 / 1e6,
++                a.solve_ns as f64 / 60.0 / 1e6, a.trow_ns as f64 / 60.0 / 1e6, a.solve_fail, a.born_fail,
++                a.groups, a.group_max, a.eligible, a.tiered, a.rebound, a.kick_inel, a.singleton, a.failed,
++                a.audited, a.px_viol, a.panel_viol, a.te0, a.te1, a.te2,
++                a.max_dth_px, a.max_dls_rel, a.max_dshift_rel, a.max_dclosing_rel,
++                tier_probe_ns as f64 / 60.0 / 1e6,
++            );
++            let keep_bodies = a.bodies;
++            *a = TierAcc::default();
++            a.bodies = keep_bodies;
++        }
++    });
++}
