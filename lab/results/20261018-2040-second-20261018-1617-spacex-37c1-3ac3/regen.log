@@ -1,0 +1,56 @@
+== build (own target dir)
+    Finished `release` profile [optimized + debuginfo] target(s) in 53.81s
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.38s
+== shipped tests with the patch (flag off must be bit-identical)
+      1 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+      1 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.79s
+      1 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
+      1 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.61s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.47s
+== probe: gates (a)+(b), the random sweep, the ship-scale gas (parts A/B/C)
+
+== part C: ship-scale trapped gas through Chronon (200 bodies, 300 chronons)
+gas v0.15Q fix=false: contacts 240, contact chronons 168, pure-ghost chronons 144, ledger exact, subluminal
+gas v0.15Q fix=true: contacts 238, contact chronons 168, pure-ghost chronons 0, ledger exact, subluminal
+gas v0.45Q fix=false: contacts 543, contact chronons 249, pure-ghost chronons 150, ledger exact, subluminal
+gas v0.45Q fix=true: contacts 640, contact chronons 273, pure-ghost chronons 0, ledger exact, subluminal
+== flight sweep (the flown plane: census, fix, oracle)
+== arm ship400off (seed 1 members 400 speed_div 32768 order sparse fix 0)
+ship400off: 1571 census lines, 0 fires
+== arm ship400on (seed 1 members 400 speed_div 32768 order sparse fix 1)
+ship400on: 1571 census lines, 0 fires
+== arm sd2off (seed 1 members 48 speed_div 2 order sparse fix 0)
+sd2off: 41 census lines, 0 fires
+== arm sd2on (seed 1 members 48 speed_div 2 order sparse fix 1)
+sd2on: 46 census lines, 4 fires
+== arm sd2denseon (seed 1 members 48 speed_div 2 order dense fix 1)
+arm sd2denseon FAILED
+sd2denseon: 46 census lines, 4 fires
+== arm sd2m400off (seed 1 members 400 speed_div 2 order sparse fix 0)
+sd2m400off: 1451 census lines, 0 fires
+== arm sd2m400on (seed 1 members 400 speed_div 2 order sparse fix 1)
+sd2m400on: 1482 census lines, 63 fires
+== arm sd4on (seed 1 members 48 speed_div 4 order sparse fix 1)
+sd4on: 44 census lines, 3 fires
+== the two 3-s identity arms (the battle is over in 3 s of game; the dense arm exits
+# 124 by timeout like 37c1's — its census is complete and is the identity check)
+3s dense/sparse with the fix: IDENTICAL
+3s == 30s sparse: the battle is over in 3 s
+== analysis
+ship400off   contacts  1571 ghosts    0 fires    0 tau_min None contaminated(tau*<-1)   0 | PAIR    0 bit-identical    0 max rel dev 0.000e+00
+ship400on    contacts  1571 ghosts    0 fires    0 tau_min None contaminated(tau*<-1)   0 | PAIR    0 bit-identical    0 max rel dev 0.000e+00
+sd2off       contacts    41 ghosts    5 fires    0 tau_min None contaminated(tau*<-1)   0 | PAIR    0 bit-identical    0 max rel dev 0.000e+00
+sd2on        contacts    46 ghosts    4 fires    4 tau_min -0.637379 contaminated(tau*<-1)   0 | PAIR    4 bit-identical    4 max rel dev 0.000e+00
+sd2denseon   contacts    46 ghosts    4 fires    4 tau_min -0.637379 contaminated(tau*<-1)   0 | PAIR    4 bit-identical    4 max rel dev 0.000e+00
+sd2m400off   contacts  1451 ghosts   46 fires    0 tau_min None contaminated(tau*<-1)   0 | PAIR    0 bit-identical    0 max rel dev 0.000e+00
+sd2m400on    contacts  1482 ghosts   63 fires   63 tau_min -1.991476 contaminated(tau*<-1)   4 | PAIR   63 bit-identical   63 max rel dev 0.000e+00
+sd4on        contacts    44 ghosts    3 fires    3 tau_min -0.607986 contaminated(tau*<-1)   0 | PAIR    3 bit-identical    3 max rel dev 0.000e+00
+
+ship400 digest fix-off 4fb497396461d3a964100bbe78af144aa28f8b581b9479187fe50288a33210ed
+ship400 digest fix-on  4fb497396461d3a964100bbe78af144aa28f8b581b9479187fe50288a33210ed
+ship400 bit-identity with the fix on: True
+sd2on vs sd2denseon census cmp-identical (the fix preserves stepper identity): True
+sd2off vs 37c1 sd2 census: 41 vs 41 lines, identical: True
+sd2m400off vs 37c1 sd2m400 census: 1451 vs 1451 lines, identical: True
+ship400off vs 37c1 ship400 census: 1571 vs 1571 lines, identical: True

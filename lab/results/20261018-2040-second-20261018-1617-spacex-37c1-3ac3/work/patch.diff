@@ -1,0 +1,546 @@
+diff --git a/crates/lattice/examples/rt_skipfix.rs b/crates/lattice/examples/rt_skipfix.rs
+new file mode 100644
+index 00000000..ac15c877
+--- /dev/null
++++ b/crates/lattice/examples/rt_skipfix.rs
+@@ -0,0 +1,302 @@
++//! The crossed-in-bin contact scene on the shipped operator (lab run
++//! 20261018-2040-second-20261018-1617-spacex-37c1-3ac3): the two adoption gates the checker
++//! of 20261018-1617-spacex-37c1 named for gold — (a) the closed-form root normal
++//! (20261018-0722-scout-6362) re-derived on the shipped v1 machinery, (b) the frozen
++//! ship-scale crossed-in-bin scene under 1648's criterion.
++//!
++//! - **Part A (gates a+b, driven pairs through the real `Chronon` stepper):** two bodies on
++//!   a crossing course at closing β up to 0.99c, ship-scale reach (512/1024 quanta; the
++//!   plane's battle draws 1.1–2.1×10⁶), lateral offsets b/reach ∈ {0, ¼, ½, 39/40} and the
++//!   miss control 21/20, crossing phases s* ∈ {0.1, 0.5, 0.9}, masses (1000,1000) and
++//!   (1000,1). Per arm: the shipped rule must skip (contact logged, no exchange — the
++//!   negative control), and the fix (SPACEX_FIX=1) must exchange; recovery is measured
++//!   against the oracle — the SAME shipped `exchange` machinery over a 48-bit root normal.
++//! - **Part B (random adversarial integers on the shipped machinery):** random receding
++//!   bin-end states in the ship-scale and battle-scale windows; the fix's classification
++//!   (Δ ≥ 0) must agree with the oracle's, and fired pairs recover the oracle's impulse.
++//! - **Part C (ship-scale lattice gas through the flown stepper):** 200 bouncers of radius
++//!   256–512 in a box at velocity scales 0.15Q and 0.45Q, 300 chronons: the shipped rule
++//!   ghosts ~every detected contact (ρ = reach/|w| ≪ 1 — the driven-pair law's regime);
++//!   the fix must convert them to oracle-matched exchanges with exact ledgers.
++//!
++//! Everything runs on the shipped law (`Law::RelativisticV1`, Q = 2²⁰) and the shipped
++//! steppers; the only additions are the env-gated fix and the print-only instrumentation.
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Law, Response, World};
++use emergent_lattice::relativity::{carried, exchange, root_disc, root_normal, root_normal_exact, total};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Event, Kind, Stepper};
++
++const Q: i64 = 1 << 20;
++
++fn v2(a: [i64; 2]) -> f64 {
++    ((a[0] as f64).powi(2) + (a[1] as f64).powi(2)).sqrt()
++}
++/// Recovery of `x` against oracle `o` relative to the impulse `base → o`, and the angle
++/// between the impulses (rad). L1 over components; 100% when x == o.
++fn recovery(base: [i64; 2], x: [i64; 2], o: [i64; 2]) -> (f64, f64) {
++    let num = (x[0] - o[0]).abs() as f64 + (x[1] - o[1]).abs() as f64;
++    let den = (o[0] - base[0]).abs() as f64 + (o[1] - base[1]).abs() as f64;
++    let rec = if den == 0.0 { f64::NAN } else { 1.0 - num / den };
++    let nrm = |u: [i64; 2]| ((u[0] as f64).powi(2) + (u[1] as f64).powi(2)).sqrt();
++    let (u, v) = ([x[0] - base[0], x[1] - base[1]], [o[0] - base[0], o[1] - base[1]]);
++    let ang = ((u[0] as f64 * v[0] as f64 + u[1] as f64 * v[1] as f64) / (nrm(u) * nrm(v))).acos();
++    (rec, ang)
++}
++
++/// One driven crossed-in-bin pair: a at the origin moving +x, b at d0 = −s*·w + b·reach·ŷ.
++fn pair_world(radius: [i64; 2], mass: [i64; 2], beta: f64, b_frac: f64, s_star: f64) -> (World, [i64; 2], [i64; 2], i64) {
++    let v = (beta * Q as f64 / 2.0).round() as i64;
++    let (ka, kb) = ([v, 0], [-v, 0]);
++    let reach = radius[0] + radius[1];
++    let b_off = (b_frac * reach as f64).round() as i64;
++    let xb = [2 * (s_star * v as f64).round() as i64, b_off];
++    let bodies = vec![
++        Body::new(1, [0, 0], ka, mass[0], radius[0], Response::Bounce),
++        Body::new(2, xb, kb, mass[1], radius[1], Response::Bounce),
++    ];
++    let w = World::new(Q, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap();
++    (w, ka, kb, reach)
++}
++
++fn set_env(fix: bool) {
++    if fix {
++        std::env::set_var("SPACEX_FIX", "1");
++    } else {
++        std::env::remove_var("SPACEX_FIX");
++    }
++}
++
++fn part_a() {
++    println!("== part A: driven crossed-in-bin pairs through Chronon (gates a+b)");
++    println!("arm                                     miss  skip fix%a   ang_a  fix%b   ang_b");
++    let mut worst = 100.0f64;
++    let mut worst_ang = 0.0f64;
++    for &(radius, masses, label) in &[
++        ([512i64, 512i64], [1000i64, 1000i64], "eq"),
++        ([512, 512], [1000, 1], "1000:1"),
++        ([256, 256], [1000, 1000], "eq-r256"),
++    ] {
++        for &beta in &[0.5f64, 0.9, 0.99] {
++            for &(bf, bn) in &[(0.0f64, "b0"), (0.25, "b.25"), (0.5, "b.5"), (39.0 / 40.0, "b39/40"), (21.0 / 20.0, "MISS") ] {
++                for &(s, sn) in &[(0.1f64, "s.1"), (0.5, "s.5"), (0.9, "s.9")] {
++                    let name = format!("{label} b{beta} {bn} {sn}");
++                    let (w, ka, kb, reach) = pair_world(radius, masses, beta, bf, s);
++                    // Shipped: the skip (negative control). The miss control: no contact at all.
++                    set_env(false);
++                    let mut c = Chronon::new(w.clone(), true).unwrap();
++                    c.step();
++                    let w_off = c.world();
++                    let contacts = c.log().contacts;
++                    let miss = contacts == 0;
++                    let skip = contacts == 1 && w_off.bodies[0].k == ka && w_off.bodies[1].k == kb;
++                    // Fix: exchange, compared to the oracle over the same shipped machinery.
++                    set_env(true);
++                    let mut c2 = Chronon::new(w.clone(), true).unwrap();
++                    c2.step();
++                    let w_on = c2.world();
++                    let exchanged = w_on.bodies[0].k != ka || w_on.bodies[1].k != kb;
++                    // Ledger and subluminality of the fixed world.
++                    let de = total(&w_on);
++                    let d0 = total(&w);
++                    let car = carried(&w_on);
++                    let ledger = de[0] - d0[0] == car[0] && de[1] - d0[1] == car[1] && de[2] - d0[2] == car[2];
++                    assert!(w_on.validate().is_ok(), "{name}: fixed world invalid");
++                    assert!(ledger, "{name}: ledger broken after the fix");
++                    let (ra, aa, rb, ab) = if miss || !exchanged {
++                        (f64::NAN, f64::NAN, f64::NAN, f64::NAN)
++                    } else {
++                        // The oracle: the same machinery over the 48-bit root normal at the
++                        // bin-end state (single pair, no contamination, carries zero).
++                        let d_end = [
++                            (w.bodies[1].x[0] + kb[0]) as i128,
++                            (w.bodies[1].x[1] + kb[1]) as i128,
++                        ];
++                        let wv = [(kb[0] - ka[0]) as i128, (kb[1] - ka[1]) as i128];
++                        let n_o = root_normal_exact(d_end, wv, reach as i128).expect("driven pair crossed");
++                        let (oa, ob, _) = exchange(Law::RelativisticV1, Q, masses, [ka, kb], n_o, [0, 0, 0]).expect("oracle exchanges");
++                        let n_f = root_normal(d_end, wv, reach as i128, 20).unwrap();
++                        let (fa, fb, _) = exchange(Law::RelativisticV1, Q, masses, [ka, kb], n_f, [0, 0, 0]).unwrap();
++                        assert!((fa, fb) == (w_on.bodies[0].k, w_on.bodies[1].k), "{name}: flown != helper");
++                        let (r1, a1) = recovery(ka, w_on.bodies[0].k, oa);
++                        let (r2, a2) = recovery(kb, w_on.bodies[1].k, ob);
++                        (r1, a1, r2, a2)
++                    };
++                    if !miss {
++                        assert!(skip, "{name}: shipped did not skip (contacts {contacts})");
++                        assert!(exchanged, "{name}: fix did not exchange");
++                        worst = worst.min(ra.min(rb));
++                        worst_ang = worst_ang.max(aa.max(ab));
++                    } else {
++                        assert!(!exchanged, "{name}: miss control exchanged");
++                    }
++                    println!(
++                        "{name:<39} {miss:<5} {skip:<4} {ra:6.3} {aa:6.4} {rb:6.3} {ab:6.4}"
++                    );
++                }
++            }
++        }
++    }
++    println!("part A: worst recovery {worst:.5}%, worst angle {worst_ang:.6} rad");
++    println!("part A control: equal-mass head-on 0.9c is the exact swap");
++    let (w, ka, kb, _reach) = pair_world([512, 512], [1000, 1000], 0.9, 0.0, 0.5);
++    set_env(true);
++    let mut c = Chronon::new(w.clone(), true).unwrap();
++    c.step();
++    let won = c.world();
++        println!(
++            "  swap exact: a {:?} -> {:?} (k_b {:?}), b {:?} -> {:?} (k_a {:?})",
++            ka, won.bodies[0].k, kb, kb, won.bodies[1].k, ka
++        );
++    set_env(false);
++}
++
++fn part_b() {
++    println!("\n== part B: random adversarial receding bin-end states on the shipped machinery");
++    let n = 20_000;
++    let mut rng = Rng(0x5EED_2040_0003);
++    let (mut fires, mut misses, mut zero_exchange) = (0u64, 0u64, 0u64);
++    let (mut rec_min, mut rec_sum) = (f64::INFINITY, 0.0);
++    let (mut ang_max, mut ang_p99s, mut recs) = (0.0f64, Vec::new(), Vec::new());
++    let mut disagree = 0u64;
++    let mut w_perp = 0u64;
++    for i in 0..n {
++        // Half ship-scale windows, half battle-scale windows (the flown plane's magnitudes).
++        let (rlo, rhi) = if i % 2 == 0 { (256i64, 2048) } else { (1_100_000, 2_100_000) };
++        let reach = rng.range(rlo, rhi);
++        // w up to ~0.63Q, both bodies subluminal.
++        let (mut ka, mut kb) = ([0i64; 2], [0i64; 2]);
++        let mut wv = [0i128; 2];
++        let mut ok = false;
++        while !ok {
++            let sub = |k: [i64; 2]| ((k[0] as i128) * (k[0] as i128) + (k[1] as i128) * (k[1] as i128)) < (Q as i128) * (Q as i128);
++            ka = [rng.range(-Q / 5, Q / 5), rng.range(-Q / 5, Q / 5)];
++            wv = [rng.range(-9 * Q / 20, 9 * Q / 20) as i128, rng.range(-9 * Q / 20, 9 * Q / 20) as i128];
++            kb = [ka[0] + wv[0] as i64, ka[1] + wv[1] as i64];
++            ok = sub(ka) && sub(kb) && (wv[0] != 0 || wv[1] != 0);
++        }
++        // A receding separation at the resolve instant, inside the detection window's scale.
++        let wmag = v2([wv[0] as i64, wv[1] as i64]) as i128;
++        let s = (reach as i128 + wmag) as i64;
++        let mut d = [rng.range(-s, s) as i128, rng.range(-s, s) as i128];
++        if d[0] * wv[0] + d[1] * wv[1] < 0 {
++            d = [-d[0], -d[1]]; // receding at the gate
++        }
++        if d == [0, 0] {
++            continue;
++        }
++        // w·P = 0 exactly, on the integer data (6362's identity, asserted everywhere).
++        let r = wv[0] * wv[0] + wv[1] * wv[1];
++        let dw = d[0] * wv[0] + d[1] * wv[1];
++        let (p0, p1) = (r * d[0] - dw * wv[0], r * d[1] - dw * wv[1]);
++        assert_eq!(p0 * wv[0] + p1 * wv[1], 0, "w·P = 0 must be exact in integers");
++        w_perp += 1;
++        let delta = root_disc(d, wv, reach as i128);
++        let exact = root_normal_exact(d, wv, reach as i128);
++        let (fired, oracle_fired) = (delta.is_some_and(|v| v >= 0), exact.is_some());
++        if fired != oracle_fired {
++            disagree += 1;
++        } else if fired {
++            fires += 1;
++            let n_f = root_normal(d, wv, reach as i128, 20).unwrap();
++            let masses = [rng.range(1, 4), rng.range(1, 4)];
++            let (fa, fb, _) = exchange(Law::RelativisticV1, Q, masses, [ka, kb], n_f, [0, 0, 0])
++                .unwrap_or_else(|| (ka, kb, [0, 0, 0]));
++            let (oa, ob, _) = exchange(Law::RelativisticV1, Q, masses, [ka, kb], exact.unwrap(), [0, 0, 0])
++                .unwrap_or_else(|| (ka, kb, [0, 0, 0]));
++            let (r1, a1) = recovery(ka, fa, oa);
++            let (r2, a2) = recovery(kb, fb, ob);
++            let (rr, aa) = (r1.min(r2), a1.max(a2));
++            if rr.is_nan() {
++                // Neither side moved (the pair exchanges nothing even at the root normal).
++                zero_exchange += 1;
++            } else {
++                recs.push(rr);
++                rec_min = rec_min.min(rr);
++                rec_sum += rr;
++                ang_max = ang_max.max(if aa.is_nan() { 0.0 } else { aa });
++                ang_p99s.push(if aa.is_nan() { 0.0 } else { aa });
++            }
++        } else {
++            misses += 1;
++        }
++    }
++    ang_p99s.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let p = |v: &[f64], q: f64| v[((q * v.len() as f64) as usize).min(v.len() - 1)];
++    println!(
++        "n {n} fires {fires} misses {misses} zero-exchange {zero_exchange} classification-disagreements {disagree} w.P=0 {}/{}",
++        w_perp,
++        fires + misses
++    );
++    println!(
++        "recovery min {rec_min:.5}% p1 {:.5}% median {:.5}% mean {:.5}% | angle max {ang_max:.6} p99 {:.6} rad",
++        p(&recs, 0.01),
++        recs[recs.len() / 2], rec_sum / recs.len() as f64,
++        p(&ang_p99s, 0.99)
++    );
++}
++
++/// A ship-scale trapped gas: `n` bouncers of radius 256–512 in a box, velocities ±`vmax`.
++fn gas_world(seed: u64, n: usize, vmax: i64, side: i64) -> World {
++    let mut rng = Rng(seed);
++    let mut bodies = Vec::with_capacity(n);
++    for i in 0..n as u64 {
++        let radius = rng.range(256, 512);
++        let x = [rng.range(radius, side - radius), rng.range(radius, side - radius)];
++        let k = [rng.range(-vmax, vmax), rng.range(-vmax, vmax)];
++        bodies.push(Body::new(i + 1, x, k, rng.range(1, 4), radius, Response::Bounce));
++    }
++    let c = Container { min: [0, 0], max: [side, side] };
++    World::new(Q, Some(c), bodies).unwrap().with_law(Law::RelativisticV1).unwrap()
++}
++
++fn part_c() {
++    println!("\n== part C: ship-scale trapped gas through Chronon (200 bodies, 300 chronons)");
++    for &(label, seed, vmax) in &[("v0.15Q", 11u64, Q / 7), ("v0.45Q", 12, 9 * Q / 20)] {
++        let w = gas_world(seed, 200, vmax, 2_400_000);
++        let genesis = w.clone();
++        let (mut ghost_chronons, mut chronons) = (0u64, 0u64);
++        for &fix in &[false, true] {
++            set_env(fix);
++            let mut c = Chronon::new(w.clone(), true).unwrap();
++            for _ in 0..300 {
++                let before: Vec<[i64; 2]> = c.world().bodies.iter().map(|b| b.k).collect();
++                c.step();
++                let after = c.world();
++                let evs: Vec<Event> = c.log().sorted().into_iter().filter(|e| e.tick == after.tick).collect();
++                let contacts_now: Vec<&Event> = evs.iter().filter(|e| matches!(e.kind, Kind::Contact)).collect();
++                if !contacts_now.is_empty() {
++                    chronons += 1;
++                    // A pure-ghost chronon: no body of any detected contact changed velocity.
++                    let moved = contacts_now.iter().any(|e| {
++                        let (ia, ib) = (e.a as usize - 1, e.b as usize - 1);
++                        after.bodies[ia].k != before[ia] || after.bodies[ib].k != before[ib]
++                    });
++                    if !moved {
++                        ghost_chronons += 1;
++                    }
++                }
++            }
++            let end = c.world();
++            let contacts_run = c.log().contacts;
++            let (te, t0, car) = (total(&end), total(&genesis), carried(&end));
++            let wall = end.wall_momentum;
++            let ledger =
++                te[0] - t0[0] == car[0] && te[1] - t0[1] + wall[0] as i128 == car[1] && te[2] - t0[2] + wall[1] as i128 == car[2];
++            assert!(end.validate().is_ok(), "gas {label}: invalid world (fix {fix})");
++            assert!(ledger, "gas {label}: ledger broken (fix {fix})");
++            println!(
++                "gas {label} fix={fix}: contacts {contacts_run}, contact chronons {chronons}, pure-ghost chronons {ghost_chronons}, ledger exact, subluminal",
++            );
++            chronons = 0;
++            ghost_chronons = 0;
++        }
++    }
++    set_env(false);
++}
++
++fn main() {
++    part_a();
++    part_b();
++    part_c();
++}
+diff --git a/crates/lattice/src/relativity.rs b/crates/lattice/src/relativity.rs
+index 5be893f8..7c964454 100644
+--- a/crates/lattice/src/relativity.rs
++++ b/crates/lattice/src/relativity.rs
+@@ -88,6 +88,74 @@ pub fn momentum(law: Law, m: i64, k: [i64; 2], q: i64) -> [i128; 3] {
+ fn add3(a: [i128; 3], b: [i128; 3]) -> [i128; 3] {
+     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+ }
++// Lab instrumentation (run 20261018-2040-second-20261018-1617-spacex-37c1-3ac3). The contact
++// root's closed form (20261018-0722-scout-6362) on this operator: at a resolve instant where
++// the receding gate holds (d·w ≥ 0), the pair's first-touch separation direction is
++// n = P − √Δ·w (scaled by |w|²), with P = |w|²·d − (d·w)·w an integer vector, w·P = 0 exact,
++// |P|² = |w|²·(|w|²|d|² − (d·w)²) and Δ = |w|²·reach² − (|w|²|d|² − (d·w)²) ≥ 0 iff the
++// linear back-projection comes within reach (then |n| = |w|²·reach exactly and w·n = −√Δ·|w|²
++// < 0: the root normal is an approaching normal). √Δ is the only irrational; quantized to
++// k ≤ 20 fractional bits it costs one u128 isqrt. The oracle keeps 48 bits in big integers.
++
++/// Δ of the touch quadratic: ≥ 0 iff the pair's linear back-projection from (d, w) comes
++/// within `reach` (its closest approach |d*|² = (|w|²|d|² − (d·w)²)/|w|² satisfies
++/// |d*|² ≤ reach²). None when w = 0 or a product leaves i128.
++pub fn root_disc(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<i128> {
++    let r = w[0].checked_mul(w[0])?.checked_add(w[1].checked_mul(w[1])?)?;
++    if r == 0 {
++        return None;
++    }
++    let dd = d[0].checked_mul(d[0])?.checked_add(d[1].checked_mul(d[1])?)?;
++    let dw = d[0].checked_mul(w[0])?.checked_add(d[1].checked_mul(w[1])?)?;
++    let disc = r.checked_mul(dd)?.checked_sub(dw.checked_mul(dw)?)?;
++    r.checked_mul(reach.checked_mul(reach)?)?.checked_sub(disc)
++}
++
++/// The quantized root normal n_q = (P << k) − S·w with S = ⌊2^k·√Δ⌋, k the widest
++/// quantization whose isqrt input fits u128 (≤ `kmax`). Direction of the first-touch
++/// separation; any positive scale is a valid reflection normal for [`targets`].
++/// None when Δ < 0 (no root) or w = 0.
++pub fn root_normal(d: [i128; 2], w: [i128; 2], reach: i128, kmax: u32) -> Option<[i128; 2]> {
++    let r = w[0].checked_mul(w[0])?.checked_add(w[1].checked_mul(w[1])?)?;
++    let delta = root_disc(d, w, reach)?;
++    if delta < 0 {
++        return None;
++    }
++    let dw = d[0] * w[0] + d[1] * w[1];
++    let bits = 128 - (delta as u128).leading_zeros();
++    let k = kmax.min((126 - bits) / 2);
++    let s = ((delta as u128) << (2 * k) as u32).isqrt() as i128;
++    let p = [r * d[0] - dw * w[0], r * d[1] - dw * w[1]];
++    Some([(p[0] << k) - s * w[0], (p[1] << k) - s * w[1]])
++}
++
++/// The oracle's root normal: √Δ to 48 fractional bits in big integers (one Newton isqrt),
++/// so its direction error is 2^-48-class against the rule's 2^-20. Same scale licence.
++pub fn root_normal_exact(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<[i128; 2]> {
++    fn isqrt(n: num_bigint::BigUint) -> num_bigint::BigUint {
++        if n == num_bigint::BigUint::from(0u32) {
++            return n;
++        }
++        let mut x = num_bigint::BigUint::from(1u32) << ((n.bits() + 1) / 2);
++        loop {
++            let y = (&x + &n / &x) >> 1;
++            if y >= x {
++                return x;
++            }
++            x = y;
++        }
++    }
++    let r = w[0].checked_mul(w[0])?.checked_add(w[1].checked_mul(w[1])?)?;
++    let delta = root_disc(d, w, reach)?;
++    if delta < 0 {
++        return None;
++    }
++    let dw = d[0] * w[0] + d[1] * w[1];
++    let s = isqrt(num_bigint::BigUint::from(delta as u128) << 96);
++    let s48 = i128::try_from(s).expect("2^48·√Δ of an i128 Δ fits i128");
++    let p = [r * d[0] - dw * w[0], r * d[1] - dw * w[1]];
++    Some([(p[0] << 48) - s48 * w[0], (p[1] << 48) - s48 * w[1]])
++}
+ 
+ /// The exact outcome scaled by T = N·N: (T·p_a', T·p_b', T). None when the pair exchanges
+ /// nothing (p_a·N = 0) or d = 0. Big integers: the reference for [`targets`].
+@@ -208,6 +276,41 @@ pub fn resolve(
+ ) {
+     resolve_law(Law::Relativistic, q, bodies, pairs, walls, container, wall_momentum)
+ }
++/// The shipped per-pair lattice choice, factored out (lab run 20261018-2040-…-3ac3) so the
++/// fix's oracle reuses it exactly: exact rational targets for the reflection normal `d`
++/// (any positive scale of the normal gives the same reflection), floor/ceil candidates on
++/// each side, the |owed + e|² minimiser with the never-round-a-nonzero-exchange-to-zero
++/// rule. None when the pair exchanges nothing. Identical bits to the inline form.
++pub fn exchange(
++    law: Law,
++    q: i64,
++    m: [i64; 2],
++    k: [[i64; 2]; 2],
++    d: [i128; 2],
++    owed: [i128; 3],
++) -> Option<([i64; 2], [i64; 2], [i128; 3])> {
++    let (pa, pb) = (momentum(law, m[0], k[0], q), momentum(law, m[1], k[1], q));
++    let (ta, tb) = targets(pa, pb, d, q)?;
++    let fa: Vec<([i64; 2], [i128; 3])> = candidates(ta, q).into_iter().map(|c| (c, momentum(law, m[0], c, q))).collect();
++    let fb: Vec<([i64; 2], [i128; 3])> = candidates(tb, q).into_iter().map(|c| (c, momentum(law, m[1], c, q))).collect();
++    let old = add3(pa, pb);
++    let unchanged_allowed = fa.len() * fb.len() == 1;
++    let mut best: Option<(i128, [i64; 2], [i64; 2], [i128; 3])> = None;
++    for (ca, ea) in &fa {
++        for (cb, eb) in &fb {
++            if !unchanged_allowed && *ca == k[0] && *cb == k[1] {
++                continue;
++            }
++            let e = [ea[0] + eb[0] - old[0], ea[1] + eb[1] - old[1], ea[2] + eb[2] - old[2]];
++            let r = add3(owed, e);
++            let score = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
++            if best.as_ref().is_none_or(|(s, ..)| score < *s) {
++                best = Some((score, *ca, *cb, e));
++            }
++        }
++    }
++    best.map(|(_, ca, cb, e)| (ca, cb, e))
++}
+ 
+ /// [`resolve`] under a given relativistic law version (v0 or v1): only the fixed-point
+ /// 4-momentum differs.
+@@ -233,36 +336,61 @@ pub fn resolve_law(
+         }
+         let d = sub(bodies[b].x, bodies[a].x);
+         let w = sub(k[b], k[a]);
+-        if dot(d, w) >= 0 || dot(d, d) == 0 {
++        if std::env::var_os("SPACEX_CENSUS").is_some() {
++            // 37c1's census line, unchanged: every pair that reached the response batch,
++            // with the exact integers of the receding gate below (skip ⟺ d·w ≥ 0).
++            let ww = w[0] * w[0] + w[1] * w[1];
++            let dw = d[0] * w[0] + d[1] * w[1];
++            let reach = (bodies[a].radius + bodies[b].radius) as i128;
++            eprintln!("CENSUS {ww} {dw} {reach}");
++        }
++        if dot(d, d) == 0 {
+             continue;
+         }
++        let mut d = d;
++        let mut fired = false;
++        if dot(d, w) >= 0 {
++            // The receding gate. Shipped: skip (a detected contact that exchanges nothing —
++            // the ghost 20261018-1617-spacex-37c1 measured). Lab fix (run
++            // 20261018-2040-…-3ac3, SPACEX_FIX=1): when the pair's linear back-projection
++            // came within reach (Δ ≥ 0 — by the hit predicate every untouched pair in the
++            // batch did, during the detection-to-resolve window), resolve at the quantized
++            // root normal instead. Δ < 0 (a mid-batch velocity change bent the pair off) or
++            // the flag off: the shipped skip, bit for bit.
++            let reach = (bodies[a].radius + bodies[b].radius) as i128;
++            let fix = std::env::var_os("SPACEX_FIX").is_some_and(|v| v != "0");
++            let fire = fix.then(|| root_normal(d, w, reach, 20)).flatten();
++            if fire.is_some() && std::env::var_os("SPACEX_CENSUS").is_some() {
++                let ww = w[0] * w[0] + w[1] * w[1];
++                let dw = d[0] * w[0] + d[1] * w[1];
++                let tau_star = -(dw as f64) / ww as f64;
++                eprintln!("FIRE {} {} tau_star {tau_star:.6}", bodies[a].id, bodies[b].id);
++            }
++            let Some(n) = fire else { continue };
++            d = n;
++            fired = true;
++        }
+         let (ma, mb) = (bodies[a].mass, bodies[b].mass);
+-        let (pa, pb) = (four_momentum(ma, k[a], q), four_momentum(mb, k[b], q));
+-        let Some((ta, tb)) = targets(pa, pb, d, q) else { continue };
+-        touched[a] = true;
+-        let fa: Vec<([i64; 2], [i128; 3])> = candidates(ta, q).into_iter().map(|c| (c, four_momentum(ma, c, q))).collect();
+-        let fb: Vec<([i64; 2], [i128; 3])> = candidates(tb, q).into_iter().map(|c| (c, four_momentum(mb, c, q))).collect();
+-        let old = add3(pa, pb);
+         let owed = add3(owe[a], owe[b]);
+-        let unchanged_allowed = fa.len() * fb.len() == 1;
+-        let mut best: Option<(i128, [i64; 2], [i64; 2], [i128; 3])> = None;
+-        for (ca, ea) in &fa {
+-            for (cb, eb) in &fb {
+-                if !unchanged_allowed && *ca == k[a] && *cb == k[b] {
+-                    continue;
+-                }
+-                let e = [ea[0] + eb[0] - old[0], ea[1] + eb[1] - old[1], ea[2] + eb[2] - old[2]];
+-                let r = add3(owed, e);
+-                let score = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+-                if best.as_ref().is_none_or(|(s, ..)| score < *s) {
+-                    best = Some((score, *ca, *cb, e));
++        if let Some((ca, cb, e)) = exchange(law, q, [ma, mb], [k[a], k[b]], d, owed) {
++            touched[a] = true;
++            // The oracle (SPACEX_ORACLE=1, fired pairs only): the same shipped machinery
++            // over the 48-bit root normal. Print-only; the world takes the fix's bits.
++            if fired && std::env::var_os("SPACEX_ORACLE").is_some() {
++                let reach = (bodies[a].radius + bodies[b].radius) as i128;
++                if let Some(no) = root_normal_exact(sub(bodies[b].x, bodies[a].x), w, reach) {
++                    if let Some((cao, cbo, _)) = exchange(law, q, [ma, mb], [k[a], k[b]], no, owed) {
++                        eprintln!(
++                            "PAIR {} {} fix=({},{}) ({},{}) oracle=({},{}) ({},{})",
++                            bodies[a].id, bodies[b].id, ca[0], ca[1], cb[0], cb[1], cao[0], cao[1], cbo[0], cbo[1]
++                        );
++                    }
+                 }
+             }
++            owe[a] = add3(owe[a], e);
++            k[a] = ca;
++            k[b] = cb;
+         }
+-        let Some((_, ca, cb, e)) = best else { continue };
+-        owe[a] = add3(owe[a], e);
+-        k[a] = ca;
+-        k[b] = cb;
+     }
+     for &(a, b) in pairs {
+         for i in [a, b] {
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..654f49d0 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -144,7 +144,10 @@ fn lcg(seed: &mut u64) -> f64 {
+ /// ship in low orbit near the fleet. Every number is a literal or comes from a fixed seeded
+ /// generator; nothing is engineered to produce an outcome.
+ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64) -> Res<Plane> {
+-    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    // Lab dial (runs 20261018-1617-spacex-37c1, 20261018-2040-…-3ac3): fly the same battle
++    // world at another closing speed. Shipped value 1 << 15.
++    let speed_div = std::env::var("SPACEX_SPEED_DIV").ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(1 << 15);
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, speed_div, false);
+     plane_with(cfg, seed, order, threads, world)
+ }
+ 
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..4575e02d 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -43,7 +43,10 @@ pub struct Session {
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        // Lab dial (runs 20261018-1617-spacex-37c1, 20261018-2040-…-3ac3): fly the same
++        // battle through the dense (Chronon) stepper; the shipped flight is sparse.
++        let order = if std::env::var_os("SPACEX_ORDER").is_some_and(|v| v == "dense") { Order::Dense } else { Order::Sparse };
++        let p = plane(Config::default(), seed, order, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+         Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
+     }
