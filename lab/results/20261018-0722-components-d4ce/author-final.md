@@ -1,0 +1,4 @@
+Working...
+The run is complete: predictions were registered before the decisive paired experiment, `regen.sh` was executed end-to-end (both arms, ~50k bank rows, all digests, 75 tests — zero non-timing differences), and the dossier and wiki page are written.
+
+**Claim:** `fast_quad`'s four per-node wide `u128/u128` divisions are exactly replaceable by the crate's own `div_word` primitive — bit-identical on every instrument (75 tests in release+debug, ~50k certified-bank rows, all ladder digests) because the shipped `as u64` casts themselves prove the precondition — but the cut is only ~5% of the fast-path compile in situ (ns/panel 1216→1118 quiet-box; 24.5 ns of a 304 ns node), not the ~25% the isolated micro of read-stream od 7 implied, so the division slice is now measured dead as a compile lever and the node's remaining ~280 ns plus the shape-class memo are where the compile's floor hunt goes.

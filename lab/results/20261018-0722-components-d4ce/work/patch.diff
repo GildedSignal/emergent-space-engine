@@ -1,0 +1,139 @@
+diff --git a/crates/space/examples/strong_compile_probe.rs b/crates/space/examples/strong_compile_probe.rs
+new file mode 100644
+index 00000000..253934d7
+--- /dev/null
++++ b/crates/space/examples/strong_compile_probe.rs
+@@ -0,0 +1,74 @@
++//! Compile-cost probe for the fast-path quadrature: times `Orbit::compile` per key on a
++//! strong-field (p, e) grid and reports panels (knots) with ns/compile and ns/panel, so a
++//! patch to `fast_quad`'s per-node arithmetic shows as a per-panel delta. Print-only.
++//! cargo run --release -p emergent-space --example strong_compile_probe
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::time::Instant;
++
++fn to_scalar(x: f64) -> Option<Scalar> {
++    if x == 0.0 {
++        return Some(Scalar::ZERO);
++    }
++    if !x.is_finite() || x.abs() < 1e-290 {
++        return None;
++    }
++    let bits = x.abs().to_bits();
++    let exp = ((bits >> 52) & 0x7ff) as i32 - 1023;
++    let man = ((bits & ((1 << 52) - 1)) | (1 << 52)) as i128;
++    Scalar::raw(if x < 0.0 { -man } else { man }, exp - 52).ok()
++}
++
++fn main() {
++    let ps = [6.6f64, 7.0, 8.0, 10.0, 12.0, 20.0, 50.0, 200.0, 1000.0, 1e4, 1e5, 1e6];
++    let es = [0.0f64, 0.3, 0.5, 0.7, 0.9, 0.99, 0.999, 0.9999, 0.99999];
++    println!("p,e,panels,ns_compile,ns_panel");
++    for &p in &ps {
++        for &e in &es {
++            let key = match OrbitKey::bound(
++                to_scalar(p).unwrap(),
++                (e * (1u64 << 48) as f64) as u64,
++            ) {
++                Ok(k) => k,
++                Err(_) => {
++                    println!("{p},{e},refused,,");
++                    continue;
++                }
++            };
++            let mut panels = 0usize;
++            let mut ok = true;
++            for _ in 0..3 {
++                match Orbit::compile(key) {
++                    Ok(o) => panels = o.shape().knots().len(),
++                    Err(_) => ok = false,
++                }
++            }
++            if !ok || panels == 0 {
++                println!("{p},{e},compile_err,,");
++                continue;
++            }
++            // adaptive reps: aim >= 60 ms per sample, 5 samples, median
++            let mut reps = 20usize;
++            loop {
++                let t0 = Instant::now();
++                for _ in 0..reps {
++                    std::hint::black_box(Orbit::compile(std::hint::black_box(key)).is_ok());
++                }
++                if t0.elapsed().as_secs_f64() >= 0.06 || reps >= 1 << 22 {
++                    break;
++                }
++                reps *= 2;
++            }
++            let mut samples = [0f64; 5];
++            for s in samples.iter_mut() {
++                let t0 = Instant::now();
++                for _ in 0..reps {
++                    std::hint::black_box(Orbit::compile(std::hint::black_box(key)).is_ok());
++                }
++                *s = t0.elapsed().as_secs_f64() / reps as f64 * 1e9;
++            }
++            samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            let ns = samples[2];
++            println!("{p},{e},{},{}", panels.saturating_sub(1), ns as u64);
++        }
++    }
++}
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..4bf128ab 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -143,6 +143,31 @@ mod tests {
+         }
+     }
+     #[test]
++    fn div_word_matches_wide_on_composed_quotients() {
++        // n = d*q + r with q < 2^64, r < d: the exact precondition shape (quotient fits a
++        // word), swept far past the shipped sites' operand ranges.
++        let mut s = 0x9E3779B97F4A7C15u64;
++        let mut next = move || {
++            s ^= s << 13;
++            s ^= s >> 7;
++            s ^= s << 17;
++            s
++        };
++        for i in 0..2_000_000u64 {
++            let d = (next() | 1).max(1);
++            let q = next() as u128;
++            let r = (next() as u128) % d as u128;
++            let n = d as u128 * q + r;
++            assert_eq!(div_word(n, d) as u128, n / d as u128, "{i}: {n}/{d}");
++            if i % 997 == 0 {
++                // boundary bias: quotients and remainders at their own edges
++                let d = (next() | 1).max(1);
++                let n = d as u128 * u64::MAX as u128 + (d as u128 - 1);
++                assert_eq!(div_word(n, d) as u128, n / d as u128, "{i}: {n}/{d}");
++            }
++        }
++    }
++    #[test]
+     fn isqrt_is_the_exact_floor() {
+         let mut x: u128 = 1;
+         for i in 0..4000u128 {
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..be483503 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -426,11 +426,14 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                // The four quotients each fit a word (their `as u64` casts are the shipped
++                // contract), so the exact `div_word` primitive replaces the wide divides:
++                // for integers, quotient < 2^64 ⟺ n>>64 < d, its precondition.
++                let g = crate::num::div_word(1u128 << 104, root as u64);
++                let g1 = crate::num::div_word(a as u128 * g as u128, (ONE as u128 + root) as u64);
++                let ratio = crate::num::div_word((self.floor as u128) << 62, x as u64);
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = crate::num::div_word((rtau as u128) << 62, horizon as u64);
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;

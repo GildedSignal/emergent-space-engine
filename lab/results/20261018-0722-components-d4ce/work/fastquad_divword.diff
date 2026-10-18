@@ -1,0 +1,23 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..be483503 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -426,11 +426,14 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                // The four quotients each fit a word (their `as u64` casts are the shipped
++                // contract), so the exact `div_word` primitive replaces the wide divides:
++                // for integers, quotient < 2^64 ⟺ n>>64 < d, its precondition.
++                let g = crate::num::div_word(1u128 << 104, root as u64);
++                let g1 = crate::num::div_word(a as u128 * g as u128, (ONE as u128 + root) as u64);
++                let ratio = crate::num::div_word((self.floor as u128) << 62, x as u64);
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = crate::num::div_word((rtau as u128) << 62, horizon as u64);
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;

@@ -1,0 +1,22 @@
+== PATCH arm build ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 21.28s
+== BASE arm (fast_quad reverted) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 26.26s
+== tests (patched tree) ==
+unit tests (debug): 75 passed, 0 failed
+== comparisons ==
+probe rows=94 compiled, refusals identical; panels>=15: n=82
+probe per-key cut p10=0.4% p50=9.3% p90=19.7%
+probe ns/panel median 1373 -> 1165 (15.1% cut); per-node 343 -> 291 ns
+digests bit-identical: True (6 cases x 4 schedules)
+bank R0       rows=   600 non-timing-col diffs=0  compile_us median 105.8 -> 98.4
+bank R1       rows=   560 non-timing-col diffs=0  compile_us median 12.8 -> 11.8
+bank R2       rows= 22092 non-timing-col diffs=0  compile_us median 0.8 -> 0.7
+bank R3       rows=  1300 non-timing-col diffs=0  compile_us median 57.6 -> 53.2
+bank R4       rows=  1500 non-timing-col diffs=0  compile_us median 32.3 -> 26.3
+bank R5       rows= 22400 non-timing-col diffs=0  compile_us median 60.1 -> 56.9
+bank G22      rows=   510 non-timing-col diffs=0  compile_us median 45.2 -> 40.9
+bank G24      rows=   200 non-timing-col diffs=0  compile_us median 884.6 -> 819.0
+bank G24edge  rows=    59 non-timing-col diffs=0  compile_us median 1243.3 -> 1150.5
+bank FB       rows=   300 non-timing-col diffs=0  compile_us median 16.4 -> 14.7
+== regen done ==
