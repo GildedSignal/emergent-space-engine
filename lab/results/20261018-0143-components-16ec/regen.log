@@ -1,0 +1,30 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 23.60s
+== exactness probe ==
+bound_probe: 1204 bindings (1200 cycles swept, 4 non-cycles refused, 0 cycles without a computable range); worst relative excursion beyond the widened range: +0.000e0 at 
+== flights (fixed canonical cut 1.2e10 ticks) ==
+bound: digest a725217f1dcd9f2a cut 12000000000 total 19423 fast 0 slow_cycle 0 passage 0 deaths 0; ns slow 100202679 (5158.9702414663025 ns/event), ns fast 0 (0 ns/event)
+game 57991.3 s after the first second: kicks 109525 (1.883e-4/body/game-s), events 219318 (3.771e-4/body/game-s), stats {opens 566, boundaries 108097, handoffs 3, lost 11, refused 0, slices 1127}; refusals held 0, dead 0, alive(player) true
+bound: digest a725217f1dcd9f2a cut 12000000000 total 19423 fast 0 slow_cycle 0 passage 0 deaths 0; ns slow 86738879 (4465.781753591104 ns/event), ns fast 0 (0 ns/event)
+game 57481.8 s after the first second: kicks 108622 (1.884e-4/body/game-s), events 216860 (3.762e-4/body/game-s), stats {opens 566, boundaries 107234, handoffs 3, lost 10, refused 0, slices 435}; refusals held 0, dead 0, alive(player) true
+bound: digest a725217f1dcd9f2a cut 12000000000 total 19423 fast 19423 slow_cycle 0 passage 0 deaths 0; ns slow 0 (0 ns/event), ns fast 4297365 (221.25135149050095 ns/event)
+game 57571.7 s after the first second: kicks 108771 (1.884e-4/body/game-s), events 217226 (3.763e-4/body/game-s), stats {opens 566, boundaries 107335, handoffs 3, lost 10, refused 0, slices 551}; refusals held 0, dead 0, alive(player) true
+bound: digest d12096fdc691328d cut 12000000000 total 19761 fast 0 slow_cycle 0 passage 0 deaths 0; ns slow 100218555 (5071.532564141491 ns/event), ns fast 0 (0 ns/event)
+game 57571.7 s after the first second: kicks 107832 (1.868e-4/body/game-s), events 216243 (3.746e-4/body/game-s), stats {opens 872, boundaries 105475, handoffs 4, lost 10, refused 0, slices 2060}; refusals held 0, dead 0, alive(player) true
+bound: digest bf2ace6574a134d0 cut 12000000000 total 19763 fast 19423 slow_cycle 0 passage 340 deaths 0; ns slow 4172216 (12271.223529411765 ns/event), ns fast 4788354 (246.53009318848788 ns/event)
+game 58754.7 s after the first second: kicks 109839 (1.864e-4/body/game-s), events 222390 (3.774e-4/body/game-s), stats {opens 863, boundaries 107430, handoffs 4, lost 18, refused 0, slices 4254}; refusals held 0, dead 0, alive(player) true
+bound: digest c57f15a04e8f657c cut 12000000000 total 19426 fast 0 slow_cycle 0 passage 0 deaths 0; ns slow 91968904 (4734.320189436838 ns/event), ns fast 0 (0 ns/event)
+game 57991.3 s after the first second: kicks 105856 (1.820e-4/body/game-s), events 274956 (4.728e-4/body/game-s), stats {opens 279, boundaries 103908, handoffs 1, lost 9, refused 0, slices 64912}; refusals held 0, dead 0, alive(player) true
+bound: digest c57f15a04e8f657c cut 12000000000 total 19426 fast 19426 slow_cycle 0 passage 0 deaths 0; ns slow 0 (0 ns/event), ns fast 4183805 (215.3714094512509 ns/event)
+game 57444.5 s after the first second: kicks 104927 (1.821e-4/body/game-s), events 274951 (4.773e-4/body/game-s), stats {opens 279, boundaries 102929, handoffs 1, lost 8, refused 0, slices 66815}; refusals held 0, dead 0, alive(player) true
+== digest comparisons ==
+ctl a725217f1dcd9f2a
+fast a725217f1dcd9f2a
+burn_ctl d12096fdc691328d
+burn_fast bf2ace6574a134d0
+seed7_ctl c57f15a04e8f657c
+seed7_fast c57f15a04e8f657c
+COAST: digests identical (a725217f1dcd9f2a)
+SEED7: digests identical (c57f15a04e8f657c)
+BURN: DIGESTS DIVERGE (the reported held-out failure)
+Removing crates/universe/examples/bound_probe.rs
