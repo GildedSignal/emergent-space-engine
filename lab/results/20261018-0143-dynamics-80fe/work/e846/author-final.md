@@ -1,0 +1,4 @@
+Working...
+All artifacts complete: pre-registered predictions, dossier, regen.sh (regenerates every number in ~8 min), wiki page, data under budget (764 KB), universe suite 77/0 green under the census counters, dead set stable across 3 independent plane reruns.
+
+**Claim:** the plane's co-orbital deaths are decided — all 47 are kick-time planet-disk crossings, the chaotic layer's real conjunction-encounter class (19/47 of the dead ICs' own float truths cross the planet's disk when the conjunction is radial-turn-resolved, 15 at the very same conjunction as the death), so b9be's "false death" class was an instrument artifact on both ends: the oracle has no surface to hit and grid sampling is blind to conjunction crossings by ~180× (P/256 floor 2.89 Rp against a resolved 0.016 Rp), while the mirror error the gate should catch is the plane *missing* real crossings (20/97 kept ICs' truths cross between its kicks).

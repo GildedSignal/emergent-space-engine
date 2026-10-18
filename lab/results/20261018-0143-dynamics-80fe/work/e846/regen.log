@@ -1,0 +1,71 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/xtask)
+warning: variable `touches_edge` is assigned to, but never used
+   --> xtask/src/behave/trojan_dive.rs:132:13
+    |
+132 |     let mut touches_edge = false;
+    |             ^^^^^^^^^^^^
+    |
+    = note: consider using `_touches_edge` instead
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: value assigned to `touches_edge` is never read
+   --> xtask/src/behave/trojan_dive.rs:136:13
+    |
+136 |             touches_edge = true;
+    |             ^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: unused variable: `dk`
+   --> xtask/src/behave/trojan_dive.rs:138:18
+    |
+138 |         for (di, dk) in [(1usize, 0usize, ), (0, 1)] {
+    |                  ^^ help: if this is intentional, prefix it with an underscore: `_dk`
+
+warning: variable does not need to be mutable
+   --> xtask/src/behave/trojan_dive.rs:188:9
+    |
+188 |     let mut run = |ts: &[f64]| -> Option<(Vec<[f64; 4]>, emergent_universe::universe::Stats)> {
+    |         ----^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: value assigned to `closest` is never read
+   --> xtask/src/behave/trojan_dive.rs:291:13
+    |
+291 |     let mut closest = f64::NAN;
+    |             ^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: `xtask` (bin "xtask" test) generated 5 warnings (run `cargo fix --bin "xtask" --tests` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 11s
+  Executable unittests src/main.rs (/home/glmlab/lab-target-2/release/deps/xtask-b057117972fdd8dc)
+  Executable tests/behave_cli.rs (/home/glmlab/lab-target-2/release/deps/behave_cli-b8c749578c061600)
+control dive: inside-star ship alive=false lost=1 channel terminal=0 periapsis=1 star=0 planet=0 edge=0 planfail=0
+control elements: a/sep=0.000804 e=0.000000 q/S=0.9000
+control rtol=1e-12: q/S at 0,4,8 P: 1180.7452 1064.8157 1097.3360
+control rtol=1e-13: q/S at 0,4,8 P: 1180.7452 1064.8157 1097.3360
+dive: arm=analytic ships=144 horizon=512P step=7 rtol=0.000000000001 workers=4 jl1=5.768404e-9 jl2=5.765873e-9 jl3=5.694497e-9
+dive: arm analytic done in 0.5s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261016-1319-dynamics-e846/analytic.jsonl
+dive: arm=plane ships=144 horizon=512P step=7 rtol=0.000000000001 workers=7 jl1=5.768404e-9 jl2=5.765873e-9 jl3=5.694497e-9
+dive: arm plane done in 188.0s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261016-1319-dynamics-e846/plane.jsonl
+dive: arm=oracle ships=144 horizon=512P step=7 rtol=0.000000000001 workers=7 jl1=5.768404e-9 jl2=5.765873e-9 jl3=5.694497e-9
+dive: arm oracle done in 6.7s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261016-1319-dynamics-e846/oracle.jsonl
+47 windows
+dive: arm=oracle ships=47 horizon=512P step=7 rtol=0.000000000001 workers=7 jl1=5.768404e-9 jl2=5.765873e-9 jl3=5.694497e-9
+dive: arm oracle done in 3.2s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261016-1319-dynamics-e846/oracle-win.jsonl
+ensemble: 144 ships, dead 47 (channels: {'planet_kick': 47})
+plane earliest deaths (P): [10.73, 11.89, 18.56, 19.97]
+plane osculating q at death (S): min 35 median 663
+plane J walk to death (rel): [-2.9e-06, 1.9e-08]
+no confinement: J0 below J(L1) for 144/144 ICs (dj1_rel [-0.0134, -0.0104])
+resolved truth conjunction (Rp): dead-IC min 0.046 p10 0.09 med 1.94; alive-IC min 0.016 med 3676
+truths crossing the disk (<1 Rp): dead 19/47, alive 20/97; whole ensemble 39/144
+truth crosses at the death conjunction (±2 P, resolved): 15/47 (<=2 Rp 17, <=5 Rp 22, >10 Rp 21)
+P/64 grid catches of those crossings: 0/47
+oracle J drift max 2.3e-09; oracle q_min/S dead 15.6 alive 138.3
