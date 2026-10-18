@@ -12,14 +12,14 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [scan-locality](scan-locality.md) | open | 3 | **The record that serves every hit is measured, priced and sound: the window-membership record.** |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
-| [contact-speed](contact-speed.md) | open | 4 | **[20261018-1617-spacex-37c1] Open direction 3 is measured on the flown plane: the shipped |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
+| [contact-speed](contact-speed.md) | open | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [order-boundary](order-boundary.md) | open | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
-| [chaos-shadowing](chaos-shadowing.md) | open | 9 | (no current best yet) |
 | [representation-premises](representation-premises.md) | open | 9 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
+| [chaos-shadowing](chaos-shadowing.md) | open | 10 | (no current best yet) |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
@@ -30,8 +30,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
-| [view](view.md) | open | 47 | **The phase word is wired, audited and priced — and 0d46's ~300× gather deletion is refuted as |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
+| [view](view.md) | open | 54 | **[20261018-2040-system-cc75, system] The seen stream's sky content is measured on one census |
 | [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |

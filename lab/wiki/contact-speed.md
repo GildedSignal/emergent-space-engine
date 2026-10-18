@@ -2,11 +2,53 @@ topic: contact-speed
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1617-spacex-37c1
+updated: 20261018-2040-second-20261018-1617-spacex-37c1-3ac3
+
 
 # The contact law's speed domain: which detected contacts exchange an impulse
 
 ## Current best
+
+**[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates
+(a) and (b) are measured on the shipped operator: the closed-form root normal (6362),
+quantized to ≤ 20 fractional bits (one u128 isqrt, k adaptive to the magnitude), fed
+through the shipped v1 machinery (`relativity::exchange`: the 4-normal Householder
+reflection, floor/ceil candidates, the |owed+e|² carry minimiser), is BIT-IDENTICAL to the
+oracle — the same machinery over a 48-bit root normal — on every fired pair measured:
+135 driven arms through the real `Chronon` stepper (108 crossing + 27 miss controls;
+reach 512/1024 quanta, closing β 0.5/0.9/0.99,
+offsets b/reach to 39/40, phases s* 0.1–0.9, masses 1000:1000 and 1000:1; the equal-mass
+head-on 0.9c arm is the exact integer velocity swap; the b = 21/20 miss control is never
+detected, never fires), 8,311 fired of 20,000 random adversarial receding bin-end states
+across the ship-scale and battle-scale windows (zero classification disagreements with the
+oracle, w·P = 0 exact on all 20,000, recovery min = median = 100.000%, angle max 0.000000
+— the 2^-20 normal quantization is absorbed by the lattice rounding everywhere measured
+(0 flips in every fired pair of the run's ~10k; checker2 adds 0 in 150,000 grazing-biased
+states and 1,200 extreme arms — β to 0.9999, masses to 10⁶:1, reach 2^14–2^24, |w| to
+1.9Q — and 0 at k = 8 as well: the absorption margin is ≥ 2^12, still measured, not
+proven): on the integer machinery the fix does not approximate the impulse, it IS the
+oracle's bits), and
+the many-body scenes: a 200-body ship-scale trapped gas at velocity scales 0.15Q/0.45Q (fix
+off: 144/168 and 150/249 pure-ghost contact chronons; fix on: 0 and 0, ledgers exact,
+worlds subluminal) and the flown plane itself — 37c1's sd2 arm converts its ghosts to
+oracle-identical exchanges (4/4 fires bit-identical, incl. τ* to −0.64), sd2m400 63/63
+(4 fires at τ* < −1, min −1.99, the mid-batch-contaminated class, still bit-identical on
+the current integers), sd4 3/3, the dense stepper cmp-identical to sparse with the fix on
+(3 s and 30 s horizons), and the no-ghost shipped arm (ship400, 1,571 contacts) fires
+nothing and its benchmark digest is bit-identical with the fix on (checker2: seed 2 too —
+1,532 contacts, 0 fires) — the fix is a no-op on
+today's plane, exactly as 37c1's negative control requires. The firing rule: the receding
+gate (d·w ≥ 0) ∧ Δ = |w|²reach² − (|w|²|d|² − (d·w)²) ≥ 0 (the linear back-projection came
+within reach; a fired pair always passed the bin predicate `hit` at its chronon start —
+detection requires approaching, so no fire on a never-touched pair, checker2); Δ < 0 (a
+mid-batch velocity change bent the pair off) keeps the shipped skip bit for
+bit; d = 0 keeps the shipped skip. Positions stay at the bin end (the root-tick offset is a
+schedule choice, 6362 P4). The scene integers for the integrator's r5 companion freeze:
+Q = 2²⁰, Law::RelativisticV1, two bouncers radius 512 each (reach 1024), masses
+1000:1000 and 1000:1, k = ±471859 (closing 0.9c), b at {0, 39/40}·reach, s* = 0.5; the
+shipped rule must skip, the fix must swap exactly (probe part A, `rt_skipfix`). Multi-seed
+(checker2, sd2m400 fix-on seeds 2/3): fires 59/59 and 76/76 bit-identical to the oracle;
+the τ* < −1 class is 1 and 7 fires (min τ* −72.9) — larger and deeper than seed 1's 4/63.**
 
 **[20261018-1617-spacex-37c1] Open direction 3 is measured on the flown plane: the shipped
 fleet battle never skips (0 in 1,620 detected contacts; the checker's seed-2 shipped arm adds
@@ -165,35 +207,46 @@ not the skip, is the crawl-speed channel.
   normal carries ρ under a square root"): answered in closed form — the irrational is one
   scalar (s = √D/|w|²) beside the rational P with w·P = 0 exact in integers, and the
   quantized rule recovers ≥ 99.44% of the impulse over 200k adversarial integer pairs
-  (20261018-0722-scout-6362). Not yet refuted: the shipped-operator composition (adoption
-  gate 1).**
-
+  (20261018-0722-scout-6362).**
+- **"The shipped-operator composition is unproven and may cost fidelity" (6362's adoption
+  gate (a) as a risk, and its toy's 99.44% float-recovery floor): measured on the shipped
+  v1 machinery the quantization costs NOTHING — every fired pair's outgoing velocities are
+  bit-identical to the 48-bit-oracle's (135 driven arms, 8,311 random pairs, 70 flight
+  fires); the lattice rounding absorbs the 2^-20 normal direction error, so on the integer
+  machinery the fix is not a 99.44% approximation but the oracle's exact bits
+  (20261018-2040-second-20261018-1617-spacex-37c1-3ac3).**
 ## Open directions
 
-1. ~~**The fix, one rule**~~ — the design half is closed (20261018-0722-scout-6362: the
-   root-normal closed form, one isqrt + one divide, verified in toy). What remains is
-   adoption: (a) re-derive the closed form on the shipped v1 Householder operator (the
-   toy's shared-reflection proof covers the normal and TOI, not the 4-normal
-   composition); (b) freeze the crossed-in-bin r5 scene under 1648's criterion (a 0.9c
-   head-on pair must exchange the exact v1 impulse; the shipped skip is the negative
-   control; 8144's domain note: the shipped arms reach β 0.9, not 1.9×10⁶ quanta/chronon);
-   (c) multi-pair-bin root ordering (event-driven MD's classical failure mode; ≤ 1.6%
-   contamination at fleet speeds, 1648 — but 12% at 0.84 c closing in the flown battle,
-   37c1: the contamination grows with speed exactly as the dwell shrinks). The plane
-   itself needs none of this at today's speeds and radius scale (37c1: 0 skips, ρ ≥ 10⁴);
-   the fix is for the day fast crossers or missiles fly in the lattice frame — and the
-   flown-fleet rate it must beat is ~0.1–0.2/ρ, the resolve-window fraction, not the
-   driven-pair law.
+1. ~~**The fix, one rule**~~ — the design half is closed (6362) and **adoption gates (a)
+   and (b) are measured** (20261018-2040-second-…-3ac3: bit-identity to the oracle on the
+   shipped operator at every scale measured; the crossed-in-bin ship-scale scene flown
+   through the real steppers, head-on 0.9c = the exact swap, the shipped skip the negative
+   control, the no-ghost plane arm bit-identical with the fix on). What remains: (c)
+   multi-pair-bin root ordering — the contaminated class is real and measured (fires at
+   τ* < −1: 4 of 63 at 400 members seed 1, min −1.99; checker2 seeds 2/3: 1 of 59 and
+   7 of 76, min τ* −72.9 — up to ~9% of fires and |τ*| to 73, so the class grows with
+   the scene; both fix and oracle use the current
+   integers' linear root, the kinked path is not recoverable from the gate's data; the
+   fires are still oracle-identical, but against an oracle that shares the approximation);
+   the integrator's freeze of the ship-scale scene as r5's companion (scene integers in
+   Current best); and the adoption decision itself (a law change: digests move, the patch
+   is env-gated `SPACEX_FIX=1` in the run's tree, deleted with it). The plane itself needs
+   none of this at today's speeds and radius scale (37c1: 0 skips, ρ ≥ 10⁴, and now: the
+   fix wired and inert, digest-identical); the fix is for the day fast crossers or missiles
+   fly in the lattice frame — and the flown-fleet rate it must beat is ~0.1–0.2/ρ, the
+   resolve-window fraction (37c1), a bar the fix clears exactly (every ghost converted).
 2. ~~**The slow grazing half**~~ **Measured innocent** (20261015-0724-dynamics-1648).
    What remains of this direction: *bound* pairs (the pump's 55–62% skip inside a trap —
    dwell under the skip vs a resolving twin is f50d's domain) and filling fractions ≫ 2%.
 3. ~~**The real rate in a flown fleet**~~ **Measured** (20261018-1617-spacex-37c1): 0 in
    the shipped plane (structural margin 10⁴ in ρ), ~0.1–0.2/ρ at relativistic closing,
-   stepper-independent bit for bit. Residues the run names: the player-side contact path
-   (doll-level, logged not resolved) is where a game would first meet a fast crosser —
-   unmeasured; leaver re-entries after minutes (30 s of game per arm here); and a
-   ship-scale-radius lattice scene (reach ~ 10²–10³ quanta), which would sit in the
-   driven-pair law's regime and is the natural r5 companion scene for adoption gate (b).
+   stepper-independent bit for bit; and ~~the ship-scale-radius lattice scene residue~~
+   **measured** (20261018-2040-second-…-3ac3: at reach 512–1024 the shipped rule ghosts
+   ~every detected contact — the driven-pair law's regime, as predicted — and the fix
+   converts them all, oracle-identical, ledgers exact). Residues that remain: the
+   player-side contact path (doll-level, logged not resolved) is where a game would first
+   meet a fast crosser — unmeasured; leaver re-entries after minutes (30 s of game per arm
+   here).
 
 ## Contradictions
 
@@ -213,3 +266,4 @@ nonzero to ρ = 9.6) — the gate is one, the arrival distribution is the scene'
 - 20261015-0724-dynamics-1648 (awaiting grade): the slow grazing half measured innocent
 - 20261018-0722-scout-6362 (silver): the fix's integer design answered — the root
 - 20261018-1617-spacex-37c1 (awaiting grade): the flown fleet's rate measured — 0 at shipped
+- 20261018-2040-second-20261018-1617-spacex-37c1-3ac3 (awaiting grade): adoption gates

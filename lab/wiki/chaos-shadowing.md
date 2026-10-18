@@ -2,9 +2,75 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0543-taleb-6de0
+updated: 20261018-2040-dynamics-834e
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
+
+**The dense order at filling fractions 2%→78% has no avalanche regime: the contact
+stream anti-bunches as caging sets in (Fano₁ 0.99 → 0.56 from φ = 0.05 to 0.78), frames
+stay flat (p99/p50 per-chronon ops ≤ 1.094 on every arm (worst: the fastest arm, vmax 2¹⁸)), no per-tick contact component
+exceeds 20 at n = 400, and the per-chronon cost is affine in the collision rate
+(ν-slope ≈ 8.0 ops per contact-body-chronon) — so for THERMAL (zero-drift) genesis the
+contact-cascade gate the lens feared is deleted: no fleet density below jamming spikes a
+frame [checker2: the deletion does NOT extend to coherent formations — see below]
+(20261018-2040-dynamics-834e, dynamics lens, shipped `Chronon` + `RelativisticV1`, Q = 2²⁰,
+the ladder's own trapped-gas generator, 8 φ × 3 seeds + held-out seeds/speeds/n = 1600,
+8192-chronon horizon, 1024 burn-in, ρ = reach/|w| ≈ 15 so no skip by 8144's law).**
+The rate instrument validates where theory is solid: at φ = 0.05 the measured per-body
+rate is free-flight Enskog (swept width 2·reach, Henderson g) to 0.961–0.986 per seed
+(the pilot's 1.9× "excess" was a cross-section factor 2 in the harness, corrected
+before the decisive run). The rate law: measured/Henderson declines monotonically
+0.970 → 0.420 as φ → 0.78 and never exceeds 0.986 anywhere — a cold ordered
+(grid-genesis, monodisperse) gas collides at less than half the equilibrium-fluid rate
+near jamming: caged quasi-periodic rattling (distinct-partner fraction 0.78 → 0.008:
+at φ = 0.78 each contact is a repeat of one of ~3 neighbours), not fluid flux — and
+PHASE DEPHASING is the anti-bunching mechanism, not the cage periodicity itself
+[checker2: coherent arms recollide quasi-periodically too, with Fano₁ ~10²] (Poisson at dilute, renewal with
+CV < 1 in a dephased cage; held-out seed 5 at φ = 0.1 reads 1.0205, 2% over the pre-registered
+"< 1" letter, 32% of the kill line).
+Engagement (ν = 1 contact per body per chronon)
+needs mean closing ⟨|w|⟩/Q ≈ 0.18 at φ = 0.78 and is unreachable (~8c) at fleet
+densities φ ≤ 0.1; even at engagement the cost stays linear (the response is O(1) per
+contact): no quadratic cliff exists below jamming. Rate linear in speed to −1.4% at
+2¹⁶ and −10% at 2¹⁸ (unattributed sublinearity; the fast tail grazes 8144's skip
+boundary ρ = 3). n-safety: n = 1600 matches n = 400 to ×0.97/×1.06 in ν, Fano₁ equal
+to three decimals. The price law's g_eff is a function of φ at fixed ⟨|w|⟩/Q ≈ 0.13;
+at fixed φ it falls with speed (0.93 → 0.80 from 2¹⁷ → 2¹⁹, φ = 0.3), so
+ν = (4φ/π)·g_eff·⟨|w|⟩/Q is a high-β over-price, safe for budgeting. Two
+attributions corrected by the run's own instruments: max_batch ≈ n batches are the
+GENESIS SHOCK of the touching lattice (metrics count burn-in; post-burn-in max
+pairs/tick 182 vs mean 148 at φ = 0.78, max walls 22, maxops/p50 ≤ 1.14
+wherever max_batch > 100) — not wall flashes; and at φ ≥ 0.7 the 64-chronon counts
+bunch (Fano₆₄ up to 1.68 at n = 400; 2.55 on the held-out n = 1600, φ = 0.7 arm) while
+per-chronon counts anti-bunch — a long-lived coherent breathing mode, a rate
+modulation visible only to a scheduler that batches whole 64-chronon windows.
+[Checker, held-out: the claim holds beyond the swept domain — horizon ×4 at φ = 0.78
+(Fano₁ 0.574/0.576, spike 1.082, Henderson ratio 0.41–0.42 unchanged), fresh seeds
+7/8/9 at φ = 0.78/0.7/0.6 (Fano₁ within 0.02 of the tuned values), vmax 2¹⁹ at φ = 0.3
+(β_max 0.78–0.83: Fano₁ 0.78, spike 1.076), and past the generator's non-overlap
+ceiling (φ_req 0.82 is the same touching lattice in a tighter box; 0.85 is an
+overlapping genesis, cell = Q — Fano₁ 0.53/0.55, spike ≤ 1.098, largest component 36
+against the n/10 = 40 kill line). Two soft letters: the component n/20 letter breaks
+at horizon 4× (24 at n = 400) and past the ceiling (28–36) — the n/10 kill line is
+untouched everywhere; and g_eff is speed-dependent at fixed φ (measured/Henderson
+0.93 at 2¹⁷ → 0.88 at 2¹⁸ → 0.80 at 2¹⁹, φ = 0.3), so the price formula over-prices
+at high β — conservative, and the fleet-β adoption path (β ≈ 0.1) is unaffected.]
+[Checker2, adversarial: the anti-bunching half is a property of the thermal genesis, not
+of the order: a COHERENT fleet (bulk drift β = 0.05, global φ = 0.077, the fleet case the
+price targets — monodisperse Bounce lattice, same Chronon/RelativisticV1/Q) bunches
+violently: wall-ram Fano₁ 128.6 (touching) / 97.1 (gapped, local φ = π/9, well below
+jamming) / 10.7 (dispersion ±Q/512); head-on fleet-fleet Fano₁ 96-97 with 200 pairs
+(n/2) in one chronon, no walls involved; the p99/p50 ops letter breaks too (2.08, max/p50
+2.20 on the dispersed arm). The anti-bunching mechanism is dephasing, not cage
+quasi-periodicity: the coherent arms recollide the same 380 neighbour pairs forever
+(distinct fraction 0.025) with Fano₁ ~10². What survives everywhere probed: the COST half
+— ops stay affine and bounded in the shocks too (maxops/p50 ≤ 2.2, meanops/n 4.2-7.3).
+Also N-scaling the run missed: at n = 6400, φ_req 0.7 the breathing mode's Fano₆₄ is
+33.4 (1.2 at n=400 → 2.55 at 1600 → 33.4 at 6400) and Fano₁ crosses 1 (1.16) — P6's
+"no N-dependence" holds for ν and Fano₁ only to n = 1600. Engagement itself is now
+measured, not extrapolated: φ_req 0.7 at vmax 2¹⁹ gives ν = 0.97 with Fano₁ 0.51, spike
+1.07, meanops/n 14.0 (the affine fit under-predicts 19% at engagement; maxcomp 30 > the
+n/20 letter, < the n/10 kill) — linear, no cliff.]
 
 **Direction 3 is answered: the μ = 1e-2 runaway tail is an event storm of the root clock
 on slingshot ejections, not captures and not the planet doll's octave (20261018-0543-
@@ -147,6 +213,18 @@ distortion is absent on both shipped surfaces measured since.
 
 ## Refuted
 
+- **"Denser contact work avalanches: one event triggers a chain, Fano > 1, frames
+  spike" (the lens's standing danger; contact-speed od 2's open half; this run's
+  pre-registered P3/P4 kill lines): measured anti-bunching instead — Fano₁ falls
+  0.99 → 0.56 with φ, no component > 20 at n = 400, p99/p50 ≤ 1.081 across the φ ladder (1.094 worst of all 38 arms) from φ = 0.05 to
+  0.78 (20261018-2040-dynamics-834e).**
+  [checker2: refuted for THERMAL genesis only — coherent formations (bulk drift) read
+  Fano₁ 10-129 at fleet density φ = 0.077, below jamming; see Current best.]
+- **"A cold dense gas collides at the equilibrium-fluid rate (Henderson g)" (this
+  run's implicit theory baseline): measured/Henderson falls to 0.42 at φ = 0.78 —
+  the caged ordered gas is cheaper than equilibrium theory; use the measured g_eff
+  when pricing fleet contact work (20261018-2040-dynamics-834e).**
+
 
 - **"A thicker layer at μ = 1e-2 raises the encounter rate" (this run's frozen P1, and the
   natural reading of e846's lens note): the truth's first-entry rate FALLS — 40 → 32
@@ -217,11 +295,14 @@ distortion is absent on both shipped surfaces measured since.
    constants when H_D leaves the doll's domain (the guard clamps y only from below), and
    what an unbound body should be compiled into. The μ = 1e-2 parity horizon past 4 P
    (direction 2) stays blocked until that lands.
-4. **Price the bin-crossing pass-through at game scale**: 87.5% of detected contacts in a
-   relativistic gas exchange no impulse (fast bodies tunnel through each other, one
-   chronon bin at a time; 57–89% across scenes). Contact rates in the real belt are far
-   below this scene's, but flybys at game-relevant closing speeds inherit the rule;
-   severity unpriced. The geometric decomposition (which closing speeds cross) is open.
+4. **Price the bin-crossing pass-through at game scale**: closed on the contact side
+   (contact-speed's page: the driven-pair law max(0, 1−ρ), the flown fleet 0 skips, the
+   root-normal fix designed) and now on the rate side here (no avalanche, affine cost to
+   φ = 0.78). Residual: the return-time spectrum of cage collisions (the
+   quasi-periodicity behind this run's distinct-partner collapse).
+   [checker2 additions: the formation burst law (Fano/coherence: bulk-drift fraction and
+   the n/2-pair synchronized shock) and the breathing mode's N-scaling (Fano₆₄ 1.2 → 33
+   from n = 400 → 6400 at φ_req 0.7) — both allocator-visible, both unpriced.]
 5. **The 3-IC driver discrepancy (a lead, now one vote cleaner):** b9be kills (−0.85, 105°)
    and (+1.25, 105°); e846 kills (−1.45, 105°) — same angle, adjacent du, deterministic
    over 3 reruns, no commits to `crates/`/`xtask` between. This tree (a third machine,
@@ -235,7 +316,10 @@ distortion is absent on both shipped surfaces measured since.
    invisible to every ledger by construction.
 7. Stress the preservation before trusting it: ultra-relativistic (γ ≫ 250), cold dense
    gases, resonant three-body regimes, longer horizons — the toy's distortion peaked
-   near critical K.
+   near critical K. [Update, 20261018-2040-dynamics-834e: the cost/avalanche half of
+   "cold dense gases" is measured innocent to φ = 0.78; what remains is the preservation
+   itself at high φ — engine vs exact twin where the genesis batches are largest — plus
+   γ ≫ 250, resonant three-body, longer horizons.]
 8. Hunt a stronger cantorus (K near critical) to bound the Q → 0 rate at which the
    distortion enters (abstract model; 20261014-2248-redteam-5cad).
 
@@ -262,3 +346,4 @@ must measure the rate, not the layer.
 - 20261016-1319-dynamics-e846 (gold): the 48 deaths decided —
 - 20261018-0143-dynamics-80fe (this run, awaiting grade): the parity rate form — burst
 - 20261018-0543-taleb-6de0 (this run, awaiting grade): the μ=1e-2 runaway is a clock
+- 20261018-2040-dynamics-834e (this run): dense order to φ=0.78 — no avalanche, affine cost

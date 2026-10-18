@@ -2,11 +2,47 @@ topic: view
 status: open
 closed-by:
 valid-while:
-updated: 20261018-1025-second-20261018-0932-system-0d46-e401
+updated: 20261018-2040-system-cc75
 
 # The view: the observer's past light cone, lensing, kinked tubes
 
 ## Current best
+
+**[20261018-2040-system-cc75, system] The seen stream's sky content is measured on one census
+across the whole ladder (K = 0/10³/10⁴/10⁵[/3×10⁵], coast seed 1, frames 30 and 90, shipped
+binary + a print-only angle census of the wire's own `seen` array), and the sky saturates at
+capacity exactly where the row tier's legitimacy ends:** far (belt) rows per sky cell at the
+800-px floor (θ_f = 8×10⁻³ rad, capacity 2π/θ_f = 785.4) go 471 cells occupied / alone-fraction
+0.42 at K = 10³ → **786 cells (= capacity, FULL) / alone 0.0001 at K = 10⁴ (occupancy 12.4
+rows/pixel)** → 786 / alone 0.0000 at 10⁵ (**127 rows/pixel; at the 1-px ratchet floor θ_f =
+10⁻³ the sky is at capacity too: 6,284 = 2π/10⁻³ cells, alone 0.0000**; at 10⁻⁴, 77% full,
+alone 0.196). The crossing (alone < 50% at the pixel floor) sits between 10³ and 10⁴ — one
+rung above the 28-body plane the gather was born in, three below the ladder's top. **The
+resolvable content is flat in K and sparse:** the near set (light-seconds < 100: locals,
+planets, moon, fleet) is 358 → 351 rows from K = 10³ to 10⁵, alone-in-cell = 1.000 at θ_f =
+10⁻⁴ at every rung — the instrument's real content is O(10²) rows while the paid stream is
+O(K) rows × 270–284 wire-bytes/row (27 MB/frame at 10⁵, ~1.6 GB/s at 60 Hz). NN p50 among far
+rows: 5.8×10⁻³ rad at 10³ → 4.1×10⁻⁴ at 10⁴ → 4.1×10⁻⁵ at 10⁵ (∝ 1/K, the uniform-angle
+law).** This is the multiplicity twin of 62c1's pixel-static census and 2df1's built row-set
+deletion, measured at the wire (not the canvas), and it closes e401's correction the other
+way: the gather's bill and the scan's bill are not one LEVER (the phase word, e401's 13× on
+formations only) but they are one RECORD — both answers are O(window) over the cold crowd
+(649c: far rows bit-reproducible between tube time quanta; afff/687c: the scan's answer is
+rank-local, served by the window-membership record), and both walks are O(N) per frame. The
+system sentence: at the observer, every per-body stream crosses from information to no-op
+within one rung of K ≈ 10³·⁵ — the scan's candidate walk (afff), the view's seen stream (this
+census), the kick boundary comb (kick-cadence's 99.88%) — one threshold, the observer's
+resolution, one cure, the window record over the cold store (PRINCIPLES 3: nothing evolved
+that can be derived; 24: the floor is what the player can differentiate; 33: the raindrop and
+the lion). Domain and blind spots: static coast census at fixed zoom (the page's own counters:
+belt-zoom puts ~N rows on-canvas, 62c1's checker — the record must re-window under zoom, and
+ee30's drain at zoom is 95 s at 10⁹; formations are the shared ruin class — taleb-09b5's
+co-orbital concentration for the scan, e401's coverage wall for the view); sub-pixel rows
+still carry aggregate signals (count, colour/shift spread per cell — the patina), and a body
+going hot must re-enter the resolvable tier at the kick that makes it hot (the trigger is the
+kick stream, cd3b, not the walk).**
+
+*[Prior best retained below.]*
 
 **The phase word is wired, audited and priced — and 0d46's ~300× gather deletion is refuted as
 stated, bounded to ~13× on formations with a measured coverage wall (20261018-1025-second-…-e401,
@@ -15,8 +51,8 @@ crowd derived from one shared compiled key + one per-member phase word (angle + 
 beside the shipped gather, degrading to the individual read on scars. Measured:
 
 - **The decomposition (asked first): the crossing walk is 0.70–0.97 of the gather's body loop**
-  (0.95 on a 4,071-body formation; row math 3–5%) — if the word deletes the crossing it deletes
-  the gather; 51bf's plane anatomy holds on crowds.
+  (0.95 on a 4,071-body formation; row math 3–5%) — if the word deletes the crossing it deletes the
+  gather; 51bf's plane anatomy holds on crowds.
 - **Exact where it applies:** on a rigid 4,000-member ring (one shared `OrbitSpec` by
   construction — checker: the compiled keys themselves stay ≈ one per member, 4,058/4,071; the
   crowd/formation contrast lives in the tier's 2⁻¹⁴ bucket, where the ring's 4,000 land in ONE
@@ -69,6 +105,11 @@ re-reads ~1.00·K candidates per capture (the 428-body point reads ≈50%, the 2
 0d46's unification sentence ("one lever for three bills") is corrected by this run: the gather's
 bill is CPU and falls 13× on formations only; the scan's bill is bytes and was already flown
 (b083/5f36); they share the census walk, nothing more.
+[20261018-2040-cc75: the lever correction stands; the record unification is this run's design
+claim, not a measurement — both halves are built (2df1's row-set deletion; 687c's record) but one
+record serving both answers has not been flown. What the census measures is the view side's
+saturation law (cells = 2π/θ_f at 10⁴–10⁵) beside the scan side's (afff/687c); checker cc75:
+seed 7 holds it at 10⁴ and 10⁵ (786 and 6,284 cells FULL, alone 0.0000–0.0006).]
 
 **The missing engine half is priced and it is free (scout-ee30):** the birth/death feed that
 replaces the 240-frame membership rescan costs ~10⁻⁴ cores at 10⁹ against the scan's 8.75.
@@ -89,6 +130,13 @@ frames ≈ 1–3 ms p50 at 10³–10⁶, display-exact to ≤ 0.1–2%.
   flown formation — the partial step owns the read (20261018-1025-…-e401).
 - **"The phase/along-orbit axis is the scan's lever alone":** the same word is the gather's crowd
   lever on formations (0d46; wired and audited by e401).
+- **"The gather's per-row stream carries per-row information at ladder scale" (the row tier's
+  implicit premise, and the reason `seen = N + 61` rows are serialised every frame):** measured
+  dead at the wire for the far crowd between K = 10³ and 10⁴ — the sky reaches capacity at both
+  the 800-px and the 1-px floors (786 = 2π/8×10⁻³ and 6,284 = 2π/10⁻³ cells, alone-fraction
+  0.0001 → 0.0000), 12–127 rows per pixel at 10⁴–10⁵, while the resolvable content (near set)
+  stays ~3.5×10² rows flat in K (20261018-2040-system-cc75). The far crowd's wire content below
+  resolvability is aggregate (count, colour/shift spread), not rows.
 - [unchanged: the 240-frame rescan (scout-ee30); "the served set is O(visible)" for the burn
   (649c); the older entries — see git history]
 
@@ -107,11 +155,18 @@ frames ≈ 1–3 ms p50 at 10³–10⁶, display-exact to ≤ 0.1–2%.
 8. The aliasing boundary (efb2). [unchanged]
 9. Unmeasured physics: eccentric emitters, Kerr timing, multi-mass composition; the fleet seam
    (2fa4). [unchanged]
+10. **One record, two instruments (this run's):** wire the window-membership record (687c's,
+   scan side) as the view's far-row source at fitted zoom — the resolvable rows exact, one
+   aggregate (count + colour/shift spread) per sky cell below the floor — and price the zoom
+   re-window against ee30's drain (95 s at 10⁹) and the formation ruin class (taleb-09b5 /
+   e401's coverage wall). The unmeasured half: the hot-set trigger (a kicked or separating body
+   re-enters the resolvable tier) — the kick stream is the trigger, its constants are cd3b's.
 
 ## Contradictions
 
 None open. 0d46's 6.9 µs/body and e401's 7.3 µs/body (same scene class, shared box) agree; the
-13× is the corrected magnitude of the same lever, not a competing law.
+13× is the corrected magnitude of the same lever, not a competing law. This run's record
+unification does not contradict e401's lever correction (see the bracket in Current best).
 
 ## Runs
 - 20261006-0030-m-obscure-8202 (silver): view streams: single-orbit recurrence exact (5e-14); incommensurate eccentric pairs admit no order ≤ 96.
@@ -163,3 +218,11 @@ None open. 0d46's 6.9 µs/body and e401's 7.3 µs/body (same scene class, shared
 - 20261018-0932-system-0d46 (this run, system): the crowd's gather law on the shipped plane
 - [prior runs unchanged, see git history of this page: 8202, f22e, 3102, 0e54, 97fd, 08f7, 70b0,
 - 20261018-1025-second-20261018-0932-system-0d46-e401 (this run): the phase word wired, audited
+- 20261014-1137-inversion-62c1 (silver): the flyable frame crosses the display budget at the gate's own first rung (21.5 ms at 10³, 255 at 10⁴, 2,614 at 10⁵; gather 90%); the visible set is ~73 rows flat in N; 99.6–99.96% of sky rows pixel-static; the lever is the row set. Checker: reproduced; the linear law exact at 3×10⁵ (7.83 s p50, 77.5 rows on-canvas); belt-zoom puts ~N rows on-canvas — the O(10²) visible set is a fitted-zoom fact.
+- 20261014-1221-second-20261014-1137-inversion-62c1-2df1 (silver): the deletion built and measured: steady map frame ~1-3 ms p50 at 10³-10⁶ at fitted and belt zoom; delta wire KB/frame against MB; the turn free (rows byte-identical); the zoom-out bounded (entries read as they enter); the audit ≤ 0.1-2% of drawn rows; the sky's near field does not collapse (~10-20 ms, O(locals)); the fill is the one Θ(N) moment left.
+- 20261015-1338-components-649c (awaiting grade): in-band gather priced (19-22 µs/body/frame, ≥97% of the flown frame at 10⁵) and floored exactly: far rows bit-reproducible between tube time quanta; burn-exempt; near set O(313) the per-frame reads.
+- 20261015-1615-scout-ee30 (silver): the birth/death feed priced — steady flux 2.4-3.4e-8/s per body, ~10⁻⁴ cores at 10⁹ vs the scan's 8.75; drain required at zoom (95 s at 10⁹) and burn (0.2 s); certificate form + KDS/IVM/interest-management mapping.
+- 20261018-0932-system-0d46 (silver): the crowd's gather law on the shipped plane (6.9 µs/body; the scan re-reads ~1.00·K).
+- 20261018-1025-second-20261018-0932-system-0d46-e401 (silver): the phase word wired, audited, bounded to 13× on formations; the crowd unreachable at any quantization; the coverage wall.
+- 20261018-2040-system-cc75 (system, this run): the seen stream's sky census across the ladder — the sky at capacity (786 = 2π/8e-3 cells) at 10⁴, alone 0.0000 at 10⁵ at both floors, near set 358→351 flat and alone=1.0; the row tier's information ends one rung above the 28-body plane; the record unification with the scan's window.
+- [prior runs unchanged, see git history of this page: 8202, f22e, 3102, 0e54, 97fd, 08f7, 70b0, 51bf, 18fc, ace6, 9f4a, 0b45, 48cf, a616, 5977, 6eae, 8f00, fb64, 0fe0, 7b86, 2fa4, 62c1, 2df1, 649c, ee30, 0d46, e401]
