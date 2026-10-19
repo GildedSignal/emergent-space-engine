@@ -1,0 +1,27 @@
+== arms: live 165 probes to gs 328274; f30 180 to 179299; f60 240 to 239399
+== (1) live RSS ~ c0 + c1*scan_mb + c2*hist_mb  (n=155, gs 20018..328274)
+    c0=64.6 MB  c1=1.063  c2=1.359  rmse=15.8 MB  (rss span 1347 MB)
+== (2) census level law, extra = (hist_total - 30028) vs K = 2*ld0+330 s
+    live late   : gs 150126..298249 extra/K median 2.28 (min 1.95 max 2.39); mid gs=224188 total=344025 ld0=67224 K=134778
+    live onset  : gs 120101..128108 extra/K median 1.53 (min 1.47 max 1.98); mid gs=124104 total=97566 ld0=21908 K=44146
+    f30 flat    : frozen K=3084 s (ld0(30000)=1377); flat extra median 4148 -> extra/K = 1.35 bindings per frozen-keep-second (n=143, gs 37063..179299)
+    f60 flat    : frozen K=10866 s (ld0(60000)=5268); flat extra median 15524 -> extra/K = 1.43 bindings per frozen-keep-second (n=158, gs 82138..239399)
+== (2b) post-settle slopes (per 10k gs):
+    live: census +25699 bindings, hist_mb +31.7 MB, rss +41.9 MB
+    f30 : census -1 bindings, hist_mb -0.0 MB, rss +3.5 MB
+    f60 : census -0 bindings, hist_mb -0.0 MB, rss +0.7 MB
+== (3) scan channel: distinct captures vs held entries, per-distinct bytes
+    live: gs=210176 held=496 distinct=249 (x1.99) scan=443.9 MB -> 1.78 MB/distinct, 7198 cand/distinct
+    f30 : gs=115193 held=363 distinct=182 (x1.99) scan=443.8 MB -> 2.44 MB/distinct, 9847 cand/distinct
+    f60 : gs=157263 held=427 distinct=214 (x2.00) scan=443.9 MB -> 2.07 MB/distinct, 8375 cand/distinct
+    fence: SCAN_BACKLOG=2048 entries ~ 1026 distinct x 1.52 MB = 1.6 GB licensed at gs 328274; guard fired at held 585
+== (4) guard-window split (live arm, last probe before the guard):
+    gs=328274: rss=1578 scan=444 hist=752 -> scan share 28%, hist share 48% (raw); regression-split: scan 472 hist 1022 of 1578
+    per-binding: hist 752 MB / extra 580479 = 1295 B/binding deep; regression c2 says 1760 B/binding in RSS
+== (4b) term-split bisect at T=30k (P6/P7):
+    key : end gs=168140 hist_total=204864 rss=878 MB p99=13.020 max=247.982 ms (no guard)
+    keep: end gs=168141 hist_total=116479 rss=753 MB p99=4.395 max=11.683 ms (no guard)
+== (5) arm ends:
+    live: kicks/b/gs=8.497e-5 refused=0 end_rss=1615 MB truncated=true probe: guard hit at gs=328274
+    f30 : kicks/b/gs=8.336e-5 refused=0 end_rss=611 MB truncated=false 
+    f60 : kicks/b/gs=8.488e-5 refused=0 end_rss=638 MB truncated=false 

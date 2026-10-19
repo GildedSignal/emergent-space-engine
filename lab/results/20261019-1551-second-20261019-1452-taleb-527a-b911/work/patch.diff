@@ -1,0 +1,488 @@
+diff --git a/crates/space/src/events/calendar.rs b/crates/space/src/events/calendar.rs
+index 1ed05d31..93d0c229 100644
+--- a/crates/space/src/events/calendar.rs
++++ b/crates/space/src/events/calendar.rs
+@@ -121,4 +121,9 @@ impl Calendar {
+     pub fn is_empty(&self) -> bool {
+         self.heap.is_empty()
+     }
++    /// PROBE (1b3f): the key a slot sits at, if it is in the calendar.
++    pub fn key_at(&self, slot: usize) -> Option<Scalar> {
++        let p = *self.pos.get(slot)?;
++        (p != NONE).then(|| self.heap[p as usize].0)
++    }
+ }
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..d5a70314 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,21 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+-}
+-
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++// PROBE (4a71): Linux has no proc_pid_rusage; the footprint is /proc/self/status's VmRSS/VmHWM
++// (the same pair dcf1 used on this box). Uncompressed resident bytes, the honest ladder number here.
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            }
++        }
+     }
+-    (buf[9], buf[30])
++    (now, peak)
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -57,14 +58,18 @@ fn main() {
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
++    let mut max_gap_s = f64::NEG_INFINITY;
+     let (mut held_max, mut truncated) = (0usize, false);
+     let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
+     let mut last_stats = p.u.stats;
+     let mut alive = true;
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    let wall_cap = std::env::var("ES_WALL_CAP_S").ok().and_then(|s| s.parse::<f64>().ok()).unwrap_or(55.0);
++    let probe_every = std::env::var("ES_PROBE_EVERY_GS").ok().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
++    let mut next_probe = 0.0;
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(wall_cap) {
+             truncated = true;
+             break;
+         }
+@@ -88,6 +93,33 @@ fn main() {
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
++        if probe_every > 0.0 && f >= 60 {
++            let gs = (p.u.now - late_stats.as_ref().map(|s| s.1).unwrap_or(p.u.now)) as f64 * TICK_SECONDS;
++            let gap = (p.u.now - p.u.oldest_item()) as f64 * TICK_SECONDS;
++            max_gap_s = max_gap_s.max(gap);
++            if gs >= next_probe {
++                let (gt1, total, hmax) = p.u.history_census();
++                let (rss, hwm) = footprint();
++                if std::env::var("ES_DEBUG_STUCK").as_deref() == Ok("1") {
++                    println!("stuck:{}", p.u.stuck_dump());
++                }
++                // `gap_s` = now - oldest in game-seconds: the pending window prune's horizon is
++                // held back by (positive = the oldest item sits in the past).
++                let (scan_bytes, scan_distinct, cand_len) = p.u.scan_pinned_bytes();
++                println!("probe: gs={gs:.0} rss_mb={:.0} hwm_mb={:.0} held={} scan_distinct={} bpb={} hist_gt1={} hist_total={} hist_max={} gap_s={gap:.1} scan_mb={:.1} cand_len={} hist_mb={:.1} ld0_gs={:.0}", rss as f64 / 1e6, hwm as f64 / 1e6, p.u.held_scans(), scan_distinct, p.u.bytes_per_body(), gt1, total, hmax, scan_bytes as f64 / 1e6, cand_len, p.u.history_pinned_bytes() as f64 / 1e6, p.u.obs_ld_gs());
++                next_probe = gs + probe_every;
++                // 4447's guard: stop when VmHWM passes LADDER_RSS_MB (the lab's process cap).
++                if let Ok(g) = std::env::var("LADDER_RSS_MB") {
++                    if let Ok(g) = g.parse::<f64>() {
++                        if hwm as f64 / 1e6 > g {
++                            println!("probe: guard hit at gs={gs:.0}");
++                            truncated = true;
++                            break;
++                        }
++                    }
++                }
++            }
++        }
+         last_stats = p.u.stats;
+         ran += 1;
+         let rec = p.u.rec(p.player);
+@@ -142,6 +174,9 @@ fn main() {
+         per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.handoffs - s0.handoffs, last_stats.lost - s0.lost, last_stats.refused - s0.refused, last_stats.slices - s0.slices
+     );
+     println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end (now {:.0} MB); {:.0} B a body from the build; dashboard bytes/body {}; view gather {cold:.1} ms cold, {warm:.1} ms warm ({seen} seen); catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
++    if probe_every > 0.0 {
++        println!("prune: max gap now-oldest {max_gap_s:.1} s over the flight; pinned {}; reader_oldest {}; freeze_ld {} where {}", std::env::var("ES_PIN_OLDEST").unwrap_or_else(|_| "no".into()), std::env::var("ES_READER_OLDEST").unwrap_or_else(|_| "0".into()), std::env::var("ES_FREEZE_LD_AT_GS").unwrap_or_else(|_| "no".into()), std::env::var("ES_FREEZE_LD_WHERE").unwrap_or_else(|_| "both".into()));
++    }
+     if emergent_universe::prof::ENABLED {
+         println!("stages (µs per frame, calls per frame, ns per call), over the {} frames:", late.len());
+         for k in 0..emergent_universe::prof::N {
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..c2c1d826 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -114,6 +114,12 @@ pub trait BodyStore: Send + Sync {
+     fn droppable_until(&self, i: usize) -> Option<Tick>;
+     /// Body `i`'s current binding and every retained one, oldest first (what a reader can still ask for).
+     fn bindings_of(&self, i: usize) -> Vec<Binding>;
++    /// PROBE (b911, print-only): the deep bytes body `i`'s retained history pins — every segment plus its
++    /// compiled entry and shape, deduped by pointer across the whole census (shared entries counted once).
++    fn history_deep_bytes(&self, i: usize, seen: &mut std::collections::HashSet<usize>) -> usize {
++        let _ = (i, seen);
++        0
++    }
+ }
+ 
+ #[derive(Default)]
+@@ -195,6 +201,32 @@ impl BodyStore for PlainBodies {
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
++    fn history_deep_bytes(&self, i: usize, seen: &mut std::collections::HashSet<usize>) -> usize {
++        let mut sum = 0usize;
++        for seg in &self.history[i] {
++            sum += size_of::<Segment>();
++            let e = &seg.b.entry;
++            if seen.insert(std::sync::Arc::as_ptr(e) as usize) {
++                // the Arc allocation (control block + the Entry itself)
++                sum += 16 + size_of::<crate::bind::Entry>();
++                match &e.trajectory {
++                    emergent_space::binding::Trajectory::Cycle(o) => {
++                        let shape = o.shape();
++                        if seen.insert(shape.knots().as_ptr() as usize) {
++                            // the shape's Arc allocation; 48 B stands in for its own fields beside
++                            // the two Vecs, plus each Vec's header and array
++                            sum += 16 + 48 + 2 * 24
++                                + shape.knots().len() * size_of::<emergent_space::orbit::Knot>()
++                                + shape.crossings().len() * size_of::<usize>();
++                        }
++                    }
++                    emergent_space::binding::Trajectory::Passage(_) => sum += 4096,
++                    emergent_space::binding::Trajectory::Plunge(p) => sum += p.retained_bytes(),
++                }
++            }
++        }
++        sum
++    }
+ }
+ 
+ /// The body's tube record (the law's 16 bytes).
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..6c8565bf 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -43,6 +43,17 @@ pub trait Encounters: Send + Sync {
+ /// is given (the bodies' histories may have moved on, been pruned, or the bodies died since).
+ pub trait Held: Send + Sync {
+     fn answer(&self) -> Vec<Encounter>;
++    /// PROBE (b911, print-only): the heap bytes this held scan pins — its own allocation and its
++    /// captured candidates' capacity (the entries the candidates reference are shared with the live
++    /// and retired bindings, and are counted on the history side). 0 by default.
++    fn pinned_bytes(&self) -> usize {
++        0
++    }
++    /// PROBE (b911, print-only): the capture's candidate count and its allocation, to separate
++    /// touched length from untouched reserve.
++    fn candidates_len(&self) -> (usize, usize) {
++        (0, 0)
++    }
+ }
+ 
+ /// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
+@@ -123,6 +134,13 @@ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+     }
++    fn pinned_bytes(&self) -> usize {
++        std::mem::size_of::<Scan>()
++            + self.candidates.capacity() * std::mem::size_of::<(usize, Binding, Scalar)>()
++    }
++    fn candidates_len(&self) -> (usize, usize) {
++        (self.candidates.len(), self.candidates.capacity())
++    }
+ }
+ 
+ impl Scan {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..c1c3f5c9 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -168,6 +168,14 @@ pub struct Universe {
+     /// The same, for the ships of a planet's doll only (not the root's): the ones the player's scan must wait for when the player is in a
+     /// planet's doll ([`Universe::pull_ships`]). Kept by [`Universe::apply`].
+     child_ticks: Calendar,
++    /// PROBE (1b3f, disclosed): the same, one calendar per doll — with `ES_READER_OLDEST`, [`Universe::prune`] scopes the oldest item
++    /// to each body's readers (its own doll's items, the dolls it is a source of, the dolls it centres) instead of the global minimum,
++    /// by these calendars. Empty (shipped) unless the flag is set when [`Universe::start`] runs.
++    doll_ticks: Vec<Calendar>,
++    /// PROBE (b911, disclosed): with `ES_FREEZE_LD_AT_GS`, the light-distance snapshot the retention
++    /// law uses after the clock passes the freeze time (empty before, and always when unset).
++    frozen_ld: Vec<Tick>,
++    ld_frozen: bool,
+     /// The ships that are not in the queue (their next tick is after the target), keyed by that tick: [`Universe::rekey`] moves the
+     /// ones the target reaches into the queue, once ([`Universe::requeue`] keeps every ship in exactly one of the two).
+     waiting: Calendar,
+@@ -249,6 +257,9 @@ impl Universe {
+             queue: None,
+             ship_ticks: Calendar::new(0),
+             child_ticks: Calendar::new(0),
++            doll_ticks: Vec::new(),
++            frozen_ld: Vec::new(),
++            ld_frozen: false,
+             waiting: Calendar::new(0),
+             moved: 0,
+             observed: false,
+@@ -482,6 +493,10 @@ impl Universe {
+         self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
+         self.waiting = Calendar::new(self.body_cap + self.fleets.len());
+         self.prunable = Calendar::new(self.body_cap + self.fleets.len());
++        if reader_oldest() {
++            let cap = self.body_cap + self.fleets.len();
++            self.doll_ticks = (0..self.dolls.len()).map(|_| Calendar::new(cap)).collect();
++        }
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+             let upd = step::replan(&self.ctx(), i, rec, 0);
+@@ -664,6 +679,14 @@ impl Universe {
+             let _ = self.ship_ticks.set(i, next.map(Scalar::integer));
+             let child = next.filter(|_| self.bodies.doll(i) != 0);
+             let _ = self.child_ticks.set(i, child.map(Scalar::integer));
++            if !self.doll_ticks.is_empty() {
++                let d = self.bodies.doll(i) as usize;
++                for (dd, cal) in self.doll_ticks.iter_mut().enumerate() {
++                    // own doll carries the item; every other doll's slot is cleared (a handoff
++                    // would else pin the old doll's minimum at the handoff tick forever).
++                    let _ = cal.set(i, (dd == d).then_some(next).flatten().map(Scalar::integer));
++                }
++            }
+         }
+         // The position cache is read by `light_distance` and nothing else, and the player's light distance is zero by
+         // definition (`rekey` reads the observer from the player's own state): its walk of the doll chain, the dearest
+@@ -1218,10 +1241,35 @@ impl Universe {
+     /// Key body `i` in `prunable` at the earliest tick its oldest retired binding could be forgotten (never before `after`), or take it
+     /// out when it holds one or none.
+     fn key_prune(&mut self, i: usize, after: Tick) {
+-        let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(2 * self.light_distance(i) + (1 << 26)).max(after));
++        let keep = 2 * self.retention_ld(i, true) + (1 << 26);
++        let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(keep).max(after));
+         let _ = self.prunable.set(i, at.map(Scalar::integer));
+     }
+ 
++    /// PROBE (b911, disclosed): the light distance the retention law uses (the visit key above and
++    /// `prune`'s keep below). With `ES_FREEZE_LD_AT_GS` set, every body's value is snapshotted once
++    /// when the clock first passes that game-second and stops there: a control that freezes the
++    /// term's growth without touching the physics, the view, the scans or the fleet deadlines, which
++    /// keep the live distance. Unset = the live distance, bit for bit.
++    fn retention_ld(&mut self, i: usize, key: bool) -> Tick {
++        if let Some(t) = freeze_ld_at() {
++            if !self.ld_frozen && self.now as f64 * crate::view::TICK_SECONDS >= t {
++                self.ld_frozen = true;
++                self.frozen_ld = (0..self.bodies.len()).map(|j| self.light_distance(j)).collect();
++            }
++            // `ES_FREEZE_LD_WHERE` = both (default) | key | keep: the term-split bisect.
++            let applies = match freeze_ld_where().as_str() {
++                "key" => key,
++                "keep" => !key,
++                _ => true,
++            };
++            if self.ld_frozen && applies {
++                return self.frozen_ld.get(i).copied().unwrap_or_else(|| self.light_distance(i));
++            }
++        }
++        self.light_distance(i)
++    }
++
+     /// Forget history the view can no longer need: older than twice the body's light distance (plus a
+     /// margin) behind the present, and older than the oldest item any body still has to resolve. Only the bodies whose oldest
+     /// binding could go by now are visited (`prunable`, by that tick: a body is visited once when it can be shortened, not every
+@@ -1240,12 +1288,60 @@ impl Universe {
+         if let Some((t, _)) = self.ship_ticks.peek() {
+             oldest = oldest.min(t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick);
+         }
++        // PROBE (4a71, disclosed): pin `oldest` D ticks behind now, simulating a far doll's pending
++        // item whose light gap D exceeds every local keep (a certificate on `oldest >= now - max
++        // pending light gap` is what closes this door; unset, behaviour is shipped bit for bit).
++        if let Some(d) = pin_oldest() {
++            oldest = oldest.min(self.now.saturating_sub(d));
++        }
++        // PROBE (1b3f, disclosed): with `ES_READER_OLDEST`, the oldest item is scoped to each body's
++        // readers — the items of its own doll (every item in a doll reads the doll's sources), of every
++        // doll it is a source of, and of the dolls it centres (a handoff reads the centre it crosses,
++        // step.rs) — instead of the global minimum. The pin stays what it simulates, a far doll's item
++        // no near reader holds, so under this rule it holds nothing: the deletion the run prices.
++        let doll_min: Vec<Tick> = if reader_oldest() {
++            let mut v = vec![self.now; self.dolls.len()];
++            for (d, cal) in self.doll_ticks.iter().enumerate() {
++                if let Some((t, _)) = cal.peek() {
++                    v[d] = v[d].min(t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick);
++                }
++            }
++            let few = self.lanes.planets.iter().chain(&self.lanes.moons).copied().chain(self.player);
++            for f in few {
++                if let Some(t) = self.bodies.next_time(f) {
++                    if let Some(m) = v.get_mut(self.bodies.doll(f) as usize) {
++                        *m = (*m).min(t);
++                    }
++                }
++            }
++            v
++        } else {
++            Vec::new()
++        };
+         while let Some((at, i)) = self.prunable.peek() {
+             if at.fixed(0).unwrap_or(i128::MAX) > self.now as i128 {
+                 break;
+             }
+-            let keep = 2 * self.light_distance(i) + (1 << 26);
+-            if self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26))) > 0 {
++            let keep = 2 * self.retention_ld(i, false) + (1 << 26);
++            let mut before = (self.now - keep).min(oldest - (1 << 26));
++            if reader_oldest() {
++                // 1b3f bisect modes: 2 = calendars live but shipped threshold; 3 = own-doll min only;
++                // 4 = no oldest term at all (keep alone).
++                let mode = std::env::var("ES_READER_OLDEST").unwrap_or_default();
++                let mut oi = doll_min.get(self.bodies.doll(i) as usize).copied().unwrap_or(self.now);
++                for d in 0..self.dolls.len() {
++                    if self.sources[d].contains(&i) || self.dolls[d].centre == Some(i) {
++                        oi = oi.min(doll_min[d]);
++                    }
++                }
++                before = match mode.as_str() {
++                    "2" => before,
++                    "3" => (self.now - keep).min(doll_min.get(self.bodies.doll(i) as usize).copied().unwrap_or(self.now).saturating_sub(1 << 26)),
++                    "4" => self.now - keep,
++                    _ => (self.now - keep).min(oi.saturating_sub(1 << 26)),
++                };
++            }
++            if self.bodies.prune(i, before) > 0 {
+                 // what a reader can still ask for shrank: so does where the body is registered
+                 self.radial.rebuild(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), self.bodies.bindings_of(i).iter());
+             }
+@@ -1372,4 +1468,130 @@ impl Universe {
+     pub fn horizon_of(&self, i: usize) -> Option<Tick> {
+         self.key_of(i).map(|k| k.0)
+     }
++
++    /// PROBE (4a71, print-only): the oldest pending item's tick exactly as `prune` sees it (pin included).
++    pub fn oldest_item(&self) -> Tick {
++        let mut oldest = self.now;
++        let few = self.lanes.planets.iter().chain(&self.lanes.moons).copied().chain(self.player);
++        for i in few {
++            if let Some(t) = self.bodies.next_time(i) {
++                oldest = oldest.min(t);
++            }
++        }
++        if let Some((t, _)) = self.ship_ticks.peek() {
++            oldest = oldest.min(t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick);
++        }
++        if let Some(d) = pin_oldest() {
++            oldest = oldest.min(self.now.saturating_sub(d));
++        }
++        oldest
++    }
++
++    /// PROBE (4a71, print-only): (bodies holding more than one retired binding, total retired
++    /// bindings, the most one body holds) — the ratchet's census.
++    pub fn history_census(&self) -> (usize, usize, usize) {
++        let (mut gt1, mut total, mut max) = (0usize, 0usize, 0usize);
++        for i in 0..self.bodies.len() {
++            let h = self.bodies.history_len(i);
++            total += h;
++            if h > 1 {
++                gt1 += 1;
++            }
++            max = max.max(h);
++        }
++        (gt1, total, max)
++    }
++
++    /// PROBE (b911, print-only): (deep bytes, distinct captures, summed candidate length) of the
++    /// held scans — distinct by pointer, because `capture` re-arms the same scan when nothing it
++    /// reads changed, so the deque holds clones of one Arc and `held_scans` counts entries, not
++    /// memory. The scan channel's own counter, not an RSS subtraction.
++    pub fn scan_pinned_bytes(&self) -> (usize, usize, usize) {
++        let mut seen: std::collections::HashSet<*const u8> = std::collections::HashSet::new();
++        let (mut bytes, mut len) = (0usize, 0usize);
++        for s in &self.scans {
++            if seen.insert(std::sync::Arc::as_ptr(s) as *const u8) {
++                bytes += std::mem::size_of::<Arc<dyn Held>>() + s.pinned_bytes();
++                len += s.candidates_len().0;
++            }
++        }
++        (bytes, seen.len(), len)
++    }
++
++    /// PROBE (b911, print-only): the deep heap bytes the retained history bindings pin (segments,
++    /// entries and shapes, shared ones counted once) — the history channel's own counter.
++    pub fn history_pinned_bytes(&self) -> usize {
++        let mut seen = std::collections::HashSet::new();
++        (0..self.bodies.len()).map(|i| self.bodies.history_deep_bytes(i, &mut seen)).sum()
++    }
++
++    /// PROBE (b911, print-only): the observer's light distance from the star, in game-seconds (the
++    /// recession the retention term rides; the player's own distance is zero by definition).
++    pub fn obs_ld_gs(&self) -> f64 {
++        self.light_distance(0) as f64 * crate::view::TICK_SECONDS
++    }
++
++    /// PROBE (1b3f, debug): the worst history holders with why prune could be holding them.
++    pub fn stuck_dump(&self) -> String {
++        let mut doll_min = vec![self.now; self.dolls.len()];
++        for (d, cal) in self.doll_ticks.iter().enumerate() {
++            if let Some((t, _)) = cal.peek() {
++                doll_min[d] = doll_min[d].min(t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick);
++            }
++        }
++        for f in self.lanes.planets.iter().chain(&self.lanes.moons).copied().chain(self.player) {
++            if let Some(t) = self.bodies.next_time(f) {
++                if let Some(m) = doll_min.get_mut(self.bodies.doll(f) as usize) {
++                    *m = (*m).min(t);
++                }
++            }
++        }
++        let dm = doll_min.iter().map(|&t| format!("{:.0}", (self.now - t) as f64 * 4.925e-6)).collect::<Vec<_>>();
++        let mut worst: Vec<(usize, usize)> = (0..self.bodies.len()).map(|i| (i, self.bodies.history_len(i))).filter(|&(_, h)| h > 20).collect();
++        worst.sort_by_key(|&(_, h)| std::cmp::Reverse(h));
++        worst.truncate(6);
++        let mut out = format!(" doll_min_behind_s={dm:?}");
++        for &(i, h) in &worst {
++            let d = self.bodies.doll(i);
++            let keep = 2 * self.light_distance(i) + (1 << 26);
++            let u = self.bodies.droppable_until(i).unwrap_or(0);
++            let pk = self.prunable.key_at(i).map(|k| format!("{:.0}", (self.now - (k.fixed(0).unwrap_or(0) as Tick)) as f64 * 4.925e-6)).unwrap_or_else(|| "none".into());
++            let src = (0..self.dolls.len()).filter(|&d| self.sources[d].contains(&i) || self.dolls[d].centre == Some(i)).collect::<Vec<_>>();
++            out.push_str(&format!(" [i={i} doll={d} len={h} kind={:?} src={src:?} keep_s={:.0} front_s={:.0} prune_key_s={pk} nt_s={:.0}]", self.info[i].kind, keep as f64 * 4.925e-6, (self.now - u) as f64 * 4.925e-6, (self.now - self.bodies.next_time(i).unwrap_or(self.now)) as f64 * 4.925e-6));
++        }
++        out
++    }
++}
++
++/// PROBE (b911, disclosed): `ES_FREEZE_LD_WHERE` = both (default) | key | keep — which of the
++/// two retention terms the freeze stops, for the term-split bisect.
++fn freeze_ld_where() -> String {
++    static WHERE: std::sync::LazyLock<String> =
++        std::sync::LazyLock::new(|| std::env::var("ES_FREEZE_LD_WHERE").unwrap_or_else(|_| "both".into()));
++    (*WHERE).clone()
++}
++
++/// PROBE (b911, disclosed): `ES_FREEZE_LD_AT_GS=<game-seconds>` freezes the retention law's
++/// light-distance term (the visit key and the keep) at each body's value when the clock first
++/// passes it. `None` = the live distance, bit for bit.
++fn freeze_ld_at() -> Option<f64> {
++    static FREEZE: std::sync::LazyLock<Option<f64>> =
++        std::sync::LazyLock::new(|| std::env::var("ES_FREEZE_LD_AT_GS").ok().and_then(|s| s.parse::<f64>().ok()));
++    *FREEZE
++}
++
++/// PROBE (4a71, disclosed): `ES_PIN_OLDEST=D` pins `prune`'s `oldest` D ticks behind `now`,
++/// simulating a far doll's pending item whose light gap exceeds every local keep; read once.
++/// `None` = shipped behaviour, bit for bit.
++fn pin_oldest() -> Option<Tick> {
++    static PIN: std::sync::LazyLock<Option<Tick>> =
++        std::sync::LazyLock::new(|| std::env::var("ES_PIN_OLDEST").ok().and_then(|s| s.parse::<Tick>().ok()));
++    *PIN
++}
++
++/// PROBE (1b3f, disclosed): `ES_READER_OLDEST=1` scopes `prune`'s `oldest` to each body's readers
++fn reader_oldest() -> bool {
++    static READER: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_READER_OLDEST").map_or(false, |s| !s.is_empty()));
++    *READER
+ }
