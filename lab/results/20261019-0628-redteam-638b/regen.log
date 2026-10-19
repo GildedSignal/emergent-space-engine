@@ -1,0 +1,46 @@
+controls: {
+ "b_5.0": {
+  "expected": "captured",
+  "got": "captured",
+  "pass": true
+ },
+ "b_5.5": {
+  "expected": "escaped",
+  "got": "escaped",
+  "pass": true
+ },
+ "deflection_b100": {
+  "geodesic_h1": 0.04101126784758691,
+  "geodesic_h2": 0.0409876144111867,
+  "series": 0.041178097245096176,
+  "rel_series": 0.004051411033304513,
+  "step_ratio": 0.9994232454239622,
+  "pass": 1.0
+ },
+ "shadow_fraction_h1": 0.24933333333333332,
+ "shadow_fraction_h2": 0.24966666666666668,
+ "shadow_step_ratio": 1.001336898395722,
+ "shadow_closed_fraction": 0.25000000000000006,
+ "shadow_ensemble_vs_closed_deg": 0.2400000000000233,
+ "pass_all": true
+}
+shadow:
+  r_o=  3.2: exact 167.83 (ens 167.70) tube2M  77.36 ratio 2.169 cure_err 0.0e+00 fabricated 25.1%
+  r_o=  3.5: exact 152.77 (ens 152.64) tube2M  69.70 ratio 2.192 cure_err 0.0e+00 fabricated 23.1%
+  r_o=  4.0: exact 133.43 (ens 133.26) tube2M  60.00 ratio 2.224 cure_err 0.0e+00 fabricated 20.4%
+  r_o=  6.0: exact  90.00 (ens  89.76) tube2M  38.94 ratio 2.311 cure_err 0.0e+00 fabricated 14.2%
+  r_o= 10.0: exact  55.39 (ens  55.08) tube2M  23.07 ratio 2.401 cure_err 0.0e+00 fabricated 9.0%
+  r_o= 20.0: exact  28.54 (ens  28.26) tube2M  11.48 ratio 2.486 cure_err 0.0e+00 fabricated 4.7%
+  r_o= 50.0: exact  11.69 (ens  11.40) tube2M   4.58 ratio 2.549 cure_err 0.0e+00 fabricated 2.0%
+starfield: {"n_sources": 716, "min_images": 3, "max_images": 4, "ghost_gt5pct": 339, "ghost_gt1pct": 676, "max_ghost_ratio": 1.0, "ghost5_band_deg_either_side": 180.0, "sample_deg0": {"c_deg": 1.0, "n": 3, "mu": [0.8169757264237774, 0.011134234327109027, 0.011021954415411983], "ghost_ratio": 0.013628598704943084}, "sample_deg90": {"c_deg": 91.0, "n": 4, "mu": [0.7104784430061954, 0.06528450322338131, 0.0021744926846096746, 0.00016891917005584103], "ghost_ratio": 0.09188808452392695}, "sample_deg179_5": {"c_deg": 180.5, "n": 4, "mu": [0.20062329012193914, 0.20015377353956865, 0.00037375991133875575, 0.00037375991133875575], "ghost_ratio": 0.9976597104848339}}
+rim: {'min_mu_next_to_rim': 0.00016891917005584103, 'band_below_0p1_deg': 89.95499653619024}
+shapiro: {'max_M': 98.01072340308747, 'at_alpha_deg': 134.99596323245166, 'median_M': 37.85757884970735}
+beacon: {'r_s': 4.0, 'max_images': 4, 'ghost_gt5pct_rows': 14, 'ghost_gt1pct_rows': 18, 'n_rows': 23, 'max_shapiro_frac': 16.786043132003172}
+    {'phi_s_deg': 2.8647889756541165, 'n_images': 3, 't_flat': 2.014941066394156, 't_geodesic_min': 3.4012507982915974, 't_geodesic_max': 35.83782871533092, 'shapiro_max_frac': 16.786043132003172, 'mu_sorted': [1.6164, 0.0019, 0.0017], 'ghost_ratio': 0.0011887957804640617, 'alpha_degs': [175.34, 134.9, -134.89]}
+    {'phi_s_deg': 18.39240684627785, 'n_images': 3, 't_flat': 2.5400677011258432, 't_geodesic_min': 3.955452319967333, 't_geodesic_max': 37.248205027279, 'shapiro_max_frac': 13.66425678763182, 'mu_sorted': [1.1286, 0.0025, 0.0013], 'ghost_ratio': 0.0022318167886235, 'alpha_degs': [153.45, 134.92, -134.85]}
+    {'phi_s_deg': 33.92002471690159, 'n_images': 3, 't_flat': 3.4883763281169164, 't_geodesic_min': 5.060590300978392, 't_geodesic_max': 38.65803615407593, 'shapiro_max_frac': 10.081956910005802, 'mu_sorted': [0.5938, 0.0033, 0.001], 'ghost_ratio': 0.005538070405394998, 'alpha_degs': [140.36, 134.94, -134.81]}
+    {'phi_s_deg': 49.44764258752532, 'n_images': 3, 't_flat': 4.559951001134974, 't_geodesic_min': 6.4259853266196885, 't_geodesic_max': 40.06749238864453, 'shapiro_max_frac': 7.786825204628672, 'mu_sorted': [0.2814, 0.0043, 0.0007], 'ghost_ratio': 0.015303412406410448, 'alpha_degs': [133.82, 134.95, -134.75]}
+    {'phi_s_deg': 64.97526045814905, 'n_images': 3, 't_flat': 5.629879343230603, 't_geodesic_min': 7.9027747740691145, 't_geodesic_max': 41.476701558341595, 'shapiro_max_frac': 6.36724519828536, 'mu_sorted': [0.1167, 0.0056, 0.0006], 'ghost_ratio': 0.047880636175980776, 'alpha_degs': [130.86, 134.97, -134.67]}
+    {'phi_s_deg': 80.5028783287728, 'n_images': 3, 't_flat': 6.639284088035195, 't_geodesic_min': 9.423429705979872, 't_geodesic_max': 42.885540012460154, 'shapiro_max_frac': 5.4593621004627835, 'mu_sorted': [0.0302, 0.0073, 0.0004], 'ghost_ratio': 0.24173963193634726, 'alpha_degs': [129.8, 134.97, -134.58]}
+wall 32.7s
+regen done: results.json
