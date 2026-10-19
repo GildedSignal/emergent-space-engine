@@ -1,0 +1,59 @@
+loadavg at start: 0.89 1.89 1.78
+=== controls: memo.rs (guard 0.85) OFF / ON, qmemo ===
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+=== belt stream, 10^4 and 10^5, exact vs served ===
+--- 10000 1 50 1800 exact ---
+census: n=10000 seed=1 belt_bodies=9699 build_s=0.4 census_s=17.05 wall_s=17.5 game_s=89100 kicks=166985
+stream: rebinds=165038 distinct_keys=11390 cells_w11=1474 cells_w9=449 cells_w7=145 cells_w5=60 cold_first_touch=1474 new_beyond_birth=46 recurrence=0.9911 rebinds_per_cell=112.0 fires_p50=3 cells_per_body_p50=1
+stream_split: belt rebinds=29097 cells_w11=1425 recurrence=0.9510 | other rebinds=135941 cells_w11=505 recurrence=0.9963
+served: calls=175237 us_per_call=4.910 hits=0 builds=0 memo_cells=0 belt_rebinds_per_body_per_ks=0.03
+--- 10000 1 50 1800 served ---
+census: n=10000 seed=1 belt_bodies=9699 build_s=0.4 census_s=16.45 wall_s=16.8 game_s=89312 kicks=167352
+stream: rebinds=165404 distinct_keys=13139 cells_w11=1499 cells_w9=453 cells_w7=147 cells_w5=62 cold_first_touch=1499 new_beyond_birth=138 recurrence=0.9909 rebinds_per_cell=110.3 fires_p50=3 cells_per_body_p50=1
+stream_split: belt rebinds=29097 cells_w11=1429 recurrence=0.9509 | other rebinds=136307 cells_w11=599 recurrence=0.9956
+served: calls=175605 us_per_call=0.922 hits=174034 builds=1571 memo_cells=1571 belt_rebinds_per_body_per_ks=0.03
+--- 100000 1 50 1800 exact ---
+census: n=100000 seed=1 belt_bodies=99699 build_s=4.4 census_s=24.33 wall_s=28.8 game_s=66921 kicks=304638
+stream: rebinds=302831 distinct_keys=97962 cells_w11=1760 cells_w9=494 cells_w7=148 cells_w5=55 cold_first_touch=1760 new_beyond_birth=29 recurrence=0.9942 rebinds_per_cell=172.1 fires_p50=2 cells_per_body_p50=1
+stream_split: belt rebinds=200441 cells_w11=1731 recurrence=0.9914 | other rebinds=102390 cells_w11=455 recurrence=0.9956
+served: calls=403030 us_per_call=5.348 hits=0 builds=0 memo_cells=0 belt_rebinds_per_body_per_ks=0.03
+--- 100000 1 50 1800 served ---
+census: n=100000 seed=1 belt_bodies=99699 build_s=3.8 census_s=23.54 wall_s=27.4 game_s=70646 kicks=328660
+stream: rebinds=326839 distinct_keys=100084 cells_w11=1782 cells_w9=495 cells_w7=150 cells_w5=57 cold_first_touch=1782 new_beyond_birth=93 recurrence=0.9945 rebinds_per_cell=183.4 fires_p50=2 cells_per_body_p50=1
+stream_split: belt rebinds=218763 cells_w11=1736 recurrence=0.9921 | other rebinds=108076 cells_w11=560 recurrence=0.9948
+served: calls=427062 us_per_call=0.834 hits=425233 builds=1829 memo_cells=1829 belt_rebinds_per_body_per_ks=0.03
+=== belt-key constants (microbench, 99,699 keys) ===
+belt_keys: n=99699 compile_us_per_key=4.992
+belt_keys: served_us_per_key_hit=5.024 memo_cells=0 hits=0 builds=0
+belt_keys: n=99699 compile_us_per_key=5.117
+belt_keys: served_us_per_key_hit=0.744 memo_cells=1732 hits=297698 builds=1732
+=== gates: B13 exact vs served (the decisive pair) ===
+B13 FAIL assists: 60/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 2.12e-2 ΔL 2.12e-2; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [2.25 s]
+B13 FAIL assists: 46/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 5.93e-1 ΔL 5.93e-1; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [2.18 s]
+=== gates: strong-branch guard (ES_QWEAK=1) does not rescue ===
+B13 FAIL assists: 47/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 5.92e-1 ΔL 5.92e-1; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [2.25 s]
+=== B13 per-draw, served (the failing draws) ===
+draw 0: q 5.26 R_p, v_inf 13.4 km/s: dE err 1.11e-1, dL err 1.11e-1; alive true, kicks 591 refused 0 lost 0, closest in the reference 3.78 R_p; fault None
+draw 1: q 13.80 R_p, v_inf 10.1 km/s: dE err 2.40e-1, dL err 2.40e-1; alive true, kicks 504 refused 0 lost 0, closest in the reference 12.14 R_p; fault None
+draw 4: q 18.05 R_p, v_inf 9.7 km/s: dE err 2.11e-2, dL err 2.12e-2; alive true, kicks 569 refused 0 lost 0, closest in the reference 11.83 R_p; fault None
+draw 10: q 14.51 R_p, v_inf 9.2 km/s: dE err 2.08e-1, dL err 2.08e-1; alive true, kicks 542 refused 0 lost 0, closest in the reference 11.95 R_p; fault None
+draw 14: q 9.74 R_p, v_inf 14.8 km/s: dE err 4.54e-1, dL err 4.54e-1; alive true, kicks 382 refused 0 lost 0, closest in the reference 9.49 R_p; fault None
+draw 16: q 7.68 R_p, v_inf 6.3 km/s: dE err 1.78e-2, dL err 1.78e-2; alive true, kicks 844 refused 0 lost 0, closest in the reference 4.02 R_p; fault None
+draw 60: q 44.48 R_p, v_inf 6.5 km/s: dE err 2.54e-2, dL err 2.49e-2; alive true, kicks 439 refused 0 lost 0, closest in the reference 44.72 R_p; fault None
+step 8: 44/64 within 1%; draws with refused kicks (a heliocentric state with no tube): none
+=== gates: B12 (broken instrument here: fails for the exact law) and B17 (60 s limit) ===
+B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 
+B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 
+B17 FAIL timeout: 60.0 s over the 60 s limit
+B17 FAIL timeout: 60.0 s over the 60 s limit
+=== clean-tree control: B13 on the pristine shipped law ===
+B13 FAIL assists: 60/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 2.12e-2 ΔL 2.12e-2; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [2.25 s]
+ M crates/space/src/binding.rs
+ M crates/space/src/orbit.rs
+ M crates/universe/src/lib.rs
+ M crates/universe/src/step.rs
+ M crates/universe/src/universe.rs
+ M crates/universe/tests/memo.rs
+regen done

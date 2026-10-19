@@ -1,0 +1,336 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..ceed2a9b 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -946,6 +946,10 @@ impl MemoCode {
+     pub fn bits(self) -> u64 {
+         self.0
+     }
++    /// Rebuild from [`MemoCode::bits`] (census tooling; round-trips `encode`).
++    pub fn from_bits(bits: u64) -> Self {
++        Self(bits)
++    }
+     pub fn decode(self) -> Result<OrbitKey> {
+         let gap = Scalar::raw(
+             (2048 + (self.0 & 2047)) as i128,
+diff --git a/crates/universe/examples/beltcensus.rs b/crates/universe/examples/beltcensus.rs
+new file mode 100644
+index 00000000..ec073bf1
+--- /dev/null
++++ b/crates/universe/examples/beltcensus.rs
+@@ -0,0 +1,243 @@
++//! The belt's memo-cell census (lab run 20261019-1316-system-f7c3): how many distinct quantized
++//! (11+11) cells the population's rebinds actually touch, and what their shapes weigh — the
++//! standing-set measurement that `cell-rebind` named and left open ("the belt census at this
++//! width, unmeasured"), on the shipped law and draw (`scenario::plane_extra`, the nladder
++//! population), with no memo wired: every rebind is the shipped exact compile.
++//!
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::{Knot, MemoCode, Orbit};
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::{census, Budget, Config, Universe};
++use std::collections::{HashMap, HashSet};
++use std::time::{Duration, Instant};
++
++fn fields(bits: u64) -> (u64, u64, u64, i16) {
++    (((bits) & 2047, (bits >> 11) & 63, (bits >> 17) & 2047, ((bits >> 28) as u16 as i16)))
++}
++
++/// The cell identity at `w` kept fraction bits (w ≤ 11), following `MemoCode::shape_bits`:
++/// the weak branch drops the radius fields, so only the gap identifies the shape.
++fn cell(bits: u64, weak: bool, w: u32) -> u64 {
++    let (gf, ge, pf, pe) = fields(bits);
++    let d = 11 - w;
++    if weak {
++        (ge << 11) | (gf >> d)
++    } else {
++        (((ge << 11) | (gf >> d)) << 27) | (((pe as u16 as u64) << 11) | (pf >> d))
++    }
++}
++
++/// weak ⟺ compactness ≤ 2^-18 (exact in f64: significand/2^62 · 2^exp).
++fn is_weak(bits: u64) -> bool {
++    match MemoCode::from_bits(bits).decode() {
++        Ok(k) => match k.compactness() {
++            Ok(c) => (c.significand() as f64 / (1u64 << 62) as f64) * 2f64.powi(c.exponent() as i32) <= 2f64.powi(-18),
++            Err(_) => false,
++        },
++        Err(_) => false,
++    }
++}
++
++/// Shape bytes of one cell's canonical shape (the same accounting the engine's `bytes_of` uses).
++fn shape_bytes(bits: u64) -> Option<(usize, usize)> {
++    let key = MemoCode::from_bits(bits).decode().ok()?;
++    let o = Orbit::compile(key).ok()?;
++    let s = o.shape();
++    Some((s.knots().len() * std::mem::size_of::<Knot>() + s.crossings().len() * std::mem::size_of::<usize>(), s.knots().len()))
++}
++
++struct Pop {
++    birth_bits: Vec<Option<u64>>, // per body at genesis
++    belt: std::ops::Range<usize>,
++}
++
++fn census_birth(u: &Universe, extra: usize) -> Pop {
++    let n = u.n_bodies();
++    let locals = ladder_locals(extra as u64) as usize;
++    let belt = (n - extra + locals)..(n - 1); // the player is last
++    let mut birth_bits = Vec::with_capacity(n);
++    let mut bad = 0usize;
++    for i in 0..n {
++        let bits = match &u.rec(i).b.entry.trajectory {
++            Trajectory::Cycle(c) => MemoCode::encode(c.key()).ok().map(|code| code.bits()),
++            _ => None,
++        };
++        if bits.is_none() {
++            bad += 1;
++        }
++        birth_bits.push(bits);
++    }
++    eprintln!("birth: {n} bodies, {} non-cycle-or-unencodable keys", bad);
++    Pop { birth_bits, belt }
++}
++
++struct Slice {
++    rebinds: usize,
++    distinct_keys: usize,
++    cells: HashMap<u64, usize>, // cell(w=11) -> first-touch order
++    cells_w: [usize; 4],        // distinct cells at w = 11, 9, 7, 5
++    per_body_rebinds: HashMap<u64, usize>,
++    per_body_cells: HashMap<u64, HashSet<u64>>,
++}
++
++fn slice_from(items: &[(u64, u64)], weak_of: &mut HashMap<u64, bool>) -> Slice {
++    let mut keys = HashSet::new();
++    let mut cells: HashMap<u64, usize> = HashMap::new();
++    let mut sets = [HashSet::new(), HashSet::new(), HashSet::new(), HashSet::new()];
++    let mut per_body_rebinds: HashMap<u64, usize> = HashMap::new();
++    let mut per_body_cells: HashMap<u64, HashSet<u64>> = HashMap::new();
++    for &(i, bits) in items {
++        keys.insert(bits);
++        let weak = *weak_of.entry(bits).or_insert_with(|| is_weak(bits));
++        let c11 = cell(bits, weak, 11);
++        let n = cells.len();
++        cells.entry(c11).or_insert(n);
++        for (k, w) in [11u32, 9, 7, 5].into_iter().enumerate() {
++            sets[k].insert(cell(bits, weak, w));
++        }
++        *per_body_rebinds.entry(i).or_default() += 1;
++        per_body_cells.entry(i).or_default().insert(c11);
++    }
++    Slice { rebinds: items.len(), distinct_keys: keys.len(), cells, cells_w: sets.map(|s| s.len()), per_body_rebinds, per_body_cells }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1800.0);
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let pop = census_birth(&p.u, n);
++    let t1 = Instant::now();
++
++    // Birth census: cells over the population's own keys (what a memo must hold to serve
++    // genesis), with standing shape bytes for the distinct cells.
++    let mut weak_of: HashMap<u64, bool> = HashMap::new();
++    let birth_items: Vec<(u64, u64)> = pop
++        .birth_bits
++        .iter()
++        .enumerate()
++        .filter_map(|(i, b)| b.map(|b| (i as u64, b)))
++        .collect();
++    let birth = slice_from(&birth_items, &mut weak_of);
++    let (mut belt_cells, mut other_cells) = (HashMap::<u64, u64>::new(), HashMap::<u64, u64>::new());
++    let mut weak_share = (0usize, 0usize);
++    for &(i, bits) in &birth_items {
++        let weak = *weak_of.entry(bits).or_insert_with(|| is_weak(bits));
++        let c = cell(bits, weak, 11);
++        if pop.belt.contains(&(i as usize)) {
++            belt_cells.entry(c).or_insert(bits);
++            weak_share.0 += weak as usize;
++            weak_share.1 += 1;
++        } else {
++            other_cells.entry(c).or_insert(bits);
++        }
++    }
++    let weigh = |m: &HashMap<u64, u64>| -> (usize, usize, usize, usize) {
++        let mut bytes = 0;
++        let mut knots = Vec::new();
++        let mut failed = 0;
++        for bits in m.values() {
++            match shape_bytes(*bits) {
++                Some((b, k)) => {
++                    bytes += b;
++                    knots.push(k);
++                }
++                None => failed += 1,
++            }
++        }
++        knots.sort_unstable();
++        (bytes, knots.len(), *knots.get(knots.len() / 2).unwrap_or(&0), failed)
++    };
++    let (belt_bytes, belt_shaped, belt_knots_p50, belt_fail) = weigh(&belt_cells);
++    let (other_bytes, other_shaped, other_knots_p50, other_fail) = weigh(&other_cells);
++    let n_belt = pop.belt.clone().count();
++    let belt_birth = slice_from(
++        &birth_items.iter().copied().filter(|(i, _)| pop.belt.contains(&(*i as usize))).collect::<Vec<_>>(),
++        &mut weak_of,
++    );
++
++    // The flight, if asked for: the shipped loop (12 ms engine budget, 60 fps of wall time).
++    let mut game_s = 0.0f64;
++    let mut kicks = 0u64;
++    if seconds > 0.0 {
++        assert!(census::enabled(), "set ES_CENSUS=1 to record the rebind stream");
++        let frames = (seconds * 60.0) as usize;
++        let s0 = p.u.stats;
++        let t_start = p.u.now;
++        for f in 0..frames {
++            if t0.elapsed() > Duration::from_secs(55) {
++                break;
++            }
++            let start = Instant::now();
++            let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros(12_000)) }, i64::MAX);
++            if t0.elapsed() > Duration::from_secs(55) {
++                break;
++            }
++        }
++        game_s = (p.u.now - t_start) as f64 * emergent_universe::view::TICK_SECONDS;
++        kicks = p.u.stats.kicks - s0.kicks;
++    }
++    let stream_items = census::take();
++    let stream = slice_from(&stream_items, &mut weak_of);
++    let stream_new_beyond_birth = stream.cells.keys().filter(|c| !birth.cells.contains_key(c)).count();
++    let mut belt_stream: Vec<(u64, u64)> = Vec::new();
++    let mut other_stream: Vec<(u64, u64)> = Vec::new();
++    for &(i, bits) in &stream_items {
++        if pop.belt.contains(&(i as usize)) {
++            belt_stream.push((i, bits));
++        } else {
++            other_stream.push((i, bits));
++        }
++    }
++    let belt_slice = slice_from(&belt_stream, &mut weak_of);
++    let other_slice = slice_from(&other_stream, &mut weak_of);
++    let drift_p50 = {
++        let mut d: Vec<usize> = stream.per_body_cells.values().map(|s| s.len()).collect();
++        d.sort_unstable();
++        *d.get(d.len() / 2).unwrap_or(&0)
++    };
++    let fires_p50 = {
++        let mut d: Vec<usize> = stream.per_body_rebinds.values().copied().collect();
++        d.sort_unstable();
++        *d.get(d.len() / 2).unwrap_or(&0)
++    };
++    let cold_builds = stream.cells.len(); // first-touch of each cell = a compile under the memo
++
++    println!(
++        "census: n={n} seed={seed} belt_bodies={n_belt} build_s={build:.1} census_s={:.2} wall_s={:.1} game_s={game_s:.0} kicks={kicks}",
++        t1.elapsed().as_secs_f64(),
++        t0.elapsed().as_secs_f64()
++    );
++    println!(
++        "birth: belt cycles={} weak_share={:.4} distinct_keys={} cells_w11={} cells_w9={} cells_w7={} cells_w5={}",
++        weak_share.1,
++        weak_share.0 as f64 / weak_share.1.max(1) as f64,
++        belt_birth.distinct_keys,
++        belt_birth.cells_w[0], belt_birth.cells_w[1], belt_birth.cells_w[2], belt_birth.cells_w[3]
++    );
++    println!(
++        "birth_shapes: belt cells={} shaped={} failed={} bytes={} knots_p50={} other cells={} shaped={} failed={} bytes={} knots_p50={} total_bytes={} bytes_per_belt_body={:.2}",
++        belt_cells.len(), belt_shaped, belt_fail, belt_bytes, belt_knots_p50, other_cells.len(), other_shaped, other_fail, other_bytes, other_knots_p50,
++        belt_bytes + other_bytes,
++        (belt_bytes + other_bytes) as f64 / n_belt.max(1) as f64
++    );
++    println!(
++        "stream: rebinds={} distinct_keys={} cells_w11={} cells_w9={} cells_w7={} cells_w5={} cold_first_touch={} new_beyond_birth={} recurrence={:.4} rebinds_per_cell={:.1} fires_p50={} cells_per_body_p50={}",
++        stream.rebinds, stream.distinct_keys, stream.cells_w[0], stream.cells_w[1], stream.cells_w[2], stream.cells_w[3],
++        cold_builds, stream_new_beyond_birth,
++        1.0 - stream.cells_w[0] as f64 / stream.rebinds.max(1) as f64,
++        stream.rebinds as f64 / stream.cells_w[0].max(1) as f64,
++        fires_p50, drift_p50
++    );
++    println!(
++        "stream_split: belt rebinds={} cells_w11={} recurrence={:.4} | other rebinds={} cells_w11={} recurrence={:.4}",
++        belt_slice.rebinds, belt_slice.cells_w[0], 1.0 - belt_slice.cells_w[0] as f64 / belt_slice.rebinds.max(1) as f64,
++        other_slice.rebinds, other_slice.cells_w[0], 1.0 - other_slice.cells_w[0] as f64 / other_slice.rebinds.max(1) as f64
++    );
++}
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..3a3388bb
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,42 @@
++//! Print-only census of the rebind stream (lab run 20261019-1316-system-f7c3).
++//!
++//! Records, per actual rebind (a rebind happens only when a kick fires, a decision flushes a
++//! burn, or a handoff re-expresses the body — so every line is a distinct state change by
++//! construction, never a re-timed pending item), the body index and the law's quantized memo
++//! cell (`MemoCode`, 11+11 fraction bits). No state is read or written on the engine's path
++//! beyond what `rebind` already computed; with `ES_CENSUS` unset the hook is a no-op after one
++//! relaxed load, and digests cannot move.
++
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::MemoCode;
++use std::sync::{LazyLock, Mutex};
++
++static SINK: LazyLock<Option<Mutex<Vec<(u64, u64)>>>> =
++    LazyLock::new(|| std::env::var("ES_CENSUS").ok().map(|_| Mutex::new(Vec::new())));
++
++/// Record one rebind: `(body index, MemoCode bits of the new cycle key)`. Passages and plunges
++/// are not memo cells and are skipped.
++pub fn rebind(i: usize, trajectory: &Trajectory) {
++    if let Some(m) = SINK.as_ref() {
++        if let Trajectory::Cycle(c) = trajectory {
++            if let Ok(code) = MemoCode::encode(c.key()) {
++                if let Ok(mut m) = m.lock() {
++                    m.push((i as u64, code.bits()));
++                }
++            }
++        }
++    }
++}
++
++/// The recorded stream, drained.
++pub fn take() -> Vec<(u64, u64)> {
++    match SINK.as_ref() {
++        Some(m) => m.lock().map(|mut m| std::mem::take(&mut *m)).unwrap_or_default(),
++        None => Vec::new(),
++    }
++}
++
++/// Whether recording is on.
++pub fn enabled() -> bool {
++    SINK.is_some()
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..7f49950b 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -3,6 +3,7 @@ pub mod bind;
+ pub mod body;
+ pub mod ctx;
+ pub mod dash;
++pub mod census;
+ pub mod encounter;
+ pub mod ext;
+ pub mod fleet;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..f6c38528 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -375,6 +375,7 @@ impl Work<'_, '_> {
+             impact: None,
+         };
+         self.new_entry = Some(bound.entry.clone());
++        crate::census::rebind(self.i, &bound.entry.trajectory);
+         self.rec.plan.retain(|item| item.what != What::Crash);
+         self.plan_terminal(t)?;
+         Ok(bound)
