@@ -1,0 +1,305 @@
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/lattice)
+warning: value assigned to `ke_all` is never read
+   --> crates/lattice/examples/gravitybelt.rs:164:13
+    |
+164 |     let mut ke_all: i128 = 0;
+    |             ^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-lattice` (example "gravitybelt") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.46s
+{
+ "digests": {
+  "A1_C0s1_h32768_pass.tsv": "b73b06dc9d725a58",
+  "A2_C0s1_h49152_pass.tsv": "db751898c8765e8e",
+  "A3_Cs1_h49152_pass.tsv": "b0507050e33b85ae",
+  "A4_C0s1_h16384_every4.tsv": "e98306bb8b1596e0",
+  "C0_s1_h16384_thermal0.tsv": "e8a69ff77da6e8ad",
+  "C_s1_h49152.tsv": "634d9918cbc00e48",
+  "C_s2_h16384.tsv": "e903ff6d125eef4d",
+  "GW_s1_h24576.tsv": "79b896299c91651c",
+  "G_s1_h49152.tsv": "e3462444dc9b969a",
+  "G_s2_h16384.tsv": "420ef2ff98638c40",
+  "O_a36_e0.5.tsv": "01e67c8e323e7c19",
+  "O_a36_e0.tsv": "01e67c8e323e7c19",
+  "O_a70_dv1.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.01.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.06.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.2.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.5.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.8.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.97.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.975.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.98.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.985.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.99.tsv": "01e67c8e323e7c19",
+  "O_a70_e0.tsv": "01e67c8e323e7c19"
+ },
+ "digest_expect_ok": {
+  "G_s1_h49152.tsv": true,
+  "C_s1_h49152.tsv": true,
+  "GW_s1_h24576.tsv": true,
+  "C0_s1_h16384_thermal0.tsv": true,
+  "A1_C0s1_h32768_pass.tsv": true,
+  "A4_C0s1_h16384_every4.tsv": true
+ },
+ "pass_controls": {
+  "A1_C0s1_h32768_pass": {
+   "maxk_first": 91993,
+   "maxk_last": 92196,
+   "maxk_drift_pct": 0.22066896394290492,
+   "frozen_since_t": 19362,
+   "esc_max": 0,
+   "esc_last": 0,
+   "rms_first": 77.7,
+   "rms_last": 77.7,
+   "ke_drift_pct": 0.018,
+   "contacts_total": 3072187
+  },
+  "A2_C0s1_h49152_pass": {
+   "maxk_first": 91993,
+   "maxk_last": 92196,
+   "maxk_drift_pct": 0.22066896394290492,
+   "frozen_since_t": 19362,
+   "esc_max": 0,
+   "esc_last": 0,
+   "rms_first": 77.7,
+   "rms_last": 77.7,
+   "ke_drift_pct": 0.002,
+   "contacts_total": 5106629
+  },
+  "A3_Cs1_h49152_pass": {
+   "maxk_first": 95298,
+   "maxk_last": 104180,
+   "maxk_drift_pct": 9.320237570568102,
+   "frozen_since_t": 5306,
+   "esc_max": 0,
+   "esc_last": 0,
+   "rms_first": 77.7,
+   "rms_last": 79.27,
+   "ke_drift_pct": -0.047,
+   "contacts_total": 2833058
+  }
+ },
+ "A4_every4": {
+  "first_esc": 12236,
+  "maxk_blocks_4k": [
+   106447,
+   131268,
+   687666,
+   840656
+  ]
+ },
+ "orbit_ladder": {
+  "O_a36_e0.5": {
+   "rmin_q": 17.93,
+   "rmax_q": 54.0,
+   "ecc_x1000_achieved": 501,
+   "maxk": 158596,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.0,
+   "n_orbits": 27
+  },
+  "O_a36_e0": {
+   "rmin_q": 35.91,
+   "rmax_q": 36.18,
+   "ecc_x1000_achieved": 4,
+   "maxk": 91623,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.38,
+   "n_orbits": 27
+  },
+  "O_a70_dv1": {
+   "rmin_q": 69.97,
+   "rmax_q": 70.1,
+   "ecc_x1000_achieved": 1,
+   "maxk": 65558,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.01,
+   "n_orbits": 13
+  },
+  "O_a70_e0.01": {
+   "rmin_q": 69.91,
+   "rmax_q": 71.25,
+   "ecc_x1000_achieved": 9,
+   "maxk": 65813,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.35,
+   "n_orbits": 13
+  },
+  "O_a70_e0.06": {
+   "rmin_q": 65.14,
+   "rmax_q": 74.18,
+   "ecc_x1000_achieved": 65,
+   "maxk": 70100,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.18,
+   "n_orbits": 13
+  },
+  "O_a70_e0.2": {
+   "rmin_q": 55.91,
+   "rmax_q": 84.41,
+   "ecc_x1000_achieved": 203,
+   "maxk": 80422,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.48,
+   "n_orbits": 13
+  },
+  "O_a70_e0.5": {
+   "rmin_q": 35.06,
+   "rmax_q": 106.04,
+   "ecc_x1000_achieved": 503,
+   "maxk": 113411,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.9,
+   "n_orbits": 13
+  },
+  "O_a70_e0.8": {
+   "rmin_q": 13.98,
+   "rmax_q": 126.26,
+   "ecc_x1000_achieved": 801,
+   "maxk": 196758,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.15,
+   "n_orbits": 13
+  },
+  "O_a70_e0.97": {
+   "rmin_q": 2.14,
+   "rmax_q": 138.0,
+   "ecc_x1000_achieved": 969,
+   "maxk": 526815,
+   "clamps": 0,
+   "inner2p5q": 103,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.0,
+   "n_orbits": 13
+  },
+  "O_a70_e0.975": {
+   "rmin_q": 1.8,
+   "rmax_q": 2961.89,
+   "ecc_x1000_achieved": 999,
+   "maxk": 577391,
+   "clamps": 3,
+   "inner2p5q": 9,
+   "first_esc": 7045,
+   "rmax_block_drift_pct": 1008.09,
+   "n_orbits": 13
+  },
+  "O_a70_e0.98": {
+   "rmin_q": 1.5,
+   "rmax_q": 12876.15,
+   "ecc_x1000_achieved": 1000,
+   "maxk": 634726,
+   "clamps": 6,
+   "inner2p5q": 8,
+   "first_esc": 5128,
+   "rmax_block_drift_pct": 2225.95,
+   "n_orbits": 13
+  },
+  "O_a70_e0.985": {
+   "rmin_q": 1.17,
+   "rmax_q": 7759.69,
+   "ecc_x1000_achieved": 1000,
+   "maxk": 708350,
+   "clamps": 24,
+   "inner2p5q": 37,
+   "first_esc": 22559,
+   "rmax_block_drift_pct": 4996.56,
+   "n_orbits": 13
+  },
+  "O_a70_e0.99": {
+   "rmin_q": 0.9,
+   "rmax_q": 11647.05,
+   "ecc_x1000_achieved": 1000,
+   "maxk": 612611,
+   "clamps": 118,
+   "inner2p5q": 168,
+   "first_esc": 8225,
+   "rmax_block_drift_pct": 7658.54,
+   "n_orbits": 13
+  },
+  "O_a70_e0": {
+   "rmin_q": 69.84,
+   "rmax_q": 70.16,
+   "ecc_x1000_achieved": 2,
+   "maxk": 65674,
+   "clamps": 0,
+   "inner2p5q": 0,
+   "first_esc": -1,
+   "rmax_block_drift_pct": 0.11,
+   "n_orbits": 13
+  }
+ },
+ "season": {
+  "cold_window_at_season_peak": 592,
+  "ratio_season_same_window": 173.8,
+  "season_peak_window_t_le_8192": 102874,
+  "season_peak_window_at_t": 7808,
+  "cold_same_window_mean": 80.7,
+  "ratio_season": 1275.0,
+  "global_peak_window": 183685,
+  "global_peak_at_t": 47744,
+  "cold_window_at_global_peak": 184250,
+  "ratio_global_vs_cold_same_time": 1.0,
+  "shell_at_4096": 77,
+  "shell_at_8192": 21,
+  "esc_max_G_s1": 1379,
+  "esc_last_G_s1": 1371,
+  "esc50_t": 2211,
+  "esc_max_G_s2": 1374,
+  "esc_last_G_s2": 1373
+ },
+ "C0_discriminator": {
+  "first_esc": 13022,
+  "cum_contacts_at_12288": 1352,
+  "maxk_at_12288": 379827,
+  "cum_contacts_at_16384": 21862,
+  "maxk_at_16384": 726985,
+  "maxk_blocks_4k": [
+   99194,
+   151731,
+   379827,
+   726985
+  ],
+  "rms_first": 77.7,
+  "rms_last": 91.8
+ },
+ "contrast_49152": {
+  "Bounce_C_s1": {
+   "esc_max": 449,
+   "n_in_last": 309,
+   "contacts_total": 72918812,
+   "maxk_last": 686460
+  },
+  "Pass_A3": {
+   "maxk_first": 95298,
+   "maxk_last": 104180,
+   "maxk_drift_pct": 9.320237570568102,
+   "frozen_since_t": 5306,
+   "esc_max": 0,
+   "esc_last": 0,
+   "rms_first": 77.7,
+   "rms_last": 79.27,
+   "ke_drift_pct": -0.047,
+   "contacts_total": 2833058
+  }
+ }
+}

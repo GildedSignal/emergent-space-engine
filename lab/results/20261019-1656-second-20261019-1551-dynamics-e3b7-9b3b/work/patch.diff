@@ -1,0 +1,405 @@
+diff --git a/crates/lattice/examples/gravitybelt.rs b/crates/lattice/examples/gravitybelt.rs
+new file mode 100644
+index 00000000..66111f3d
+--- /dev/null
++++ b/crates/lattice/examples/gravitybelt.rs
+@@ -0,0 +1,249 @@
++//! Gravity-held belt (chaos-shadowing open direction 2's named leftover): the e56b mixed
++//! scene with the container replaced by a central 1/r² field, applied through the shipped
++//! `Kickable::kick` hook (the same surface the plane's tide uses) between every chronon.
++//! Shipped `Chronon` + `Law::RelativisticV1`, Q = 2^20. The field is integer-native:
++//! dk = −round(MU·x/r³) per component, so beyond r ≈ 757q the kick rounds below one
++//! velocity quantum and the body is free (the engine's own "influence below one quantum"
++//! semantics). MU = 70·2^52 makes v_circ(70q) = q/16: belt speeds match e56b's cloud.
++//!
++//! Scene: m = n/2 belt bodies on rings 36q..102q (6q spacing, ±q/2 jitter, v_circular
++//! tangential ± q/256 thermal), plus (unless `--nofleet`) a coherent m-body fleet stream
++//! (21 rows spanning y ∈ [−57q, 63q], 6q spacing, ±q/2 jitter, drift +q/4) with its nose
++//! at x = −108q, just outside the belt. Fleet speed 0.25 q/ch is ~1.9× v_esc(36q):
++//! unbound. `--boxhalf B` adds a reflective container at ±Bq ON TOP of the field — the
++//! one-knob walls control. No container by default: escapers leave.
++//!
++//! Caveat measured, not hidden: a gravity kick revises every body inside the field every
++//! chronon, so a consumed contact is live again the next chronon — a pair still within
++//! reach re-fires until it separates. `rattle` counts contacts whose pair also fired in
++//! the previous chronon; the cold control prices this law-with-tide semantics.
++//! `--slim` drops the kept event log (identical counters and digest; rattle reads 0) so
++//! long storms stay inside the memory budget.
++//!
++//! Output: per chronon `t contacts rattle esc n_in walls ke_in sum_r2_in ke_all maxk ops`;
++//! header `#` lines carry scene parameters and the final log digest.
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Law, Response, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Kind, Kickable, Stepper};
++use std::collections::HashSet;
++
++const Q: i64 = 1 << 20;
++const MU: i128 = 70 * (1i128 << 52); // v_circ(70q) = Q/16
++const DK_CAP: i128 = Q as i128 / 16;
++
++fn isqrt128(n: i128) -> i128 {
++    let mut x = (n as f64).sqrt() as i128;
++    while x > 0 && x * x > n {
++        x -= 1;
++    }
++    while (x + 1) * (x + 1) <= n {
++        x += 1;
++    }
++    x
++}
++
++/// Round-half-away-from-zero integer division.
++fn div_round(num: i128, den: i128) -> i128 {
++    let h = den / 2;
++    if num >= 0 {
++        (num + h) / den
++    } else {
++        -((-num + h) / den)
++    }
++}
++
++fn main() {
++    let mut n = 1600i64;
++    let mut seed = 1u64;
++    let mut horizon = 24576i64;
++    let mut nofleet = false;
++    let mut boxhalf = 0i64; // q units; 0 = no container
++    let mut thermal = Q / 256; // belt thermal per component
++    let mut pass = false; // bodies created Response::Pass: contacts recorded, velocities untouched
++    let mut every = 1i64; // kick every Kth chronon at Kx magnitude (cadence control)
++    let mut slim = false;
++    let mut out = String::new();
++    let mut args = std::env::args().skip(1);
++    while let Some(a) = args.next() {
++        let a = a.clone();
++        match a.as_str() {
++            "--n" => n = args.next().expect("value").parse().unwrap(),
++            "--seed" => seed = args.next().expect("value").parse().unwrap(),
++            "--horizon" => horizon = args.next().expect("value").parse().unwrap(),
++            "--nofleet" => nofleet = true,
++            "--boxhalf" => boxhalf = args.next().expect("value").parse().unwrap(),
++            "--thermal" => thermal = args.next().expect("value").parse().unwrap(),
++            "--pass" => pass = true,
++            "--every" => every = args.next().expect("value").parse().unwrap(),
++            "--slim" => slim = true,
++            "--out" => out = args.next().expect("value"),
++            _ => panic!("unknown arg {a}"),
++        }
++    }
++    let resp = if pass { Response::Pass } else { Response::Bounce };
++    let mut rng = Rng(seed ^ (n as u64) ^ 0xB127);
++    let mut id = 1u64;
++    let m = n / 2;
++    let mut bodies: Vec<Body> = Vec::with_capacity(n as usize);
++
++    // Belt: rings 36q..102q step 6q, slot count ∝ 2πr/6q, filled proportionally.
++    let rings: Vec<i64> = (0..12).map(|i| 36 + 6 * i).collect();
++    let slots: Vec<i64> =
++        rings.iter().map(|&g| ((g as f64) * std::f64::consts::PI / 3.0).round() as i64).collect();
++    let slot_total: i64 = slots.iter().sum();
++    let mut placed = 0i64;
++    for (ri, &g) in rings.iter().enumerate() {
++        if placed >= m {
++            break;
++        }
++        let want = ((m as f64) * (slots[ri] as f64) / (slot_total as f64)).round() as i64;
++        let count = want.min(m - placed);
++        let r = (g * Q) as i128;
++        for j in 0..count {
++            // Integer placement: ramp x over the ring, y = ±isqrt(r²−x²), alternating half.
++            let xq = if count == 1 {
++                r
++            } else {
++                -r + (2 * r * (j as i128)) / (count as i128 - 1)
++            };
++            let xq = xq.clamp(-r, r);
++            let yq = isqrt128((r + xq) * (r - xq));
++            let (x, y) = if j % 2 == 0 { (xq, yq) } else { (xq, -yq) };
++            let x = x + rng.range(-Q / 2, Q / 2) as i128;
++            let y = y + rng.range(-Q / 2, Q / 2) as i128;
++            // Circular velocity: v = isqrt(MU/r), tangential (−y, x)/|r|, integer-rounded.
++            let rr = isqrt128(x * x + y * y).max(1);
++            let v = isqrt128(MU / rr);
++            let kx = (div_round(-v * y, rr) + rng.range(-thermal, thermal) as i128) as i64;
++            let ky = (div_round(v * x, rr) + rng.range(-thermal, thermal) as i128) as i64;
++            bodies.push(Body::new(id, [x as i64, y as i64], [kx, ky], 1, Q, resp));
++            id += 1;
++        }
++        placed += count;
++    }
++
++    // Fleet stream: 21 rows, y = (−60 + 3 + 6·row)q, columns right-to-left from −108q.
++    if !nofleet {
++        let rows = 21i64;
++        let cols = (m + rows - 1) / rows;
++        for c in 0..cols {
++            for r in 0..rows {
++                if (bodies.len() as i64) >= 2 * m {
++                    break;
++                }
++                let x = (-(108 + 6 * c) * Q) + rng.range(-Q / 2, Q / 2);
++                let y = ((-60 + 3 + 6 * r) * Q) + rng.range(-Q / 2, Q / 2);
++                bodies.push(Body::new(id, [x, y], [Q / 4, 0], 1, Q, resp));
++                id += 1;
++            }
++        }
++    }
++
++    let container = if boxhalf > 0 {
++        Some(Container {
++            min: [-(boxhalf * Q), -(boxhalf * Q)],
++            max: [boxhalf * Q, boxhalf * Q],
++        })
++    } else {
++        None
++    };
++    let w = World::new(Q, container, bodies)
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("gravity belt world within the law's ranges");
++    let mut step = Chronon::new(w, !slim).expect("genesis valid");
++
++    let r_in: i128 = 140 * Q as i128;
++    let r_esc: i128 = 250 * Q as i128;
++    let mut buf = String::with_capacity(96 * horizon as usize);
++    let mut prev_ops = 0u64;
++    let mut prev_contacts = 0u64;
++    let mut last_pairs: HashSet<(u64, u64)> = HashSet::new();
++    let mut motions = Vec::new();
++    let mut maxk_seen: i64 = 0;
++    let mut ke_all: i128 = 0;
++    let mut dks: Vec<[i64; 2]> = Vec::new();
++    for t in 1..=horizon {
++        step.step();
++        let (mut c, mut wa, mut rattle) = (0u64, 0u64, 0u64);
++        if slim {
++            c = step.log().contacts;
++            wa = step.log().walls;
++        } else {
++            let log = step.log();
++            let mut cur: Vec<(u64, u64)> = Vec::new();
++            for e in log.events.iter().rev().take_while(|e| e.tick == t) {
++                match e.kind {
++                    Kind::Contact => {
++                        c += 1;
++                        let pair = if e.a < e.b { (e.a, e.b) } else { (e.b, e.a) };
++                        if last_pairs.contains(&pair) {
++                            rattle += 1;
++                        }
++                        cur.push(pair);
++                    }
++                    Kind::Wall => wa += 1,
++                }
++            }
++            last_pairs.clear();
++            last_pairs.extend(cur.iter().copied());
++        }
++        // Gravity kick between chronons, from post-step positions.
++        step.motions(&mut motions);
++        dks.clear();
++        let (mut esc, mut n_in, mut ke_in, mut sr2) = (0u64, 0u64, 0i128, 0i128);
++        ke_all = 0;
++        for mo in motions.iter() {
++            let x = mo.x[0] as i128;
++            let y = mo.x[1] as i128;
++            let r2 = x * x + y * y;
++            let rr = isqrt128(r2);
++            let den = r2 * rr.max(1);
++            let (dkx, dky) = if every > 1 && t % every != 0 {
++                (0i128, 0i128)
++            } else {
++                let k = every as i128;
++                (
++                    if den == 0 { 0 } else { -div_round(MU * k * x, den).clamp(-DK_CAP * k, DK_CAP * k) },
++                    if den == 0 { 0 } else { -div_round(MU * k * y, den).clamp(-DK_CAP * k, DK_CAP * k) },
++                )
++            };
++            dks.push([dkx as i64, dky as i64]);
++            let k2 = (mo.k[0] as i128) * (mo.k[0] as i128) + (mo.k[1] as i128) * (mo.k[1] as i128);
++            ke_all += k2;
++            let km = mo.k[0].abs().max(mo.k[1].abs());
++            if km > maxk_seen {
++                maxk_seen = km;
++            }
++            if rr > r_esc {
++                esc += 1;
++            } else if rr <= r_in {
++                n_in += 1;
++                ke_in += k2;
++                sr2 += r2;
++            }
++        }
++        step.kick(&dks).expect("gravity kick within the law's ranges");
++        let ops = step.metrics().ops;
++        buf.push_str(&format!(
++            "{t} {} {rattle} {esc} {n_in} {wa} {ke_in} {sr2} {ke_all} {maxk_seen} {}\n",
++            if slim { c - prev_contacts } else { c },
++            ops - prev_ops
++        ));
++        if slim {
++            prev_contacts = c;
++        }
++        prev_ops = ops;
++    }
++    let log = step.log();
++    let head = format!(
++        "# scene=gravitybelt n={n} m={m} seed={seed} horizon={horizon} nofleet={nofleet} boxhalf={boxhalf} thermal={thermal} pass={pass} every={every} slim={slim} q={Q} mu={MU} law=RelativisticV1 r_in=140q r_esc=250q\n# contacts={} walls={} digest={}\n",
++        log.contacts, log.walls, log.digest()
++    );
++    if out.is_empty() {
++        print!("{head}{buf}");
++    } else {
++        std::fs::write(&out, format!("{head}{buf}")).expect("write");
++        eprintln!("{head}");
++    }
++}
+diff --git a/crates/lattice/examples/gravityorbit.rs b/crates/lattice/examples/gravityorbit.rs
+new file mode 100644
+index 00000000..9014d723
+--- /dev/null
++++ b/crates/lattice/examples/gravityorbit.rs
+@@ -0,0 +1,144 @@
++//! Isolated orbit under the same integer tide the belt wiring uses (second-author run
++//! 20261019-1656: the eccentricity ladder neither the author nor the checker flew).
++//! One body, shipped `Chronon` + `Law::RelativisticV1`, Q = 2^20, the same field
++//! dk = -round(MU*x/r^3) per component with the same DK_CAP clamp — byte-identical
++//! kick code to `gravitybelt.rs`, so what this measures is exactly the belt's field.
++//!
++//! Placement: apocenter r_a = a(1+e) q, tangential vis-viva velocity
++//! v_a = round(sqrt(MU/a * (1-e)/(1+e))), counter-clockwise. e = 0 (with optional
++//! `--dv N` extra tangential quanta) reproduces the belt's own circular placement.
++//!
++//! Boundedness verdicts read the integer columns only: rmin/rmax are the running
++//! extremes of the raw radius (1/Q units); e is read off the final orbit as
++//! (rmax-rmin)/(rmax+rmin). `clamps` counts chronons where the DK_CAP clamp actually
++//! bound (r \lesssim 2.3q — the field's inner region). Floats appear nowhere.
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Law, Response, World};
++use emergent_lattice::{Kickable, Stepper};
++
++const Q: i64 = 1 << 20;
++const MU: i128 = 70 * (1i128 << 52); // v_circ(70q) = Q/16, same as the belt scene
++const DK_CAP: i128 = Q as i128 / 16;
++
++fn isqrt128(n: i128) -> i128 {
++    let mut x = (n as f64).sqrt() as i128;
++    while x > 0 && x * x > n {
++        x -= 1;
++    }
++    while (x + 1) * (x + 1) <= n {
++        x += 1;
++    }
++    x
++}
++
++fn main() {
++    let mut a_q = 70i64; // semi-major axis in q units
++    let mut e = 0.0f64; // target eccentricity
++    let mut dv = 0i64; // extra tangential quanta on top of circular (e=0 only)
++    let mut horizon = 98304i64;
++    let mut out = String::new();
++    let mut args = std::env::args().skip(1);
++    while let Some(a) = args.next() {
++        let a = a.clone();
++        match a.as_str() {
++            "--a" => a_q = args.next().expect("value").parse().unwrap(),
++            "--e" => e = args.next().expect("value").parse().unwrap(),
++            "--dv" => dv = args.next().expect("value").parse().unwrap(),
++            "--horizon" => horizon = args.next().expect("value").parse().unwrap(),
++            "--out" => out = args.next().expect("value"),
++            _ => panic!("unknown arg {a}"),
++        }
++    }
++    assert!(e >= 0.0 && e < 1.0, "e in [0,1)");
++    // Apocentre placement with vis-viva; e=0 -> exact circular at r = a q.
++    let ra = if e == 0.0 {
++        (a_q as i128) * Q as i128
++    } else {
++        ((a_q as f64) * (1.0 + e)).round() as i128 * Q as i128
++    };
++    let va = if e == 0.0 {
++        isqrt128(MU / ra) + dv as i128
++    } else {
++        ((MU / (a_q as i128 * Q as i128)) as f64 * ((1.0 - e) / (1.0 + e))).sqrt().round() as i128
++    };
++    let body = Body::new(1, [ra as i64, 0], [0, va as i64], 1, Q, Response::Pass);
++    let w = World::new(Q, None, vec![body])
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("single-body world valid");
++    let mut step = Chronon::new(w, false).expect("genesis valid");
++
++    let mut buf = String::with_capacity(64 * horizon as usize);
++    let mut motions = Vec::new();
++    let mut rmin = i128::MAX;
++    let mut rmax = 0i128;
++    let mut maxk_seen = 0i64;
++    let mut clamps = 0u64;
++    let mut inner = 0u64; // chronons with r < 2.5q
++    let mut first_esc: i64 = -1;
++    for t in 1..=horizon {
++        step.step();
++        step.motions(&mut motions);
++        let mo = motions[0];
++        let x = mo.x[0] as i128;
++        let y = mo.x[1] as i128;
++        let r2 = x * x + y * y;
++        let rr = isqrt128(r2);
++        if rr < rmin {
++            rmin = rr;
++        }
++        if rr > rmax {
++            rmax = rr;
++        }
++        if rr < (5 * Q as i128) / 2 {
++            inner += 1;
++        }
++        let km = mo.k[0].abs().max(mo.k[1].abs());
++        if km > maxk_seen {
++            maxk_seen = km;
++        }
++        if first_esc < 0 && rr > 250 * Q as i128 {
++            first_esc = t;
++        }
++        let den = r2 * rr.max(1);
++        let (rx, ry) = if den == 0 {
++            (0i128, 0i128)
++        } else {
++            (div_round(MU * x, den), div_round(MU * y, den))
++        };
++        if rx.abs() > DK_CAP || ry.abs() > DK_CAP {
++            clamps += 1;
++        }
++        let dkx = if den == 0 { 0 } else { -rx.clamp(-DK_CAP, DK_CAP) };
++        let dky = if den == 0 { 0 } else { -ry.clamp(-DK_CAP, DK_CAP) };
++        step.kick(&[[dkx as i64, dky as i64]]).expect("kick in range");
++        buf.push_str(&format!(
++            "{t} {rr} {km} {maxk_seen} {rmin} {rmax} {clamps} {inner} {first_esc}\n"
++        ));
++    }
++    let log = step.log();
++    let emax_q = rmax / Q as i128;
++    let emin_q = rmin / Q as i128;
++    let ecc1000 = ((rmax - rmin) * 1000) / (rmax + rmin); // e*1000, integer
++    let head = format!(
++        "# scene=gravityorbit a={a_q}q e={e} dv={dv} horizon={horizon} q={Q} mu={MU} law=RelativisticV1\n# rmin={rmin} rmax={rmax} rmin_q={emin_q} rmax_q={emax_q} ecc_x1000={ecc1000} maxk={maxk_seen} clamps={clamps} inner2p5q={inner} first_esc={first_esc} contacts={}\n",
++        log.contacts
++    );
++    let digest = log.digest();
++    let head = format!("{head}# digest={digest}\n");
++    if out.is_empty() {
++        print!("{head}{buf}");
++    } else {
++        std::fs::write(&out, format!("{head}{buf}")).expect("write");
++        eprintln!("{head}");
++    }
++}
++
++/// Round-half-away-from-zero integer division (same as gravitybelt.rs).
++fn div_round(num: i128, den: i128) -> i128 {
++    let h = den / 2;
++    if num >= 0 {
++        (num + h) / den
++    } else {
++        -((-num + h) / den)
++    }
++}
