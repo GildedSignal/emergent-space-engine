@@ -1,0 +1,221 @@
+{
+ "anchors": {
+  "b_per_body_1e4": {
+   "value": 2464,
+   "unit": "B",
+   "src": "probe-n1e4.log"
+  },
+  "b_per_body_1e5": {
+   "value": 2348,
+   "unit": "B",
+   "src": "probe-n1e5.log"
+  },
+  "p50_ms_1e4": {
+   "value": 0.076,
+   "unit": "ms",
+   "src": "probe-n1e4.log"
+  },
+  "p50_ms_1e5": {
+   "value": 0.078,
+   "unit": "ms",
+   "src": "probe-n1e5.log"
+  },
+  "kicks_per_body_gs_1e4": {
+   "value": 0.0002134,
+   "unit": "1/body/gs",
+   "src": "probe-n1e4.log"
+  },
+  "kicks_per_body_gs_1e5": {
+   "value": 2.139e-05,
+   "unit": "1/body/gs",
+   "src": "probe-n1e5.log"
+  },
+  "total_kicks_ratio_1e5_over_1e4": {
+   "value": 1.0023430178069355,
+   "unit": "x",
+   "src": "probes"
+  },
+  "kick_stream_composed": {
+   "value": [
+    5.3,
+    8.4
+   ],
+   "unit": "cores",
+   "src": "cd3b (wiki/encounters): split 8 x survival, M1"
+  },
+  "kick_stream_shipped": {
+   "value": 208.0,
+   "unit": "cores",
+   "src": "cd3b: 2 ev/body/interval x 29.3 us M1"
+  },
+  "churn_epoch_rule": {
+   "value": [
+    2.8,
+    5.5
+   ],
+   "unit": "cores",
+   "src": "08d0 (wiki/encounters): E=128..64, 9fd1 awaiting grade"
+  },
+  "churn_wholesale": {
+   "value": 355.0,
+   "unit": "cores",
+   "src": "1a29 (wiki/encounters): Theta(n-1) re-arm"
+  },
+  "mint_worst": {
+   "value": 1.9,
+   "unit": "cores",
+   "src": "cd3b: every Dohnanyi conjunction re-mints at 16.4 us"
+  },
+  "view_due_form": {
+   "value": 0.1,
+   "unit": "cores",
+   "src": "e3a4 (wiki/view): <=250 repairs/frame x 100 ns"
+  },
+  "view_serve_today_1e5": {
+   "value": 35.8,
+   "unit": "ms/frame",
+   "src": "e6c9: O(K) aggregate residue, running-sums unwired"
+  },
+  "frame_budget_bound": {
+   "value": 0.72,
+   "unit": "cores",
+   "src": "12 ms x 60 fps (the budget itself bounds it)"
+  },
+  "fired_kick_rate": {
+   "value": 3.6e-05,
+   "unit": "1/body/gs",
+   "src": "a9d7 gold (wiki/memory-h-live), invariant in N"
+  },
+  "live_bytes": {
+   "value": 5100.0,
+   "unit": "B",
+   "src": "HANDOFF scoreboard: ~5,100 B after first kick (every body live)"
+  },
+  "soi_transits": {
+   "value": 0.0131,
+   "unit": "1/body/orbit",
+   "src": "4b55 gold (wiki/memory-h-live)"
+  },
+  "orbit_gs": {
+   "value": 352000000.0,
+   "unit": "gs",
+   "src": "cd3b: own period 12,480 intervals"
+  },
+  "belt_bits_selfstirred": {
+   "value": [
+    1.7,
+    2.4
+   ],
+   "unit": "B/body",
+   "src": "07b4 gold: real 10^9 belt never scars"
+  },
+  "belt_bits_driven": {
+   "value": 15.75,
+   "unit": "B/body",
+   "src": "fc48/0820 gold: driven worst case 126.4 bits"
+  },
+  "belt_bits_phaselocked": {
+   "value": [
+    2.625,
+    5.0
+   ],
+   "unit": "B/body",
+   "src": "HANDOFF scoreboard: compact store alone"
+  }
+ },
+ "cpu_at_1e9": {
+  "kick_event_stream": {
+   "cores": [
+    5.3,
+    8.4
+   ],
+   "src": "cd3b"
+  },
+  "cert_churn_epoch_rule": {
+   "cores": [
+    2.8,
+    5.5
+   ],
+   "src": "08d0/9fd1"
+  },
+  "key_mint_worst": {
+   "cores": 1.9,
+   "src": "cd3b"
+  },
+  "view_serve_due_form": {
+   "cores": 0.1,
+   "src": "e3a4"
+  },
+  "frame": {
+   "cores": 0.72,
+   "src": "budget"
+  }
+ },
+ "cpu_total": {
+  "cores": [
+   10.8,
+   16.6
+  ],
+  "over_budget_x": [
+   2.71,
+   4.16
+  ],
+  "if_epoch_rule_falls": {
+   "cores": 363.0,
+   "over_budget_x": 91.0
+  }
+ },
+ "mem_at_1e9": {
+  "shipped_build": {
+   "GB": 2348.0,
+   "over_x": 294.0,
+   "src": "probes + dcf1/99da law"
+  },
+  "wired_store_selfstirred": {
+   "GB": [
+    1.7,
+    2.4
+   ],
+   "over_x": [
+    0.21,
+    0.3
+   ],
+   "src": "07b4"
+  },
+  "wired_store_driven_worst": {
+   "GB": 15.8,
+   "over_x": 1.98,
+   "src": "fc48/0820"
+  },
+  "wired_store_phaselocked": {
+   "GB": [
+    2.62,
+    5.0
+   ],
+   "over_x": [
+    0.33,
+    0.62
+   ],
+   "src": "scoreboard"
+  }
+ },
+ "build_over_floor_x": 978.0,
+ "promotion_residency": {
+  "every_kick": {
+   "rate_per_gs": 36000.0,
+   "tau_max_gs": 43.57298474945534,
+   "orbit_fraction": 1.2378688849277085e-07
+  },
+  "soi_only": {
+   "rate_per_gs": 0.03721590909090909,
+   "tau_max_gs": 42149378.83550367,
+   "orbit_fraction": 0.1197425535099536
+  },
+  "orbit_scale_soi_GB": 66.8
+ },
+ "not_composed": [
+  "gravity at c (cursor + version ring: designed, not wired)",
+  "rotating holes (compiled, not in the resolver)",
+  "dispersed-fleet phase certificate (2373: quadratic in F)"
+ ]
+}

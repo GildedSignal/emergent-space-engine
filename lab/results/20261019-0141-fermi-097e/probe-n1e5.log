@@ -1,0 +1,9 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.03s
+     Running `/home/glmlab/lab-target-3/release/examples/nladder 100000 coast 10`
+rung N=100000 (100028 bodies), coast, rtf 100, 10 s of wall time, engine budget 12 ms; build 6.26 s, peak footprint 237 MB (now 237 MB)
+frames after 1 s: 540  engine ms p50 0.078 p90 3.548 p99 8.558 max 11.801; over 12 ms: 0; frames behind: 1, worst lag 0.038 s; events/frame p50 2 p99 154 max 212; scans held max 1
+game 900.0 s after the first second: kicks 1920 (2.133e-5/body/game-s), events 6055 (6.726e-5/body/game-s), stats {opens 32, boundaries 1851, handoffs 0, lost 15, refused 0, slices 2252}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 237 MB at the build's end, 244 MB at the flight's end (now 244 MB); 2348 B a body from the build; dashboard bytes/body 1203; view gather 4254.6 ms cold, 1396.6 ms warm (100058 seen); catalogue 100071 entries
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (62, 11.80, 48, 0.038) (63, 10.70, 24, 0.000) (397, 10.36, 212, 0.000) (199, 9.56, 190, 0.000) (596, 8.91, 182, 0.000)
+ladder: n=100000 bodies=100028 flight=coast rtf=100 frames=600 build_s=6.26 foot_build_mb=237 foot_end_mb=244 b_per_body=2348 p50_ms=0.078 p99_ms=8.558 max_ms=11.801 over=0 lag_s=0.038 kicks_per_body_gs=2.133e-5 events_per_body_gs=6.726e-5 refusals=0 dead=0 held_max=1 view_ms=1396.6 truncated=false wall_s=12.5

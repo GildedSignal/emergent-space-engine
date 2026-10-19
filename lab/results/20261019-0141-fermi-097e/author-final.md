@@ -1,0 +1,4 @@
+Working...
+Regen verified end-to-end (both flights reproduce the anchors bit-consistently: 2,459/2,348 B/body, per-body kick rates 2.134×10⁻⁴/2.139×10⁻⁵, held_max 1; ledger written; ~13 s total). All artifacts in place: `predictions.md` (pre-registered, P7's miss reported), `dossier.md`, `regen.sh`, `wiki/budget-1e9.md`, `work/patch.diff` (print-only /proc swap).
+
+**The claim:** on the week's measured laws the board's interlocking 10⁹ ledger composes to 10.8–16.6 CPU cores (2.7–4.2× the M1 budget — 363 if 9fd1's epoch rule falls) but 294× over on the shipped build against 0.2–2.0× on the wired compact store (a 978× wiring gap), with the ladder belt measured inert (player stream N-flat to 3 digits) and the one unpriced dial being live-body residency (τ ≤ 43.6 game-s at 5.1 KB/body if every kick promotes; ≤ 0.12 orbit even for SOI promoters alone, 66.8 GB at orbit scale) — so the top row's remaining 10³ is store wiring plus that dial, not CPU and not physics.
