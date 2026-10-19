@@ -1,0 +1,203 @@
+diff --git a/crates/universe/examples/seam.rs b/crates/universe/examples/seam.rs
+new file mode 100644
+index 00000000..6b7225ec
+--- /dev/null
++++ b/crates/universe/examples/seam.rs
+@@ -0,0 +1,157 @@
++//! The player-seam flight: the shipped `nladder` flight (same loop, same burn word, same stats) with the macOS footprint
++//! call replaced by /proc (Linux) and two env-gated flight controls — `ES_SEAM_CAP_S` (wall cap, default 55 s) and
++//! `ES_SEAM_RSS_MB` (stop when resident memory passes it; 0 = off) — the only edits beside `ES_SEAM_CENSUS` in
++//! `encounter.rs` (print-only). The player burns prograde out of Home, crosses the belt's radial band in the root doll,
++//! and the census line tells whether the radial filter cut the doll or the capture walked every body, scan by scan.
++//!
++//! cargo run --release -p emergent-universe --example seam [-- <N> <coast|burn> [<wall seconds> [<rtf> [<engine budget ms>]]]]
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident now, its peak over the process's life) in bytes, from /proc/self/status (Linux; the shipped example
++/// reads the same pair through proc_pid_rusage on the M1).
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++        } else if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return 0.0;
++    }
++    sorted[(((sorted.len() - 1) as f64 * p).round()) as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let cap_s: f64 = std::env::var("ES_SEAM_CAP_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
++    let rss_guard_mb: f64 = std::env::var("ES_SEAM_RSS_MB").ok().and_then(|s| s.parse().ok()).unwrap_or(0.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let (_, rss0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (now1, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
++    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
++    let (mut held_max, mut truncated, mut guard_stop) = (0usize, false, false);
++    let mut rss_track: Vec<(usize, f64, usize)> = Vec::new(); // (frame, MB, held) every 60 frames
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    let mut last_stats = p.u.stats;
++    let mut alive = true;
++    let mut ran = 0usize;
++    let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs_f64(cap_s) {
++            truncated = true;
++            break;
++        }
++        if rss_guard_mb > 0.0 && f % 60 == 0 {
++            let (now_mb, _) = footprint();
++            if now_mb as f64 / 1e6 > rss_guard_mb {
++                guard_stop = true;
++                break;
++            }
++        }
++        if f == 60 {
++            if burn {
++                let t = p.u.now;
++                let _ = p.u.input(t, word(1, 8));
++            }
++            late_stats = Some((p.u.stats, p.u.now));
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let took = start.elapsed();
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        held_max = held_max.max(p.u.held_scans());
++        if f >= 60 && f % 60 == 0 {
++            let (now_mb, _) = footprint();
++            rss_track.push((f, now_mb as f64 / 1e6, p.u.held_scans()));
++        }
++        last_stats = p.u.stats;
++        ran += 1;
++        let rec = p.u.rec(p.player);
++        if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
++            doll_at.push((f, rec.b.doll));
++        }
++        if !rec.alive {
++            alive = false;
++            break;
++        }
++    }
++    let (now2, rss2) = footprint();
++    let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut ev: Vec<f64> = late.iter().map(|r| r.2 as f64).collect();
++    ev.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = late.iter().filter(|r| r.1 > budget_ms).count();
++    let lag = late.iter().map(|r| r.3).fold(0.0, f64::max);
++    let late_frames_lagging = late.iter().filter(|r| r.3 > 0.0).count();
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let (kicks, evs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events());
++    let per = |x: u64| if game_s > 0.0 { x as f64 / bodies as f64 / game_s } else { 0.0 };
++    let (mut refusals, mut dead) = (0u64, 0usize);
++    for i in 0..bodies {
++        let r = p.u.rec(i);
++        refusals += r.refusals;
++        dead += (!r.alive) as usize;
++    }
++    let mut cache = ViewCache::default();
++    let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
++    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < cap_s {
++        let tv = Instant::now();
++        seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
++        cold = tv.elapsed().as_secs_f64() * 1e3;
++        if t_start.elapsed() < Duration::from_secs_f64(cap_s * 0.8) {
++            let tv = Instant::now();
++            let _ = gather_cached(&p.u, &p.names, &mut cache);
++            warm = tv.elapsed().as_secs_f64() * 1e3;
++        }
++    }
++    println!(
++        "frames after 1 s: {}  engine ms p50 {:.3} p90 {:.3} p99 {:.3} max {:.3}; over {budget_ms} ms: {over}; frames behind: {late_frames_lagging}, worst lag {lag:.3} s; events/frame p50 {} p99 {} max {}; scans held max {held_max}",
++        late.len(), pct(&ms, 0.5), pct(&ms, 0.9), pct(&ms, 0.99), pct(&ms, 1.0), pct(&ev, 0.5), pct(&ev, 0.99), pct(&ev, 1.0)
++    );
++    println!(
++        "game {game_s:.1} s after the first second: kicks {kicks} ({:.3e}/body/game-s), events {evs} ({:.3e}/body/game-s), stats {{opens {}, boundaries {}, handoffs {}, lost {}, refused {}, slices {}}}; refusals held {refusals}, dead {dead}, alive(player) {alive}",
++        per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.handoffs - s0.handoffs, last_stats.lost - s0.lost, last_stats.refused - s0.refused, last_stats.slices - s0.slices
++    );
++    println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end (now {:.0} MB); {:.0} B a body from the build; dashboard bytes/body {}; view gather {cold:.1} ms cold, {warm:.1} ms warm ({seen} seen); catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
++    let track_str = rss_track.iter().map(|r| format!("({},{:.0},{})", r.0, r.1, r.2)).collect::<Vec<_>>().join(" ");
++    println!("rss track (frame, MB, held) every 60 frames: {track_str}");
++    let mut worst: Vec<_> = late.clone();
++    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
++    let mut over_at: Vec<usize> = late.iter().filter(|r| r.1 > budget_ms).map(|r| r.0).collect();
++    over_at.truncate(12);
++    println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
++    println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    println!(
++        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} guard={guard_stop} wall_s={:.1}",
++        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
++    );
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..753c169f 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -164,13 +164,21 @@ impl Encounters for PlayerNeighbourhood {
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+         // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        // ES_SEAM_CENSUS (print-only, off = the shipped path bit for bit): one line per capture — the window,
++        // the radial verdict and the walk it causes — so a flight through a population's radial band can be read.
++        let census = std::env::var_os("ES_SEAM_CENSUS").is_some();
++        let (t_cap, mut win) = (std::time::Instant::now(), (0f64, 0f64, 0f64, false));
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+             let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
++            if census {
++                win = (w.r, w.v, w.h, true);
++            }
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let (walk, near_len) = (near.is_none() as u8, near.as_ref().map_or(0, |v| v.len()));
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+@@ -187,6 +195,13 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if census {
++            let au = 101_300_000f64;
++            eprintln!(
++                "seamscan t={t} doll={} win={} walk={} near={} cands={} r_au={:.4} v={:.3e} h={:.3e} ns_cap={}",
++                me.doll, if win.3 { "ok" } else { "fail" }, walk, near_len, candidates.len(), win.0 / au, win.1, win.2, t_cap.elapsed().as_nanos()
++            );
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
