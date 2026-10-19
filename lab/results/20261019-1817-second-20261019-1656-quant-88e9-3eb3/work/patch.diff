@@ -1,0 +1,370 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..c78b449c 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,15 +14,16 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// (resident now, its peak) in bytes. macOS: the physical footprint (compressed pages included). Linux (the lab probe,
++/// 20261019): /proc/self/status `VmRSS`/`VmHWM` — the analog 4447's flights used.
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+     let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+     if ok != 0 {
+         return (0, 0);
+@@ -30,6 +31,22 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let mut rss = 0u64;
++    let mut hwm = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                rss = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                hwm = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (rss, hwm)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -49,7 +66,8 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let seed = std::env::var("LADDER_SEED").ok().and_then(|s| s.parse::<u64>().ok()).unwrap_or(1); // the lab's seed dial (probe 20261019): default is the shipped 1
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -63,11 +81,23 @@ fn main() {
+     let mut alive = true;
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    let (probe_every, mut next_probe) = {
++        let e = std::env::var("LADDER_PROBE_GS").ok().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
++        (e, e.max(0) as f64)
++    };
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(std::env::var("LADDER_CAP_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0)) {
+             truncated = true;
+             break;
+         }
++        // The lab's RSS guard (probe 20261019): stop the flight before the box's cap takes the process.
++        if let Some(mb) = std::env::var("LADDER_RSS_MB").ok().and_then(|s| s.parse::<u64>().ok()) {
++            if footprint().0 > mb * 1_000_000 {
++                truncated = true;
++                println!("guard: resident over {mb} MB at frame {f}, game {:.0} s", p.u.now as f64 * TICK_SECONDS);
++                break;
++            }
++        }
+         if f == 60 {
+             if burn {
+                 let t = p.u.now;
+@@ -88,6 +118,12 @@ fn main() {
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
++        if probe_every > 0 && p.u.now as f64 * TICK_SECONDS >= next_probe {
++            let (r, h) = footprint();
++            let (gt1, total, hmax) = p.u.history_census();
++            println!("probe gs={:.0} rss_mb={:.0} hwm_mb={:.0} held={} mints={} answers={} expired={} hist_gt1={} hist_total={} hist_max={} kicks={}", p.u.now as f64 * TICK_SECONDS, r as f64 / 1e6, h as f64 / 1e6, p.u.held_scans(), p.u.scan_mints, p.u.scan_answers, p.u.scan_expired, gt1, total, hmax, p.u.stats.kicks);
++            next_probe += probe_every as f64;
++        }
+         last_stats = p.u.stats;
+         ran += 1;
+         let rec = p.u.rec(p.player);
+@@ -138,8 +174,8 @@ fn main() {
+         late.len(), pct(&ms, 0.5), pct(&ms, 0.9), pct(&ms, 0.99), pct(&ms, 1.0), pct(&ev, 0.5), pct(&ev, 0.99), pct(&ev, 1.0)
+     );
+     println!(
+-        "game {game_s:.1} s after the first second: kicks {kicks} ({:.3e}/body/game-s), events {evs} ({:.3e}/body/game-s), stats {{opens {}, boundaries {}, handoffs {}, lost {}, refused {}, slices {}}}; refusals held {refusals}, dead {dead}, alive(player) {alive}",
+-        per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.handoffs - s0.handoffs, last_stats.lost - s0.lost, last_stats.refused - s0.refused, last_stats.slices - s0.slices
++        "game {game_s:.1} s after the first second: kicks {kicks} ({:.3e}/body/game-s), events {evs} ({:.3e}/body/game-s), stats {{opens {}, boundaries {}, handoffs {}, lost {}, refused {}, slices {}, encounters {}}}; refusals held {refusals}, dead {dead}, alive(player) {alive}",
++        per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.handoffs - s0.handoffs, last_stats.lost - s0.lost, last_stats.refused - s0.refused, last_stats.slices - s0.slices, last_stats.encounters - s0.encounters
+     );
+     println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end (now {:.0} MB); {:.0} B a body from the build; dashboard bytes/body {}; view gather {cold:.1} ms cold, {warm:.1} ms warm ({seen} seen); catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
+     if emergent_universe::prof::ENABLED {
+@@ -155,6 +191,7 @@ fn main() {
+     let mut over_at: Vec<usize> = late.iter().filter(|r| r.1 > budget_ms).map(|r| r.0).collect();
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
++    println!("scans: mints {} answers {} expired {} held_end {}; ttl_s {:?}", p.u.scan_mints, p.u.scan_answers, p.u.scan_expired, p.u.held_scans(), std::env::var("ES_SCAN_TTL_S").ok());
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..5ae8df47 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -40,9 +40,14 @@ pub trait Encounters: Send + Sync {
+ }
+ 
+ /// A scan taken and not yet answered: everything its answer reads is held in it, so the answer is the same whenever it
+-/// is given (the bodies' histories may have moved on, been pruned, or the bodies died since).
++/// is given (the bodies' histories may have been pruned, or the bodies died since).
+ pub trait Held: Send + Sync {
+     fn answer(&self) -> Vec<Encounter>;
++    /// When the scan was taken (the tick of its window), for expiry: a universe may drop a held scan older than its
++    /// fence behind the present instead of answering it (the lab's `ES_SCAN_TTL` probe). The default never expires.
++    fn taken(&self) -> Tick {
++        Tick::MAX
++    }
+ }
+ 
+ /// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
+@@ -123,6 +128,10 @@ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+     }
++
++    fn taken(&self) -> Tick {
++        self.t
++    }
+ }
+ 
+ impl Scan {
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index fda3b93e..fddfab11 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -123,10 +123,12 @@ pub fn cbrt(x: Scalar) -> Res<Scalar> {
+     Ok(y)
+ }
+ 
+-/// What a source of the doll gives the clock: its semi-major axis and period, in the doll's units.
++/// What a source of the doll gives the clock: its mass, orbit band and period, in the doll's units.
+ struct Source {
+     gm: Scalar,
+     axis: Scalar,
++    peri: Scalar,
++    apo: Scalar,
+     period: Scalar,
+ }
+ 
+@@ -139,7 +141,9 @@ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+     if !den.is_positive() {
+         return Err(Error::Refused("a source on an unbound orbit"));
+     }
+-    Ok(Source { gm: ctx.info[j].gm, axis: b.to_doll(key.periapsis.mul(k)?.div(den)?)?, period: b.to_doll(c.period()?)? })
++    let peri = b.to_doll(key.periapsis)?;
++    let axis = peri.mul(k)?.div(den)?;
++    Ok(Source { gm: ctx.info[j].gm, peri, apo: axis.add(axis)?.sub(peri)?, axis, period: b.to_doll(c.period()?)? })
+ }
+ 
+ /// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(Δs, c, b)`.
+@@ -164,3 +168,37 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) ->
+     let ds = period.scale(-kicks_log2)?.div(fprime(c, b)?)?;
+     Ok((Scalar::power_of_two(log2_floor(ds) as i16), c, b))
+ }
++
++/// The bulk regime's clearance from a source's band, in that source's Hill radii (lab run
++/// 20261016-2229-...-98cb): a body whose orbit stays this far from every source's band never makes a
++/// deep passage, so 7f97's measured bulk cadence (16 kicks per perturbation period, `step_log2 − 3`)
++/// serves it; inside it the shipped cadence stays (B13's deep passages need ≥ 128).
++pub const BULK_HILL: i64 = 4;
++
++/// Whether a clock body of doll `d` with the orbit band `[peri, apo]` (doll units) is in the bulk
++/// regime: from constants only (the sources' bands and Hill radii at `t`), never the state. `false`
++/// on any doubt (an unbound body, a pruned source): the shipped cadence is the safe side.
++pub fn bulk_regime(ctx: &Ctx, d: u16, t: Tick, except: usize, peri: Scalar, apo: Scalar) -> Res<bool> {
++    let host = ctx.dolls[d as usize].unit.mu;
++    let mut bulk = true;
++    for &j in &ctx.sources[d as usize] {
++        if j == except {
++            continue;
++        }
++        let s = source(ctx, j, t)?;
++        // The bands' gap: zero when they overlap.
++        let gap = if peri.sub(s.apo)?.is_positive() {
++            peri.sub(s.apo)?
++        } else if s.peri.sub(apo)?.is_positive() {
++            s.peri.sub(apo)?
++        } else {
++            Scalar::ZERO
++        };
++        let hill = s.axis.mul(cbrt(s.gm.div(host.mul(Scalar::integer(3))?)?)?)?;
++        let clear = hill.mul(Scalar::integer(BULK_HILL))?;
++        if !gap.sub(clear)?.is_positive() {
++            bulk = false;
++        }
++    }
++    Ok(bulk)
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..1ca991e9 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -117,6 +117,15 @@ pub fn aligned(step: i64, t: Tick) -> i64 {
+     }
+ }
+ 
++/// Whether the regime split of the clock's cadence is on (lab run 20261016-2229-...-98cb): the bulk
++/// gets an 8× coarser `Δs` (7f97's measured split, `step_log2 − 3`) when the body's regime — from
++/// constants only, never the state — is the bulk ([`crate::ext::bulk_regime`]). Off by default.
++fn belt_split_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("BELT_SPLIT").is_ok_and(|v| v != "0"));
++    *ON
++}
++
+ /// The kind of an item, the third part of its canonical key (tick, body, kind): a kick before an impact before
+ /// an open before the boundary, and a scheduled decision after all of them at its tick.
+ fn rank(w: What) -> u8 {
+@@ -627,7 +636,8 @@ impl Work<'_, '_> {
+         let d = self.rec.b.doll;
+         if self.rec.ext.is_none() {
+             let st = self.rec.b.readout(t)?;
+-            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
++            let kicks_log2 = if belt_split_on() { self.kicks_log2_for()? } else { self.ctx.cfg.step_log2 };
++            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, kicks_log2)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
+@@ -653,6 +663,28 @@ impl Work<'_, '_> {
+         self.plan_terminal(t)
+     }
+ 
++    /// The kicks-per-period exponent this body uses under `BELT_SPLIT`: the shipped `step_log2`, or
++    /// 8× coarser for the bulk — a body whose orbit stays clear of every source's band by
++    /// [`crate::ext::BULK_HILL`] Hill radii, from constants only. Any doubt keeps the shipped cadence.
++    fn kicks_log2_for(&self) -> Res<i32> {
++        let bulk = match self.rec.b.entry.trajectory.key() {
++            Some(key) => {
++                let k = key.shape()?;
++                let den = k.scale(1)?.sub(Scalar::ONE)?;
++                if den.is_positive() {
++                    let peri = self.rec.b.to_doll(key.periapsis)?;
++                    let axis = peri.mul(k)?.div(den)?;
++                    let apo = axis.add(axis)?.sub(peri)?;
++                    Some(crate::ext::bulk_regime(self.ctx, self.rec.b.doll, self.rec.b.event_time, self.i, peri, apo)?)
++                } else {
++                    None
++                }
++            }
++            None => None,
++        };
++        Ok(if bulk == Some(true) { self.ctx.cfg.step_log2 - 3 } else { self.ctx.cfg.step_log2 })
++    }
++
+     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..70e67363 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -207,6 +207,14 @@ pub struct Universe {
+     /// ([`Universe::drain_scans`]); the log, the count and the hash below are as if each had been answered at once once
+     /// this is empty, and [`Universe::digest`] answers what is held.
+     scans: VecDeque<Arc<dyn Held>>,
++    /// The lab's expiry fence (probe 20261019-1452, `ES_SCAN_TTL_S` in game-seconds; 0 = off = shipped behaviour):
++    /// a held scan older than this behind the frame's target is dropped unanswered instead of answered, freeing the
++    /// candidates it pins (the burn-mode ratchet, 20261019-0435-inversion-4447). Its unlogged encounters are the price.
++    scan_ttl: Tick,
++    /// Held-scan counters (the same probe): taken, answered, dropped by the fence.
++    pub scan_mints: u64,
++    pub scan_answers: u64,
++    pub scan_expired: u64,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+     /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+@@ -269,6 +277,10 @@ impl Universe {
+             target: 0,
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
++            scan_ttl: std::env::var("ES_SCAN_TTL_S").ok().and_then(|s| s.parse::<f64>().ok()).map(|s| (s / crate::view::TICK_SECONDS) as Tick).unwrap_or(0),
++            scan_mints: 0,
++            scan_answers: 0,
++            scan_expired: 0,
+             scan_ns: 0,
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+@@ -1078,9 +1090,24 @@ impl Universe {
+         // Histories older than every light cone the view can need are forgotten, every frame and inside its budget (before the
+         // items): a call visits only the bodies that can be shortened now (it ran every 64th frame, after the items, and that frame
+         // paid for 64 frames' worth).
++        // The lab's restore (20261019-1551, e181's checker correction (a)): the frame-loop `prune()` call
++        // e181's patch deleted in BOTH arms is back, before the items, exactly as shipped — this tree is
++        // "off = shipped bit for bit" again, with the fence beside it.
+         let t_prune = crate::prof::t();
+         self.prune();
+         crate::prof::add(crate::prof::PRUNE, t_prune);
++        // The expiry fence (env-gated, off = shipped): scans older than the fence behind the frame's target are dropped
++        // unanswered, in mint order (the front is the oldest). Their candidates Vec is the ratchet's bytes.
++        if self.scan_ttl > 0 {
++            while let Some(h) = self.scans.front() {
++                if h.taken().saturating_add(self.scan_ttl) < target {
++                    self.scans.pop_front();
++                    self.scan_expired += 1;
++                } else {
++                    break;
++                }
++            }
++        }
+         let a = self.advance(target, budget);
+         let before = self.now;
+         self.now = a.horizon.max(self.now);
+@@ -1162,7 +1189,10 @@ impl Universe {
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            Some(held) => {
++                self.scan_mints += 1;
++                self.scans.push_back(held)
++            }
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1203,7 +1233,8 @@ impl Universe {
+         crate::prof::add(crate::prof::SCANS, t_scan);
+         // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
+         self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
+-        self.scans.pop_front();
++        self.scan_answers += 1;
++         self.scans.pop_front();
+         for e in found {
+             self.log_encounter(e);
+         }
+@@ -1253,6 +1284,21 @@ impl Universe {
+         }
+     }
+ 
++    /// PROBE (20261019-1551, 527a's instrument verbatim in shape): the history census — bodies holding more
++    /// than one binding, the total bindings held, and the most one body holds. The channel-2 instrument.
++    pub fn history_census(&self) -> (usize, usize, usize) {
++        let (mut gt1, mut total, mut max) = (0usize, 0usize, 0usize);
++        for i in 0..self.bodies.len() {
++            let n = self.bodies.bindings_of(i).len();
++            if n > 1 {
++                gt1 += 1;
++            }
++            total += n;
++            max = max.max(n);
++        }
++        (gt1, total, max)
++    }
++
+     pub fn bytes_per_body(&self) -> usize {
+         let n = self.bodies.len().max(1);
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n

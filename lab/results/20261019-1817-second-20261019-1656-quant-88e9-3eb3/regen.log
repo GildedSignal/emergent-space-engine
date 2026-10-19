@@ -1,0 +1,40 @@
+patch already applied or tree carries it
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.18s
+== Rung A' (5e4, seed 1): share law OFF=3242 ON=1687 ratio=1.922 ==
+  OFF belt-wave bursts (>=15k/5k hist): [(10008, 15008), (95008, 100008)]
+  ON  belt-wave bursts (>=15k/5k hist): [(110023, 115023)]
+  OFF W_OFF: window [20008,105008] span 85000 gs | hist slope 511/1k gs | stream 3240/1k gs | closure 0.1576 | rss slope 10.65 MB/1k | rss@end 1163 MB | gt1@end 50065
+  ON W_ON (wave1@110023): window [110023,315007] span 204984 gs | hist slope 1570/1k gs | stream 1689/1k gs | closure 0.9295 | rss slope 2.69 MB/1k | rss@end 1516 MB | gt1@end 50065
+  A'1 OFF stream in [2920,3570]: 3240 -> PASS
+  A'2 ON  stream in [1520,1860]: 1689 -> PASS
+  A'3 closures >= 0.90: OFF 0.1576 -> FAIL; ON 0.9295 -> PASS
+  A'4 slope ratio in [1.70,2.15] (S=8 falsifier >=4, share-dead <1.70): 0.325 -> FAIL
+  A'5 stream ratio in [1.73,2.11]: 1.918 -> PASS
+  ON matched-diag: window [20023,100023] span 80000 gs | hist slope 489/1k gs | stream 1486/1k gs | closure 0.3292 | rss slope 9.55 MB/1k | rss@end 944 MB | gt1@end 360
+  (diagnostic, not a test) matched-window slope ratio OFF/ON: 1.044
+== Rung B (3e4, seed 2), matched window [140k,245k] ==
+  OFF: window [140009,240023] span 100014 gs | hist slope 2735/1k gs | stream 2866/1k gs | closure 0.9545 | rss slope 4.40 MB/1k | rss@end 1133 MB | gt1@end 30069
+  ON : window [140032,240007] span 99975 gs | hist slope 1675/1k gs | stream 1801/1k gs | closure 0.9301 | rss slope 2.56 MB/1k | rss@end 860 MB | gt1@end 30069
+  B1 slope ratio in [1.50,2.10]: 1.633 -> PASS
+  B2 closures >= 0.90: OFF 0.9545 -> PASS; ON 0.9301 -> PASS
+  B3 stream ratio in [1.43,1.75]: 1.591 -> PASS
+  B4 OFF slope in [2070,2800]: 2735 -> PASS
+== Rung C (the 1e5 wall) ==
+  C1 OFF(1e5): last probe gs=35030 rss=1494 (base 238); guard tripped at 38640 gs < wave 2 (~44k) -> PASS
+== Extension (diagnostic, disclosed post-registration): OFF 5e4 flown to 200k to locate onset ==
+  OFF ext [130024,190014] (waves 6-8): closure 0.9223 | slope 2898 | stream 3142 | rss slope 4.50 MB/1k | rss@end 1548 MB
+  OFF ext [140016,175026] (checker's window): closure 0.9127 | slope 2660 | stream 2915 | rss slope 3.86 MB/1k | rss@end 1430 MB
+== C2: ON(1e5) wall ==
+  ON(1e5): last probe gs=90007 rss=1800 hist=133649 kicks=136983 (wave 1 expected ~106k; tripped pre-wave-1: YES)
+== Onset-corrected A' (POST-HOC, disclosed: same bands, windows moved past the ~130k onset) ==
+  OFF [130k,190k]: window [130024,185026] span 55002 gs | hist slope 2854/1k gs | stream 3112/1k gs | closure 0.9170 | rss slope 4.45 MB/1k | rss@end 1523 MB | gt1@end 50065
+  ON  [110k,315k]: window [110023,315007] span 204984 gs | hist slope 1570/1k gs | stream 1689/1k gs | closure 0.9295 | rss slope 2.69 MB/1k | rss@end 1516 MB | gt1@end 50065
+  slope ratio: 1.818 (band [1.70,2.15], share 1.922) -> PASS
+  stream ratio: 1.842 (band [1.73,2.11]) -> PASS
+  closures: OFF 0.9170, ON 0.9295 (>= 0.90) -> PASS
+== Rung C decomposition: the 1e5 wall is machinery, not bindings ==
+  OFF: guard at 38764 gs, last probe rss=1494 hist=205395 kicks=155420 -> machinery (rss - 238MB base - 2.1KB*hist) ≈ 825 MB ≈ 5.3 KB/kick
+  ON : guard at 90007 gs, last probe rss=1800 hist=133649 kicks=136983 -> machinery (rss - 238MB base - 2.1KB*hist) ≈ 1281 MB ≈ 9.4 KB/kick
+  wall-life ratio ON/OFF at 1e5 = 2.32x (share-law stream ratio at 1e5: 2.63)
+regen done
