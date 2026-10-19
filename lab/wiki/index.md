@@ -5,18 +5,39 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [closed-form-kernel](closed-form-kernel.md) | open | 1 | **The bound cycle's advance is one certified-exact integer Carlson RF call — |
+| [entry](entry.md) | open | 0 | (no current best yet) |
+| [cell-rebind](cell-rebind.md) | open | 1 | **The kick's compile bill and the per-body standing-shape bill are one mechanism — the exact |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
-| [decision-log](decision-log.md) | open | 3 | **The hole compounds, and the fix closes it on the current tree (20261013-1249-taleb-a004).** |
-| [gravity-news](gravity-news.md) | open | 5 | **The rebind half of "gravity is news" is right and now has an error model; the thrust |
-| [handoff](handoff.md) | open | 11 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
+| [budget-1e9](budget-1e9.md) | open | 3 | **The board's interlocking formula (CPU = N·rate·cost + encounters; memory = N·bits + N_live·bytes) |
+| [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
+| [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
+| [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
+| [scan-locality](scan-locality.md) | open | 3 | **The record that serves every hit is measured, priced and sound: the window-membership record.** |
+| [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
+| [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
+| [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
+| [contact-speed](contact-speed.md) | open | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
+| [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
+| [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
+| [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
+| [order-boundary](order-boundary.md) | open | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
+| [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
+| [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
+| [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
+| [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
+| [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
+| [allocator-ratchet](allocator-ratchet.md) | open | 18 | (no current best yet) |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
-| [view](view.md) | open | 23 | **The row's most expensive term is measured invisible on every shipped scene, and the missing slot it re-derives is the same one two other bottlenecks asked for by name (20261013-0350-system-7b86).** The physics holes st |
+| [chaos-shadowing](chaos-shadowing.md) | open | 19 | (no current best yet) |
+| [representation-premises](representation-premises.md) | open | 20 | **Prior standing record, unchanged (compiled from the runs below):** |
+| [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
-| [frame-cost](frame-cost.md) | open | 41 | **The ladder's first wall is the compact fleet frame's own leak, an order below the walk |
-| [kick-cadence](kick-cadence.md) | open | 43 | **The rule is regime-aware and coarse, everywhere except where cadence is the wrong lever.** Seven graded runs split the question by regime; the levers that died are the interesting half of the record. The 12-October bra |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [encounters](encounters.md) | open | 51 | **The pairwise tier is exactly sound everywhere measured except two named holes, its cost follows measured laws, and the one standing lever is the slack skin.** The shipped tier (cone candidates → `sections` → Diophantin |
-| [kick-jet](kick-jet.md) | open | 61 | **The panel walk computes complete elliptic integrals: the φ channel is one Carlson RF |
-| [memory-h-live](memory-h-live.md) | open | 105 | **The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s |
+| [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
+| [view](view.md) | open | 60 | # The view: the observer's past light cone, lensing, kinked tubes |
+| [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
+| [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
+| [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
+| [encounters](encounters.md) | open **conflict to resolve** | 118 | <<<<<<< main |
+| [nladder](nladder.md) | open **conflict to resolve** | 161 | <<<<<<< main |

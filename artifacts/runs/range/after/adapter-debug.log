@@ -1,0 +1,34 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling serde v1.0.229
+   Compiling num-bigint v0.4.8
+   Compiling emergent-lattice v0.1.0 (/private/tmp/emergent-wt-range/crates/lattice)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-range/crates/space)
+   Compiling emergent-lattice-event v0.1.0 (/private/tmp/emergent-wt-range/crates/lattice-event)
+   Compiling emergent-engine v0.1.0 (/private/tmp/emergent-wt-range/crates/engine)
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-range/crates/universe)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.39s
+     Running tests/range_adapter.rs (target/debug/deps/range_adapter-1fe0de9109604584)
+
+running 1 test
+
+thread 'far_flybys_survive_the_universe_adapter_to_the_leave' panicked at crates/universe/tests/range_adapter.rs:24:13:
+3 AU E=1.001: None
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test far_flybys_survive_the_universe_adapter_to_the_leave ... FAILED
+
+failures:
+
+failures:
+    far_flybys_survive_the_universe_adapter_to_the_leave
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-universe --test range_adapter`

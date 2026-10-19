@@ -53,6 +53,8 @@ pub struct Ctx<'a> {
     /// Per doll: the bodies that pull others in it (secondaries), in id order.
     pub sources: &'a [Vec<usize>],
     pub cfg: &'a Config,
+    /// Where each doll's bodies can be, by radius: who a scan must read.
+    pub radial: &'a crate::radial::Radial,
 }
 
 impl Ctx<'_> {

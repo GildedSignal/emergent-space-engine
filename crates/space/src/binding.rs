@@ -278,9 +278,11 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
     let discriminant = b.mul(b)?.sub(compact.mul(Scalar::integer(16))?.mul(compact.add(d)?)?)?;
     let k = compact.add(d)?.scale(1)?.div(b.add(discriminant.sqrt()?)?)?;
     let word = u64::try_from(k.fixed(48)?).map_err(|_| Error::Range)?.min(1 << 48);
-    if k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
+    if k >= Scalar::power_of_two(-28) && k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
         return Err(Error::Range);
     }
+    let scaled = k < Scalar::power_of_two(-28);
+    let full_k = k;
     let mut k = word;
     // Classification follows the conserved binding energy, including a parabolic tie.
     if alpha.is_zero() {
@@ -290,12 +292,12 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
     } else {
         k = k.max((1 << 47) + 1);
     }
-    let key = OrbitKey::new(rp, k)?;
+    let key = if scaled { OrbitKey::scaled(rp, full_k)? } else { OrbitKey::new(rp, k)? };
     // The clock's gap, from the state and not from the key: E² = f²/den exactly (E = f·u^t), and E² = tn/d, so d = tn·den/f².
-    // No cancellation, so E has no ceiling short of what the state's own words hold (the Q48 k keeps the shape, which does not
+    // No cancellation, so E has no ceiling short of what the state's own words hold (k keeps the shape, which does not
     // need E: positions and velocities read k alone).
     if alpha.is_positive() && key.needs_gap()? {
-        let (q, k) = (key.compactness()?, Scalar::raw(k as i128, -48)?);
+        let (q, k) = (key.compactness()?, key.shape()?);
         let one_minus_2q = Scalar::ONE.sub(q.scale(1)?)?;
         let tn = k.mul(one_minus_2q)?.mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
         let gap = tn.mul(den)?.div(lapse.mul(lapse)?)?;

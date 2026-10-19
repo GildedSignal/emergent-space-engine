@@ -2,7 +2,7 @@ topic: decision-log
 status: open
 closed-by:
 valid-while:
-updated: 20261013-1249-taleb-a004
+updated: 20261013-2130-inversion-dfd0
 
 # The player's decision log: canonical ticks for a wall-world press
 
@@ -11,6 +11,32 @@ page because it is Truth, not cost — and because the flight recorder (in fligh
 whatever the loop logs today.
 
 ## Current best
+
+**The recorder merged ahead of the fix and froze the hole: one player session, flown twice on
+one machine, records different canonical flights, and the new `--replay-all` merge gate blesses
+every one of them (20261013-2130-inversion-dfd0).** The flight recorder landed 13 October
+(73c98a46, "decisions are logged at the tick they take effect") with the a342/a004 port still
+absent — `session.rs::step` passes the frame's presented tick (`u.now`) to `input`, so the
+logged tick is "what the budget left behind", the exact hole below. Measured on shipped code
+(one test added to the recorder's own frozen `flight_tests.rs`, same seed/script/cadence, only
+the engine's wall budget differs): the six decisions' ticks fork by 8.2M ticks (≈ 67 game-s) at
+400 members, 19.7M (≈ 161 game-s) at 150, and 13.4M (≈ 110 game-s) at **8 members with the
+frozen test's own budgets (0.5 vs 8 ms)** — the recorder's own frozen test flies this script at
+those budgets and checks only that each file replays to itself, so it has been certifying
+contradictory flights since it was frozen (its control is one line short of the Truth
+criterion). No starvation knob needed: the *same* arm re-flown gives another digest
+(`dd39afb7…` then `4ed7ae25…`, m400 rich, nothing changed but box load), and under a biting
+budget two presses 40 frames apart can log at the *same* tick (2,121,741 twice, starved m150,
+first execution — sub-frame intent silently aliased). All six files: `replay()` `same=true`,
+4-thread replay exact, and `--replay-all` exits 0 over the six contradictory truths ("6 same, 0
+regressions"). The gate is a fine law-change detector (per-file exactness is the law's
+property); what it cannot see is that the recorded canon itself is machine noise — the three
+committed flights in `artifacts/flights/` carry it, and every future re-recorded suite can
+coin-flip "new loss" regressions on machine load (a004's warning, now structural). The fork
+tracks the *differential* delivered engine time between runs, so it is widest when one run
+keeps up and the other does not (the 150-member fork exceeds the 400-member one: lighter scenes
+widen it under equal starvation; the pre-registered "shrinks at 150 members" was wrong, reported
+as missed).
 
 **The hole compounds, and the fix closes it on the current tree (20261013-1249-taleb-a004).**
 The shipped loop (`xtask/src/universe/session.rs::step`) logs a key change at the frame's
@@ -40,6 +66,9 @@ freeze rtf per flight or log its changes), and a decision snapping past the cut 
 
 ## Refuted
 
+- "The recorder's flights are canonical regression truth": one session, six flights, all
+  blessed — the recorded canon is a function of machine load at record time
+  (20261013-2130-inversion-dfd0).
 - "The hole is a bounded offset" — refuted: ×7.5–7.8 per 3× flight time to 18 AU, contacts
   6 vs 54 (20261013-1249).
 - "Quantizing the presented tick fixes it" — refuted by 20261012-2257-scout-64e4 (adjacent
@@ -49,29 +78,29 @@ freeze rtf per flight or log its changes), and a decision snapping past the cut 
 
 ## Open directions
 
-1. **Adopt the port** (20261013-1249's patch): 30 lines in `universe.rs` + 4 in the loop +
-   the `decision_tick` test; the universe suite passes on the patched tree. The flight
-   recorder must not merge before this does (its logs and its `--replay-all` gate inherit the
-   hole otherwise).
+1. **Adopt the port, then refresh the recorded corpus** (20261013-1249's patch: 30 lines in
+   `universe.rs` + 4 in the loop + the `decision_tick` test; the universe suite passes on the
+   patched tree). The recorder merged before it (73c98a46), so the order the page demanded was
+   violated: after landing, re-record or transform `artifacts/flights/` (they replay exactly
+   either way; the port fixes future recordings). Add the one-line Truth criterion to
+   `flight_tests.rs`: the same session at two budgets yields one flight (this run's probe).
 2. **Delete the straddle**: snap the quantum to the input event's own wall timestamp (it
    travels with the input; the frame's sampling spread never enters) instead of the frame's
    `sched`. That would make every press identical across frame rates, at the cost of trusting
    the client clock to quantum resolution.
 3. **The recorder's rtf rule**: freeze rtf per flight or log rtf changes as decisions
-   (the quantum is rtf-dependent).
+   (the quantum is rtf-dependent; `Recorder::current` stores the current rtf, replay uses the
+   last — read in code by 20261013-2130, not flown).
 
 ## Contradictions
 
 - None open. 20261008-0743's grade is "missing" (ungraded run), not disputed; its fix is now
-  independently reproduced on a tree five days of merges later.
+  independently reproduced on a tree five days of merges later. The inversion run's "fork grows
+  at 150 members" vs its own pre-registered "shrinks" is resolved in the run's dossier: the
+  fork is differential engine time, widest when one run keeps up — kept as a domain note.
 
 ## Runs
-
 - 20261008-0615-taleb-40c0 (gold, per docs/HISTORY.md): the presented-tick log breaks
-  schedule-independence (four digests per seed, encounters 68–102); the only demonstrated
-  digest-breaking channel.
 - 20261008-0743-second-20261008-0615-taleb-40c0-a342 (ungraded): the `sched` + decision-quantum
-  fix, one digest across rates and load; never merged.
 - 20261013-1249-taleb-a004 (this run): the hole compounds (18 AU, contacts 6 vs 54); the fix
-  ported, wired and held on the current tree; the straddle reproduced (a342's record here
-  shows only "one digest across rates and load" — the straddle is this run's measurement).
+- 20261013-2130-inversion-dfd0 (pending grade): the recorder merged ahead of the fix; one

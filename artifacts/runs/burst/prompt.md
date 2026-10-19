@@ -66,3 +66,14 @@ A second defect (the integrator, 13 October): each burn kick pays the burn owed 
 - **Also must hold:** `cargo test --release -p emergent-universe -p xtask` (C1's ≤ 60 s tests, P1, P2, the throttle tests, the flight recorder's); B13 not worse than 60/64 (`cargo run --release -p xtask -- behave --law plane --gates B13`); `universe --replay-all`: no regression (digests change: this is a law change).
 
 Return: F1 and T1 before and after, kicks per frame at L8/L12/L15 before and after, what you changed, and anything that surprised you. At most 15 lines.
+
+## Continuation (the integrator's adjudication, 14 October; you continue on `wt/burst2`, from `wt/burst` at 5ee0e224)
+
+The first pass (gpt-6.1-sol, 13 October) landed centred payments, a capped geometric cadence, handoff accounting and the matching view: every held level 0-15 passes F1, kicks per frame at L8/L12/L15 fell 19/124/291 → 9/21/31, the worst readable T1 error 1.84% → 0.0755%. Not mergeable yet: the suite fails (T1 and a HUD warning test). Read `git log origin/main..HEAD` and `artifacts/runs/codex-oct13/burst/result.md` first. Merge `origin/main` first (the far-flyby merge, 9143329b, touched `bind.rs` and `universe.rs`).
+
+1. **T1, reverse L0: the gate's premise was false (the integrator's defect).** "It slows, it does not fall" does not hold at L0: braking 0.5·v₀/a at 0.35 g from 1.1 Home radii drops the ship into Home during the burn under any cadence. Amendment (the integrator's, apply it verbatim to the T1 header and harness): **the reverse L0 burn lasts 0.02·v₀/a** (it loses 2% of its speed and stays up past the reading); reverse L4 and L8 keep 0.5·v₀/a. No other criterion changes.
+2. **T1, convergence at forward L4 and L8: an anomaly to explain, not a gate to move.** The errors stop shrinking near 1e-4 (L4: 2.5e-4 → 7.1e-5 in position, 7.8e-5 → 4.1e-5 in velocity, at 16× finer). Something that does not scale with the cadence contributes ~1e-4 of the burn's displacement. Find it and name it with a measurement (the handoff's timing, the tide's carries, the payment's estimate, the reference's own error: test each). If it is the burn law's, fix it; if it is a real effect outside the cadence, show it with numbers and stop: the integrator then amends criterion 2 with that evidence.
+3. **The HUD warning test:** refunding prepaid velocity clears the first impact warning. A warning must reflect the trajectory the player is on; fix the regression without weakening the test.
+4. **F1, coast and the throttle sweep:** the opening exodus (48 hand-outs near frame 61, ~10 ms) predates this job: `bind_surface` compiles a hand-out twice (`artifacts/runs/frame/writeup.md`, finding 3: choose the word from the cheap `fit_key` first, then bind once; same bits). Do it if it stays bit for bit; otherwise report it.
+
+Gates as above, unchanged except item 1.
