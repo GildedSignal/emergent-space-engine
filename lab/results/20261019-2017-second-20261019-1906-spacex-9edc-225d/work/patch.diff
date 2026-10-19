@@ -1,0 +1,549 @@
+diff --git a/crates/universe/examples/form_news.rs b/crates/universe/examples/form_news.rs
+new file mode 100644
+index 00000000..a95459ea
+--- /dev/null
++++ b/crates/universe/examples/form_news.rs
+@@ -0,0 +1,114 @@
++//! The co-orbital formation's mint census — the checker's named experiment for 9edc: efd4's
++//! 512-ship one-orbit formation (one exact (E, L), 512 phases), rebuilt to SURVIVE (ships at
++//! 1 AU, the 2^-10 planet at 0.39 AU: ~22 Hill radii clear, ~29 game-s synodic period beyond
++//! the window), flown with the kick-news census. What it measures that the record lacks:
++//! birth mints vs kick mints (efd4 priced the standing stock; the mint stream was never
++//! split), the self-comparison at each fired kick (9edc's census, now on the formation), and
++//! the shadow-intern cross-hit — a mint whose `(doll, mu, sense, OrbitKey)` another live
++//! binding already holds, the exact question a key-dedup insert asks. The dial is the
++//! shipped `Config::step_log2` (the Δs octave de7b flew; `ES_STEP_LOG2`, 7 = shipped): each
++//! octave coarsens Δs 2×, so each fired kick carries 2× the tide and the fleet's keys spread
++//! 2× wider per mint. Controls: `ES_SCATTER=1` (512 distinct orbits, the intern's null) and
++//! `ES_KICK_NEWS` unset (the census reads zero; the shipped path).
++//!
++//! cargo run --release -p emergent-universe --example form_news [-- <F> <game_s> <rtf>]
++use emergent_universe::news;
++use emergent_universe::scenario::{restricted_with, AU};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Budget;
++use std::collections::HashSet;
++use std::time::{Duration, Instant};
++
++/// Live bindings, distinct intern keys among them, and the catalogue's live slots (efd4's census).
++fn census(u: &emergent_universe::Universe) -> (usize, usize, usize) {
++    let mut keys = HashSet::new();
++    let mut plunges = 0usize;
++    let mut live = 0usize;
++    for i in 0..u.n_bodies() {
++        let rec = u.rec(i);
++        if !rec.alive {
++            continue;
++        }
++        live += 1;
++        if let Some(k) = rec.b.entry.trajectory.key() {
++            keys.insert((rec.b.doll, rec.b.entry.unit.mu, rec.b.entry.clockwise, k));
++        } else {
++            plunges += 1;
++        }
++    }
++    (live, keys.len() + plunges, u.catalogue_live())
++}
++
++fn line(tag: &str, u: &emergent_universe::Universe) {
++    let nk = news::snapshot();
++    let (live, distinct, standing) = census(u);
++    let ships = u.n_bodies().saturating_sub(2); // star is the doll centre, not a body: planet + F ships
++    println!(
++        "form: {tag} now={:.0}gs live={live} dead={} standing={standing} distinct={distinct} | fired={} same={} flip={} plunge={} notfired={} | birth={} birth_cross={} apply={} apply_kick={} cross_kick={} cross_other={} retune={} shadow_keys={} self_ok={}",
++        u.now as f64 * TICK_SECONDS,
++        u.n_bodies() - live,
++        nk[news::CLOCK_FIRED] + nk[news::BELT_FIRED] + nk[news::TUBE_FIRED],
++        nk[news::CLOCK_SAME] + nk[news::BELT_SAME] + nk[news::TUBE_SAME],
++        nk[news::CLOCK_FLIP] + nk[news::BELT_FLIP] + nk[news::TUBE_FLIP],
++        nk[news::CLOCK_PLUNGE],
++        nk[news::CLOCK_NOTFIRED] + nk[news::TUBE_NOTFIRED],
++        nk[news::BIRTH_MINTS], nk[news::BIRTH_CROSS], nk[news::APPLY_INSERTS], nk[news::APPLY_KICK],
++        nk[news::CROSS_KICK], nk[news::CROSS_OTHER], nk[news::RETUNE_MINTS], news::shadow_keys(), nk[news::SELF_OK],
++    );
++    let _ = ships;
++    let _ = (std::mem::size_of::<emergent_universe::bind::Binding>(), std::mem::size_of::<emergent_universe::bind::Entry>(), std::mem::size_of::<emergent_universe::body::Segment>());
++}
++
++fn main() {
++    let t0 = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let f: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(512);
++    let game_s: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(500_000.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(8_000.0);
++    let step_log2: i32 = std::env::var("ES_STEP_LOG2").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
++    let scatter = std::env::var("ES_SCATTER").is_ok_and(|v| v != "0");
++    news::warmup();
++    // One circular orbit at 1 AU for the whole fleet (efd4's formation, kept clear of every
++    // surface), or F distinct orbits 2^-8.4 apart (the belt's shape) for the scatter control.
++    let ships: Vec<(i64, u32)> = (0..f as u32)
++        .map(|k| {
++            if scatter {
++                (AU as i64 + (k as i64) * 300_000, k * (u32::MAX / f as u32).max(1))
++            } else {
++                (AU, k * (u32::MAX / f as u32).max(1))
++            }
++        })
++        .collect();
++    let mut w = restricted_with(-10, 39_507_000, 47_400, &ships, 1, emergent_universe::Config { step_log2, ..Default::default() }).unwrap();
++    let build = t0.elapsed();
++    println!(
++        "form: scene f={f} scatter={scatter} step_log2={step_log2} game_s={game_s:.0} rtf={rtf} build={build:?} ({:.0} ns/ship) sizes binding={} entry={} segment={}",
++        build.as_nanos() as f64 / f as f64,
++        std::mem::size_of::<emergent_universe::bind::Binding>(),
++        std::mem::size_of::<emergent_universe::bind::Entry>(),
++        std::mem::size_of::<emergent_universe::body::Segment>()
++    );
++    line("genesis", &w.u);
++    let mut scans: Vec<f64> = [0.6f64, 1.6, 2.6].to_vec(); // just after the fleet's 1st, 2nd, 3rd kick crests
++    let cut = (game_s / TICK_SECONDS) as i64;
++    let interval = 32_970.0 * 2f64.powi(step_log2 - 7); // the planet's doll grid at this octave
++    scans.sort_by(|a, b| b.partial_cmp(a).unwrap());
++    let mut next = scans.pop();
++    while w.u.now < cut {
++        if t0.elapsed() > Duration::from_secs(50) {
++            println!("form: wall guard at {:.0} gs", w.u.now as f64 * TICK_SECONDS);
++            break;
++        }
++        let _ = w.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), cut);
++        if let Some(s) = next.filter(|s| w.u.now as f64 * TICK_SECONDS >= s * interval) {
++            line(&format!("scan@{s:.1}iv"), &w.u);
++            next = scans.pop();
++        }
++    }
++    w.u.settle(cut);
++    line("end", &w.u);
++    println!(
++        "form: stats kicks={} boundaries={} handoffs={} lost={} refused={} digest={}",
++        w.u.stats.kicks, w.u.stats.boundaries, w.u.stats.handoffs, w.u.stats.lost, w.u.stats.refused, w.u.digest()
++    );
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..3d17319e 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,14 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stand-in: resident set now (statm) and the peak resident high-water mark (VmHWM).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let now = std::fs::read_to_string("/proc/self/statm").ok().and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok())).map(|p| p * 4096).unwrap_or(0);
++    let peak = std::fs::read_to_string("/proc/self/status").ok().and_then(|s| s.lines().find(|l| l.starts_with("VmHWM:")).and_then(|l| l.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))).map(|kb| kb * 1024).unwrap_or(0);
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -49,7 +59,10 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    emergent_universe::news::warmup();
++    let seed: u64 = std::env::var("ES_LADDER_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let step_log2: i32 = std::env::var("ES_STEP_LOG2").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
++    let mut p = plane_extra(Config { step_log2, ..Config::default() }, seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -160,4 +173,16 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    let nk = emergent_universe::news::snapshot();
++    println!(
++        "kicknews: clock_fired={} clock_same={} clock_flip={} clock_plunge={} clock_notfired={} belt_fired={} belt_same={} belt_flip={} tube_fired={} tube_same={} tube_flip={} tube_notfired={} cat_inserts={} cat_hit={} self_ok={} cat_live={} birth={} birth_cross={} apply_ins={} apply_kick={} cross_kick={} cross_other={} handoff={} retune={} shadow_keys={} sizes binding={} entry={} segment={}",
++        nk[emergent_universe::news::CLOCK_FIRED], nk[emergent_universe::news::CLOCK_SAME], nk[emergent_universe::news::CLOCK_FLIP], nk[emergent_universe::news::CLOCK_PLUNGE], nk[emergent_universe::news::CLOCK_NOTFIRED],
++        nk[emergent_universe::news::BELT_FIRED], nk[emergent_universe::news::BELT_SAME], nk[emergent_universe::news::BELT_FLIP],
++        nk[emergent_universe::news::TUBE_FIRED], nk[emergent_universe::news::TUBE_SAME], nk[emergent_universe::news::TUBE_FLIP], nk[emergent_universe::news::TUBE_NOTFIRED],
++        nk[emergent_universe::news::CAT_INSERTS], nk[emergent_universe::news::CAT_HIT], nk[emergent_universe::news::SELF_OK], p.u.catalogue_live(),
++        nk[emergent_universe::news::BIRTH_MINTS], nk[emergent_universe::news::BIRTH_CROSS], nk[emergent_universe::news::APPLY_INSERTS], nk[emergent_universe::news::APPLY_KICK],
++        nk[emergent_universe::news::CROSS_KICK], nk[emergent_universe::news::CROSS_OTHER], nk[emergent_universe::news::HANDOFF_MINTS], nk[emergent_universe::news::RETUNE_MINTS],
++        emergent_universe::news::shadow_keys(),
++        std::mem::size_of::<emergent_universe::bind::Binding>(), std::mem::size_of::<emergent_universe::bind::Entry>(), std::mem::size_of::<emergent_universe::body::Segment>()
++    );
+ }
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..988cb8f8 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -8,6 +8,7 @@ pub mod ext;
+ pub mod fleet;
+ pub mod force;
+ pub mod lorentz;
++pub mod news;
+ pub mod num;
+ pub mod observe;
+ pub mod prof;
+diff --git a/crates/universe/src/news.rs b/crates/universe/src/news.rs
+new file mode 100644
+index 00000000..a2503859
+--- /dev/null
++++ b/crates/universe/src/news.rs
+@@ -0,0 +1,238 @@
++//! Print-only census of the kick rebind's news (env `ES_KICK_NEWS`): does a fired kick's
++//! re-fit reproduce the standing compiled orbit (same `OrbitKey`), or mint a new one?
++//! Counters only; the shipped path is untouched when the flag is off.
++//!
++//! The second-author extension (20261019-2017-…-225d): the census is split by MINT KIND —
++//! birth binds (`add_body`/`add_body_state`/fleet births/retunes) vs kick rebinds vs other
++//! rebinds (handoffs) — and a shadow refcount of live intern keys (the `(doll, mu, clockwise,
++//! OrbitKey)` tuple `crates/space`'s own catalogue interns by; the plane's fork has no lookup)
++//! counts every mint that lands on a key another live binding already holds: the exact hit a
++//! key-dedup insert would score. Dead bodies keep their key (the shipped catalogue releases
++//! nothing on death — efd4's corpse retention), so the shadow mirrors shipped standing stock.
++
++use crate::bind::Entry;
++use emergent_space::orbit::{OrbitKey, Scalar};
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::sync::Mutex;
++
++pub static C: [AtomicU64; 24] = [
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++];
++pub const CLOCK_FIRED: usize = 0;
++pub const CLOCK_SAME: usize = 1;
++pub const CLOCK_FLIP: usize = 2;
++pub const CLOCK_PLUNGE: usize = 3;
++pub const BELT_FIRED: usize = 4;
++pub const BELT_SAME: usize = 5;
++pub const BELT_FLIP: usize = 6;
++pub const TUBE_FIRED: usize = 7;
++pub const TUBE_SAME: usize = 8;
++pub const TUBE_FLIP: usize = 9;
++pub const CAT_INSERTS: usize = 10;
++pub const CAT_HIT: usize = 11;
++pub const SELF_OK: usize = 12;
++/// A clock kick whose quantized dv rounded to zero (carried): planned, not fired, no rebind.
++pub const CLOCK_NOTFIRED: usize = 13;
++pub const TUBE_NOTFIRED: usize = 14;
++pub const BIRTH_MINTS: usize = 15;
++pub const BIRTH_CROSS: usize = 16;
++pub const APPLY_INSERTS: usize = 17;
++/// `apply`-path inserts that were fired kicks (clock or tube).
++pub const APPLY_KICK: usize = 18;
++/// Kick mints whose key another live binding already held (the intern's hit).
++pub const CROSS_KICK: usize = 19;
++/// Non-kick rebind mints (handoffs, captures) whose key another live binding already held.
++pub const CROSS_OTHER: usize = 20;
++pub const RETUNE_MINTS: usize = 21;
++pub const HANDOFF_MINTS: usize = 22;
++static ON: AtomicBool = AtomicBool::new(false);
++static INIT: AtomicBool = AtomicBool::new(false);
++
++/// The intern key: what `crates/space`'s catalogue dedups by, plus the doll.
++type Key = (u16, bool, Scalar, Option<OrbitKey>);
++
++fn key_of(doll: u16, e: &Entry) -> Key {
++    (doll, e.clockwise, e.unit.mu, e.trajectory.key())
++}
++
++/// Live holders per intern key (`Some` only when the census is on).
++static SHADOW: Mutex<Option<HashMap<Key, u32>>> = Mutex::new(None);
++fn enter(doll: u16, e: &Entry) -> bool {
++    // Returns whether another live binding already held this key (the intern's hit).
++    // (No parking_lot in this tree; the guard is recovered, never unwrapped: nothing panics holding it.)
++    let mut g = SHADOW.lock().unwrap_or_else(|p| p.into_inner());
++    let Some(m) = g.as_mut() else { return false };
++    let k = key_of(doll, e);
++    let held = m.get(&k).copied().unwrap_or(0) > 0;
++    *m.entry(k).or_insert(0) += 1;
++    held
++}
++
++fn leave(doll: u16, e: &Entry) {
++    let mut g = SHADOW.lock().unwrap_or_else(|p| p.into_inner());
++    if let Some(m) = g.as_mut() {
++        let k = key_of(doll, e);
++        if let Some(n) = m.get_mut(&k) {
++            *n -= 1;
++            if *n == 0 {
++                m.remove(&k);
++            }
++        }
++    }
++}
++
++
++pub fn on() -> bool {
++    if !INIT.swap(true, Ordering::Relaxed) {
++        ON.store(std::env::var("ES_KICK_NEWS").is_ok(), Ordering::Relaxed);
++        if ON.load(Ordering::Relaxed) {
++            *SHADOW.lock().unwrap_or_else(|p| p.into_inner()) = Some(HashMap::new());
++        }
++    }
++    ON.load(Ordering::Relaxed)
++}
++
++/// Force the flag's initialisation before a scene is built, so birth mints are counted
++/// (`on()` alone is lazy: nothing calls it during genesis otherwise).
++pub fn warmup() {
++    let _ = on();
++}
++
++/// `true` when the two entries are the same compiled orbit for the catalogue's purposes
++/// (same key, same sense; the anchor in `Tube` is per-binding news either way).
++fn same_entry(old: &Entry, new: &Entry) -> Option<bool> {
++    match (old.trajectory.key(), new.trajectory.key()) {
++        (Some(a), Some(b)) => Some(a == b && old.clockwise == new.clockwise),
++        (None, None) => None, // a plunge carries no key; counted separately
++        _ => Some(false),
++    }
++}
++
++/// Census one fired kick's rebind: `old` is the standing binding's entry, `new` the
++/// re-fit's, `belt` whether the body sits in the belt's radial band.
++fn note(slot_fired: usize, slot_same: usize, slot_flip: usize, old: &Entry, new: &Entry, belt: bool) {
++    let _ = belt;
++    C[slot_fired].fetch_add(1, Ordering::Relaxed);
++    match same_entry(old, new) {
++        Some(true) => {
++            C[slot_same].fetch_add(1, Ordering::Relaxed);
++        }
++        Some(false) => {
++            C[slot_flip].fetch_add(1, Ordering::Relaxed);
++        }
++        None => {
++            C[CLOCK_PLUNGE].fetch_add(1, Ordering::Relaxed);
++        }
++    }
++}
++
++/// The clock path (`kick_clock`): doll-0 ships and the player; `belt` splits the band.
++pub fn kick_clock_entry(old: &Entry, new: &Entry, belt: bool) {
++    if !on() {
++        return;
++    }
++    if belt {
++        note(BELT_FIRED, BELT_SAME, BELT_FLIP, old, new, belt);
++    } else {
++        note(CLOCK_FIRED, CLOCK_SAME, CLOCK_FLIP, old, new, belt);
++    }
++}
++
++/// The tube path (`kick`): bodies of the deeper dolls.
++pub fn kick_tube_entry(old: &Entry, new: &Entry) {
++    if !on() {
++        return;
++    }
++    note(TUBE_FIRED, TUBE_SAME, TUBE_FLIP, old, new, false);
++}
++
++/// A planned kick that did not fire (its quantized dv is zero: the carry holds it).
++pub fn kick_carried(clock: bool) {
++    if on() {
++        C[if clock { CLOCK_NOTFIRED } else { TUBE_NOTFIRED }].fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// A mint at a rebind applied by the universe (`Work::rebind`'s new entry): `kick` says which
++/// kind resolved it. The retired pre-rebind binding has already left the shadow, so a hit here
++/// is a key held by ANOTHER live body — the intern's exact question.
++pub fn apply_insert(kick: bool, doll: u16, e: &Entry) {
++    if !on() {
++        return;
++    }
++    C[APPLY_INSERTS].fetch_add(1, Ordering::Relaxed);
++    if kick {
++        C[APPLY_KICK].fetch_add(1, Ordering::Relaxed);
++        if enter(doll, e) {
++            C[CROSS_KICK].fetch_add(1, Ordering::Relaxed);
++        }
++    } else {
++        C[HANDOFF_MINTS].fetch_add(1, Ordering::Relaxed);
++        if enter(doll, e) {
++            C[CROSS_OTHER].fetch_add(1, Ordering::Relaxed);
++        }
++    }
++}
++
++/// The pre-rebind binding leaves the live-intern shadow (its slot is released by `apply`).
++pub fn retire(doll: u16, e: &Entry) {
++    if on() {
++        leave(doll, e);
++    }
++}
++
++/// A birth mint (`add_body` from a spec, `add_body_state` from a state, a fleet's program
++/// birth): no binding to replace; a hit is the co-orbital case efd4 priced standing.
++pub fn birth(doll: u16, e: &Entry) {
++    if !on() {
++        return;
++    }
++    C[BIRTH_MINTS].fetch_add(1, Ordering::Relaxed);
++    if enter(doll, e) {
++        C[BIRTH_CROSS].fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// A retune mint (`add_doll` recompiles a host's tube about host+gm): replaces the old key.
++pub fn retune(doll: u16, e: &Entry) {
++    if !on() {
++        return;
++    }
++    C[RETUNE_MINTS].fetch_add(1, Ordering::Relaxed);
++    let _ = enter(doll, e);
++}
++
++pub fn cat_insert() {
++    if on() {
++        C[CAT_INSERTS].fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++pub fn snapshot() -> [u64; 24] {
++    let mut out = [0u64; 24];
++    for (i, c) in C.iter().enumerate() {
++        out[i] = c.load(Ordering::Relaxed);
++    }
++    out
++}
++
++/// Distinct intern keys held by live bindings now (the intern's standing stock).
++pub fn shadow_keys() -> usize {
++    SHADOW.lock().unwrap_or_else(|p| p.into_inner()).as_ref().map_or(0, |m| m.len())
++}
++
++/// Instrument control: the comparison's `true` branch must be reachable (an entry equals
++/// itself). Counted once, on the first censused kick.
++pub fn selfcheck(old: &Entry) {
++    static DONE: AtomicBool = AtomicBool::new(false);
++    if DONE.swap(true, Ordering::Relaxed) {
++        return;
++    }
++    C[SELF_OK].store(matches!(same_entry(old, old), Some(true)) as u64, Ordering::Relaxed);
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..c4401f44 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -425,12 +425,20 @@ impl Work<'_, '_> {
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
++                crate::news::kick_carried(false);
+                 return Ok(());
+             }
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        if crate::news::on() {
++            let old_entry = self.rec.b.entry.clone();
++            self.rebind(next, t, d)?;
++            crate::news::kick_tube_entry(&old_entry, &self.rec.b.entry);
++            crate::news::selfcheck(&old_entry);
++        } else {
++            self.rebind(next, t, d)?;
++        }
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -689,7 +697,17 @@ impl Work<'_, '_> {
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
+         let fired = next.velocity != st.velocity;
+-        if fired {
++        if crate::news::on() {
++            if fired {
++                let old_entry = self.rec.b.entry.clone();
++                let bound = self.rebind(next, t, d)?;
++                let au11 = Scalar::raw(111_430_000, 0)?;
++                let belt = norm2(x).ok().and_then(|r| r.sub(au11).ok()).and_then(|s| s.fixed(0).ok()).unwrap_or(0) > 0;
++                crate::news::kick_clock_entry(&old_entry, &bound.entry, belt);
++            } else {
++                crate::news::kick_carried(true);
++            }
++        } else if fired {
+             self.rebind(next, t, d)?;
+         }
+         self.rec.carry = carry;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..26e5ed0b 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -359,6 +359,9 @@ impl Universe {
+     pub fn add_body(&mut self, kind: Kind, spec: OrbitSpec, radius: Scalar) -> Res<usize> {
+         let (entry, mut tube, units) = self.spec_binding(&spec, self.dolls[spec.doll as usize].unit)?;
+         tube.key = self.cat.insert(entry.clone())?;
++        if crate::news::on() {
++            crate::news::birth(spec.doll, &entry);
++        }
+         let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
+         let heading = prograde(&b)?;
+         let rec = BodyRec {
+@@ -408,6 +411,9 @@ impl Universe {
+         let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
+         let mut tube = bound.tube;
+         tube.key = self.cat.insert(bound.entry.clone())?;
++        if crate::news::on() {
++            crate::news::birth(doll, &bound.entry);
++        }
+         let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None };
+         let heading = prograde(&b)?;
+         let rec = BodyRec {
+@@ -447,7 +453,13 @@ impl Universe {
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
++        if crate::news::on() {
++            crate::news::retire(rec.b.doll, &rec.b.entry);
++        }
+         tube.key = self.cat.insert(entry.clone())?;
++        if crate::news::on() {
++            crate::news::retune(spec.doll, &entry);
++        }
+         rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
+         self.bodies.put(i, rec);
+         Ok(())
+@@ -640,9 +652,16 @@ impl Universe {
+         let retired = !upd.retired.is_empty();
+         for seg in upd.retired.drain(..) {
+             self.cat.release(seg.b.tube.key);
++            if crate::news::on() {
++                crate::news::retire(seg.b.doll, &seg.b.entry);
++            }
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+         }
+         if let Some(entry) = upd.new_entry.take() {
++            if crate::news::on() {
++                crate::news::apply_insert(matches!(upd.kind, crate::step::Resolved::Kick), upd.rec.b.doll, &entry);
++                crate::news::cat_insert();
++            }
+             if let Ok(id) = self.cat.insert(entry) {
+                 upd.rec.b.tube.key = id;
+             }
+@@ -871,6 +890,9 @@ impl Universe {
+             let bound = bind_surface(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit, Some(self.dolls[doll as usize].surface))?;
+             crate::prof::add(crate::prof::H_BIND, t_bind);
+             let key = self.cat.insert(bound.entry.clone())?;
++            if crate::news::on() {
++                crate::news::birth(doll, &bound.entry);
++            }
+             let mut tube = bound.tube;
+             tube.key = key;
+             let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE, impact: None };
