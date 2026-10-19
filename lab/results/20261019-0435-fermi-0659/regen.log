@@ -1,0 +1,33 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: variable does not need to be mutable
+   --> crates/universe/src/step.rs:102:9
+    |
+102 |     let mut load = |s: &[std::sync::atomic::AtomicU64; CENSUS_N]| {
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.42s
+lab/results/20261019-0435-fermi-0659/logs/a1_k3e4_wave1.txt:game 14280.0 s after the first second: kicks 52301 (1.220e-4/body/game-s), events 77667 (1.811e-4/body/game-s), stats {opens 20, boundaries 22522, handoffs 0, lost 18, refused 0, slices 2824}; refusals held 0, dead 0, alive(player) true
+lab/results/20261019-0435-fermi-0659/logs/a1_k3e4_wave1.txt:kickcensus split: items 23104 (non-thrust 23104), fired 23102 (0.9999 of non-thrust), Σ|dvq|max 21865715865454118, m==1 0, m≥2 23102, m≥4 23102, m≥16 23102, max 263240145805659, thrusting 0, Σ|v|max 8319830303354021089 over 23104 (mean dv/v 2.628e-3)
+lab/results/20261019-0435-fermi-0659/logs/a1_k3e4_wave1.txt:kickcensus clock: items 29710 (non-thrust 29710), fired 29710 (1.0000 of non-thrust), Σ|dvq|max 4324410408685993, m==1 0, m≥2 29710, m≥4 29710, m≥16 29710, max 707229798939, thrusting 0, Σ|v|max 10841661676686676335 over 29710 (mean dv/v 3.989e-4)
+lab/results/20261019-0435-fermi-0659/logs/a3_k3e4_waves12.txt:game 46719.9 s after the first second: kicks 132408 (9.438e-5/body/game-s), events 235491 (1.679e-4/body/game-s), stats {opens 551, boundaries 101272, handoffs 2, lost 11, refused 0, slices 1258}; refusals held 0, dead 0, alive(player) true
+lab/results/20261019-0435-fermi-0659/logs/a3_k3e4_waves12.txt:kickcensus split: items 74987 (non-thrust 74987), fired 74721 (0.9965 of non-thrust), Σ|dvq|max 96563960971972209, m==1 0, m≥2 74721, m≥4 74721, m≥16 74721, max 291580359997773, thrusting 0, Σ|v|max 14358217310350901326 over 74987 (mean dv/v 6.725e-3)
+lab/results/20261019-0435-fermi-0659/logs/a3_k3e4_waves12.txt:kickcensus clock: items 59425 (non-thrust 59425), fired 59425 (1.0000 of non-thrust), Σ|dvq|max 8658513680953334, m==1 0, m≥2 59425, m≥4 59425, m≥16 59425, max 10643462731709, thrusting 0, Σ|v|max 4574268774850331280 over 59425 (mean dv/v 1.893e-3)
+lab/results/20261019-0435-fermi-0659/logs/a2_k1e4_wave1.txt:game 14280.0 s after the first second: kicks 32301 (2.256e-4/body/game-s), events 57667 (4.027e-4/body/game-s), stats {opens 20, boundaries 22522, handoffs 0, lost 18, refused 0, slices 2824}; refusals held 0, dead 0, alive(player) true
+lab/results/20261019-0435-fermi-0659/logs/a2_k1e4_wave1.txt:kickcensus split: items 23104 (non-thrust 23104), fired 23102 (0.9999 of non-thrust), Σ|dvq|max 21865715865454118, m==1 0, m≥2 23102, m≥4 23102, m≥16 23102, max 263240145805659, thrusting 0, Σ|v|max 8319830303354021089 over 23104 (mean dv/v 2.628e-3)
+lab/results/20261019-0435-fermi-0659/logs/a2_k1e4_wave1.txt:kickcensus clock: items 9710 (non-thrust 9710), fired 9710 (1.0000 of non-thrust), Σ|dvq|max 1418405925476286, m==1 0, m≥2 9710, m≥4 9710, m≥16 9710, max 691213666627, thrusting 0, Σ|v|max 4680117762342762067 over 9710 (mean dv/v 3.031e-4)
+--- control (OFF vs ON must match on kicks/events/opens/boundaries/game):
+lab/results/20261019-0435-fermi-0659/logs/a5_off.txt:game 1898.5
+lab/results/20261019-0435-fermi-0659/logs/a5_off.txt:kicks 3624
+lab/results/20261019-0435-fermi-0659/logs/a5_off.txt:events 11115
+lab/results/20261019-0435-fermi-0659/logs/a5_off.txt:opens 37
+lab/results/20261019-0435-fermi-0659/logs/a5_off.txt:boundaries 3499
+lab/results/20261019-0435-fermi-0659/logs/a6_on.txt:game 1898.5
+lab/results/20261019-0435-fermi-0659/logs/a6_on.txt:kicks 3624
+lab/results/20261019-0435-fermi-0659/logs/a6_on.txt:events 11115
+lab/results/20261019-0435-fermi-0659/logs/a6_on.txt:opens 37
+lab/results/20261019-0435-fermi-0659/logs/a6_on.txt:boundaries 3499

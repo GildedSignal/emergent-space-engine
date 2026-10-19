@@ -1,0 +1,169 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..1b8a857f 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: (VmRSS now, VmHWM peak) from /proc/self/status, in bytes (the phys-footprint call is macOS-only; dcf1's replacement).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let v = |l: &str| l.trim().trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1024;
++            if let Some(rest) = line.strip_prefix("VmRSS:") {
++                now = v(rest);
++            } else if let Some(rest) = line.strip_prefix("VmHWM:") {
++                peak = v(rest);
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -62,9 +81,10 @@ fn main() {
+     let mut last_stats = p.u.stats;
+     let mut alive = true;
+     let mut ran = 0usize;
++    let cap_s: f64 = std::env::var("LADDER_CAP_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(cap_s) {
+             truncated = true;
+             break;
+         }
+@@ -141,6 +161,18 @@ fn main() {
+         "game {game_s:.1} s after the first second: kicks {kicks} ({:.3e}/body/game-s), events {evs} ({:.3e}/body/game-s), stats {{opens {}, boundaries {}, handoffs {}, lost {}, refused {}, slices {}}}; refusals held {refusals}, dead {dead}, alive(player) {alive}",
+         per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.handoffs - s0.handoffs, last_stats.lost - s0.lost, last_stats.refused - s0.refused, last_stats.slices - s0.slices
+     );
++    {
++        let (spl, clk) = emergent_universe::step::kick_census();
++        let line = |name: &str, c: &[u64; emergent_universe::step::CENSUS_N]| {
++            let non_thr = c[0].saturating_sub(c[8]);
++            println!(
++                "kickcensus {name}: items {} (non-thrust {non_thr}), fired {} ({:.4} of non-thrust), Σ|dvq|max {}, m==1 {}, m≥2 {}, m≥4 {}, m≥16 {}, max {}, thrusting {}, Σ|v|max {} over {} (mean dv/v {:.3e})",
++                c[0], c[1], if non_thr > 0 { c[1] as f64 / non_thr as f64 } else { 0.0 }, c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], if c[9] > 0 { c[2] as f64 / c[9] as f64 } else { 0.0 }
++            );
++        };
++        line("split", &spl);
++        line("clock", &clk);
++    }
+     println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end (now {:.0} MB); {:.0} B a body from the build; dashboard bytes/body {}; view gather {cold:.1} ms cold, {warm:.1} ms warm ({seen} seen); catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
+     if emergent_universe::prof::ENABLED {
+         println!("stages (µs per frame, calls per frame, ns per call), over the {} frames:", late.len());
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..9509be1f 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -46,6 +46,69 @@ use emergent_space::{
+ };
+ use std::sync::Arc;
+ 
++// ── print-only kick census (lab probe; env ES_KICKCENSUS; counters only, no state touched) ──
++// What a resolved kick item did to the velocity word: a kick whose quantized dv is zero fires
++// nothing (no rebind, no new tube), so the fired share is the share that a static compact
++// certificate cannot sleep through. Each slot: [items, fired (non-thrust), Σ|dvq|max, #m==1,
++// #m≥2, #m≥4, #m≥16, max|dvq|, thrusting items].
++pub const CENSUS_N: usize = 11;
++const CEN_Z: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static CEN_ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_KICKCENSUS").is_ok());
++static CEN_SPLIT: [std::sync::atomic::AtomicU64; CENSUS_N] = [CEN_Z; CENSUS_N];
++static CEN_CLOCK: [std::sync::atomic::AtomicU64; CENSUS_N] = [CEN_Z; CENSUS_N];
++
++fn census(slot: &[std::sync::atomic::AtomicU64; CENSUS_N], dvq: [i64; 2], thrusting: bool, vwords: [i64; 2]) {
++    use std::sync::atomic::Ordering::Relaxed;
++    if !*CEN_ON {
++        return;
++    }
++    slot[0].fetch_add(1, Relaxed);
++    if thrusting {
++        slot[8].fetch_add(1, Relaxed);
++        return;
++    }
++    let m = dvq[0].unsigned_abs().max(dvq[1].unsigned_abs());
++    if m > 0 {
++        slot[1].fetch_add(1, Relaxed);
++    }
++    slot[2].fetch_add(m, Relaxed);
++    if m == 1 {
++        slot[3].fetch_add(1, Relaxed);
++    }
++    if m >= 2 {
++        slot[4].fetch_add(1, Relaxed);
++    }
++    slot[9].fetch_add(vwords[0].unsigned_abs().max(vwords[1].unsigned_abs()) as u64, Relaxed);
++    slot[10].fetch_add(1, Relaxed);
++    if m >= 4 {
++        slot[5].fetch_add(1, Relaxed);
++    }
++    if m >= 16 {
++        slot[6].fetch_add(1, Relaxed);
++    }
++    let mut cur = slot[7].load(Relaxed);
++    while m > cur {
++        match slot[7].compare_exchange_weak(cur, m, Relaxed, Relaxed) {
++            Ok(_) => break,
++            Err(v) => cur = v,
++        }
++    }
++}
++
++/// The census so far: `(the split's kicks, the clock's kicks)`, each `[items, fired (non-thrust),
++/// Σ|dvq|max, #m==1, #m≥2, #m≥4, #m≥16, max|dvq|, thrusting items, Σ|v|max (non-thrust), #non-thrust]`.
++pub fn kick_census() -> ([u64; CENSUS_N], [u64; CENSUS_N]) {
++    use std::sync::atomic::Ordering::Relaxed;
++    let mut load = |s: &[std::sync::atomic::AtomicU64; CENSUS_N]| {
++        let mut out = [0u64; CENSUS_N];
++        for k in 0..CENSUS_N {
++            out[k] = s[k].load(Relaxed);
++        }
++        out
++    };
++    (load(&CEN_SPLIT), load(&CEN_CLOCK))
++}
++
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+ 
+@@ -419,10 +482,12 @@ impl Work<'_, '_> {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+             added = dv;
++            census(&CEN_SPLIT, [0, 0], true, [0, 0]);
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             self.rec.carry = carry;
++            census(&CEN_SPLIT, dvq, false, st.velocity);
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
+                 return Ok(());
+@@ -688,6 +753,7 @@ impl Work<'_, '_> {
+             ext.add_pt(w.mul(f.rate)?)?;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
++        census(&CEN_CLOCK, [next.velocity[0] - st.velocity[0], next.velocity[1] - st.velocity[1]], thrusting, st.velocity);
+         let fired = next.velocity != st.velocity;
+         if fired {
+             self.rebind(next, t, d)?;
