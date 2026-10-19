@@ -6,10 +6,10 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
 | [entry](entry.md) | open | 0 | (no current best yet) |
-| [cell-rebind](cell-rebind.md) | open | 1 | **The kick's compile bill and the per-body standing-shape bill are one mechanism — the exact |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [budget-1e9](budget-1e9.md) | open | 3 | **The board's interlocking formula (CPU = N·rate·cost + encounters; memory = N·bits + N_live·bytes) |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
+| [cell-rebind](cell-rebind.md) | open **conflict to resolve** | 3 | <<<<<<< main |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
 | [scan-locality](scan-locality.md) | open | 3 | **The record that serves every hit is measured, priced and sound: the window-membership record.** |
@@ -39,5 +39,5 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
-| [encounters](encounters.md) | open **conflict to resolve** | 118 | <<<<<<< main |
+| [encounters](encounters.md) | open **conflict to resolve** | 136 | <<<<<<< main |
 | [nladder](nladder.md) | open **conflict to resolve** | 161 | <<<<<<< main |

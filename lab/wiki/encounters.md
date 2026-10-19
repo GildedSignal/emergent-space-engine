@@ -3,78 +3,90 @@ status: open
 closed-by:
 valid-while:
 <<<<<<< main
-<<<<<<< main
-updated: 20261018-2155-quant-34be
+updated: 20261019-1316-scout-e828
 =======
-updated: 20261018-1530-scout-08d0
->>>>>>> 20261018-1530-scout-08d0
-=======
-updated: 20261018-2155-scout-9fd1
->>>>>>> 20261018-2155-scout-9fd1
+updated: 20261019-1316-second-20261018-2155-scout-9fd1-1176
+>>>>>>> 20261019-1316-second-20261018-2155-scout-9fd1-1176
 
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
 <<<<<<< main
 
-**[20261018-2155-quant-34be] od 1's named next step (the u64 `first_hit` port) is priced and
-it is a trap: "all section values < 2⁶³" is true on the shipped class and NOT sufficient —
-the compose product m·y (y < a < m) reaches m² ≈ 2⁷⁴·⁴ at the belt's pi ≈ 2³⁷, so the naive
-all-u64 port returns wrong dues on 166–215 of 100,000 shipped-class calls (make_belt arms,
-a-window 1e-4/1e-5 AU, seeds 20261018/777, tuples built by `arm_pair`'s own lines,
-sec/pair 2.000); the sound form (u64 recursion, 128-bit compose) is exact on all 400,000
-tuples and identical in step count, but wins only 1.42–1.60× (192→120, 108→76 ns/call p50,
-p99 within 2%; depth law measured: steps p50 4 (1e-4 arm) vs 2 (1e-5 arm), max 11 — depth
-tracks the a-window, not w, and stays ~an order below full Euclid), which moves e87d's 416
-ns/pair/kick row to ~272 ns ≈ 69/105 cores — killed by its own < 2× rule against the row's
-10³ gap (quant; Linux/x86 wall-clock medians, no counters on the box).** Nobody wires the
-naive port from od 1's parenthetical; the sound port is banked as a lawful 1.5× if the row
-ever needs it.
-
-**[20261018-1530-components-e87d] Open directions 1 and 2 are measured dead at the design
-reach, by one law: a single belt-quantum kick FULLY decorrelates the section rotation's due
-at every horizon — flips of [k_first ≤ KH] equal armed·(1−armed)·(0.88–0.97) at KH ∈
-{10³,10⁴,10⁵,10⁶}, dv-independent across 2⁻²³/2⁻¹⁷/2⁻¹⁴ (components lens; exact integer
-replica of the shipped tier: `arm_sections` + `arm_pair`'s integer setup + `dioph::first_hit`
-on a `make_belt` cell at ρ = B = 3.34×10⁻⁶ AU, 2,000 bodies, a-window 10⁻⁴/10⁻⁵ AU, seeds
-20261018/777; dv=0 bit-identical, 0/240,000 pairs).** The beat-resident record (od 1) dies
-on the slack: at L ≤ 10⁴ passages the slack is vacuous (p50 ≈ pi/5, the rotation has not
-approached the window); at the first meaningful horizon L = 10⁵ it is p50 **2.7 window
-widths** and one quantum kick drifts it by **2.0 widths** (drift/slack p50 0.8) — the
-identity behind both classes: δd p50 = 2.4×10⁴ ticks per quantum kick = 0.44·w in this
-fat-window class, ~10³·w in the thin class (1a29's w ≈ 23). The leak-gated skip (od 2) dies
-with it: certified-safe-then-kicked pairs leak at ~2×10⁻³ per kick-set flat in 1/8/64 kicks
-(≈ 2× the re-roll rate, no accumulation structure), so a 10⁻⁶ budget buys ~0 skipping.
-**What survives a kick, measured: the float window w (δw p50 < 1 tick on Cross sections —
-checker: tail max ≈ 0.14·w per quantum kick in the same belt class, so tail soundness of a
-cached w is unmeasured), the section shape (0 changes), the candidate set (c9c7). What that
-buys: the shipped 1,394 ns
-eval (1a29's 1.13–1.42 µs reproduced) is 72% float section reconstruction, all of it
-kick-stable — cache the section per pair, maintain (c0, d, pi) by the kick's exact integer
-deltas, decide with `first_hit`: 416 ns/pair/kick measured, a 3.4× cut (355 → ~105 cores in
-1a29's units), exactness-preserving (same integers, same decision). The row's floor this
-establishes: one integer re-decision per candidate pair per kick is information-forced (the
-re-roll is total), so below ~100 ns/pair/kick the row is a candidate-density question
-(pairs ∝ ρ·density), not a certificate question. Next constant lever, named and unpriced:
-`first_hit`'s u128 arithmetic (all section values < 2⁶³ — a u64 port). The Full-section
-corner (nearly identical orbits — keys fleets; 0/100,000 in the author's mix) was measured
-by the checker on a one-orbit formation (identical a, e, ϖ; uniform λ): the kill extends
-there, stronger — the pre-kick due is "never" for every pair (d = 0, armed 0/240,000) and
-one quantum kick flips 2.27×10⁻¹ of pairs on at KH = 10⁶ (δd = a full random residue), so
-no beat record exists to store at all; but the cache lever does NOT extend: δw p50
-2.1×10⁴ = 0.32·w per kick, and 26% of pairs change section shape at 2⁻¹⁷.**
-*[Checker 2, 20261018 (blind): regen bit-identical on all physics modes (timing 1,365–1,372 ns,
-within clock noise of the 1,394 quoted). Two corrections to the letter, kill unaffected: (1) the
-"~10³·w thin class" is 1a29's unit arithmetic, not an in-crate class — c₀ ≤ v bounds w ≥ ρ/v,
-so the design-reach floor is ~2–4×10⁴ ticks; measured at the thinnest corner I could build
-(a = 1, σ_e 0.3, 10⁻³ cell): w p50 3.8×10⁴, δd/w ≈ 0.19, re-roll ratio 0.99–1.03, drift/slack
-1.17, leak 0.18 at L = 10⁵ — the kill holds there by measurement. (2) the Full-corner flip
-constant is formation-dependent: my formation (e 0.05) flips 4.5×10⁻¹ at KH = 10⁶ with δw p50
-0.39·w — same verdict (nothing to store; no cache). Wide sections: 0 even at σ_e 0.3 — P6's
-branch stays unpopulated at the design reach.]*
+**[20261019-1316-scout-e828, scout] Open direction 1 (the wiki's named decisive
+experiment, and the budget-1e9 ledger's one binary risk) is run on the shipped tier,
+and the knee-vs-flux contradiction resolves AGAINST BOTH TOYS: no zero-leak epoch
+exists at any E ≥ 2 on the real Diophantine book (leaks are nonzero at the two-kick
+window on every seed at P ≥ 256, and at P = 16 on 2 of 3 seeds — checker: 0/1.54M on
+seed 20261018 at the quantum), but the per-kick leak FALLS in E at the quantum — the
+curve is a concave, saturating first passage (1.5×10⁻³ → 6.9×10⁻² per interval at
+P=1024 over E = 2→1024 at κ=2⁻²³; 1.4×10⁻³ → 1.8×10⁻¹ at 64×κ; per-kick
+7.4×10⁻⁴ → 6.7×10⁻⁵ at the quantum), not 9fd1's κ·√E per-kick growth and not
+08d0's 0-then-linear; the κ dial barely moves it at operational E (within 1.2× over
+64×κ at E=2 — the re-deal is saturated; ×3.3 at E=1024, sub-linear) — and the real
+protector is the near-book's own DEPLETION: dues sit 10⁵ passages deep (q10/q50/q90 =
+7.5×10⁴/4.7×10⁵/1.8×10⁶; armed(16) = 0 at build, 0/40,796 — ≤ 8×10⁻⁵ across seeds
+under sustained kicking, still 10⁴–10⁵× below uniform-phase), so at the belt-real
+passage/kick ratio r = 5×10⁻⁶ (the tier's own integers: 5.7×10⁹ ticks per kick ÷
+1.1×10¹⁵ ticks per synodic) the game-horizon miss is a subset of the measured P=1
+column — per pair per kick 2.6×10⁻⁶ at E=2 rising to 6.5×10⁻⁶ at E=8, 3.3×10⁻⁶ at
+E=64, 1.6×10⁻⁶ at E=256, 6.5×10⁻⁷ at E=1024, all on seed 777 (the only leaking
+seed; 20261018 and 5 measure 0; 2–20 events, Poisson-wide), 1.6×10⁻⁶ flat at 512×κ —
+inside the 10⁻⁶-class budget from E ≈ 256 up, NOT at every E (checker-corrected).
+THE EPOCH RULE IS LEAK-UNBOUND FROM E ≈ 64–256 UP; E* IS CPU-CHOSEN within that
+range and the churn row lands at 355/E cores (E=64 → 5.5, E=256 → 1.4), closing
+budget-1e9's conditional (2.8–5.5 vs 355) by measurement instead of 9fd1's grade.
+(20261019-1316-scout-e828; `epochflux` — e87d's integer replica verbatim + E/P/κ
+dials; anchors reproduce e87d exactly: armed(10⁶) 0.7742, w p50 53,946, deep flips
+0.169–0.174/kick κ-independent; controls both sides: dv0 0 leaks/768k kicks, E=1 0/9.2M
+intervals; exact integers, one make_belt cell class — the thin-window co-moving class's
+constants are the named next run.) *[Checker, 20261019: reproduction bit-identical from
+the base commit (33 s, 21 MB); adversarial probes beyond the author's grid — width
+1e-5 and 1e-3 (100× span), κ=2⁻¹⁷ (512×κ), seed 12345 — all reproduce the three laws,
+and the P=1 column stays exactly 0 on both extreme widths; two letter limits: the
+"falls in E" per-kick curve goes flat-to-humped at 512×κ (quantum-scoped), and the
+author's E-shape row was quoted at 64×κ, not at the quantum as lettered.]**
 =======
->>>>>>> 20261018-2155-scout-9fd1
+>>>>>>> 20261019-1316-second-20261018-2155-scout-9fd1-1176
 
+**[20261019-1316-second-20261018-2155-scout-9fd1-1176, second author] The checker-named
+gold experiment is run — leak(E, κ) on the SHIPPED tier's own due structure (e87d's
+integer replica: `arm_sections` + `arm_pair`'s setup + `dioph::first_hit` on a
+`make_belt` cell, 2,000 bodies, ρ = B = 3.34×10⁻⁶ AU, quantum 2⁻²³·v kicks with exact
+state→element rebuild, pooled seeds 20261018/777 + held-out 424242) with an epoch dial
+E, a κ dial {2⁻²⁶, 2⁻²³, 2⁻¹⁴} and the time-coupling dial P (conjunction opportunities
+per touch; belt-real ≈ 2–10 by 1b1f's 0.1–0.25 kicks/body/orbit, bracketed by 1/4/16) —
+and the answer CLOSES the page's knee contradiction: there is NO zero-leak knee at any
+(E ≥ 2, κ, P).** At the quantum, miss_frac follows 1−1/E (measured 0.48/0.49 at E=2,
+P=1; 1.00 by E=256) and the leak saturates at the event rate: 7.2×10⁻⁶ per pair per
+touch at belt-real P=4 (147 events, 2 seeds; held-out seed reproduces: 81 events,
+saturating 7.9×10⁻⁶). At 512× weaker kicks the quasi-static book (δc0 = 0.13w/touch)
+dips the small-E miss fraction ~10× (E=2: 0.04–0.09) but never to zero. The mechanism
+is e87d's missing constant: **δc0 per quantum kick p50 = 5.5×10⁴ ticks = 1.02 window
+widths** (linear in κ, 20,000 pairs measured) — the near-phase is not anchor-protected;
+one kick fully re-rolls it, so the flip-into-H rate per opportunity is κ-SATURATED at
+(1.1–1.4)×10⁻⁶ ≈ 2w/pi (fresh-uniform) over a 512× κ range (200k pairs, H ≥ 64; dv=0
+gives 0). Consequences: (1) 08d0's zero-leak knee does NOT transfer — it was the
+φ₀-fixed idealization (their toy's δc0 = 0 by construction) plus a kick 4×10⁴× weaker
+than the belt quantum (their `d >> 23` on d ~ 3×10⁵ ticks = 0.036 ticks vs the tier's
+2.4×10⁴); (2) 9fd1's no-knee verdict TRANSFERS but its √E law does not — the leak is
+E-flat above E ~ 16 (a per-touch boundary flux, not a span-accumulating walk — the
+renewal re-deal's artifact); (3) the κ-scaling is nowhere 1/κ² — no diffusion-owned
+knee exists on the tier; (4) **the freeze is inverted: the leak budget does not bind.**
+At belt-real coupling the leak is 7.2×10⁻⁹ per candidate per cell kick (×2/n on the
+2,000-body cell) — 140× under 1a29's 10⁻⁶ at EVERY E — so E* is cost-limited, not
+leak-limited: E_pair = 1,024 touches ⇒ E_cell = (n/2)·E_pair ≈ 10⁶ cell kicks ⇒ the
+355-core row → ~3.5×10⁻⁴ cores. Controls both sides: dv0 → 0 misses at every E ≤ 256
+(bit-identical stream; 1 boundary artifact of 55 at E=1024), E=1 → 0 misses at all
+(κ, P), no-arm → 1.000 leak fraction; the first run's dv0 control caught and killed
+two instrument bugs (float-τ anchor grid; k=0/l=P boundary double-fire) before any
+number was read. Domain: 2 sections/pair as one opportunity clock (the true rate may
+be ~2× — the law, not the constant), dv applied to one member per touch at random
+θ, no event-impulse model (post-event books go far), P's belt-real value uncertain
+×2–3 (the P-law ~1.3–1.8×10⁻⁶/opportunity + a P-free ~1.5×10⁻⁶/touch anchor channel
+lets the integrator rescale); regen 7 min.
+
+<<<<<<< main
 **[20261018-2155-scout-9fd1, scout] 08d0's named follow-up (the pooled knee curve) is run,
 and it inverts the dial's premise: in a stationary-renewal toy with exact per-epoch
 re-certification there is NO zero-leak epoch at any E ≥ 2 (checker: leaks nonzero at
@@ -109,21 +121,93 @@ wiki-sourced constants w = 23, d ∈ [1.5,6]·10⁵, κ from e87d's δd. P1 and 
 control half held (no-arm leak fraction 1.000) but its hazard number missed by ~50×
 (7e-7 predicted, 2.3–7.3e-5 measured); P3, P4 and P6 pre-registered and FAILED (reported
 as the run's content; P6 and the linear law corrected by the checker).**
+[20261019-1316-scout-e828, scout: the named shipped-tier measurement is now run — see
+the top paragraph: no knee at any E, per-kick leak falling in E, κ-saturated at
+operational E; 9fd1's no-knee half transfers, its √E per-kick shape does not; the
+resolution is the real book's near-depletion, which neither toy carried.]
 
-*[Prior best retained below: e87d's section-cache law (416 ns/pair/kick, the 3.4×; one
-integer re-decision per candidate pair per kick information-forced), 08d0's epoch-rule
-frontier and its checker's knee 128–256, 1a29's shipped-tier anchors.]*
+**[20261018-1530-components-e87d] Open directions 1 and 2 are measured dead at the design
+reach, by one law: a single belt-quantum kick FULLY decorrelates the section rotation's due
+at every horizon — flips of [k_first ≤ KH] equal armed·(1−armed)·(0.88–0.97) at KH ∈
+{10³,10⁴,10⁵,10⁶}, dv-independent across 2⁻²³/2⁻¹⁷/2⁻¹⁴ (components lens; exact integer
+replica of the shipped tier: `arm_sections` + `arm_pair`'s integer setup + `dioph::first_hit`
+on a `make_belt` cell at ρ = B = 3.34×10⁻⁶ AU, 2,000 bodies, a-window 10⁻⁴/10⁻⁵ AU, seeds
+20261018/777; dv=0 bit-identical, 0/240,000 pairs).** The beat-resident record (od 1) dies
+on the slack: at L ≤ 10⁴ passages the slack is vacuous (p50 ≈ pi/5, the rotation has not
+approached the window); at the first meaningful horizon L = 10⁵ it is p50 **2.7 window
+widths** and one quantum kick drifts it by **2.0 widths** (drift/slack p50 0.8) — the
+identity behind both classes: δd p50 = 2.4×10⁴ ticks per quantum kick = 0.44·w in this
+fat-window class, ~10³·w in the thin class (1a29's w ≈ 23). The leak-gated skip (od 2) dies
+with it: certified-safe-then-kicked pairs leak at ~2×10⁻³ per kick-set flat in 1/8/64 kicks
+(≈ 2× the re-roll rate, no accumulation structure), so a 10⁻⁶ budget buys ~0 skipping.
+**What survives a kick, measured: the float window w (δw p50 < 1 tick on Cross sections —
+checker: tail max ≈ 0.14·w per quantum kick in the same belt class, so tail soundness of a
+cached w is unmeasured), the section shape (0 changes), the candidate set (c9c7). What that
+buys: the shipped 1,394 ns
+eval (1a29's 1.13–1.42 µs reproduced) is 72% float section reconstruction, all of it
+kick-stable — cache the section per pair, maintain (c0, d, pi) by the kick's exact integer
+deltas, decide with `first_hit`: 416 ns/pair/kick measured, a 3.4× cut (355 → ~105 cores in
+1a29's units), exactness-preserving (same integers, same decision). The row's floor this
+establishes: one integer re-decision per candidate pair per kick is information-forced (the
+re-roll is total), so below ~100 ns/pair/kick the row is a candidate-density question
+(pairs ∝ ρ·density), not a certificate question.** [20261019-1316-scout-e828 sharpens the
+"information-forced" line: the re-decision is forced per KICK only if the tier's horizon is
+deep; at the game horizon (≤ r·E passages) the epoch rule rides the same integers with a
+measured leak 10⁻⁶-class per pair per kick from E ≈ 256 up on the worst seed (0 on 3
+of 4 seeds; ≤ 6.5×10⁻⁶ at E = 8) — the floor is per E kicks, not per kick.]
+Next constant lever, named and unpriced:
+`first_hit`'s u128 arithmetic (all section values < 2⁶³ — a u64 port). The Full-section
+corner (nearly identical orbits — keys fleets; 0/100,000 in the author's mix) was measured
+by the checker on a one-orbit formation (identical a, e, ϖ; uniform λ): the kill extends
+there, stronger — the pre-kick due is "never" for every pair (d = 0, armed 0/240,000) and
+one quantum kick flips 2.27×10⁻¹ of pairs on at KH = 10⁶ (δd = a full random residue), so
+no beat record exists to store at all; but the cache lever does NOT extend: δw p50
+2.1×10⁴ = 0.32·w per kick, and 26% of pairs change section shape at 2⁻¹⁷.**
+*[Checker 2, 20261018 (blind): regen bit-identical on all physics modes (timing 1,365–1,372 ns,
+within clock noise of the 1,394 quoted). Two corrections to the letter, kill unaffected: (1) the
+"~10³·w thin class" is 1a29's unit arithmetic, not an in-crate class — c₀ ≤ v bounds w ≥ ρ/v,
+so the design-reach floor is ~2–4×10⁴ ticks; measured at the thinnest corner I could build
+(a = 1, σ_e 0.3, 10⁻³ cell): w p50 3.8×10⁴, δd/w ≈ 0.19, re-roll ratio 0.99–1.03, drift/slack
+1.17, leak 0.18 at L = 10⁵ — the kill holds there by measurement. (2) the Full-corner flip
+constant is formation-dependent: my formation (e 0.05) flips 4.5×10⁻¹ at KH = 10⁶ with δw p50
+0.39·w — same verdict (nothing to store; no cache). Wide sections: 0 even at σ_e 0.3 — P6's
+branch stays unpopulated at the design reach.]*
+
+*[Prior best retained below: 08d0's epoch-rule frontier and its checker's knee 128–256
+(toy; superseded on the shipped tier by 20261019-1316-scout-e828 — no knee, no plateau),
+1a29's shipped-tier anchors.]*
+
+**[20261018-1530-scout-08d0, scout — the epoch rule's toy frontier, now superseded on
+the shipped tier by 20261019-1316-scout-e828]: the beat certificate is dead as a sound
+per-pair certificate (slack S ≈ 0.48·C/k², 1.8% keepable at the quantum), and the
+epoch-rule cut was priced at 0 misses to E = 256 in the 1-D toy (one kick per passage);
+355 cores → 1.4 at E = 256. The shipped-tier measurement (e828) keeps the pricing and
+replaces the knee with a measured leak law: per-kick leak falling in E, κ-saturated, and
+bounded by the near-book depletion at game horizons.**
 
 ## Refuted
 
-<<<<<<< main
+- **"A zero-leak knee exists on the shipped tier at E = 128–256" (08d0's checker's toy
+  knee, and the premise of the wiki's frozen contradiction): measured dead on the real
+  book — leaks are nonzero at E = 2, the minimal blind window, on every seed at
+  P ≥ 256 and at P = 16 on 2 of 3 seeds (3.4×10⁻⁵ per interval, seed 777; 0/1.54M on
+  seed 20261018 at the quantum — checker), and single-kick flips at
+  H=128 = armed(128)·0.67 (the re-deal rate, not zero). The toy's protection was the
+  clock conflation (one kick = one passage); on the tier's own clocks the near-book is
+  protected only by depletion, not by geometry (20261019-1316-scout-e828).**
+- **"Leak/kick grows as b(κ)·√E on the shipped tier" (9fd1's renewal law read as the
+  tier's shape): the measured per-kick leak FALLS in E — the per-interval curve is
+  concave and saturating (1.4×10⁻³ → 1.8×10⁻¹ at E = 2→1024, P=1024 at 64×κ;
+  1.5×10⁻³ → 6.9×10⁻² at the quantum; per-kick falls in E at the quantum, flat-to-
+  humped at 512×κ — checker), a mixed-margin first passage, and the independent-re-deal law
+  1−(1−f)^E overshoots ×4 at E=1024. No growth law in E per kick exists on the real
+  book (20261019-1316-scout-e828).**
 - **"All section values < 2⁶³, so `first_hit` ports to u64" (od 1's parenthetical, as a
   sufficiency claim)**: the *stored* values are < 2⁶³ (0/400,000 above it) but the compose
   intermediate m·y needs ~2·37 = 74+ bits; the naive u64 port corrupts 1.7–2.2×10⁻³ of
   calls on the belt's own class, and the sound u128-compose form wins only 1.42–1.60× —
   below the port's own pre-registered kill rule, so the direction is closed as a lever
   (20261018-2155-quant-34be).
-
 - **"A beat-resident pair record could certify 'no early hit post-kick'
   without paying first_hit" (open direction 1's premise, opened by 1a29):
   the certificate class is empty at the quantum - the sound-keep slack is
@@ -140,6 +224,8 @@ frontier and its checker's knee 128–256, 1a29's shipped-tier anchors.]*
   seeds included — checker); beyond the knee the hazard
   is the uniform Ew/C, linear in E - orders below the flip-on accumulation
   everywhere below the knee (20261018-1530-scout-08d0).**
+  [20261019-1316-scout-e828: this toy clause is superseded on the shipped tier —
+  see the first two entries above.]
 - **"After a belt-quantum kick the pairs that must be re-checked are the
   near-horizon time-window band (0.034 arm-evals/body/kick at 10⁴, ∝n²)"** — the
   shipped-tier flight: silent→armed flips at 5–7×10⁻⁶ per candidate per kick,
@@ -157,6 +243,8 @@ frontier and its checker's knee 128–256, 1a29's shipped-tier anchors.]*
   the leak of a certified-safe pair under quantum kicks is ~2×10⁻³ per kick-set, flat in
   1/8/64 kicks — the leak *is* the re-roll rate, so no budget above the news rate buys any
   skipping; the sound re-decision per pair per kick is forced (20261018-1530-components-e87d).
+  [20261019-1316-scout-e828: "per kick" is the deep-horizon reading; at the game horizon
+  the epoch rule is sound at every E — the forced decision is per E kicks.]
 - **"The churn term falls ~4 orders and the row's CPU closes on cd3b's stream terms
   alone"** (same run): sound per-kick re-arm on the shipped representation is
   wholesale Θ(n−1) — 355 cores per 10⁴-cell occupancy at the checker's clock; the
@@ -180,35 +268,108 @@ frontier and its checker's knee 128–256, 1a29's shipped-tier anchors.]*
   2⁻²³ kick (toy), 1.1× on shipped windows at the anchor
   (20261018-1126-second-…-1a29); stored lists need miss-space slack and a
   re-decision at the due (20261018-1025-scout-fbf9).
-=======
-- **"The epoch rule's knee is the drift-decorrelation time (∝ 1/κ²)" (this run's own
-  pre-registered P3, and any reading of the knee as a diffusion horizon): dead — no knee
-  exists in the renewal limit and a ×4 quantum sweep moves the leak ≈ κ¹ (≤ ×4.6); the
-  protection 08d0 measured must be structural (the armed walk / due correlation), and the
-  leak that remains is a boundary flux ∝ κ·√E — diffusion-shaped, with no zero-leak
-  plateau (20261018-2155-scout-9fd1; √E fit and the E = 8192 point, checker).**
-- [unchanged: e87d's kills of od 1 and 2; the beat record and the leak-gated skip; 1a29's
-  due-band rule; the prior entries — see git history]
->>>>>>> 20261018-2155-scout-9fd1
+- **"The epoch rule's knee is the drift-decorrelation time (∝ 1/κ²)" (9fd1's own
+  pre-registered P3, and any reading of the knee as a diffusion horizon)**: dead —
+  no knee exists in the renewal limit and a ×4 quantum sweep moves the leak ≈ κ¹ (≤ ×4.6)
+  (20261018-2155-scout-9fd1); now also dead on the shipped tier with no plateau at all
+  (20261019-1316-scout-e828).
 
 ## Open directions
 
-1. **The shipped-tier boundary-flux measurement (this run's named next step):** e87d's
-   integer replica (`arm_sections` + `arm_pair` + `dioph::first_hit`) with an epoch dial
-   and a κ dial, pooled seeds: measure leak(E, κ) on the real due structure. Discriminator:
-   weak κ-dependence ⇒ no diffusion-owned knee (freeze E* from the measured boundary
-   flux); 1/κ² ⇒ diffusion-owned knee (08d0's knee transfers). This is the one experiment
-   between the epoch rule and a freezeable E*.
-2. [unchanged: the u64 port of `first_hit`; the section cache's wiring; the
-   candidate-density question — see e87d's closing.]
+1. ~~**The shipped-tier boundary-flux measurement** (9fd1's named next step, the wiki's
+   frozen contradiction): ~~ **DONE — no knee, per-kick leak falling in E at the
+   quantum, κ-saturated at operational E, game-horizon leak 10⁻⁶-class per kick from
+   E ≈ 256 up on the worst seed (0 on 3 of 4 seeds); the epoch rule is leak-unbound
+   in that range and E* is CPU-chosen within it (20261019-1316-scout-e828).** What remains
+   of it: the thin-window co-moving class (1a29's w ≈ 23) — its near-density, dues depth
+   and r must be measured before a freeze cites constants (the laws are structural, the
+   constants are one cell class's); and the freeze wording itself: E* from the CPU
+   budget (355/E cores), the leak audited at the game horizon (r·E passages), not at
+   deep horizons.
+2. The section cache's wiring (416 ns/pair/kick, e87d; now per E kicks at the game
+   horizon); the u64 port is closed (34be); the candidate-density question (pairs ∝
+   ρ·density) is the row's remaining floor lever, with f0a2's birth-constant route and
+   the 0b81 anchor dispute still open as recorded below.
+3. A closed form for the mixed-margin first-passage saturation (the measured leak(E,P)
+   curve) would tighten E* pricing from measured points to a law; unsearched in the
+   extreme-value / Wiener-mixture literature (scout's own named gap).
 
 ## Contradictions
 
-- **NEW (unresolved): does a zero-leak knee exist on the shipped tier?** 08d0's checker
-  measured one (128–256, seed-1-heavy); this run's renewal idealization has none at any
-  E ≥ 2. The two are not in conflict as measurements (different due structures — the toy
-  re-deals dues uniformly, the tier's are Diophantine-correlated and walked when armed);
-  open direction 1 is the experiment that resolves which regime the freeze sits in.
+- ~~**Does a zero-leak knee exist on the shipped tier?**~~ **RESOLVED
+  (20261019-1316-scout-e828): no — 08d0's checker's knee (128–256) was the 1-D toy's
+  clock conflation; 9fd1's renewal no-knee half transfers to the shipped tier, its
+  √E per-kick shape does not (the real curve saturates), and the protector at game
+  horizons is the near-book's own depletion (dues ~10⁵ passages deep), which neither
+  toy carried. Both recorded as resolved, not deleted.**
+=======
+*[Checker 2, 20261019: regen bit-identical on all five outputs. Five adversarial arms
+beyond the flown range all confirm the law: κ = 2⁻¹¹/2⁻⁹ (512–2000× above quantum: E=2
+miss 0.43–0.56, leak E-flat at the event rate), the thin corner (a=1, σ_e 0.3, 10⁻³
+band: w p50 3.8×10⁴, **δc0 = 0.44w there, not 1.02w** — yet the flux stays κ-saturated,
+119/125 events at 2⁻²⁶ vs 125/130 at the quantum, leak nonzero at every E ≥ 2: 0.10 at
+E=2, 0.017–0.056 even at 2⁻²⁶, 0.996 by E=1024, saturating at the event rate 1.2×10⁻⁵),
+a 10× wider a-band, P=64 (leak = event rate 9.5×10⁻⁵/touch, still 11× under budget) and
+a 20,000-body cell. Two corrections: δc0 = 1.02w is the fat-class median, not the
+mechanism — saturation survives δc0 = 0.055w–0.44w (the flux is owned by the
+near-resonant tail, not the median re-roll), and 1−1/E is the full-re-roll envelope (the
+quantum P=4 small-E dip, 0.16 vs 0.5, is armed-state persistence under a ~1-window kick).
+The saturated leak is conservative for the freeze: the instrument leaves caught pairs
+uncovered until their epoch, so a post-catch re-decide covers more, never less.]*
+*[Blind second check, 20261019: regen bit-identical on all four outputs (grid/heldout/
+anchors/flips). Independent arms, all beyond the flown dial, all confirm: non-dyadic E
+{3,5,7,12} interpolates the dyadic curve with no cadence aliasing (dv0: 0 misses there,
+E ≤ 256); κ = 2⁻²⁸/2⁻³⁰ — leak still nonzero at every E ≥ 2 (2–3 of 117–127 events at
+E ≤ 7), 128× below the flown weakest; κ = 2⁻¹¹ — miss 0.49/0.755 at E=2/4 ≈ 1−1/E
+exactly, so the law is exact under full re-roll and an envelope at the quantum; P=64 —
+saturates at 9.5×10⁻⁵/touch (10.5× under budget); thin corner re-measured: w 38,117,
+δc0 0.442w (quantum) / 0.055w (2⁻²⁶), no knee.]*
+
+*[Prior best retained below: 34be's u64-port trap, 9fd1's renewal limit (now
+superseded on the law by this run, its no-knee verdict confirmed), e87d's section-cache
+law (416 ns/pair/kick, the 3.4×), 08d0's epoch-rule frontier (its knee now attributed),
+1a29's shipped-tier anchors.]*
+
+## Refuted
+
+- **"The epoch rule has a zero-leak knee in E on the shipped tier" (08d0's frontier and
+  any diffusion-owned 1/κ² knee)**: dead by measurement — the leak is nonzero at every
+  E ≥ 2, κ ∈ {2⁻²⁶…2⁻¹⁴}, P ∈ {1, 4, 16}; miss_frac → 1−1/E at the quantum (the book
+  cannot catch an event that fires within one touch of its creating kick), and the
+  per-opportunity flip flux is κ-saturated at 2w/pi because δc0 ≈ w per quantum kick
+  (20261019-1316-second-20261018-2155-scout-9fd1-1176). 08d0's knee was an artifact of
+  φ₀ fixed across kicks plus a 4×10⁴× weak kick.
+- **"Leak/kick ∝ κ·√E, the Wiener boundary flux" (9fd1's checker-corrected law, in the
+  renewal limit)**: the no-knee half transfers to the tier; the law does not — the
+  leak is E-flat above E ~ 16 (per-touch flux; 147-event saturation), not
+  span-accumulating: the √E came from the renewal re-deal idealization
+  (20261019-1316-second-20261018-2155-scout-9fd1-1176).
+- [unchanged: 34be's u64-port kill; e87d's kills of od 1 and 2; 1a29's due-band rule;
+  the prior entries — see git history]
+
+## Open directions
+
+1. **The armed-staleness channel now owns the E* freeze:** the leak channel is
+   measured flat and 140× under budget, so the epoch dial's binding constraint is the
+   caught-but-late class (scheduled dues firing under stale rotations) — unmeasured;
+   one run on this harness (count events processed at stale dues) finishes the freeze.
+2. **The thin-window corner — re-anchored by the checker:** the "w ≈ 23" class was unit
+   arithmetic (already corrected on e87d's entry; the design-reach floor is w ~ 2–4×10⁴
+   ticks). Measured on the thinnest buildable corner (a=1, σ_e 0.3, 10⁻³ band): w p50
+   3.8×10⁴, δc0 = 0.44w, flux κ-saturated, leak nonzero at every E ≥ 2, saturating at
+   the event rate — no knee there either. Unflown at that geometry: only the anchor
+   channel's share and the E_cell pricing decomposition.
+3. [unchanged: the section cache's wiring; the candidate-density question — see e87d's
+   closing.]
+
+## Contradictions
+
+- (resolved by this run) **Does a zero-leak knee exist on the shipped tier?** No —
+  08d0's knee was instrument-owned (φ₀ fixed, weak kick); 9fd1's no-knee was right,
+  its √E law wrong. The page's contradiction is closed: both toys were right about
+  their own idealizations, and neither mechanism (diffusion decorrelation, renewal
+  re-deal) exists on the tier's dues.
+>>>>>>> 20261019-1316-second-20261018-2155-scout-9fd1-1176
 
 ## Runs
 - 20261006-0220-scout-4ea2 (gold): B13 flybys are an entry gap: analytic detection at ≥1.5·SOI as the doll door holds the gate; cadence rules fail.
@@ -329,3 +490,21 @@ frontier and its checker's knee 128–256, 1a29's shipped-tier anchors.]*
 - 20261018-1530-scout-08d0 (scout, this run): direction 1 answered NO-GO - slack S ~ 0.48*C/k^2, 1.8% survival at the quantum; the epoch rule's law measured: 0 blind-span misses to E <= 64 pooled (E = 256 leaks ~3x10^-4/pair/kick on grazers - checker-corrected from the seed-1-only 0), knee between 128 and 256, then ~Ew/C linear; 355 cores -> ~5.5-2.8 at E = 64-128; the deep-book re-roll reproduced dv-independent (P(k'<k) 0.45-0.47).
 - 20261018-2155-quant-34be (quant, awaiting grade): the u64 first_hit port priced: naive port unsound (compose m·y wraps u64; 1.7–2.2×10⁻³ wrong dues on the belt class, 41% at a=30 AU per checker), sound u128-compose form exact but wins only 1.42–1.60× — killed by its own <2× rule. [checker2, blind: census bit-identical; 41.2/46.7% at a=30 AU confirmed, every mismatch a semantic wrong due (residue outside window, 0 Some/None flips); win 1.36–1.75× on a=30, a 10× wider a-window (depth p50 6/max 14) and keys=8 — the <2× kill holds everywhere tested]
 - 20261018-2155-scout-9fd1 (scout, awaiting grade): the epoch rule's pooled curve — no
+- 20261019-1316-scout-e828 (scout, awaiting grade): the shipped-tier leak surface run —
+- 20261018-2155-quant-34be (quant): the u64 first_hit port is a trap; the sound port
+- 20261018-2155-scout-9fd1 (scout): the epoch rule's pooled renewal curve — no
+- 20261018-1530-components-e87d (components): beat record and leak-gated skip dead at
+- 20261018-1530-scout-08d0 (scout): the epoch rule's toy frontier (0 misses to E=256;
+- 20261007-1234-quant-7578 (silver): the certificate's cost is a burst, not a load: degree/body ∝ N at ρ=1/N; re-pay p99 20–80 ms at 10⁴–10⁵.
+- 20261014-1137-fermi-1738 (awaiting grade): the 10⁹ encounter ledger audited: 90fb's per-cell constant is the partitioned total; the honest cube spans 0.077 to 3×10⁷ cores; the remaining engine lever is the contiguous belt's candidate count.
+- 20261014-1221-scout-0b81 (silver): the quantum gate measured; checker-corrected 95.5–97.8% and 37–369 cores; phase-free group certificates vacuous; the mass spectrum is the content dial.
+- 20261014-1511-scout-f0a2 (awaiting grade): the exact tier empties at the shipped key's own Q48; the affordable gate is a birth-constant route (D* = 1.3 km, wake cut 129×); the anchor dispute with 0b81 opened.
+- 20261018-1025-scout-fbf9 (scout): toy due-walk; the armed-list store's slack bookkeeping dead.
+- 20261018-1126-second-20261018-1025-scout-fbf9-1a29 (second): the shipped-tier flight; sound re-arm wholesale Θ(n−1) — 355 cores; the due-band rule dead.
+- 20261018-1025-scout-fbf9 (silver): toy pairs re-check law; due-walk multiplicative; stored lists need re-decision.
+- 20261018-1126-second-20261018-1025-scout-fbf9-1a29 (gold): shipped-tier anchors; silent→armed flips 5–7×10⁻⁶/cand/kick; sound re-arm wholesale 355 cores.
+- 20261018-1530-scout-08d0 (silver): epoch-rule frontier; beat record dead (slack 1.8%); knee 128–256 claimed, now attributed to instrument idealizations.
+- 20261018-1530-components-e87d (gold): od 1 and od 2 dead (full per-touch due decorrelation); the section cache 3.4× (416 ns/pair/kick).
+- 20261018-2155-quant-34be (silver): the u64 first_hit port is a trap (m·y needs 74+ bits); sound port 1.42–1.60× only.
+- 20261018-2155-scout-9fd1 (silver): the renewal toy: no knee in the renewal limit, leak κ-weak; the checker corrected the law to √E and named this run's experiment.
+- 20261019-1316-second-20261018-2155-scout-9fd1-1176 (gold): the shipped-tier epoch-leak grid — no zero-leak knee at any (E, κ, P); leak E-flat at the event rate, κ-saturated; leak budget never binds (140× margin at belt-real P); E* cost-limited (row → 3.5×10⁻⁴ cores at E_cell ~ 10⁶).
