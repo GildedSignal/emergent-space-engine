@@ -1,0 +1,48 @@
+== burn-1e4.log: 1119 probes; probe: guard hit at gs=560862
+ladder: n=10000 bodies=10028 flight=burn rtf=100 frames=336519 build_s=0.43 foot_build_mb=27 foot_end_mb=1601 b_per_body=2467 p50_ms=0.027 p99_ms=4.616 max_ms=43.039 over=70 lag_s=1.448 kicks_per_body_gs=1.815e-4 events_per_body_gs=3.630e-4 refusals=0 dead=0 held_max=741 view_ms=-1.0 truncated=true wall_s=93.2
+== coast-1e4.log: 1594 probes; no guard (ran to frames/wall cap)
+ladder: n=10000 bodies=10028 flight=coast rtf=100 frames=480000 build_s=0.49 foot_build_mb=27 foot_end_mb=70 b_per_body=2460 p50_ms=0.056 p99_ms=4.256 max_ms=15.089 over=5 lag_s=1.448 kicks_per_body_gs=1.857e-4 events_per_body_gs=3.713e-4 refusals=0 dead=0 held_max=1 view_ms=-1.0 truncated=false wall_s=148.2
+== burn-3e4.log: 664 probes; probe: guard hit at gs=332604
+ladder: n=30000 bodies=30028 flight=burn rtf=100 frames=199564 build_s=1.29 foot_build_mb=74 foot_end_mb=1601 b_per_body=2375 p50_ms=0.065 p99_ms=4.780 max_ms=17.017 over=72 lag_s=1.448 kicks_per_body_gs=8.497e-5 events_per_body_gs=1.679e-4 refusals=0 dead=0 held_max=589 view_ms=-1.0 truncated=true wall_s=74.0
+== window slopes (MB per 1k game-s), burn 1e4:
+             window gs   dRSS MB slope MB/1k gs    held i->f RSS/held f MB
+       502-14548            15.5           1.10     0->0              56.10
+     15050-39631           139.6           5.68     0->145             1.35
+     40133-59698            15.6           0.80   148->216             0.99
+     60199-99831            68.0           1.72   218->320             0.88
+    100333-199662          226.8           2.28   320->468             1.09
+    200164-399827          580.3           2.91   468->619             1.76
+    400329-560862          509.4           3.17   620->741             2.16
+
+final-40% window: gs 336617-560862, slope 3.02 MB/1k gs
+RSS@60k = 213.8 MB; held@60k = 218
+4-GiB breach at ~827k game-s past the end => ~1388k game-s total = 231 wall-min at rtf 100
+== coast 1e4 (control):
+             window gs   dRSS MB slope MB/1k gs    held i->f RSS/held f MB
+       502-14548            20.2           1.44     0->0              53.90
+     15050-39632             1.0           0.04     0->0              55.00
+     40133-59698             0.4           0.02     0->0              55.40
+     60200-99831             0.9           0.02     0->0              56.30
+    100333-199663            1.9           0.02     0->0              58.20
+    200165-399827            3.8           0.02     0->0              62.00
+    400329-799655            7.7           0.02     0->0              69.70
+
+final-40% window: gs 480094-799655, slope 0.02 MB/1k gs
+RSS@60k = 55.4 MB; held@60k = 0
+4-GiB breach at ~210926k game-s past the end => ~211726k game-s total = 35288 wall-min at rtf 100
+== burn 3e4:
+             window gs   dRSS MB slope MB/1k gs    held i->f RSS/held f MB
+       502-14548            62.2           4.43     0->0             149.50
+     15049-39631           401.4          16.33     0->165             3.34
+     40133-59698            21.3           1.09   168->236             2.45
+     60199-99831           114.8           2.90   238->340             2.04
+    100333-199662          300.5           3.03   340->488             2.04
+    200164-332604          604.9           4.57   488->589             2.72
+
+final-40% window: gs 199662-332604, slope 4.56 MB/1k gs
+RSS@60k = 579.5 MB; held@60k = 238
+4-GiB breach at ~547k game-s past the end => ~880k game-s total = 147 wall-min at rtf 100
+== one-wall-hour marks (360k game-s):
+probe: f=216119 gs=360195 rss_mb=988.8 hwm_mb=988.8 held=589 ev=0
+probe: f=199564 gs=332604 rss_mb=1601.1 hwm_mb=1601.1 held=589 ev=6
+ 05:04:44 up 52 days, 20:07,  0 user,  load average: 2.94, 3.08, 2.31
