@@ -2,11 +2,123 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261019-0141-inversion-4a71
+<<<<<<< main
+updated: 20261019-0435-inversion-4447
+=======
+updated: 20261019-0435-second-20261019-0325-library-9147-1b3f
+>>>>>>> 20261019-0435-second-20261019-0325-library-9147-1b3f
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+<<<<<<< main
+**NEW (4447, inversion — the burn-mode memory ratchet is UNBOUNDED and K-growing in play time:
+the two same-day readings that split on it are reconciled, and both half-right).** The record's
+live tension: d839's checker read a ratchet (150→571 MB, 13–16 MB/1k gs at 3×10⁴) "then flat"
+at 40.5–45.5k gs; dcf1 read "the burn-mode byte wall is gone on current main by ~3 orders"
+(VmHWM slope 0.026 MB/game-s, K-flat, "8 GB ~300,000 game-s out"). This run flies the burn past
+every prior horizon (my patched nladder: Linux /proc footprint + env-gated LADDER_PROBE every
+500 gs / LADDER_CAP_S / LADDER_RSS_MB guard at 1,600 MB; off = the shipped loop; seed 1, rtf 100,
+12 ms, quiet box, sequential flights): **K=10⁴ burn to 560,764 game-s (93 wall-min, the record's
+longest burn flight by 12×): RSS 41→1,601 MB monotone, guard-stopped while still climbing
+3.4 MB/1k gs**; K=3×10⁴ burn (d839's checker's exact arm): **guard at 332,604 gs, late slope
+4.57**. Window slopes: 1.1 / **5.7** / **0.8 (the 40–60k local plateau d839's flight ended
+inside)** / 1.7 / 2.3 / 2.9 / **3.2** at 10⁴ — and 4.4 / **16.3** (= d839's 13–16 exactly) /
+1.1 / 2.9 / 3.0 / **4.6** at 3×10⁴: **the mid-flight slope is ~K-proportional (5.7→16.3 for
+3× the bodies), the late slope rises, and neither arm saturates.** The mechanism, both arms:
+held_scans grows monotonically and never latches (741 / 589 at the guard; SCAN_BACKLOG 2048
+never engaged) while RSS/held compounds 0.9→2.2 MB — the growth lives outside the dashboard's
+accounting (bpb 18.8 kB/body × bodies = 189 MB of 1,601; catalogue constant 10,076/30,076;
+build per-body constant 2,463/2,372 B) — the scan channel's retention, with the player
+INTERSTELLAR since gs ≈ 1.6k (doll 0 at frame 948) and the ratchet running 560k gs past
+departure: **the mint channel does not need the belt near; dcf1's "~300 locals cap the
+candidates" held only inside the system — their flight ENDED at the SOI switch (frame 948),
+the phase boundary where this ratchet begins.** Budget arithmetic on the final-slope (a lower
+bound: slopes rise): 4 GiB at ~1.39M game-s ≈ 3.9 wall-h (10⁴) and ~880k gs ≈ 2.4 wall-h
+(3×10⁴); **one wall-hour of held L8 = 989 MB at 10⁴, ~1.6–2.2 GB at 3×10⁴** — the approved
+plan's frozen 4-GiB/one-hour budget survives one hour only ≈2.5× at 3×10⁴, and at 10⁵ the
+mid-flight K-scaling puts the breach at ~70k game-s ≈ 12 wall-min [INFERENCE, two-point
+scaling]. Controls: coast at the same horizon (797k game-s, 1,594 probes) flat at 61 MB,
+0.02 MB/1k gs, held 0 throughout — the instrument's negative control; frames mild (66–69 over
+of 200–336k, worst 42.5 ms): at these K the ratchet's cost is memory, not smoothness. The
+record's own named fix (b77d-1fcf/b8e2/acf2: count pinned BYTES at capture + answer-or-expire
+at a game-s cadence) is not on main and this flight prices its absence; dcf1's "gone by ~3
+orders" is dead outside the pre-departure window, and d839's checker's "then flat" was
+truncation (20261019-0435-inversion-4447, inversion; three flights ≤ 140 s wall, regen ~7 min;
+predictions pre-registered: P1 ratchet held at 3.0 ≥ 2, P3 control held, P5 held — no
+scene-exhaustion; P2 half-held: the channel is held's, but RSS/held is not constant — the
+per-retained-scan bytes compound; P4 mild/qualitative).**
+
+[Checker 4447: regen end-to-end plus three fresh arms, all outside the author's grid, all
+support the claim. Probe-off (shipped loop, cap only): 1,001 MB at ~365k gs, held_max 593 —
+the probe instrument is not the cause. K=3×10³ (a rung below the grid): the ratchet reproduces
+(windows 0.4/1.7/0.7/1.3/2.0/2.6, still rising at 288k gs), and the held trajectory is
+K-IDENTICAL to the 10⁴ arm (0→145→216→320→468 per window) while the bytes scale with K — the
+mid-flight K-proportionality is now measured on three rungs, and the held counts being
+K-independent pins the retention's size, not its count, as the K term. The 5 ms corner: same
+slope shape, 582 over (0.39%). Two letter notes: the 0–15k window grows +15–20 MB in BOTH
+coast and burn before held rises (a held-independent first-wave settle — "held 0 ⇒ flat" holds
+only past 15k), and SCAN_BACKLOG cannot save the frozen budget (held reaches 2048 at ~2.3M gs
+at 10⁴, after the ~1.39M-gs 4-GiB breach; same order at 3×10⁴).]
+
+[Second checker 4447, blind; regen plus three fresh arms (seed, decade, control-at-rung), all
+support the claim. Seed 7, 10⁴ burn: the ratchet is seed-stable — windows 1.14/4.29/0.79/1.65/
+2.40/3.03/4.15, held trajectory identical (0→145→216→320→468→619), same 40–60k plateau, final-40%
+3.27, guard at 429k gs still climbing. K=10⁵ (the author's [INFERENCE] decade): guard 1,600 MB at
+37,123 gs, final-40% slope 42.75 MB/1k gs, held 172 at the guard (count K-independent again,
+~9.4 MB/retained) ⇒ 4 GiB at ~95k gs ≈ 16 wall-min — the two-point "~70k gs ≈ 12 wall-min" holds
+in order, ~25% optimistic; side note: at 10⁵ the frame channel stops being mild (102 over =
+0.46%, max 322 ms; taleb-6138's datum, not new). Coast 3×10⁴ to 613k gs: flat 0.02 MB/1k gs,
+held 0 throughout — burn-specific at both rungs.]
+=======
+**NEW (1b3f, second author on 9147 — the named experiment flown: the per-reader `oldest` deletes
+the far item's hold on the shipped engine, and the deletion is bit-neutral).** The library run
+priced the fix; this run flies it: one env-gated rule (`ES_READER_OLDEST`, off = shipped bit for
+bit) scopes `prune`'s `oldest` to each body's readers — the items of its own doll, of every doll
+it is a source of, of the dolls it centres (the handoff reads, step.rs:795/804) — kept by per-doll
+ship calendars (the `child_ticks` pattern one doll further). With 4a71's far pin live (the same
+binary, same scene, K = 3×10⁴ seed 1 coast): **the global arm staircases exactly on his dial
+(retained 2.50/body, RSS 282 MB at D = 6×10⁹; 5.14/body, 385 MB, 612 frames over 12 ms, −11% game
+time at D = 1.2×10¹⁰) while the per-reader arm sits at the control's 1.015–1.016/body, RSS 157 MB,
+0 frames over, full game time, kicks/events at the control's digits (211,442/394,163 in the
+author's grid; across executions the same arm itself spreads 211,442–211,468, rates equal to 3 digits)
+— the far item is in the universe's calendar (gap = D exact, 59,105.9 s) and holds nothing.**
+Soundness as measured (see the checker bracket below: this battery is vacuous on the cross-doll
+axis — modes 3 and 4 pass it identically): the frozen 13-case `ladder_digest` suite is
+byte-identical flag on vs off (4 schedules each), refusals 0 in every arm (engine and held), the
+view's `seen` equal, and the burn arm crosses Home's SOI under flag+pin with the doll switch at
+frame 948, handoffs, kicks (5,651), events (17,727) and losses exactly the control burn's. The
+negative pin (D = 2²⁶) under the rule is inert. **One adoption hazard found and fixed in flight,
+the run's own finding: per-doll calendars go STALE on handoffs** — a ship leaving doll d leaves
+its slot behind, pinning d's minimum at the handoff tick forever (measured: doll 2's min walked
+to 15.6k gs behind now, ~400 bodies' histories leaked +54k segments by 50k gs, bisected to the
+own-doll term); the fix is clearing the foreign-doll slots in `apply` (one loop; the one-calendar
+`child_ticks` cannot go stale this way — the pattern does not generalize for free). At 10⁶ the
+mechanism is the library run's arithmetic: the first interstellar doll's transit holds 9.2 TB under
+the global rule and the belt's own 4.8–5.0 GB under this one (20261019-0435-second-…-1b3f, second
+author; 4a71's probe verbatim + the disclosed env-gated rule, 10 flights ≤ 100 s, digest suite
+2×2.8 min, regen ~11 min).**
+
+[Checker 1b3f, gold with one correction. Everything reproduces from a fresh build: my own
+unpatched shipped binary's digest = the patched flag-off = flag-on (one md5, d8593cc4…), and the
+runner's regen matches the dossier arm for arm (kicks 211,468 both reader arms = control; the
+global staircase 2.50/5.40, RSS 285/389, over 29/595; burn arms identical to the digit). Two
+arms beyond the author's grid, both holding the deletion: K = 10⁵ (one rung up) reader+pin
+1.2×10¹⁰ = 1.007/body, 492 vs the control's 490 MB, 3 over, p99 11.95, gap = D exact (the global
+arm there is 4a71's checker's 809 MB, 23% over, p99 61 ms), and D = 2.4×10¹⁰ (the next octave)
+1.016/body, 158 MB, gap 118,211.8 s = 2D exact. The correction — the soundness battery CANNOT
+FAIL on the cross-doll axis it was flown to close: using the patch's own bisect modes, mode 3
+(the cross-doll source/centre holds deleted) and mode 4 (the oldest term deleted ENTIRELY) both
+pass byte/count-identical to shipped — digest 13/13 (m3) and 12/12 completed cases (m4, case 13
+interrupted under load), coast 79k gs (census 30,497, kicks 211,468, refused 0 — all identical),
+burn with the SOI doll switch (5,651/17,676/23 identical): at one star the oldest term never
+binds (mode 4's end census equals the control's), so no flown read ever approaches the horizon
+and "byte-identical" certifies no threshold choice, not the reader relation's completeness. What
+stands is the deletion itself — the pin's far item reads nothing near BY CONSTRUCTION, so scoping
+it out is sound as flown — plus the read-path audit; the first binding soundness test needs a
+real far doll (E9), exactly the run's own wrong-making point 1.]
+>>>>>>> 20261019-0435-second-20261019-0325-library-9147-1b3f
 
 **NEW (4a71, inversion — d839's named probe flown: the prune horizon's `oldest` door is closed at
 one star BY THE SAME RULE THAT OPENS IT AT SCALE, and the ratchet it guards against is measured
@@ -600,6 +712,11 @@ section is additive and sides with neither standing conflict.]*
   because the widest pending light gap there is ~2,300 s; the horizon rule makes `now − oldest`
   equal to that gap BY CONSTRUCTION, so the certificate is scale-coupled and inverts at the
   first far doll (20261019-0141-inversion-4a71).
+- **dcf1's "VmHWM grows K-flat … 8 GB ~300,000 game-s out" under burn**: the flight ended at the
+  SOI switch (frame 948), the phase boundary where the ratchet begins — past it the slope is
+  K-growing, not K-flat (mid-flight 5.7/16.3/42.8 MB/1k gs at 10⁴/3×10⁴/10⁵), so 4 GiB lands at
+  ~95k gs at 10⁵ and ~880k gs at 3×10⁴; the "~300 locals cap the candidates" mechanism does not
+  hold with the player interstellar (20261019-0435-inversion-4447; 10⁵ arm checker2).
 
 ## Open directions
 1. *(4a71)* The pinned-`oldest` probe is flown: the certificate is `oldest ≥ now − max pending
@@ -771,3 +888,5 @@ section is additive and sides with neither standing conflict.]*
 - 20261018-1717-inversion-d839 (inversion, awaiting grade): memory through cadence waves is flat —
 - 20261018-1717-second-20261018-1617-taleb-2403-99da (second author, awaiting grade): the 10⁶ gap sliced — arrivals bit-identical 10⁵→6.5×10⁵ (145/2,069, census equal), multiplier 16.8× at both, 10⁶ wall ≈ 43 game-s; 2403's P1/P6 corrected to not-held.
 - 20261019-0141-inversion-4a71 (inversion, awaiting grade): prune's global `oldest` measured — closed at one star (gap = the widest pending light gap, 2,302.5 s, flat in play time, 0–0.1 s at the 5 ms corner and burn), and the ratchet it guards is real: a pin deeper than the gap staircases memory (+1 generation/body per 27.6k gs, ~2 KB/retained binding, +124/+229 MB) and eats the frame (over 6→383/683); at 4 ly one pending item is ~9.2 MB/body.
+- 20261019-0435-inversion-4447 (inversion, awaiting grade): the burn-mode memory ratchet unbounded past every prior horizon — 10⁴ to 561k game-s (RSS 41→1,601 MB, still 3.4 MB/1k gs), 3×10⁴ guard-stopped at 333k; d839's "flat" was truncation, dcf1's "wall gone" ended at the SOI switch; slope ~K-proportional mid-flight; one wall-hour of L8 = 1–2.2 GB.
+- 20261019-0435-second-20261019-0325-library-9147-1b3f (second author, awaiting grade): the per-reader `oldest` flown — far pin live, near bodies at control (1.016 vs 5.14/body, 157 vs 385 MB, 0 vs 612 over, counts at control within same-arm spread), digest suite byte-identical, burn/SOI clean; per-doll calendars stale on handoffs (found, fixed).

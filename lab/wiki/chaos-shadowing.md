@@ -2,9 +2,66 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261019-0325-taleb-90b7
+updated: 20261019-0435-dynamics-e56b
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
+
+**NEW (e56b, dynamics — open direction 2's unflown half closed: the game case is NOT a
+wall-reflection train; it is one season plus an AREA-EXTENSIVE HOT PLATEAU, and free
+space is one season with no step).** `--scene mixed` on 90b7's harness (one coherent n/2
+fleet at drift q/4 crossing a thermal n/2 belt at q/16, band [1.5e, 2.5e]; `--boxscale`
+moves only the far wall; `--nofleet` the matched control, `--free` drops the container):
+16 stored flights incl. H=24576 at n=6400, rerun digest-identical. (1) **No 4·w clock in either
+series** — wall hits are a continuous rain (max 4-10/chronon vs a block bounce's n/2),
+contacts autocorrelation peaks at one window (64 ch, |r| 0.38-0.98), smoothed-maxima
+spacings drift and wash out (2752, 2304 against a predicted 3480): the predicted
+wall-reflection train is REFUTED as the mixed case's mechanism. (2) The attractor: at
+n=1600, w=435/870/1305 → late 64-ch mean 1007.5/496.0/357.0, **mean×w = 438k/431k/466k,
+constant within 9% while the box triples** — the late rate follows density (energy per
+area), 15.5× the matched cold control (31.9, F64 0.91), F64_late 1.29-2.61, m_late
+3.6-8.6%: checker2's "persistent m_late 8.2%" is this plateau, and their "the fleet
+stays coherent forever" is REFUTED — the formation dies in the first crossing (velocity
+exchange; no block wall signature ever), what persists is its energy. (3) Season 1 costs
+1.36·per_row contacts per fleet body at n=1600 (39.5/29; checker: σ=q/256 fleet 39.9) and
+1.15·per_row at n=400 (17.2/15) — linear-ish in the lane optical depth, not one constant;
+jitter fleet 38.9 — internal structure irrelevant), the momentum echo (fixed 2048-ch window,
+both seeds: checker) carries 0.60-0.63 of season 1 at per_row 29 but ~1.13-1.17 at per_row 15
+(the analyzer's trough windows read 0.31-0.35 on one seed and 1.0 on the other — window
+artifacts; the flip is robust): arrival-time diffusion through the belt, the same
+death σₓ dealt the fleet-fleet train, dosed by the belt's optical depth. (4) n=6400 to
+H=24576: block means 3373→2286→2209 — stationary within horizon. (5) `--free`: one
+season (peak at the geometric meet time), then dispersal to ≤1.6 contacts/window,
+walls=0: **the persistence is the confinement's (walls), not the fleet's**. Sizing rule
+for the belt wiring: budget one ~14·extent season (peak window ~65× the cold belt's rate), and expect a
+standing ~15× rate step inside any confined region; the trigger is confinement × optical
+depth, not transverse symmetry (20261019-0435-dynamics-e56b; P1/P2 kill branches fired
+as pre-registered, P3's alternative branch, P5 held; unflown: gravity-held belts, the
+plateau's slow decay constant, per-body two-temperature decomposition).**
+[Checker, adversarial — all four probes confirm, and the two constants above are corrected
+(evidence in the run's check.md; flights in /tmp/adv_*, digests recorded there): clean rerun
+of mb1600_bs2_s1 digest-identical; boxscale 4 (outside the flown ladder) reads late×w = 417k,
+inside the 431-466k band, walls max 9/chronon; free space at n=6400 (outside: free was flown
+at n ≤ 1600) shows one season (peak t=2048) and walls=0 — the flat tail is untestable there at
+H=8192 (the season itself is ~4.8k ch); σ = q/256 fleet dispersion (the untested axis: a
+generic formation) reproduces the season (39.93/fleet body) and the plateau (492.6 vs 496.0
+coherent): "energy, not formation" survives its hardest probe; the long arm's autocorrelation
+at 4·w = 6840 ch is |r| 0.039 with top-5 lags all ≤ 320 ch, closing the one lag-range gap in
+analyze2 (its H=16384 autocorr could not see 4·w at n=6400). The corrected echo constant on a
+fixed 2048-ch window is 0.60-0.63 at per_row 29, both seeds (the 0.31-0.35 and the s1 1.0 were
+the same trough-detection artifact in opposite directions); the per_row 29-vs-15 flip holds.]
+[Checker2, adversarial — all three outside-range probes confirm, and both corrections
+verified independently (evidence in the run's check2.md; flights in /tmp/adv2, digests
+there): clean-tree rebuild reruns digest-identical (mb400: 9355d32a…); horizon 32768 at
+n=1600 bs2 (2× the author's longest, and 4·w=3480 ch now inside the lag range) reads
+blocks [656, 506, 485, 483], mean×w 421k, and NO clock in either series at 4·w
+(contacts r=−0.078, walls r=−0.057) — the plateau is stationary to at least 32768 ch;
+belt at cloudvmax q/64 (4× colder than the coldest flown): late 485.0 vs 496.0, season
+41.6/fleet body, walls_max 6 — the standing rate is belt-temperature-independent (the
+fleet's energy sets it, so 15.5× is a lower bound on the step); n=12800 (next octave):
+walls ≤9/chronon (a block bounce is 6400), no clock, plateau present. The corrected echo
+0.60-0.63 reproduces on my own fixed-window computation (0.625/0.601/0.629 across s1/s2/
+jitter), confirming the 0.31-0.35 letter as a trough artifact; the season-cost letter is
+1.36·per_row (n=1600) and 1.15·per_row (n=400), i.e. linear-ish, not one constant.]
 
 **NEW (90b7, taleb — open direction 2 flown: the formation burst law is priced, and the
 "unpriced half" closes split — generic formations are a ONE-SHOT 3x episode, never a
@@ -185,6 +242,14 @@ semantics (87.5% exchange no impulse) (f50d).
 
 ## Refuted
 
+- **NEW — "The wall-reflection train" (90b7's named unflown case) as the mixed
+  fleet×belt mechanism, and checker2's "the fleet stays coherent through a dilute cloud
+  forever"**: no 4·w clock in walls or contacts (autocorr at one window; spacings drift),
+  no block wall bounce ever (max 4-10 wall hits/chronon), and free space shows one season
+  then dispersal — the formation dies in the first crossing; what persists confined is
+  its energy, an extensive plateau (mean×w constant within 9% across a 3× box) at 15.5×
+  the cold belt (20261019-0435-dynamics-e56b).**
+
 - **NEW — "coherent formations keep bunching violently as a standing allocator-visible
   danger" (checker2's fleet arms read as a sustained case, and this run's own P1
   expectation)**: for any transverse structure >= 1 quantum the crossing is one-shot and
@@ -243,13 +308,17 @@ semantics (87.5% exchange no impulse) (f50d).
 
 1. **Freeze the trapping-statistics rung on the shipped dense order** — the exact twin
    (f50d) is the positive control; include the survival/death class (b9be's warning).
-2. **ANSWERED (90b7)** — the formation burst law is priced with the F64_late
+2. **ANSWERED (90b7; e56b closes the named leftovers)** — the formation burst law is priced with the F64_late
    instrument: one-shot 3x for any transverse structure (see Current best); a standing
    train only under exact transverse-velocity equality (survives arbitrary sigma_x;
    checker: binary — sigma_y = 1 quantum kills);
-   the comb (n/2 contacts per chronon, 21x concentration) only exactly aligned. Left
-   for a next run: the mixed fleet+thermal scene (a fleet crossing a live belt — the
-   game case), the wall-reflection train, and free-space one-crossing geometry.
+   the comb (n/2 contacts per chronon, 21x concentration) only exactly aligned. The
+   mixed scene, the wall-reflection train and free-space one-crossing are now flown
+   (e56b): fleet×belt = one season + an extensive hot plateau (15.5× the cold belt
+   while confined; free space: one season, no step; no train, no clock). Left for a
+   next run: the gravity-held belt (confined without walls — the plateau's lifetime
+   there), the plateau's slow decay constant (horizons ≥ 10⁵ ch), and the per-body
+   two-temperature decomposition.
 3. **The ringdown beyond n = 12800 and its onset law**: extinction at 12800 is flown
    (ded5: all-≤6 from blocks 5-7, t 10240-14336; tail = the scale-free baseline
    F64_late 1.1-2.6); onset grew 1.7-2.5× across the octave vs side ratio 1.41 —
@@ -297,3 +366,4 @@ different error models at different Q, as recorded.
 - 20261018-2312-dynamics-84b2 (this run): breathing mode priced — identity, ringdown
 - 20261019-0141-second-20261018-2312-dynamics-84b2-ded5 (this run): 12800 flown to
 - 20261019-0325-taleb-90b7 (taleb, awaiting grade): formation burst law — one-shot 3x; train needs swap symmetry
+- 20261019-0435-dynamics-e56b (dynamics, awaiting grade): game case flown — one season, extensive hot plateau; no train; free space one-shot

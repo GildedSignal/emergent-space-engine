@@ -6,9 +6,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
 | [entry](entry.md) | open | 0 | (no current best yet) |
-| [budget-1e9](budget-1e9.md) | open | 1 | **The board's interlocking formula (CPU = N·rate·cost + encounters; memory = N·bits + N_live·bytes) |
 | [cell-rebind](cell-rebind.md) | open | 1 | **The kick's compile bill and the per-body standing-shape bill are one mechanism — the exact |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
+| [budget-1e9](budget-1e9.md) | open | 3 | **The board's interlocking formula (CPU = N·rate·cost + encounters; memory = N·bits + N_live·bytes) |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
@@ -28,8 +28,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [allocator-ratchet](allocator-ratchet.md) | open | 18 | (no current best yet) |
-| [chaos-shadowing](chaos-shadowing.md) | open | 18 | (no current best yet) |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
+| [chaos-shadowing](chaos-shadowing.md) | open | 19 | (no current best yet) |
 | [representation-premises](representation-premises.md) | open | 20 | **Prior standing record, unchanged (compiled from the runs below):** |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
@@ -40,4 +40,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open **conflict to resolve** | 118 | <<<<<<< main |
-| [nladder](nladder.md) | open | 159 | **NEW (4a71, inversion — d839's named probe flown: the prune horizon's `oldest` door is closed at |
+| [nladder](nladder.md) | open **conflict to resolve** | 161 | <<<<<<< main |
