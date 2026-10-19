@@ -2,11 +2,56 @@ topic: view
 status: open
 closed-by:
 valid-while:
-updated: 20261018-2312-second-20261018-2155-spacex-9292-e3a4
+updated: 20261019-0325-spacex-959a
 
 # The view: the observer's past light cone, lensing, kinked tubes
 
 ## Current best
+# The view: the observer's past light cone, lensing, kinked tubes
+
+## Current best
+
+**NEW (959a, spacex — the record's last O(K) term is deleted: the serve tier reads running sums,
+and both e6c9 checkers' "required, not optional" rebuild is gone).** e6c9's record served far
+rows from sky-cell membership but rebuilt every multi-member cell's aggregate from its members
+each frame — the one O(K)-shaped term left (10.7 ms of the 13.4 ms serving path at 10⁵; 142–143 ms
+at 10⁶, both checkers). This run keeps each cell's aggregate (n, Σlum, lum-weighted colour/light-
+seconds/shift, a kind histogram) as **running sums updated on the events the record already pays
+for** — a due refresh is one sub + one add, churn and tier moves subtract, far entries add; no
+new mechanism, no new reads, `ES_SKY_SUMS` gates it (unset = e6c9 verbatim, one binary). Measured
+beside controls on e6c9's own grid (coast seed 1, stock floor 8e-3, frames 120/90/40/20 at
+10³/10⁴/10⁵/3×10⁵): **serve_ms p50 1.09→0.18 ms at 10⁴ (6.1×), 10.55→0.16 ms at 10⁵ (66×),
+33.18→0.14 ms at 3×10⁵ (237×; p50/max 0.14/0.18)** — the cost law flips from ~100 ns × members
+to ~200 ns × cells (786 at the stock floor), so at 10⁶ the extrapolation is ~0.2 ms against the
+measured 142 ms rebuild: the record's serving path is flat in K end to end, and what remains is
+the near tier (~2.5 ms, O(locals)) and the cold start (one walk, unchanged). **Exactness and the
+outcome channel: wrong_cell = cells_wrong = missing = extra = tier_err = 0 at every rung (≤120
+frames), running-vs-recomputed Σlum drift ≤ 5.6×10⁻¹⁵, per-frame digest probes clean, and every
+END digest is bit-identical to e6c9's published anchors (5dc903e6…/bd6f9840…/82aa152c…/c3943af5…
+at 10³/10⁴/10⁵/3×10⁵)** — the sums move display arithmetic only. **sums_ops is O(due), flat in
+K:** cold = k_far once, frame 2 = 2×k_far (e6c9's own ω-measurement wave, paid in due_ms in both
+arms: 2.4 s at 10⁵), steady 2×due + tier moves ≤ ~10–20/frame. Two honest clauses: at 10³ the
+sums arm is parity-to-slower (0.07 vs 0.04 ms — below saturation the walk is cheap; the wire's
+own "1.3× at 10³" law), and at the fine floor 1e-3 (4,759–4,764 occupied cells of the 6,284
+capacity, singletons 1.9k) serve_ms is 1.17 ms p50 against the rebuild control's 1.74 (checker,
+same box) — the cell-law meets the singleton-row cost and the arms are parity-class there; the
+fine-floor arm's wrong-cell residue (2 cells at 90 frames) is the standing membership class,
+shared by the rebuild control;
+the deletion pays exactly where the record's legitimacy begins (the sky FULL: 10⁴-up at stock,
+10⁶ at any floor). Domain: cc75's scene class (the ladder belt, coast, fixed zoom), flights ≤ 300
+frames; unflown: the zoom re-window (rebuilds the sums with the record, one walk), the
+formation/hot-set ruin class (unchanged — a crowd all hot-set degenerates the record regardless),
+and **the cancellation corner: every member's luminosity is near-equal on this scene, so the
+3×10⁻¹⁵ drift bound does not cover a hot body (magnitudes brighter) entering and leaving a cell's
+sums — the per-frame recomputed-Σlum audit would catch it, and the hot-set trigger (od 10) is the
+designed companion** (20261019-0325-spacex-959a, spacex; e6c9's probe verbatim + ~120 lines in
+view.rs; 10 flights, regen ~11 min; predictions pre-registered and held, the 10³ parity clause
+read honestly).]
+
+*[Prior best retained below — 9292/e3a4's broken-window record and the rest of the page's
+standing record are unchanged by this run; the od-10 "running sums" clause is now built and
+measured.]*
+
 
 **[20261018-2312-second-20261018-2155-spacex-9292-e3a4, second author on 9292] The broken window
 is flown with the record's own cost law and the record survives it by its named design: the root
@@ -267,6 +312,13 @@ frames ≈ 1–3 ms p50 at 10³–10⁶, display-exact to ≤ 0.1–2%.
 
 ## Refuted
 
+- **"The serve tier's per-frame member rebuild is required at 10⁶" (e6c9's own residue note and
+  both its checkers' "required, not optional"):** required only in the rebuild form — running
+  sums on the record's own events serve the same audits at O(cells): serve_ms 33.18 → 0.14 ms
+  at 3×10⁵ (237×), drift ≤ 5.6e-15, digests bit-identical to e6c9's anchors
+  (20261019-0325-spacex-959a). The ω wave (frame 2's 2×k_far refresh) stays, as designed: it is
+  the record's own measurement pass, paid once, not per frame.
+
 - **"The broken window kills the record, and its staleness-repair tier scales with K"
   (9292's checker, priced on the naive angle-store):** the tier is the naive store's, not the
   record's — the broken-window root churn is the observer's displacement parallax (one shared
@@ -326,7 +378,8 @@ frames ≈ 1–3 ms p50 at 10³–10⁶, display-exact to ≤ 0.1–2%.
     all hot set degenerates the record to walking); the near tier inside a crowd (measured 1-2
     rows at 1e3 in the annulus, ~15 at 1e4 approaching it — scales ∝ K × local density, ~10⁴
     rows at 10⁹, unmeasured above 1e4); the repair price at 10⁹ (the tier is in-budget only at
-    the 100-ns due-event form — e6c9's running sums — the row-priced boundary is K\* ≈
+    the 100-ns due-event form — e6c9's running sums, now built and measured by 959a: serving
+    O(cells), 237× at 3×10⁵, drift ≤ 5.6e-15 — the row-priced boundary is K\* ≈
     (1.2–2.4)×10⁸ at the 10× floor, (1.2–2.4)×10⁹ at stock); the zoom re-window at 10⁹ is ee30's drain (measured
     27-81 ns/row here ≈ 30-80 s at 10⁹), amortized by the zoom dwell; and the shift/patina serve
     under warp (9292 measured the raw swing as shared-side p99 = dβ; the warp-residual shift
@@ -403,3 +456,4 @@ conflict between e6c9's and 9292's page versions is resolved by this run: both r
 - 20261018-2040-system-cc75 (system): the seen stream's sky census across the ladder — the sky at capacity (786 = 2π/8e-3 cells) at 10⁴, alone 0.0000 at 10⁵ at both floors, near set 358→351 flat and alone=1.0; the row tier's information ends one rung above the 28-body plane; the record unification with the scan's window.
 - 20261014-0059-redteam-2fa4 (awaiting grade): moving-observer instruments exact to 1.4e-10/6.4e-15°.
 - 20261018-2312-second-20261018-2155-spacex-9292-e3a4 (this run): the checker's named experiment — the record's cost law flown through the broken window: the root churn is the observer's displacement parallax; the displacement warp (the record's own unmeasured half) collapses the staleness tier (naive 6.6–12 % of far rows/frame at stock, K-flat 1e3→1e4, 13–26 % at 10× zoom, 60–91 % at 100×; warp 0 at stock in 1.18e7 burned row-frames, 1.4e-5/frame at 10×) with β → 0.64 alive; boundaries priced (K\* ≈ (1.2–2.4)e8 at the 10× floor to (1.2–2.4)e9 at stock at the 5-µs row price; in-budget at 10⁹ at the 100-ns due-event form). Checker: reproduced (warp 0 at stock also at β 0.87 and at the 1000×-zoom floor).
+- 20261019-0325-spacex-959a (spacex, awaiting grade): the record's last O(K) term deleted — the serve tier reads running sums kept on the record's own events (due/churn/tier): serve_ms 33.18→0.14 ms at 3×10⁵ (237×), 10.55→0.16 at 10⁵, O(cells) end to end; audits zero, drift ≤5.6e-15, every END digest bit-identical to e6c9's anchors; parity at 10³ and at the 1e-3 floor (honest domain).

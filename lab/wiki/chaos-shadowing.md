@@ -2,9 +2,86 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261019-0141-second-20261018-2312-dynamics-84b2-ded5
+updated: 20261019-0325-taleb-90b7
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
+
+**NEW (90b7, taleb — open direction 2 flown: the formation burst law is priced, and the
+"unpriced half" closes split — generic formations are a ONE-SHOT 3x episode, never a
+standing train; recurrence needs the head-on swap symmetry, which one quantum of
+TRANSVERSE structure kills and arbitrary TIMING spread does not).** Two counter-streaming
+n/2 fleets (galaxy conventions: spacing 6q, radius q, drift +-q/4, jitter +-q, dispersion
+sigma/component) in a Bounce box, shipped `Chronon` + `RelativisticV1`, Q = 2^20, n =
+400/1600/6400 x seeds 1-2, 38 flights, regen ~2 min, digest-identical on rerun. The law,
+worst over seeds (`work/table.txt`): (1) ANY transverse structure — position jitter +-q
+alone, or transverse velocity dispersion (author: sigma_y >= q/256; checker ladder: a
+SINGLE velocity quantum, sigma_y = 1, already kills) — => ONE crossing burst — worst 64-ch
+window 2.8-3.4x the late mean, width 2.8-2.9*extent ch (interpenetration; ~2x a train
+crossing: merged streams pile up), ~0.4*ceil(sqrt(n/2)) excess contacts per body, then
+FLAT FOREVER (horizon doubled to 8192: no second burst where a re-meet would fall at
+~5100; late rate 1.20x thermal; F64_late 0.7-8.5 vs thermal 0.8-1.4): momentum
+conservation zeroes the merged cloud's drift. (2) sigma_y = 0 AND no jitter => a standing
+TRAIN: bursts 2.6-2.7x mean every 320/640/1280-1344 ch at n = 400/1600/6400, silent gaps
+(windows 0.0-0.2x), amplitude constant (last/first 0.87-0.99 over 6 crossings), and it
+SURVIVES arbitrary timing spread (sigma_x = q/256: 0.905-0.959 over 6 crossings at 1600
+and 5 at 6400; sigma_x = q/16 smears it out in 3-4 crossings — arrival-time diffusion
+through random pairing). Per crossing both regimes pay the same ~0.4*ceil(sqrt(n/2))
+contacts/body — they differ in whether it repeats. (3) Exactly aligned (sigma = 0, no
+jitter): the burst is a COMB — single chronons carry n/2 contacts (maxc/n 0.487-0.499) in
+teeth every 8 ch (heights ramp 405->794 within each ~224-ch burst; checker: 8 ch at every
+n, not 4), top-1% of chronons carry 21.4-21.5x their share of contacts, F64_late
+437/1815/7035 at the three rungs, undecaying — checker2's fleet Fano1 96-128 was this
+first crossing. (4) The allocator caveat: at n = 6400 a burst window costs 2.085M charged
+ops vs 1.592M quiet (1.31x) — the O(n) walk dominates ops, so the 3x (and the comb's 21x)
+lives in the contact/response stream, which event-driven modes and response work pay; an
+ops-budgeted scheduler under-reacts to crossing seasons. Sizing rule: budget one 3x season
+of duration 2.8*extent per crossing pair for generic formations; the n/2-per-chronon comb
+needs exact integer equality of transverse velocity AND column alignment — representable
+under the engine's own quantized conventions (velocities are integers; galaxy draws its
+drifts as integers within +-q/4, not multiples of q/4),
+so the belt/formation wiring gets a dimensionless trigger (transverse-velocity equality)
+rather than the allocator a new tail guard (20261019-0325-taleb-90b7, taleb; predictions
+pre-registered, P1's kill branch and P2/P3's numbers honestly reported in dossier.md;
+unflown: mixed fleet+thermal scenes, the wall-reflection train, free-space one-crossing
+geometry).
+
+[Checker, adversarial — every probe confirms, and the threshold is sharper (evidence in
+the run's check.md; checker flights in /tmp, digests recorded there): five arms rerun
+digest-identical (aligned seed-freeness included); n = 25600 (next octave, 4x the grid's
+largest) still trains with the same constants (maxc/n 0.499, conc 21.5, period 2496 ch =
+3.65*extent, F64_late 28300, amplitude 1.002) and reads one-shot 3.43x at sigma = q/256
+with a flat late tail (windows 0.93-1.08x, no second burst); n = 1600 aligned at H 16384
+(25 crossings, 4x the horizon) holds amplitude 1.0019 — constant as far as flown; the
+transverse ladder sigma_y = 2048/1024/512/256/64/16/1 ALL read one-shot, so the train
+dies at ONE velocity quantum: the kill condition is exact transverse-velocity equality,
+binary, and the dossier's q/256 was a tested sufficient point, not the boundary
+(rng.range is inclusive, so sigma_y = 1 puts real +-1 quanta on ~2/3 of bodies). Corrugation
+fixed: comb teeth every 8 ch at every n. Ops numbers reproduce exactly (mean burst-window
+2.085M vs quiet 1.592M = 1.31x; worst burst window 2.254M = 1.42x quiet median — the
+walk-dominated conclusion holds). Unflown, as the dossier says: mixed fleet+thermal, the
+wall-reflection train, free space.]
+[Checker2, adversarial — every probe confirms, and the regime boundary is now flown
+from three more directions (flights in /tmp/adv, digests in check2.md): clean-tree
+rebuild of patch.diff gives digest-identical tsvs on three arms; sigma_y = 1 quantum
+kills (one-shot, F64_late 0.9-1.1, maxW 3.2x); teeth every 8 ch confirmed at n =
+400/1600/6400; the ops pair reproduces exactly (2,085,467 burst vs 1,591,692 quiet =
+1.310x on isotropic q/256 at n = 6400). NEW beyond both checkers: (a) OBLIQUE — fleet B
+given a coherent +q/8 transverse drift (sigma = 0, no jitter, zero randomness) reads
+the identical one-shot signature (maxW 3.05x, F64_late 0.9, width 2.94*extent): the
+kill condition is transverse-velocity MISMATCH, not dispersion randomness. (b)
+UNEQUAL — n/2 vs n/4 fleets, ky = 0 both, columns aligned: the TRAIN stands (6 peaks,
+period 640, amp 0.951, F64_late 935, conc 18.6, maxc = n/4 per chronon), so the
+operative condition is exact integer ky-equality + column alignment + no jitter;
+"head-on swap symmetry" is a loose name (no mirror exists at unequal sizes) — the
+dossier's stated condition predicts both directions correctly. (c) MIXED (the game
+case, coherent n/2 fleet through a thermal n/2 cloud in half the box): NO 3x season
+(worst 64-ch window 1.51x late mean) but NOT flat either — persistent m_late 8.2% vs
+thermal 2.4-2.8%, F64_late 9.2-9.7, late rate 1.26x thermal: the fleet stays coherent
+through a dilute cloud forever; "flat forever" is a fleet-fleet statement (bounded
+exposure, permanent modulation). Also verified in worlds.rs:154: galaxy draws drift as
+random integers within +-q/4 with dispersion +-q/16 and jitter +-q per component, so
+GENERATED fleets always carry transverse structure — the train needs authored fleets.]
+
 
 **NEW (ded5, second author on 84b2 — the checker's named gold experiment flown: the
 ringdown is EXTINCT at n = 12800 within the horizon ∝ side; the 3.43% m reading was the
@@ -108,6 +185,13 @@ semantics (87.5% exchange no impulse) (f50d).
 
 ## Refuted
 
+- **NEW — "coherent formations keep bunching violently as a standing allocator-visible
+  danger" (checker2's fleet arms read as a sustained case, and this run's own P1
+  expectation)**: for any transverse structure >= 1 quantum the crossing is one-shot and
+  the box settles flat — the sustained train exists ONLY with matched transverse velocity
+  and aligned columns (sigma_y = 0, no jitter), where it survives arbitrary sigma_x
+  (20261019-0325-taleb-90b7).**
+
 - **NEW — "whole-run m at n = 12800 reads 3.43% against the ≤ 2.4% letter, so the
   m-bound does not extend past n = 6400" (checker's adversarial arm, horizon fixed at
   8192)**: the reading is the window, not the law — at horizon ∝ side (24576) the same
@@ -159,13 +243,13 @@ semantics (87.5% exchange no impulse) (f50d).
 
 1. **Freeze the trapping-statistics rung on the shipped dense order** — the exact twin
    (f50d) is the positive control; include the survival/death class (b9be's warning).
-2. **The formation burst law — now the only unpriced half of checker2's note**: the
-   coherent-fleet Fano (bulk-drift fraction, dispersion, the n/2-pair synchronized
-   shock). The scale-free instrument is late-window F64, not raw Fano and not raw m
-   (ded5: raw late-m rides a 1/√mean64 floor), so fleet arms compare across n; the
-   wall-ram and head-on arms of checker2 are the seeds. A fleet's *sustained*
-   coherence is the opposite case from the ringdown — worth one run at the fleet
-   scene with the F64_late instrument.
+2. **ANSWERED (90b7)** — the formation burst law is priced with the F64_late
+   instrument: one-shot 3x for any transverse structure (see Current best); a standing
+   train only under exact transverse-velocity equality (survives arbitrary sigma_x;
+   checker: binary — sigma_y = 1 quantum kills);
+   the comb (n/2 contacts per chronon, 21x concentration) only exactly aligned. Left
+   for a next run: the mixed fleet+thermal scene (a fleet crossing a live belt — the
+   game case), the wall-reflection train, and free-space one-crossing geometry.
 3. **The ringdown beyond n = 12800 and its onset law**: extinction at 12800 is flown
    (ded5: all-≤6 from blocks 5-7, t 10240-14336; tail = the scale-free baseline
    F64_late 1.1-2.6); onset grew 1.7-2.5× across the octave vs side ratio 1.41 —
@@ -212,3 +296,4 @@ different error models at different Q, as recorded.
 - 20261018-2040-dynamics-834e (awaiting grade): dense order to φ=0.78 — no avalanche
 - 20261018-2312-dynamics-84b2 (this run): breathing mode priced — identity, ringdown
 - 20261019-0141-second-20261018-2312-dynamics-84b2-ded5 (this run): 12800 flown to
+- 20261019-0325-taleb-90b7 (taleb, awaiting grade): formation burst law — one-shot 3x; train needs swap symmetry

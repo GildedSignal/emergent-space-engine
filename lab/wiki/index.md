@@ -26,16 +26,16 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
 | [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
-| [chaos-shadowing](chaos-shadowing.md) | open | 17 | (no current best yet) |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [allocator-ratchet](allocator-ratchet.md) | open | 18 | (no current best yet) |
-| [representation-premises](representation-premises.md) | open | 18 | **Prior standing record, unchanged (compiled from the runs below):** |
+| [chaos-shadowing](chaos-shadowing.md) | open | 18 | (no current best yet) |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
+| [representation-premises](representation-premises.md) | open | 20 | **Prior standing record, unchanged (compiled from the runs below):** |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
-| [view](view.md) | open | 59 | **[20261018-2312-second-20261018-2155-spacex-9292-e3a4, second author on 9292] The broken window |
+| [view](view.md) | open | 60 | # The view: the observer's past light cone, lensing, kinked tubes |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
