@@ -1,0 +1,28 @@
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+   --> crates/universe/src/view.rs:938:13
+    |
+938 |             drop(r);
+    |             ^^^^^-^
+    |                  |
+    |                  argument has type `&mut FarRec`
+    |
+    = note: `#[warn(dropping_references)]` on by default
+help: use `let _ = ...` to ignore the expression or result
+    |
+938 -             drop(r);
+938 +             let _ = r;
+    |
+
+log n_frames serve_p50 serve_max near_p50 due_p50 due_max ops_max ops_steady_max drift_max wrong cells_wrong missing extra tier_err digest_bad served_B end
+ctl10000.log 90 1.07 1.18 2.91 0.0 253.49 0.0 0.0 0.0 0 0 0 0 0 0 296534.55555555556 bd6f984003f41c70
+ctl100000.log 40 10.45 12.93 2.66 0.06 2358.28 0.0 0.0 0.0 0 0 0 0 0 0 293925.775 82aa152cd2bc8486
+ctl_noserve.log 90 None None None None None None None None 0 0 0 0 0 0 None bd6f984003f41c70
+sum1000.log 120 0.09 0.31 3.13 0.0 18.79 1434.0 1434.0 4.24e-16 0 0 0 0 0 0 220047.09166666667 5dc903e67c14912e
+sum10000.log 90 0.19 0.21 2.86 0.0 255.93 19434.0 19434.0 1.08e-15 0 0 0 0 0 0 296612.0 bd6f984003f41c70
+sum100000.log 40 0.16 0.19 2.78 0.06 2365.07 199434.0 199434.0 2.92e-15 0 0 0 0 0 0 293848.775 82aa152cd2bc8486
+sum100000_refly.log 40 0.16 0.37 2.93 0.07 2636.35 199434.0 199434.0 2.92e-15 0 0 0 0 0 0 293848.775 82aa152cd2bc8486
+sum100000_seed7.log 40 0.14 0.23 3.15 0.05 2381.79 199434.0 199434.0 3.13e-15 0 0 0 0 0 0 293951.55 41ccb6a00206e56a
+sum10000_f1e3.log 90 1.21 1.4 2.91 0.06 258.08 19434.0 19434.0 5.65e-16 2 2 0 0 0 0 1326799.0333333334 bd6f984003f41c70
+sum10000_long.log 300 0.19 0.24 3.19 0.0 257.04 19434.0 19434.0 1.08e-15 59 118 0 0 0 0 297152.58 8f8855f173a092f5
+sum300000.log 20 0.15 0.2 2.81 0.16 7522.95 599434.0 599434.0 5.59e-15 0 0 0 0 0 0 286458.7 c3943af5df382599
+REGEN DONE
