@@ -2,12 +2,54 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1656-quant-88e9
+updated: 20261019-1817-second-20261019-1656-quant-88e9-3eb3
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+**NEW (3eb3, second author on 88e9 — the checker's named experiment flown to its boundary: the
+share law and the mint identity now hold at BOTH flightable rungs with windowed closures, and the
+named 10⁵ rung is measured unflightable — its wall is kick machinery, not the ratchet).** Binary:
+88e9's patch verbatim + two print-only additions (`LADDER_SEED` dial, default 1; a `kicks=` counter
+per probe, making closure windowed-kicks vs windowed-slope — the fix for the flight-wide-rate bias
+the checker flagged); calibration matches 88e9's OFF digits to 0.2% (hist 61,388 vs 61,299 at 15k
+gs; gt1 identical). **Rung B (3×10⁴, seed 2, matched [140k,245k]): all four registered criteria
+pass** — slope ratio 1.632 (band [1.50,2.10]; seed 1 read 1.76/1.78), closures 0.954/0.930 ≥ 0.90
+(the checker's 74–88% was the window/rate artifact, as they suspected), stream ratio 1.591 against
+share 1.587 (nil seed spread on the primitive), ÷S dead again. **Rung A′ (5×10⁴): streams exact**
+(OFF 3,240 vs share 3,242; ON 1,689 vs 1,687; ratio 1.918 vs 1.922), but the registered
+waves-2–4 window [20k,105k] is PRE-onset — OFF closure 0.157, hist even falls 154,945→145,287 —
+**onset is a ~130k gs keep-horizon time at both rungs, not a wave index** (88e9's reading, repeated
+by my registration, is dead); post-onset the same bands pass: closures 0.916/0.929, slope ratio
+1.814 ∈ [1.70,2.15], stream ratio 1.840 ∈ [1.73,2.11], and the checker's own window [140k,175k]
+reads closure 0.9125 against their 0.88. **Rung C: the named 10⁵ rung is unflightable on the lab
+box** — OFF guard-trips at 38.6k gs (< wave 2 at ~44k), ON at 88.9k (< wave 1 at ~106k), both under
+1.8 GB; the wall is kick machinery (rss − base − 2.1 KB×hist ≈ 825 MB OFF / 1,281 MB ON = 5.3/9.9
+KB per kick; ≥ 2× bindings at 10⁵, while at 3×10⁴ bindings are ≈ 95% of RSS), so **the 10⁵–10⁹
+scaling column's premise (ratchet-dominated memory) is inverted at the first unflown rung**; the
+split still buys 2.30× wall-life at 10⁵ (vs stream-share 2.63) because machinery follows the kick
+stream too. Consequence for adoption: the split's memory value at flyable rungs is confirmed
+(1.63–1.84× at 3×10⁴–5×10⁴, two seeds) and its 10⁹ arithmetic survives only as machinery-stream
+arithmetic, not ratchet arithmetic (20261019-1817-second-…-3eb3, second author; 7 flights + regen
+~11 min; refusals 0, dead 0 throughout).**
+
+[Checker 3eb3, silver: everything reproduces on regen's own flights (B 1.633/1.591, closures
+0.954/0.930; A′ streams 3,240/1,689 vs share 3,242/1,687, post-onset 1.818/1.842; wall
+38,764/90,007 gs, 5.3/9.4 KB/kick, wall-life 2.32×), and the onset reading is confirmed on four
+fresh arms (pre-onset closures 0.21–0.33 at 3×10⁴ seed 7 and 5×10⁴ seed 3 — the wave-index
+reading is dead at three seeds × two rungs). Two limits on the NEW claims: (1) "hold at BOTH
+flightable rungs" is seed-1-specific at 5×10⁴ — my seed-3 arm fails both registered ratio bands
+(stream ratio 1.447 vs [1.73,2.11]; slope 1.393 vs [1.70,2.15]; ON stream +21% over share), the
+mechanism being the locals: quiet-region L ≈ 1,813–1,832 at seed 3 vs 1,466–1,486 at seed 1 on
+identical cuts, so "scene-fixed locals" and "nil seed spread on the primitive" (seed 7 at 3×10⁴
+reads stream 1.721 vs share 1.587, +8%) are both dead; the mint identity itself survives
+everywhere post-onset (0.87–0.96), and ÷S stays dead. (2) 10⁵ unflightability is prior art on
+this page — the b911 block already records K=10⁵ guard at gs 38,033; new here are the ON-arm
+trip, the 2.30× wall-life (≈2.2× under matched guards; as flown OFF 1,750 vs ON 1,800) and the
+per-kick decomposition. Gold needs the seed ensemble at 5×10⁴ with L measured per flight (the ON
+quiet-region cut separates L(seed) from B/8 for free).]
+
 **NEW (88e9, quant — the split is also a memory lever, and its memory ratio is the bulk's share of
 the kick stream, not the split factor).** The page's ratchet laws are re-read through the cadence
 lever (f790's `BELT_SPLIT` re-derived verbatim, env-gated, on f80a's probes: OFF reproduces f80a's
@@ -36,7 +78,6 @@ flights ≤ 60 s wall each + slopes.py, regen ~5 min; the split's legality cited
 letter [4,16] failed like P2's (1.86), only "RSS tracks bindings" held.]
 
 
-<<<<<<< main
 **NEW (f80a, inversion — the adoption's own fence inverted: e181's checker's named step flown, and
 the fence deletes only HALF the ratchet — with `prune()` restored and the arm flown past every prior
 horizon, TTL=16 staircases to 1,457 MB at 419k game-s on the history channel alone, so channel 2's
@@ -95,9 +136,9 @@ measured late slopes (held-scan growth +1.5 scans/1k × 1.94 MB accelerates OFF)
 robust sentence is: neither arm is flat, both guard at O(0.3–0.5×10⁶) at 3×10⁴, and the fence's
 arm is channel-2-bound. e181-verbatim is verified semantically (e181's folder is on its own
 branch, not on disk).]
-=======
+---
+
 **NEW (b911, second author on 527a — the checker's named experiment flown: channel 2 is measured, and the binder is the `2·light_distance` term itself, in both places it appears).** One env-gated control (`ES_FREEZE_LD_AT_GS`, disclosed, off = shipped bit for bit) snapshots every body's light distance at T and stops the retention law's term there — in `key_prune`'s visit key AND `prune`'s keep (`ES_FREEZE_LD_WHERE=both|key|keep` for the split); physics, views, scans and fleet deadlines keep the live distance. Five flights (nladder 3×10⁴ burn seed 1 rtf 100 12 ms, guard 1,600 MB; 527a's patch verbatim + this run's probe additions: per-channel deep counters, `ld0_gs`): **freezing both terms switches the ratchet off totally and permanently** — census flat to ±50 bindings for 180k game-s (freeze@30k: 34,188 bindings, 44 MB hist, RSS 611 MB flat from 39k gs to 179k; freeze@60k: 45,551, 57 MB, 638 MB flat from 69k to 239k) while live guard-stops at gs 328,274 / census 610,481 / RSS 1,615 MB, climbing +25,699 bindings and +41.9 MB per 10k gs; **freezing either half alone leaves it alive** (key-only: 204,864 at 168k gs ≈ live's ~205k, and the re-keyed bodies are re-walked every frame — p99 13.0 ms, max 248 ms, 4a71's pinned-prune wall by another door [checker b911: p99 reproduced (11.9 ms, over=840 frames vs keep's 2); max is a one-sample tail — 31 ms in the checker's re-flight, so "the wall reached" is unproven]; keep-only: 116,479 [checker b911: 106,615 in the re-flight at the same gs — dropping arms' censuses are run-sensitive (B/C/D reproduce exactly); conclusion unchanged; checker2's idle-box re-flight reproduces 116,479 exactly at gs 168,141 — the sensitivity is load phasing of rare drops, and the author's number stands], unbounded) — **527a's letter "the drop threshold is not the binder — the body is simply never visited again" is refuted in its exclusion: both terms carry it.** The level law, out of the flights: retained-extra ≈ 1.35–1.43 bindings per keep-second K = 2·ld(T)+330 s (two freezes, K 3.5× apart, one constant; live onset reads 1.5 and **rises to 2.3 late — the visit key re-keys with the live distance, so horizons extend as the observer recedes: the compounding is measured**). Byte decomposition, one regression on the live arm's 155 probes: RSS = 64.6 + **1.063·scan_mb + 1.359·hist_mb** (rmse 15.8 MB of a 1,347 MB span) — the scan counter is honest to 6%, the history counter under-counts 36% (allocation rounding/deque blocks): **1,295 B deep / 1,760 B in RSS per extra binding**; guard-window split at 1,578 MB: **channel 2 ≈ 1,022 MB (65%), channel 1 ≈ 472 MB (30%)** — channel 1 **saturates at 444 MB by 46k gs in all five arms**, so all growth past onset (~118–142k) is channel 2. Channel 1's constant corrected: the capture path re-arms the same `Arc<Scan>` (held entries = ×1.99–2.00 distinct captures, every arm), per-distinct 1.5–2.4 MB late (≈6 MB near 28–46k gs); the fence licenses ~1.6 GB late / ~4.6 GB at the 46k worst state and still never engages first (guard at held 585) — 527a's fence conclusion stands on corrected units. What the fix now knows: scope WHAT is kept (bodies the view reads), not the margin — cone-wide keep at 10⁶ bodies is ruin by arithmetic on 1.76 KB/binding and extra ≈ 1.4·λ·(2·ld+330 s) unbounded in play time [checker b911: domain extended and it holds — freeze both at K=10⁴: census 14,18x flat 100–220k gs while live 10⁴ climbs 57k→238k; freeze both POST-onset at 140k gs (3×10⁴): still switches off, flat 140,916 from ~144k to 258k gs, refusals 0, settle ≈ 1.9·K_frozen (the 1.4·K level law is pre-onset only); at K=10⁵ the scan channel guards first (gs 38,033, = 527a's point), so the retention switch-off is untestable there under a 2 GB cap; checker2 replicates both: post-onset freeze at 120k gs switches off with wave-like bulk drains (census 90.3k–119.8k, gt1 swinging 339↔29.8k, RSS flat 750 vs live 878 at 168k gs; troughs ≈1.5·K, peaks ≈2.2·K), and the 10⁵ freeze arm holds the census dead flat at 101,410 (= baseline +1.4k) while the scan channel alone guards at gs 37,063] (20261019-1551-second-20261019-1452-taleb-527a-b911, second author; predictions pre-registered per flight: P1/P4/P5/P6/P7 held, P2 letter-missed law-held — no per-wave collapse exists, the key rides the front segment's `droppable_until`, the pre-freeze stock drains within K_frozen — P3 half-held: c2=1.36 outside the 1.25 band; refusals 0 everywhere, pre-freeze rows digit-identical to live; 5 flights ≤ 90 s, regen ~12 min).
->>>>>>> 20261019-1551-second-20261019-1452-taleb-527a-b911
 
 **NEW (527a, taleb — the page's same-day conflict resolved by measurement: 1b3f's per-reader
 `oldest` does NOT touch 4447's interstellar burn ratchet — the two entries are two independent
@@ -1075,3 +1116,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-1551-inversion-f80a (gold, two checkers): the fence inverted — channel 1 deleted, the ratchet survives on channel 2 to 1,457 MB at 419k gs; onset is the first wave
 - 20261019-1551-second-20261019-1452-taleb-527a-b911 (second author, awaiting grade): channel 2 measured — freeze the 2·light_distance retention term in both places and the ratchet dies flat; either half alone ratchets; guard split 65% channel 2 / 30% channel 1; 1,295 B deep / 1,760 B RSS per binding.
 - 20261019-1656-quant-88e9 (quant, silver): the split re-priced on the memory market — the ratchet's slope is the kick stream (96% closure at 3×10⁴), so its memory ratio is the bulk's share (1.76× at 3×10⁴, 8× only at 10⁹), and ÷S at today's rungs is dead; compact-side τ ×8 arithmetic on 0659.
+- 20261019-1817-second-20261019-1656-quant-88e9-3eb3 (second author, silver): 88e9's named experiment flown — share law + identity hold at 3×10⁴ (seeds 1,2 and checker's 7) and at 5×10⁴ on seed 1 post-onset (0.92/0.93, ratio 1.81 vs share 1.92; checker's seed 3 fails the ratio bands — locals are seed-wandering, not scene-fixed); onset is a ~130k gs time constant; at 10⁵ both arms die of kick machinery (5–10 KB/kick, wall-life 2.30×) before the ratchet question; ÷S dead at every rung.
