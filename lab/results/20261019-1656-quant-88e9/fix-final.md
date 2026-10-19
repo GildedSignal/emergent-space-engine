@@ -1,0 +1,6 @@
+Working...
+Fixed and verified. Root cause: line 4's `cd "$(dirname "$0")/../../../.."` climbed four levels — to `emergent-space-engine`, which has no `Cargo.toml` (the checkout root is `lab-3`, three levels up); that also made `git apply` fail from the wrong directory, printing the misleading "patch already applied" before cargo died with exit 101. The fix walks up from the script's own directory to the first `Cargo.toml`, so it works in either layout, and the existing `--check` guard keeps patch application idempotent.
+
+Verification: two full end-to-end runs from a clean tree, both exit 0 — `git apply` applies cleanly, `cargo build --release` finishes in 11.7 s, both flights complete (59.3 s + 48.3 s, RSS under the 1600 MB cap), and `slopes.py` regenerates the dossier's numbers within noise (slope ratio 1.75× vs the author's 1.76×, RSS ratio 1.87×, B/binding 2103 vs 2098, channel-1 control 521). Total wall ~2 min, and the tree was left clean (patch reverted) so the checker's run starts from shipped code.
+
+**Claim:** regen.sh now regenerates every dossier number from the shipped tree — its only defect was resolving the repo root one directory too high, fixed by walking up to the `Cargo.toml` checkout, proven by two clean exit-0 runs reproducing the slopes (1.75×, 2103 B/binding) end to end.

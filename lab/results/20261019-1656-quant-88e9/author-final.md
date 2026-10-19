@@ -1,0 +1,4 @@
+Working...
+The run is complete: predictions pre-registered before the decisive flights (P2's naive law killed by its own falsifier), both arms flown on the shipped scene with the instrument matched to f80a's digits, dossier/regen/wiki written.
+
+**Claim:** the cadence split is also a memory lever whose ratio is the bulk's share of the kick-mint stream — the history ratchet's post-onset slope *is* the total kick stream (96.1% measured), so `BELT_SPLIT` cuts the ratchet 1.76× at 3×10⁴ (belt = 42% of the stream; RSS 1,253 → 945 MB at 245k gs, 2,098 B/binding), rising as (B+L)/(B/8+L) to 2.63× at 10⁵, 6.27× at 10⁶, 8.00× at 10⁹ — and on the compact side the same law gives 0659's residency dwell τ = 43.6 → 349 game-s for free (p = 1.0), with the scan channel measured untouched and the CPU crest halved on the same flights.
