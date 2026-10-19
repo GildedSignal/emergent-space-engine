@@ -1,0 +1,22 @@
+arm	desc	retained/body	hist_max	bpb	RSS MB	gap s	over	p99 ms	game s	kicks/body/gs	refused	handoffs	doll seq
+ctrl-70k	control (no pin, shipped rule)	1.016	37	1417	155	0	0	11.939	79162	8.896e-05	0	7	[(0, 2)]
+pin6e9	global arm: pin D=6e9 ticks	2.503	1447	1726	285	29553	29	11.947	78403	8.932e-05	0	7	[(0, 2)]
+pin12e9	global arm: pin D=1.2e10	5.395	2877	2307	389	59106	595	20.701	71354	8.907e-05	0	5	[(0, 2)]
+reader-pin6e9	per-reader + pin D=6e9	1.016	37	1417	156	29553	0	11.937	79142	8.897e-05	0	7	[(0, 2)]
+reader-pin12e9	per-reader + pin D=1.2e10	1.016	37	1417	156	59106	0	11.939	79160	8.896e-05	0	7	[(0, 2)]
+reader-nopin	per-reader, no pin	1.016	37	1417	156	0	0	11.936	79142	8.897e-05	0	7	[(0, 2)]
+reader-pin67M	negative: per-reader + D=2^26	1.016	36	1417	156	330	0	11.943	19193	1.038e-04	0	0	[(0, 2)]
+ctrl-burn	control burn (SOI switch)	0.021	17	1211	99	0	0	10.863	2398	7.847e-05	0	1	[(0, 2), (948, 0)]
+reader-burn	burn + per-reader + pin D=1.2e10	0.021	17	1211	99	59106	0	10.848	2398	7.847e-05	0	1	[(0, 2), (948, 0)]
+reader-5ms	5 ms corner + per-reader + pin	0.022	24	1211	82	59106	2	4.416	1363	6.653e-05	0	0	[(0, 2)]
+
+ctrl-70k: kicks 211468 events 394199 lost 13 held_ref 0 dead 0 alive True seen 30046 gt1 103
+pin6e9: kicks 210290 events 391718 lost 13 held_ref 0 dead 0 alive True seen 30046 gt1 330
+pin12e9: kicks 190838 events 361489 lost 13 held_ref 0 dead 0 alive True seen 30046 gt1 30046
+reader-pin6e9: kicks 211442 events 394163 lost 13 held_ref 0 dead 0 alive True seen 30046 gt1 103
+reader-pin12e9: kicks 211468 events 394198 lost 13 held_ref 0 dead 0 alive True seen 30046 gt1 103
+reader-nopin: kicks 211442 events 394163 lost 13 held_ref 0 dead 0 alive True seen 30046 gt1 103
+reader-pin67M: kicks 59836 events 91292 lost 11 held_ref 0 dead 0 alive True seen 30048 gt1 106
+ctrl-burn: kicks 5651 events 17676 lost 23 held_ref 0 dead 0 alive True seen 30050 gt1 107
+reader-burn: kicks 5651 events 17676 lost 23 held_ref 0 dead 0 alive True seen 30050 gt1 107
+reader-5ms: kicks 2723 events 8433 lost 17 held_ref 0 dead 0 alive True seen 30056 gt1 111

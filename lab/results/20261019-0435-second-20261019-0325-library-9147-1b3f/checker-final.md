@@ -1,0 +1,11 @@
+Working...
+Check complete. **Grade: gold** — `check.md` written, the author's wiki page corrected in place, tree restored to the runner's state (patch reverse-applied, nothing committed).
+
+**What I did and found:**
+
+- **Reproduction (independent, from source):** built the *unpatched* shipped binary myself — its `ladder_digest` output md5-equals both the patched flag-off and flag-on outputs (`d8593cc4…`), so "off = shipped bit for bit" is verified against the real shipped binary, not asserted. Re-derived every dossier row from the regen logs: reader arms = control to the digit (kicks 211,468; events ±1 in 394k), global staircase 2.503/5.395 per body, burn arms identical, gap = D exact.
+- **Two adversarial arms outside the author's grid, both holding the deletion:** K = 10⁵ (one rung up): reader arm 1.007/body, 492 vs control 490 MB, 3 over, p99 11.95 — the global arm there is 809 MB / 23 % over / p99 61 ms (4a71's checker). D = 2.4×10¹⁰ (next octave): 1.016/body, 158 MB, gap = 2D exact.
+- **The correction (the run's one overstatement):** using the patch's own bisect modes I showed the soundness battery is **vacuous on the cross-doll axis it was flown to close** — mode 3 (cross-doll holds deleted) and even mode 4 (the oldest term deleted *entirely*) pass everything byte/count-identical to shipped: digest 13/13 and 12/12, coast 79k gs, and the SOI-crossing burn. At one star the oldest term never binds, so "byte-identical" certifies no threshold choice, not the reader relation's completeness; the first binding test needs a real far doll (E9) — the author's own wrong-making point 1, honest there but overstated in the P4/P5 headline. Page now says "as measured" and carries a checker bracket with this finding.
+- **Novelty:** clean — the scope is 4a71's idea, 9147 priced it and its checker named exactly this flight; no HISTORY entry or branch flew it before.
+
+Gold rather than silver because the named experiment is flown, pre-registered predictions all held, reproduction is triple (author, runner, me), the deletion holds on both axes I attacked, and it deletes the priced 7.78–10.75 MB/body far-item term (9.2 TB at 10⁶) at ~0 frame cost — the vacuity finding corrects the *framing*, not any load-bearing number.
