@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261019-1906-quant-7b6f/`: predictions.md (pre-registered), dossier.md, regen.sh (~4 min), analyze.py, 4 flight logs (140 channel-census probes), wiki/nladder.md with the result folded in; the patch (env-gated fence, print-only census, Linux footprint) is saved by the runner.
+
+**Claim:** the 10⁵ rung's "kick machinery, 5.3–9.9 KB/kick" wall is the interstellar held-scan channel — measured directly at 82–100% of the 1,357 MB guard growth (171 held scans pinning 9.85M root-doll candidates; 3eb3's subtraction reproduced at 7.0–7.4 KB/kick as collinearity, store Δ only 19 MB), and with e181's TTL fence the same rung flies 120,000 game-s at 635 MB with a true per-kick residual of 0.03–0.1 KB/kick — no per-kick memory law exists at 10⁵, and the rung is flightable today on the two already-measured channel fixes.

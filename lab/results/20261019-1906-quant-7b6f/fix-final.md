@@ -1,0 +1,4 @@
+Working...
+Fixed and verified.
+
+**Claim:** `regen.sh` failed because its `cd ../../..` assumed the checkout root sits three levels above the run folder, but this runner nests it one deeper (`…/emergent-space-engine/lab-2/`), so cargo got a workspace with no `Cargo.toml`; it now walks up from the script's own directory to the first `Cargo.toml`, and a full end-to-end run (patch applied → `cargo build --release -p emergent-universe --example nladder` → arms A–D → `analyze.py`) exited 0 in 2m23s with every dossier headline reproduced: arm A guard at 1,619 MB rss (guard=true), arm B completing 72,000 frames = 120,000 game-s at 635 MB end rss with held=0 and hist_total=158,620 at the final probe, and arms C/D printing the channel tables (d: cand_max 29,715, scan slope 32.2 MB/1k gs) — tree restored clean afterward, only `regen.sh` changed.

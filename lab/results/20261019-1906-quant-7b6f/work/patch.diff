@@ -1,0 +1,262 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..8a5d662c 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,34 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// (resident now, its peak over the process's life) in bytes, from /proc on Linux (this lab box) and rusage on macOS.
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    if std::fs::read_to_string("/proc/self/status").is_err() {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        return (buf[9], buf[30]);
++    }
++    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut rss = 0u64;
++    let mut hwm = 0u64;
++    for line in s.lines() {
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            hwm = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        } else if let Some(v) = line.strip_prefix("VmRSS:") {
++            rss = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
+     }
+-    (buf[9], buf[30])
++    (rss, hwm)
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -46,6 +60,10 @@ fn main() {
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
++    // The lab's knobs (all optional): a probe every PROBE game-s, a resident-memory guard that stops the flight, a wall cap.
++    let probe_every: f64 = std::env::var("LADDER_PROBE").ok().and_then(|s| s.parse().ok()).unwrap_or(0.0);
++    let guard_mb: u64 = std::env::var("LADDER_RSS_MB").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
++    let cap_s: u64 = std::env::var("LADDER_CAP_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55);
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+@@ -53,7 +71,6 @@ fn main() {
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+-    println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+@@ -63,8 +80,11 @@ fn main() {
+     let mut alive = true;
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    let mut next_probe = probe_every;
++    let mut guard_hit = false;
++    let t_first_frame = p.u.now;
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs(cap_s) {
+             truncated = true;
+             break;
+         }
+@@ -94,6 +114,33 @@ fn main() {
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+         }
++        if probe_every > 0.0 && f >= 60 {
++            let gs = (p.u.now - t_first_frame) as f64 * TICK_SECONDS;
++            if gs >= next_probe {
++                next_probe = gs + probe_every;
++                let (rss_p, _) = footprint();
++                let c = p.u.probe_census();
++                let s = late_stats.unwrap().0;
++                println!(
++                    "probe: f={f} gs={gs:.0} wall_s={:.1} rss_mb={:.0} kicks={} mints={} expired={} held={} encounters={} hist_total={} gt1={} hist_max={} store_mb={:.0} scan_cand={} scan_mb={:.0} scan_cand_max={}",
++                    t_start.elapsed().as_secs_f64(), rss_p as f64 / 1e6, p.u.stats.kicks - s.kicks, p.u.scan_mints, p.u.scan_expired, c.held, p.u.stats.encounters - s.encounters,
++                    c.hist_total, c.gt1, c.hist_max, c.store_bytes as f64 / 1e6, c.scan_cand, c.scan_bytes as f64 / 1e6, c.scan_cand_max
++                );
++            }
++            if guard_mb > 0 && footprint().0 > guard_mb * 1_000_000 {
++                let (rss_p, _) = footprint();
++                let c = p.u.probe_census();
++                let s = late_stats.unwrap().0;
++                println!(
++                    "guard: f={f} gs={:.0} rss_mb={:.0} kicks={} mints={} expired={} held={} encounters={} hist_total={} gt1={} hist_max={} store_mb={:.0} scan_cand={} scan_mb={:.0} scan_cand_max={}",
++                    (p.u.now - t_first_frame) as f64 * TICK_SECONDS, rss_p as f64 / 1e6, p.u.stats.kicks - s.kicks, p.u.scan_mints, p.u.scan_expired, c.held, p.u.stats.encounters - s.encounters,
++                    c.hist_total, c.gt1, c.hist_max, c.store_bytes as f64 / 1e6, c.scan_cand, c.scan_bytes as f64 / 1e6, c.scan_cand_max
++                );
++                guard_hit = true;
++                truncated = true;
++                break;
++            }
++        }
+         if !rec.alive {
+             alive = false;
+             break;
+@@ -157,7 +204,7 @@ fn main() {
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
+     println!(
+-        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+-        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
++        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} guard={guard_hit} mints={} expired={} wall_s={:.1}",
++        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), p.u.scan_mints, p.u.scan_expired, t_start.elapsed().as_secs_f64()
+     );
+ }
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..b7b78f7f 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -43,6 +43,10 @@ pub trait Encounters: Send + Sync {
+ /// is given (the bodies' histories may have moved on, been pruned, or the bodies died since).
+ pub trait Held: Send + Sync {
+     fn answer(&self) -> Vec<Encounter>;
++    /// (candidates held, bytes they pin directly, the tick the scan was minted at): a print-only readout for the lab's memory probes.
++    fn pinned(&self) -> (usize, usize, Tick) {
++        (0, 0, 0)
++    }
+ }
+ 
+ /// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
+@@ -115,14 +119,17 @@ impl PlayerNeighbourhood {
+     }
+ }
+ 
+-fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+-    Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+-}
+-
+ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+     }
++    fn pinned(&self) -> (usize, usize, Tick) {
++        (self.candidates.len(), self.candidates.len() * std::mem::size_of::<(usize, Binding, Scalar)>(), self.t)
++    }
++}
++
++fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
++    Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+ }
+ 
+ impl Scan {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..14f99223 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -135,6 +135,19 @@ impl Stats {
+         self.kicks + self.opens + self.boundaries + self.handoffs + self.slices + self.decisions
+     }
+ }
++/// One line of the lab's memory census ([`Universe::probe_census`]): the channels that can hold bytes, each counted directly.
++#[derive(Clone, Copy, Debug, Default)]
++pub struct Census {
++    pub bodies: usize,
++    pub hist_total: usize,
++    pub gt1: usize,
++    pub hist_max: usize,
++    pub store_bytes: usize,
++    pub held: usize,
++    pub scan_cand: usize,
++    pub scan_bytes: usize,
++    pub scan_cand_max: usize,
++}
+ 
+ /// How a body is made: a tube of a doll from its orbit.
+ #[derive(Clone, Copy, Debug)]
+@@ -207,6 +220,9 @@ pub struct Universe {
+     /// ([`Universe::drain_scans`]); the log, the count and the hash below are as if each had been answered at once once
+     /// this is empty, and [`Universe::digest`] answers what is held.
+     scans: VecDeque<Arc<dyn Held>>,
++    /// Scans minted and expired by the lab's `ES_SCAN_TTL_S` fence (print-only counters; the fence itself is env-gated).
++    pub scan_mints: u64,
++    pub scan_expired: u64,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+     /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+@@ -270,6 +286,8 @@ impl Universe {
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
+             scan_ns: 0,
++            scan_mints: 0,
++            scan_expired: 0,
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+             enc_digest: [0; 32],
+@@ -1081,6 +1099,19 @@ impl Universe {
+         let t_prune = crate::prof::t();
+         self.prune();
+         crate::prof::add(crate::prof::PRUNE, t_prune);
++        // The lab's answer-or-expire fence (env-gated, off = shipped behaviour): a scan older than ES_SCAN_TTL_S game
++        // seconds is dropped unanswered at the frame's start. A law change when set (expired scans never log), for
++        // measurement only; e181 measured the answer side's price at <= 0.3% of encounters.
++        if let Ok(ttl) = std::env::var("ES_SCAN_TTL_S") {
++            let ttl: Tick = ttl.trim().parse::<f64>().unwrap_or(0.0).max(0.0) as Tick;
++            if ttl > 0 {
++                let cut = self.now.saturating_sub((ttl as f64 / crate::view::TICK_SECONDS) as Tick);
++                while self.scans.front().is_some_and(|s| s.pinned().2 <= cut) {
++                    self.scans.pop_front();
++                    self.scan_expired += 1;
++                }
++            }
++        }
+         let a = self.advance(target, budget);
+         let before = self.now;
+         self.now = a.horizon.max(self.now);
+@@ -1162,7 +1193,10 @@ impl Universe {
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            Some(held) => {
++                self.scans.push_back(held);
++                self.scan_mints += 1;
++            }
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1258,6 +1292,26 @@ impl Universe {
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n
+     }
+ 
++    /// The lab's memory census (print-only): history segments, per-body store bytes, and what the held scans pin directly.
++    pub fn probe_census(&self) -> Census {
++        let mut c = Census { bodies: self.bodies.len(), ..Default::default() };
++        for i in 0..self.bodies.len() {
++            let h = self.bodies.history_len(i);
++            c.hist_total += h;
++            c.gt1 += (h > 1) as usize;
++            c.hist_max = c.hist_max.max(h);
++            c.store_bytes += self.bodies.bytes_of(i);
++        }
++        for s in &self.scans {
++            let (cand, bytes, _) = s.pinned();
++            c.held += 1;
++            c.scan_cand += cand;
++            c.scan_bytes += bytes;
++            c.scan_cand_max = c.scan_cand_max.max(cand);
++        }
++        c
++    }
++
+     // ---- the digest -----------------------------------------------------------------------------
+ 
+     /// One digest of the whole universe: the dolls, every body's exact record, the fleets' battles and
