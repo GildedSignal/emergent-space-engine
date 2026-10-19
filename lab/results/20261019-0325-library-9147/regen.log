@@ -1,0 +1,42 @@
+== P1: five quotes byte-identical against a fresh Readwise export (falls back to the
+   cached work/readwise.json if READWISE_TOKEN is unset) ==
+fresh export: 9 pages, 770 books, 4590 highlights
+Q1 BYTE-IDENTICAL   Elon Musk | Walter Isaacson
+Q2 BYTE-IDENTICAL   Second-Order Thinking: What Smart People Use to Outperform | Farnam Street
+Q3 BYTE-IDENTICAL   The Art of Learning | Josh Waitzkin
+Q4 BYTE-IDENTICAL   Thinking, Fast and Slow | Daniel Kahneman
+Q5 BYTE-IDENTICAL   Brain Food: Gather and Synthesize | FS (Farnam Street)
+quotes verified: 5/5 (fresh fetch)
+
+== P2-P6: the composition (verdict arithmetic on page-cited constants + shipped code facts) ==
+P2 ticks/gs scale  : 2.027e+05 (4a71's own sentence implies the same)
+P2 window          : 1.26e+08 gs = 4576 wave periods
+P2 ruin per body   : 7.78-10.75 MB (median 9.15) vs 4a71's stated ~9.2 MB  -> covered: YES
+
+rung     global rule (far item live)          per-reader rule (near bodies)
+1e+05        778- 1.08e+03 GB  (ruin)            0.479-   0.496 GB  (the belt's own steady)
+1e+06   7.78e+03- 1.08e+04 GB  (ruin)             4.79-    4.96 GB  (the belt's own steady)
+1e+09   7.78e+06- 1.08e+07 GB  (ruin)         4.79e+03-4.96e+03 GB  (the belt's own steady)
+at 1e6 the global row is 7.78-10.75 TB (median 9.15 TB): 4a71's stated ~9.2 TB regenerated
+
+P3 control: max gap 2302.5 s < one period 27600 gs -> retained = 1 (measured (1.02, 1.07)) -> REGENERATED
+
+P4 retained/body vs play time (far window D = 1.26e+08 gs):
+elapsed_gs   global 1+floor(min(D,el)/27.6k)   per-reader 1+floor(doll_diam/27.6k)
+    1e+05              4                                1
+    1e+06             37                                1
+    5e+06            182                                1
+ 1.26e+08           4577                                1
+global: unbounded in play time while the item is in flight (4a71's measured staircase (2.93, 5.04)/body)
+per-reader: constant in play time, set by scene geometry (the doll's light diameter)
+
+P5 adoption surface (crates/universe/src/universe.rs):
+  ship_ticks uses: 8 (prediction <= 8: HELD) | `oldest` mentions: 17
+  doll-filtered calendar germ (`child_ticks`, filter `doll(i) != 0`): PRESENT
+  the global min: prune() peeks ship_ticks over ALL ships; apply() sets it with no doll filter
+  the change: oldest := min over per-doll calendars (the child_ticks pattern), one site
+
+P6 library: 770 books in the export; no systems/database engineering title among them
+
+Done. The dossier's table rows, the 9.15 TB median, the control regeneration, the
+play-time laws and the code-fact counts (ship_ticks uses, child_ticks germ) are all above.

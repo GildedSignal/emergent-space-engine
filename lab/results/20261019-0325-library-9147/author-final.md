@@ -1,0 +1,4 @@
+Working...
+Run complete. All deliverables in `lab/results/20261019-0325-library-9147/` (predictions.md P1–P6 all held; `regen.sh` ~5 s including a fresh 4,590-highlight export; wiki/nladder.md folded in; no shipped file touched, no git commands).
+
+**Claim:** E9's far-scheduling ruin — 4a71's ~9.2 TB at the 10⁶ rung for one pending item 4 ly out — closes by representation, priced with zero new constants: the per-reader horizon (only items that can READ body i hold its history, arrival-keyed) regenerates the ruin exactly (median 9.15 TB), regenerates the control from the gap law (2,302.5 s < one 27.6k-gs period → retained 1/body), bounds retention by scene geometry instead of play time, and adopts at one site (`oldest` in `Universe::prune`; the `child_ticks` germ already shipped), with cross-doll reads as the named falsifier — held by five verbatim lessons (Musk, FS second-order, Waitzkin, Kahneman, FS consistency), quotes 5/5 byte-identical.
