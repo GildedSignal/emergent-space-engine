@@ -1,0 +1,147 @@
+diff --git a/crates/lattice/examples/breathe.rs b/crates/lattice/examples/breathe.rs
+new file mode 100644
+index 00000000..46290382
+--- /dev/null
++++ b/crates/lattice/examples/breathe.rs
+@@ -0,0 +1,134 @@
++//! The breathing-mode probe (lab run 20261018-2312-dynamics-84b2, dynamics lens).
++//! Shipped `Chronon` + `Law::RelativisticV1`, Q = 2^20, the ladder's own trapped-gas
++//! genesis (worlds::gas mirrored so mass/radius spread knobs exist; with the default
++//! knobs the genesis is bit-identical to worlds::gas).
++//!
++//! Usage: breathe <n> <fill> <vmax_units> <seed> <burn> <horizon> [keep] [masses] [radii]
++//!   keep: 1 to keep contact events (band counts + pair stats; memory ~ n*rate*T*32B),
++//!         0 for totals only (Fano/spectrum arms).
++//! CSV on stdout:
++//!   # meta lines (params, genesis geometry, end stats)
++//!   T,tick,contacts,walls,xb0..xb7,yb0..yb7     (per tick; bands only when keep=1)
++//!   V,tick,svx0..svx7,svy0..svy7                (every 32 ticks: band velocity sums)
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Response};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Law, Stepper, World};
++use std::collections::HashSet;
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let n: u64 = a[1].parse().unwrap();
++    let fill: f64 = a[2].parse().unwrap();
++    let vmax: i64 = a[3].parse().unwrap();
++    let seed: u64 = a[4].parse().unwrap();
++    let burn: u64 = a[5].parse().unwrap();
++    let horizon: u64 = a[6].parse().unwrap();
++    let keep: bool = a.get(7).map(|s| s == "1").unwrap_or(false);
++    let masses: Vec<i64> = a.get(8).map(|s| s.split(',').map(|x| x.parse().unwrap()).collect()).unwrap_or_else(|| vec![1]);
++    let radii: Vec<f64> = a.get(9).map(|s| s.split(',').map(|x| x.parse().unwrap()).collect()).unwrap_or_else(|| vec![1.0]);
++
++    // Genesis: worlds::gas verbatim (same rng call order), plus mass/radius patterns.
++    let q: i64 = 1 << 20;
++    let radius = 1i64;
++    let side = ((n as f64 * std::f64::consts::PI / fill).sqrt()).ceil() as i64;
++    let per_row = (n as f64).sqrt().ceil() as i64;
++    let cell = side / per_row;
++    let mut rng = Rng(seed ^ n ^ 0x6A5);
++    let jitter = ((cell - 2 * radius - 1) / 2).clamp(0, 1);
++    let built: Vec<(Body, [i64; 2])> = (0..n as i64)
++        .map(|i| {
++            let p = [
++                (i % per_row) * cell + cell / 2 + rng.range(-jitter, jitter),
++                (i / per_row) * cell + cell / 2 + rng.range(-jitter, jitter),
++            ];
++            let v = [rng.range(-vmax, vmax), rng.range(-vmax, vmax)];
++            let m = masses[(i as usize) % masses.len()];
++            let r = (radii[(i as usize) % radii.len()] * q as f64).round() as i64;
++            (Body::new(i as u64 + 1, [p[0] * q, p[1] * q], v, m, r, Response::Bounce), p)
++        })
++        .collect();
++    let (bodies, genesis): (Vec<Body>, Vec<[i64; 2]>) = built.into_iter().unzip();
++    let phi = n as f64 * std::f64::consts::PI / (side * side) as f64;
++    let w = World::new(q, Some(Container { min: [0, 0], max: [side * q, side * q] }), bodies)
++        .expect("genesis world")
++        .with_law(Law::RelativisticV1)
++        .expect("law");
++    println!("# n {n} fill {fill} phi {phi:.4} side {side} per_row {per_row} cell {cell} vmax {vmax} seed {seed} q {q} burn {burn} horizon {horizon} keep {} masses {:?} radii {:?}", keep as u64, masses, radii);
++
++    let mut c = Chronon::new(w, keep).unwrap();
++    let mut pairs: HashSet<(u32, u32)> = HashSet::new();
++    let mut bodies_hit: HashSet<u32> = HashSet::new();
++    let mut prev = (0u64, 0u64);
++    let mut vtick = 0u64;
++    for t in 1..=burn + horizon {
++        let seen = c.log().events.len();
++        c.step();
++        let (con, wall) = (c.log().contacts - prev.0, c.log().walls - prev.1);
++        prev = (c.log().contacts, c.log().walls);
++        if keep {
++            let mut xb = [0u64; 8];
++            let mut yb = [0u64; 8];
++            for e in &c.log().events[seen..] {
++                if e.b == 0 {
++                    continue; // wall
++                }
++                let (ca, cb) = (((e.a - 1) % per_row as u64), ((e.b - 1) % per_row as u64));
++                let (ra, rb) = (((e.a - 1) / per_row as u64), ((e.b - 1) / per_row as u64));
++                xb[(((ca + cb) * 8 / (2 * per_row as u64)) as usize).min(7)] += 1;
++                yb[(((ra + rb) * 8 / (2 * per_row as u64)) as usize).min(7)] += 1;
++                if t > burn {
++                    pairs.insert((e.a.min(e.b) as u32, e.a.max(e.b) as u32));
++                    bodies_hit.insert(e.a as u32);
++                    bodies_hit.insert(e.b as u32);
++                }
++            }
++            {
++                let s: Vec<String> = std::iter::once(t.to_string())
++                    .chain([con, wall].iter().map(|x| x.to_string()))
++                    .chain(xb.iter().chain(yb.iter()).map(|x| x.to_string()))
++                    .collect();
++                println!("T,{}", s.join(","));
++            }
++        } else {
++            println!("T,{},{}", t, con);
++        }
++        if t % 32 == 0 {
++            vtick += 1;
++            let ww = c.world();
++            let mut svx = [0i64; 8];
++            let mut svy = [0i64; 8];
++            for b in &ww.bodies {
++                let band = (((b.id - 1) % per_row as u64) * 8 / per_row as u64) as usize;
++                svx[band.min(7)] += b.k[0];
++                svy[band.min(7)] += b.k[1];
++            }
++            println!("V,{},{}", t, {
++                let s: Vec<String> = svx.iter().chain(svy.iter()).map(|x| x.to_string()).collect();
++                s.join(",")
++            });
++        }
++        let _ = vtick;
++    }
++    let ww = c.world();
++    let (mk, maxdisp) = (
++        ww.bodies.iter().map(|b| ((b.k[0] as f64 * b.k[0] as f64 + b.k[1] as f64 * b.k[1] as f64).sqrt())).sum::<f64>() / n as f64,
++        ww.bodies
++            .iter()
++            .enumerate()
++            .map(|(i, b)| {
++                let d = [(b.x[0] - genesis[i][0] * q).abs(), (b.x[1] - genesis[i][1] * q).abs()];
++                d[0].max(d[1]) as f64 / q as f64
++            })
++            .fold(0.0f64, f64::max),
++    );
++    println!(
++        "# end contacts {} walls {} distinct_pairs {} bodies_hit {} mean|k| {mk:.0} maxdisp_lc {maxdisp:.3} ops {} maxbatch {}",
++        c.log().contacts,
++        c.log().walls,
++        pairs.len(),
++        bodies_hit.len(),
++        c.metrics().ops,
++        c.metrics().max_batch
++    );
++}
+diff --git a/lab/author-final.md b/lab/author-final.md
+new file mode 100644
+index 00000000..84d1d808
+--- /dev/null
++++ b/lab/author-final.md
+@@ -0,0 +1 @@
++The dense order's "breathing mode" is the genesis shock's acoustic ringdown of the box (period and lifetime ∝ side), and its Fano N-scaling is the identity Fano_w = w·ν·n·m² with the relative modulation m bounded at 1.3-2.4% — no coherence, no ratio tail, and no dephasing fix needed: the allocator danger checker2 flagged is priced, bounded, and self-extinguishing.
