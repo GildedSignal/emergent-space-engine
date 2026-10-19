@@ -1,0 +1,99 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..a3646103 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,50 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// (resident now, its peak over the process's life) in bytes. macOS: `proc_pid_rusage` (the
++/// footprint the shipped run reads). Linux (the lab): `/proc/self/status` VmRSS/VmHWM — the
++/// same instrument dcf1/d839 flew (print-only; the game never reads it).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(target_os = "linux")]
++    {
++        let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++        let mut rss = 0u64;
++        let mut hwm = 0u64;
++        for line in status.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                rss = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                hwm = v.trim_end_matches(" kB").trim().parse().unwrap_or(0) * 1024;
++            }
++        }
++        (rss, hwm)
++    }
++    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
++    {
++        (0, 0)
+     }
+-    (buf[9], buf[30])
++}
++
++/// The lab's long-flight gates, all env-gated and off by default (off = the shipped loop):
++/// `LADDER_CAP_S` raises the 55 s wall truncation; `LADDER_PROBE` prints one line every
++/// 500 game-s of presented time; `LADDER_RSS_MB` stops the flight when VmHWM passes it.
++fn env_f64(name: &str) -> Option<f64> {
++    std::env::var(name).ok().and_then(|v| v.parse().ok())
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -63,8 +93,11 @@ fn main() {
+     let mut alive = true;
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    let cap_s = env_f64("LADDER_CAP_S").unwrap_or(55.0);
++    let (probe_on, guard_mb) = (std::env::var_os("LADDER_PROBE").is_some(), env_f64("LADDER_RSS_MB"));
++    let (mut next_probe_gs, mut tick0) = (500.0f64, None);
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(cap_s) {
+             truncated = true;
+             break;
+         }
+@@ -80,6 +113,22 @@ fn main() {
+         let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
+         let took = start.elapsed();
+         let (ns, calls) = emergent_universe::prof::take();
++        if probe_on {
++            tick0.get_or_insert(p.u.now);
++            let gs = (p.u.now - tick0.unwrap()) as f64 * TICK_SECONDS;
++            if gs >= next_probe_gs {
++                let (rss, hwm) = footprint();
++                println!("probe: f={f} gs={gs:.0} rss_mb={:.1} hwm_mb={:.1} held={} ev={}", rss as f64 / 1e6, hwm as f64 / 1e6, p.u.held_scans(), frame.events);
++                next_probe_gs = gs + 500.0;
++                if let Some(g) = guard_mb {
++                    if hwm as f64 / 1e6 > g {
++                        println!("probe: guard hit at gs={gs:.0}");
++                        truncated = true;
++                        break;
++                    }
++                }
++            }
++        }
+         if f >= 60 {
+             for k in 0..emergent_universe::prof::N {
+                 stage_ns[k] += ns[k];

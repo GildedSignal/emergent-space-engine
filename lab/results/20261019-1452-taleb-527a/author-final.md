@@ -1,0 +1,4 @@
+Working...
+Confirmed — that's the same regen snapshot already verified (exit 0, all five arms regenerate in ~160 s). The run is complete: `lab/results/20261019-1452-taleb-527a/` holds `dossier.md`, `predictions.md`, `regen.sh`, `work/patch.diff`, logs, analyzer, and the conflict-resolved `wiki/nladder.md`.
+
+**Claim (final):** 1b3f's per-reader `oldest` rule does not touch 4447's interstellar burn-mode memory ratchet — measured identical to the digit through both channels — because the ratchet lives in two other doors: the held-scan deque (60–95 B × doll population per scan, making the `SCAN_BACKLOG=2048` fence's "about 10 KB each" premise K-linear stale, licensing 5.6–19.4 GB while never engaging before ruin) and a newly measured late channel of history retention behind the receding observer; the fix's unit is pinned bytes at capture, not scan count.

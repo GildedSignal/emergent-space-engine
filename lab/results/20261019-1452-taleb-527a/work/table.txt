@@ -1,0 +1,13 @@
+# 527a arms (K=3e4 seed 1 rtf 100 budget 12ms unless noted; guard = LADDER_RSS_MB=1600)
+# arm                 gs_end   rss_end  held_max  rss/held  hist_total  gt1      kicks/b/gs   events/b/gs
+off-burn-3e4-60k      59,698     579       245      2.45MB     45,480      252     8.436e-5     1.719e-4
+on-burn-3e4-60k       59,698     581       237      2.46MB     45,480      252     8.436e-5     1.718e-4
+off-burn-3e4-guard   332,277   1,600       588      2.72MB    620,831   30,043     8.498e-5     1.680e-4
+on-burn-3e4-guard    332,277   1,601       588      2.72MB    620,831   30,043     8.498e-5     1.680e-4
+off-coast-3e4-60k     58,048     149         1         —       30,471      103     8.505e-5     1.718e-4
+off-burn-1e5-60k      38,033   1,686       195      9.47MB    106,656      200     4.198e-5     8.543e-5
+# gap_s (now - oldest_item): max 1.7 s (3e4 arms), 4.2 s (1e5) -- the `oldest` door never opens (4a71's certificate holds)
+# channel 2 onset: census gt1 326 -> 7,071 (95-100k gs) -> 30,043 of 30,076 bodies by ~130k; then +~30k bindings every ~28k-gs wave (620,831 = 20.7/body at guard)
+# per-scan retained bytes (subtracting post-wave-1 base): 1.94MB/588 at 3e4 guard; 7.36MB/178 at 1e5 => 60-95 B per doll body per scan, K-linear
+# SCAN_BACKLOG=2048 licenses: 2048 x 2.72MB = 5.6 GB (3e4) / 2048 x 9.47MB = 19.4 GB (1e5) vs the code comment's "about 10 KB each" (=20MB)
+# guard order: memory budget dies at held 588 (3e4) / 195 (1e5) << cap 2048 -- the fence never engages before ruin

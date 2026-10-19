@@ -1,0 +1,29 @@
+rung N=100000 (100028 bodies), burn, rtf 100, 600 s of wall time, engine budget 12 ms; build 4.50 s, peak footprint 237 MB (now 237 MB)
+probe: gs=2 rss_mb=238 hwm_mb=238 held=0 bpb=1200 hist_gt1=28 hist_total=154 hist_max=21 gap_s=0.0
+probe: gs=2003 rss_mb=258 hwm_mb=265 held=0 bpb=1203 hist_gt1=107 hist_total=633 hist_max=17 gap_s=0.0
+probe: gs=4005 rss_mb=258 hwm_mb=265 held=0 bpb=1203 hist_gt1=107 hist_total=732 hist_max=25 gap_s=0.0
+probe: gs=6006 rss_mb=258 hwm_mb=265 held=0 bpb=1204 hist_gt1=106 hist_total=905 hist_max=36 gap_s=0.0
+probe: gs=8008 rss_mb=258 hwm_mb=265 held=0 bpb=1204 hist_gt1=135 hist_total=990 hist_max=35 gap_s=0.0
+probe: gs=10010 rss_mb=258 hwm_mb=265 held=0 bpb=1204 hist_gt1=135 hist_total=1141 hist_max=35 gap_s=0.0
+probe: gs=12011 rss_mb=258 hwm_mb=265 held=0 bpb=1204 hist_gt1=136 hist_total=1357 hist_max=35 gap_s=0.0
+probe: gs=14013 rss_mb=376 hwm_mb=376 held=3 bpb=1323 hist_gt1=136 hist_total=58431 hist_max=34 gap_s=4.1
+probe: gs=16015 rss_mb=482 hwm_mb=482 held=13 bpb=1413 hist_gt1=136 hist_total=101566 hist_max=45 gap_s=0.0
+probe: gs=18016 rss_mb=503 hwm_mb=503 held=37 bpb=1413 hist_gt1=165 hist_total=101863 hist_max=73 gap_s=0.0
+probe: gs=20018 rss_mb=751 hwm_mb=751 held=61 bpb=1414 hist_gt1=165 hist_total=102139 hist_max=37 gap_s=0.0
+probe: gs=22020 rss_mb=975 hwm_mb=975 held=81 bpb=1415 hist_gt1=195 hist_total=102514 hist_max=42 gap_s=0.0
+probe: gs=24021 rss_mb=1110 hwm_mb=1110 held=94 bpb=1416 hist_gt1=167 hist_total=102885 hist_max=49 gap_s=0.0
+probe: gs=26023 rss_mb=1247 hwm_mb=1247 held=106 bpb=1417 hist_gt1=199 hist_total=103436 hist_max=64 gap_s=0.0
+probe: gs=28025 rss_mb=1383 hwm_mb=1383 held=118 bpb=1402 hist_gt1=201 hist_total=103879 hist_max=64 gap_s=0.0
+probe: gs=30026 rss_mb=1495 hwm_mb=1495 held=130 bpb=1387 hist_gt1=201 hist_total=104319 hist_max=72 gap_s=0.0
+probe: gs=32028 rss_mb=1495 hwm_mb=1495 held=142 bpb=1388 hist_gt1=200 hist_total=104901 hist_max=81 gap_s=0.0
+probe: gs=34030 rss_mb=1495 hwm_mb=1495 held=154 bpb=1389 hist_gt1=228 hist_total=105562 hist_max=115 gap_s=0.0
+probe: gs=36031 rss_mb=1552 hwm_mb=1552 held=166 bpb=1390 hist_gt1=228 hist_total=106115 hist_max=102 gap_s=0.0
+probe: gs=38033 rss_mb=1686 hwm_mb=1686 held=178 bpb=1392 hist_gt1=200 hist_total=106656 hist_max=111 gap_s=0.0
+probe: guard hit at gs=38033
+frames after 1 s: 22821  engine ms p50 0.009 p90 1.550 p99 11.907 max 371.005; over 12 ms: 108; frames behind: 2, worst lag 1.448 s; events/frame p50 0 p99 221 max 7258; scans held max 236
+game 38033.0 s after the first second: kicks 159692 (4.198e-5/body/game-s), events 325029 (8.544e-5/body/game-s), stats {opens 797, boundaries 157426, handoffs 2, lost 27, refused 0, slices 7112}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 237 MB at the build's end, 1686 MB at the flight's end (now 1686 MB); 2348 B a body from the build; dashboard bytes/body 1392; view gather 5624.2 ms cold, 2061.7 ms warm (100046 seen); catalogue 100076 entries
+prune: max gap now-oldest 82.4 s over the flight; pinned no; reader_oldest 0
+frames over the budget (first 12): [8367, 8416, 8466, 8516, 8543, 11094, 11143, 11193, 11243, 11292, 11342, 11391]; the player's doll (frame, doll): [(0, 2), (948, 0)]
+worst frames (frame, ms, events, lag s): (8516, 371.01, 7258, 0.000) (8416, 344.38, 6776, 0.000) (8466, 221.28, 4188, 0.000) (8367, 52.13, 1030, 0.000) (15160, 41.45, 1, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=22880 build_s=4.50 foot_build_mb=237 foot_end_mb=1686 b_per_body=2348 p50_ms=0.009 p99_ms=11.907 max_ms=371.005 over=108 lag_s=1.448 kicks_per_body_gs=4.198e-5 events_per_body_gs=8.544e-5 refusals=0 dead=0 held_max=236 view_ms=2061.7 truncated=true wall_s=28.1

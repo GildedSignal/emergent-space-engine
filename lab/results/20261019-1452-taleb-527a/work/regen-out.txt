@@ -1,0 +1,154 @@
+patch already applied
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+== lab/results/20261019-1452-taleb-527a/work/logs/off-burn-k3e4.log
+  probes=120 gs=[2..59698] rss=[75..580] MB  
+  held: first=0 last=236 max=236
+  gap_s: max=0.0 last=0.0
+  census: gt1 28->252  total 154->45480  hmax 21->259
+  rss/held MB: 75.00 -> 2.46
+  window slopes (MB per 1k gs):
+    [     0,  5000)     4.43   rss      75->     95  held~    0 gt1=   106 tot=     756 gap=     0.0
+    [  5000, 10000)     0.00   rss      95->     95  held~    0 gt1=   135 tot=    1114 gap=     0.0
+    [ 10000, 15000)    12.18   rss      95->    150  held~    0 gt1=   136 tot=   31339 gap=     0.0
+    [ 15000, 20000)    13.51   rss     150->    211  held~   34 gt1=   165 tot=   32058 gap=     0.0
+    [ 20000, 25000)    26.80   rss     231->    352  held~   75 gt1=   198 tot=   33054 gap=     0.0
+    [ 25000, 30000)    21.48   rss     360->    457  held~  105 gt1=   201 tot=   34192 gap=     0.0
+    [ 30000, 35000)     0.00   rss     457->    457  held~  136 gt1=   200 tot=   35668 gap=     0.0
+    [ 35000, 40000)    20.60   rss     458->    551  held~  166 gt1=   228 tot=   37140 gap=     0.0
+    [ 40000, 45000)     1.55   rss     564->    571  held~  191 gt1=   227 tot=   38902 gap=     0.0
+    [ 45000, 50000)     0.00   rss     571->    571  held~  206 gt1=   226 tot=   40828 gap=     0.0
+    [ 50000, 55000)     0.66   rss     571->    574  held~  221 gt1=   225 tot=   43018 gap=     0.0
+    [ 55000, 60000)     1.33   rss     574->    580  held~  236 gt1=   252 tot=   45480 gap=     0.0
+  ladder: n=30000 bodies=30028 flight=burn rtf=100 frames=36000 build_s=1.34 foot_build_mb=74 foot_end_mb=580 b_per_body=2375 p50_ms=0.010 p99_ms=5.313 max_ms=12.042 over=1 lag_s=1.448 kicks_per_body_gs=8.436e-5 events_per_body_gs=1.718e-4 refusals=0 dead=0 held_max=237 view_ms=641.3 truncated=false wall_s=18.1
+== lab/results/20261019-1452-taleb-527a/work/logs/on-burn-k3e4.log
+  probes=120 gs=[2..59698] rss=[76..581] MB  
+  held: first=0 last=236 max=236
+  gap_s: max=0.0 last=0.0
+  census: gt1 28->252  total 154->45480  hmax 21->259
+  rss/held MB: 76.00 -> 2.46
+  window slopes (MB per 1k gs):
+    [     0,  5000)     4.43   rss      76->     96  held~    0 gt1=   106 tot=     756 gap=     0.0
+    [  5000, 10000)     0.22   rss      96->     97  held~    0 gt1=   135 tot=    1114 gap=     0.0
+    [ 10000, 15000)    11.96   rss      97->    151  held~    0 gt1=   136 tot=   31339 gap=     0.0
+    [ 15000, 20000)    13.51   rss     151->    212  held~   34 gt1=   165 tot=   32058 gap=     0.0
+    [ 20000, 25000)    26.80   rss     233->    354  held~   75 gt1=   198 tot=   33054 gap=     0.0
+    [ 25000, 30000)    21.48   rss     361->    458  held~  105 gt1=   201 tot=   34192 gap=     0.0
+    [ 30000, 35000)     0.00   rss     458->    458  held~  136 gt1=   200 tot=   35668 gap=     0.0
+    [ 35000, 40000)    20.60   rss     459->    552  held~  166 gt1=   228 tot=   37140 gap=     0.0
+    [ 40000, 45000)     1.33   rss     566->    572  held~  191 gt1=   227 tot=   38902 gap=     0.0
+    [ 45000, 50000)     0.00   rss     572->    572  held~  206 gt1=   226 tot=   40828 gap=     0.0
+    [ 50000, 55000)     0.66   rss     572->    575  held~  221 gt1=   225 tot=   43018 gap=     0.0
+    [ 55000, 60000)     1.33   rss     575->    581  held~  236 gt1=   252 tot=   45480 gap=     0.0
+  ladder: n=30000 bodies=30028 flight=burn rtf=100 frames=36000 build_s=1.30 foot_build_mb=75 foot_end_mb=581 b_per_body=2416 p50_ms=0.010 p99_ms=5.217 max_ms=11.914 over=0 lag_s=1.448 kicks_per_body_gs=8.436e-5 events_per_body_gs=1.718e-4 refusals=0 dead=0 held_max=237 view_ms=610.0 truncated=false wall_s=17.9
+== lab/results/20261019-1452-taleb-527a/work/logs/off-burn-k3e4-guard.log
+  probes=167 gs=[2..332278] rss=[75..1600] MB  probe: guard hit at gs=332278
+  held: first=0 last=588 max=588
+  gap_s: max=0.0 last=0.0
+  census: gt1 28->30043  total 154->620831  hmax 21->5845
+  rss/held MB: 75.00 -> 2.72
+  window slopes (MB per 1k gs):
+    [     0,  5000)     6.00   rss      75->     99  held~    0 gt1=   107 tot=     732 gap=     0.0
+    [  5000, 10000)    -1.00   rss      96->     94  held~    0 gt1=   135 tot=     990 gap=     0.0
+    [ 10000, 15000)     6.50   rss      94->    120  held~    0 gt1=   136 tot=   18672 gap=     0.0
+    [ 15000, 20000)     3.00   rss     151->    157  held~   15 gt1=   165 tot=   31863 gap=     0.0
+    [ 20000, 25000)    26.97   rss     231->    339  held~   72 gt1=   167 tot=   32885 gap=     0.0
+    [ 25000, 30000)    20.98   rss     381->    423  held~   96 gt1=   201 tot=   33879 gap=     0.0
+    [ 30000, 35000)     0.00   rss     457->    457  held~  132 gt1=   228 tot=   35562 gap=     0.0
+    [ 35000, 40000)    19.99   rss     478->    518  held~  156 gt1=   200 tot=   36656 gap=     0.0
+    [ 40000, 45000)     3.25   rss     558->    571  held~  189 gt1=   227 tot=   38664 gap=     0.0
+    [ 45000, 50000)     0.00   rss     571->    571  held~  201 gt1=   227 tot=   40178 gap=     0.0
+    [ 50000, 55000)     0.25   rss     571->    572  held~  219 gt1=   225 tot=   42720 gap=     0.0
+    [ 55000, 60000)     1.00   rss     574->    576  held~  231 gt1=   252 tot=   44694 gap=     0.0
+    [ 60000, 65000)     1.00   rss     579->    583  held~  250 gt1=   252 tot=   47750 gap=     0.0
+    [ 65000, 70000)     1.50   rss     586->    589  held~  262 gt1=   256 tot=   50023 gap=     0.0
+    [ 70000, 75000)     6.99   rss     607->    635  held~  280 gt1=   327 tot=   53602 gap=     0.0
+    [ 75000, 80000)     1.50   rss     637->    640  held~  292 gt1=   251 tot=   56143 gap=     0.0
+    [ 80000, 85000)     1.25   rss     642->    647  held~  310 gt1=   325 tot=   60323 gap=     0.0
+    [ 85000, 90000)     1.00   rss     653->    655  held~  322 gt1=   325 tot=   63236 gap=     0.0
+    [ 90000, 95000)     1.50   rss     657->    663  held~  331 gt1=   326 tot=   67782 gap=     0.0
+    [ 95000,100000)     5.99   rss     666->    678  held~  337 gt1=  7071 tot=   77640 gap=     0.0
+    [100000,105000)     0.00   rss     695->    695  held~  346 gt1=  3837 tot=   79471 gap=     0.0
+    [105000,110000)     0.00   rss     695->    695  held~  352 gt1=   326 tot=   79437 gap=     0.0
+    [110000,115000)     0.25   rss     697->    698  held~  361 gt1=   326 tot=   84929 gap=     0.0
+    [115000,120000)     0.00   rss     698->    698  held~  367 gt1=   345 tot=   88719 gap=     0.0
+    [120000,125000)     4.50   rss     698->    716  held~  376 gt1=  3309 tot=   97567 gap=     0.0
+    [125000,130000)    10.49   rss     731->    752  held~  382 gt1= 24499 tot=  122748 gap=     0.0
+    [130000,135000)     1.50   rss     763->    769  held~  392 gt1= 30040 tot=  134634 gap=     0.0
+    [135000,140000)     1.00   rss     773->    775  held~  398 gt1= 30040 tot=  138940 gap=     0.0
+    [140000,145000)     1.75   rss     779->    786  held~  407 gt1= 30042 tot=  145785 gap=     0.0
+    [145000,150000)     2.00   rss     789->    793  held~  413 gt1= 30043 tot=  150917 gap=     0.0
+    [150000,155000)     5.49   rss     798->    820  held~  422 gt1= 30043 tot=  169519 gap=     0.0
+    [155000,160000)     5.49   rss     840->    851  held~  428 gt1= 30043 tot=  190441 gap=     0.0
+    [160000,165000)     1.75   rss     857->    864  held~  437 gt1= 30043 tot=  199691 gap=     0.0
+    [165000,170000)     2.00   rss     867->    871  held~  443 gt1= 30043 tot=  204864 gap=     0.0
+    [170000,175000)     2.00   rss     874->    882  held~  452 gt1= 30043 tot=  213038 gap=     0.0
+    [175000,180000)     3.00   rss     902->    908  held~  458 gt1= 30043 tot=  220110 gap=     0.0
+    [180000,185000)     8.49   rss     915->    949  held~  467 gt1= 30043 tot=  247654 gap=     0.0
+    [185000,190000)     4.50   rss     961->    970  held~  473 gt1= 30043 tot=  261506 gap=     0.0
+    [190000,195000)     2.25   rss     974->    983  held~  482 gt1= 30043 tot=  270282 gap=     0.0
+    [195000,200000)     2.50   rss     987->    992  held~  487 gt1= 30043 tot=  276266 gap=     0.0
+    [200000,205000)     2.75   rss     996->   1007  held~  492 gt1= 30043 tot=  286214 gap=     0.0
+    [205000,210000)     4.50   rss    1014->   1023  held~  495 gt1= 30043 tot=  295349 gap=     0.0
+    [210000,215000)     9.99   rss    1045->   1085  held~  499 gt1= 30043 tot=  324717 gap=     0.0
+    [215000,220000)     3.50   rss    1098->   1105  held~  502 gt1= 30043 tot=  335202 gap=     0.0
+    [220000,225000)     1.75   rss    1110->   1117  held~  507 gt1= 30043 tot=  344025 gap=     0.0
+    [225000,230000)     2.00   rss    1122->   1126  held~  510 gt1= 30043 tot=  350327 gap=     0.0
+    [230000,235000)     2.75   rss    1131->   1142  held~  514 gt1= 30043 tot=  361434 gap=     0.0
+    [235000,240000)     7.50   rss    1149->   1164  held~  517 gt1= 30043 tot=  376243 gap=     0.0
+    [240000,245000)     5.50   rss    1178->   1200  held~  522 gt1= 30043 tot=  400928 gap=     0.0
+    [245000,250000)     2.00   rss    1207->   1211  held~  525 gt1= 30043 tot=  408871 gap=     0.0
+    [250000,255000)     2.00   rss    1215->   1223  held~  529 gt1= 30043 tot=  418023 gap=     0.0
+    [255000,260000)     2.50   rss    1227->   1232  held~  532 gt1= 30043 tot=  424680 gap=     0.0
+    [260000,265000)     2.75   rss    1268->   1279  held~  537 gt1= 30043 tot=  437796 gap=     0.0
+    [265000,270000)     6.50   rss    1293->   1306  held~  540 gt1= 30043 tot=  455883 gap=     0.0
+    [270000,275000)     4.00   rss    1320->   1336  held~  544 gt1= 30043 tot=  476057 gap=     0.0
+    [275000,280000)     2.00   rss    1342->   1346  held~  548 gt1= 30043 tot=  482666 gap=     0.0
+    [280000,285000)     2.25   rss    1351->   1360  held~  552 gt1= 30043 tot=  492266 gap=     0.0
+    [285000,290000)     2.50   rss    1365->   1370  held~  555 gt1= 30043 tot=  499447 gap=     0.0
+    [290000,295000)     5.25   rss    1376->   1397  held~  560 gt1= 30043 tot=  517665 gap=     0.0
+    [295000,300000)     6.50   rss    1410->   1423  held~  563 gt1= 30043 tot=  534892 gap=     0.0
+    [300000,305000)     3.50   rss    1432->   1446  held~  567 gt1= 30043 tot=  550390 gap=     0.0
+    [305000,310000)     2.50   rss    1451->   1456  held~  570 gt1= 30043 tot=  556668 gap=     0.0
+    [310000,315000)     3.00   rss    1461->   1473  held~  575 gt1= 30043 tot=  566733 gap=     0.0
+    [315000,320000)     4.00   rss    1480->   1488  held~  578 gt1= 30043 tot=  574544 gap=     0.0
+    [320000,325000)    10.49   rss    1500->   1542  held~  582 gt1= 30043 tot=  596341 gap=     0.0
+    [325000,330000)     6.00   rss    1565->   1577  held~  585 gt1= 30043 tot=  610507 gap=     0.0
+    [330000,335000)     5.00   rss    1590->   1600  held~  588 gt1= 30043 tot=  620831 gap=     0.0
+  ladder: n=30000 bodies=30028 flight=burn rtf=100 frames=199427 build_s=1.27 foot_build_mb=74 foot_end_mb=1600 b_per_body=2376 p50_ms=0.069 p99_ms=5.008 max_ms=27.351 over=136 lag_s=1.448 kicks_per_body_gs=8.498e-5 events_per_body_gs=1.680e-4 refusals=0 dead=0 held_max=588 view_ms=-1.0 truncated=true wall_s=77.3
+== lab/results/20261019-1452-taleb-527a/work/logs/off-coast-k3e4.log
+  probes=30 gs=[2..58048] rss=[75..149] MB  
+  held: first=0 last=0 max=0
+  gap_s: max=0.0 last=0.0
+  census: gt1 28->103  total 138->30471  hmax 5->36
+  rss/held MB: 75.00 -> 149.00
+  window slopes (MB per 1k gs):
+    [     0,  5000)     1.50   rss      75->     81  held~    0 gt1=   107 tot=     674 gap=     0.0
+    [  5000, 10000)     0.00   rss      81->     81  held~    0 gt1=   105 tot=     762 gap=     0.0
+    [ 10000, 15000)     9.24   rss      81->    118  held~    0 gt1=   106 tot=   17853 gap=     0.0
+    [ 15000, 20000)     0.00   rss     148->    148  held~    0 gt1=   106 tot=   30493 gap=     0.0
+    [ 20000, 25000)     0.00   rss     148->    148  held~    0 gt1=   107 tot=   30476 gap=     0.0
+    [ 25000, 30000)     0.00   rss     148->    148  held~    0 gt1=   107 tot=   30479 gap=     0.0
+    [ 30000, 35000)     0.25   rss     148->    149  held~    0 gt1=   105 tot=   30487 gap=     0.0
+    [ 35000, 40000)     0.00   rss     149->    149  held~    0 gt1=   104 tot=   30473 gap=     0.0
+    [ 40000, 45000)     0.00   rss     149->    149  held~    0 gt1=   103 tot=   30473 gap=     0.0
+    [ 45000, 50000)     0.00   rss     149->    149  held~    0 gt1=   103 tot=   30471 gap=     0.0
+    [ 50000, 55000)     0.00   rss     149->    149  held~    0 gt1=   103 tot=   30472 gap=     0.0
+    [ 55000, 60000)     0.00   rss     149->    149  held~    0 gt1=   103 tot=   30471 gap=     0.0
+  ladder: n=30000 bodies=30028 flight=coast rtf=100 frames=36000 build_s=1.27 foot_build_mb=74 foot_end_mb=149 b_per_body=2378 p50_ms=0.009 p99_ms=4.780 max_ms=11.892 over=0 lag_s=1.448 kicks_per_body_gs=8.505e-5 events_per_body_gs=1.718e-4 refusals=0 dead=0 held_max=1 view_ms=628.7 truncated=false wall_s=17.5
+== lab/results/20261019-1452-taleb-527a/work/logs/off-burn-k1e5.log
+  probes=20 gs=[2..38033] rss=[238..1686] MB  probe: guard hit at gs=38033
+  held: first=0 last=178 max=178
+  gap_s: max=4.1 last=0.0
+  census: gt1 28->200  total 154->106656  hmax 21->111
+  rss/held MB: 238.00 -> 9.47
+  window slopes (MB per 1k gs):
+    [     0,  5000)     5.75   rss     238->    261  held~    0 gt1=   107 tot=     732 gap=     0.0
+    [  5000, 10000)    -1.00   rss     261->    259  held~    0 gt1=   135 tot=     990 gap=     0.0
+    [ 10000, 15000)    30.48   rss     254->    376  held~    3 gt1=   136 tot=   58435 gap=     4.1
+    [ 15000, 20000)    10.99   rss     481->    503  held~   37 gt1=   165 tot=  101863 gap=     0.0
+    [ 20000, 25000)    89.68   rss     751->   1110  held~   94 gt1=   167 tot=  102885 gap=     0.0
+    [ 25000, 30000)    67.43   rss    1247->   1382  held~  118 gt1=   201 tot=  103879 gap=     0.0
+    [ 30000, 35000)     0.00   rss    1494->   1494  held~  154 gt1=   228 tot=  105562 gap=     0.0
+    [ 35000, 40000)    66.93   rss    1552->   1686  held~  178 gt1=   200 tot=  106656 gap=     0.0
+  ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=22880 build_s=4.48 foot_build_mb=238 foot_end_mb=1686 b_per_body=2348 p50_ms=0.010 p99_ms=11.921 max_ms=394.287 over=107 lag_s=1.448 kicks_per_body_gs=4.198e-5 events_per_body_gs=8.544e-5 refusals=0 dead=0 held_max=286 view_ms=2174.8 truncated=true wall_s=29.6
+regen exit=0
