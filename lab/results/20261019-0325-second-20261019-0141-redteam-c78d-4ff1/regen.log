@@ -1,0 +1,115 @@
+== 0. rung hash (frozen before the run; must still match) ==
+r11-eclipse-aggregate.md: OK
+== 1. decisive configs (author path, quadratic root) ==
+{"pixel-h2": {"flux_err_p99": 0.016331286674272083, "fmin_abs_dev": 0.008823546048873476, "false_blink_frac": 0.0, "samples": 113, "samples_over_bound": 0.9991393649657875}}
+{"pixel-h1": {"flux_err_p99": 0.040732154398014586, "fmin_abs_dev": 0.03507498258876196, "false_blink_frac": 0.0, "samples": 29, "samples_over_bound": 1.0256651888144366}}
+{"one-sample": {"flux_err_p99": 0.8414075723792402, "fmin_abs_dev": 0.7999103353644201, "false_blink_frac": 0.058284762697751874, "samples": 1, "samples_over_bound": 0.3183098861837907}}
+{"overlap-disc": {"flux_err_p99": 0.0017911111111111877, "fmin_abs_dev": 0.0018588888888888544, "false_blink_frac": 0.0, "samples": 1, "samples_over_bound": 0.3183098861837907}}
+== 2. independent check path (monotone bisection, 3-case predicate) ==
+{"pixel-h2": {"flux_err_p99": 0.01633128667426964, "fmin_abs_dev": 0.008823546048868924, "false_blink_frac": 0.0, "samples": 113, "samples_over_bound": 0.9991393649657875}, "pixel-h1": {"flux_err_p99": 0.040732154398006704, "fmin_abs_dev": 0.035074982588763404, "false_blink_frac": 0.0, "samples": 29, "samples_over_bound": 1.0256651888144366}, "one-sample": {"flux_err_p99": 0.8414075723792401, "fmin_abs_dev": 0.7999103353644202, "false_blink_frac": 0.058284762697751874, "samples": 1, "samples_over_bound": 0.3183098861837907}, "overlap-disc": {"flux_err_p99": 0.0017911111111111877, "fmin_abs_dev": 0.0018588888888888544, "false_blink_frac": 0.0, "samples": 1, "samples_over_bound": 0.3183098861837907}}
+== 3. mechanical verdict (checker vs author metrics) ==
+Verdict: PASS; pixel-h2, pixel-h1 passed every criterion
+pixel-h2 candidate pass
+pixel-h1 candidate pass
+one-sample negative fail p99,fmin,blink
+overlap-disc positive pass
+== 4. diagnostics (beta 0.9, cap-as-function to R_f=30, arc resolving pitch) ==
+diagnostics.json written
+{
+ "beta_arms": [
+  {
+   "beta": 0.5,
+   "orient": "transit",
+   "f_true_min": 0.5227,
+   "onesample_peak_err": 0.6196,
+   "onesample_p99": 0.5832,
+   "pixel_h2_p99": 0.0095,
+   "pixel_h2_fmin_dev": 0.0088,
+   "pixel_h2_blink_frac": 0.0
+  },
+  {
+   "beta": 0.5,
+   "orient": "sky",
+   "f_true_min": 0.7999,
+   "onesample_peak_err": 0.8427,
+   "onesample_p99": 0.8414,
+   "pixel_h2_p99": 0.0163,
+   "pixel_h2_fmin_dev": 0.0068,
+   "pixel_h2_blink_frac": 0.0
+  },
+  {
+   "beta": 0.9,
+   "orient": "transit",
+   "f_true_min": 0.568,
+   "onesample_peak_err": 0.7046,
+   "onesample_p99": 0.6706,
+   "pixel_h2_p99": 0.0271,
+   "pixel_h2_fmin_dev": 0.0235,
+   "pixel_h2_blink_frac": 0.0
+  },
+  {
+   "beta": 0.9,
+   "orient": "sky",
+   "f_true_min": 0.7766,
+   "onesample_peak_err": 0.8591,
+   "onesample_p99": 0.8496,
+   "pixel_h2_p99": 0.0163,
+   "pixel_h2_fmin_dev": 0.0037,
+   "pixel_h2_blink_frac": 0.0
+  }
+ ],
+ "static_scaling": [
+  {
+   "r_f": 3.0,
+   "samples": 113,
+   "bound_pi_rf2_over_h2": 113.1,
+   "ratio": 0.999,
+   "pixel_h2_p99": 0.0241,
+   "pixel_h2_peak": 0.0303
+  },
+  {
+   "r_f": 10.0,
+   "samples": 1257,
+   "bound_pi_rf2_over_h2": 1256.6,
+   "ratio": 1.0,
+   "pixel_h2_p99": 0.0027,
+   "pixel_h2_peak": 0.003
+  },
+  {
+   "r_f": 30.0,
+   "samples": 11289,
+   "bound_pi_rf2_over_h2": 11309.7,
+   "ratio": 0.998,
+   "pixel_h2_p99": 0.0004,
+   "pixel_h2_peak": 0.0005
+  }
+ ],
+ "arc": {
+  "n_ships": 400,
+  "f_true_min": 0.3775,
+  "onesample_peak_err": 1.0,
+  "onesample_p99": 1.0,
+  "readouts": [
+   {
+    "h": 0.5,
+    "samples": 3,
+    "pixel_p99": 0.63,
+    "pixel_peak": 0.71
+   },
+   {
+    "h": 0.15,
+    "samples": 41,
+    "pixel_p99": 0.0827,
+    "pixel_peak": 0.094
+   },
+   {
+    "h": 0.075,
+    "samples": 168,
+    "pixel_p99": 0.0377,
+    "pixel_peak": 0.0423
+   }
+  ]
+ }
+}== 5. c78d's base record regenerates byte-identical ==
+c78d REGEN-IDENTICAL
+done

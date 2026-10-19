@@ -1,0 +1,11 @@
+Grade: silvDone. Verification summary:
+
+**Grade: silver** (written to `check2.md`, compact form in `checker2-final.md`, blind-checker paragraph appended to the author's `wiki/representation-premises.md` after restoring a line I clipped during the paste).
+
+**Reproduction — total.** `regen.sh` exit 0 in a clean tree: rung sha256 OK, all four decisive configs bit-identical, the independent bisection path identical to ~1e-12, `verdict.py` → PASS, diagnostics identical, c78d's base record byte-identical. Pixel counts (113/29/3/41/168) re-derived by hand.
+
+**Physics — third independent path.** Newton light-cone solver (residual <1e-9), own seeds. Frozen case: sky `f_true_min` 0.8022 vs author 0.7999, pixel-h2 p99 0.0149 vs 0.0163 — same physics, seed variation only. The doppler correction is genuine: I re-committed c78d's exact typo from the same description (my sky minimum 0.8135 ≈ their stored 0.815) before deriving the correct `1/(γ(1+β·px/q))` — the strongest possible confirmation that re-implementing a description is not independence.
+
+**Adversarial (one axis outside the author's range).** Cure holds at impact 1.0/2.0/2.8 at β 0.5 (p99 ≤ 0.017, zero blink — author froze impact 0), β 0.99 (0.022/0.013), 10× truth N (0.015), 5× path steps (no aliasing). It fails on density, which decomposes as a **weight axis, not a pitch axis**: Gaussian core, uniform pixels err p99 0.226/0.205 at 3σ support (checker3's 0.229/0.210 independently reproduced); refining pitch never restores 5% (0.072/0.110 at h=R_p/4); density-weighted pixels at the same pitch and cost give 0.009/0.028. Magnitude is support-convention-dependent — the aggregate must carry support radius and density as moments.
+
+**Why silver, not gold.** Every number reproduces and the named gold-blocker (the freeze) is done, but: occlusion is not a board bottleneck (author's own admission), the premise refutation is c78d's, and the hash-frozen domain line omits the density clause — a committed r11 would pass uniform-pixel readouts erring 20% on cored fleets, and the game's formations are not uniform discs. **One experiment to gold:** re-freeze as v2 with the density clause or a `pixel-density` candidate (already priced at zero extra samples by two checkers).
