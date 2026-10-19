@@ -1,0 +1,28 @@
+rung N=100000 (100028 bodies), coast, rtf 100, 10 s of wall time, engine budget 12 ms; build 4.45 s, peak footprint 237 MB (now 237 MB)
+frames after 1 s: 540  engine ms p50 0.053 p90 2.548 p99 5.610 max 11.287; over 12 ms: 0; frames behind: 1, worst lag 1.448 s; events/frame p50 2 p99 154 max 212; scans held max 1
+game 898.6 s after the first second: kicks 1920 (2.136e-5/body/game-s), events 6053 (6.735e-5/body/game-s), stats {opens 32, boundaries 1851, handoffs 0, lost 15, refused 0, slices 2250}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 237 MB at the build's end, 244 MB at the flight's end (now 244 MB); 2348 B a body from the build; dashboard bytes/body 1203; view gather 3083.4 ms cold, 974.8 ms warm (100058 seen); catalogue 100071 entries
+stages (µs per frame, calls per frame, ns per call), over the 540 frames:
+  rekey (all deadlines)                       10.1     1.00      10131
+    position walk (root_state_raw)            49.9     6.83       7303
+  apply (whole)                               56.4     6.99       8074
+  requeue                                      4.9    35.14        140
+  process (whole)                            367.2     6.93      52979
+    fit: bind_surface (kicks, hand-outs)     138.6     3.54      39211
+  take_due                                     0.2    13.11         16
+  prune                                        8.3     1.00       8344
+  encounters: capture (cheap half)            19.4     0.16     120224
+  encounters: held scans answered            132.1     0.16     819636
+  item: kick (Wisdom-Holman)                 300.5     3.48      86456
+  item: boundary                              66.8     3.43      19476
+  item: crash                                  0.1     0.03       5190
+  fleet: battle run_to                        11.5     4.17       2761
+  fleet: advance (whole item)                 16.0     4.17       3845
+  hand-out (a member made a body)             27.2     0.06     458584
+    hand-out: pull planets and moons           0.0     0.06        100
+    hand-out: bind (the member as a tube)      20.7     0.06     349550
+    hand-out: first plan (replan)              5.5     0.06      92927
+    fit again: the coarser word (bind_surface)       9.3     0.03     294932
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (62, 11.29, 51, 1.448) (397, 7.25, 212, 0.000) (596, 6.54, 182, 0.000) (199, 6.48, 190, 0.000) (100, 5.99, 172, 0.000)
+ladder: n=100000 bodies=100028 flight=coast rtf=100 frames=600 build_s=4.45 foot_build_mb=237 foot_end_mb=244 b_per_body=2348 p50_ms=0.053 p99_ms=5.610 max_ms=11.287 over=0 lag_s=1.448 kicks_per_body_gs=2.136e-5 events_per_body_gs=6.735e-5 refusals=0 dead=0 held_max=1 view_ms=974.8 truncated=false wall_s=8.9

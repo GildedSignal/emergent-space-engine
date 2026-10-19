@@ -1,0 +1,210 @@
+{
+ "measured": {
+  "kick_item_us_x86": {
+   "value": 82.5,
+   "unit": "us/call",
+   "src": "prof1e5: item: kick 286.8 us/frame / 3.48 calls/frame"
+  },
+  "boundary_item_us_x86": {
+   "value": 18.4,
+   "unit": "us/call",
+   "src": "prof1e5: item: boundary 63.1/3.43"
+  },
+  "apply_us_x86": {
+   "value": 7.6,
+   "unit": "us/call",
+   "src": "prof1e5: apply 53.2/6.99"
+  },
+  "walk_us_x86": {
+   "value": 7.0,
+   "unit": "us/call",
+   "src": "prof1e5: root_state_raw 47.6/6.83"
+  },
+  "engine_p50_ms_1e5": {
+   "value": 0.046,
+   "unit": "ms",
+   "src": "probes.log (097e same-day: 0.078)"
+  },
+  "b_per_body_1e5": {
+   "value": 2348,
+   "unit": "B",
+   "src": "probes.log (= 097e)"
+  },
+  "belt_first_p50_gs": {
+   "value": 14071,
+   "unit": "game-s",
+   "src": "probes.log belt_first 10000 (= cd3b to the digit)"
+  },
+  "kicks_total_1e5_10s": {
+   "value": 1920,
+   "unit": "kicks",
+   "src": "probes.log: = kicks_total_1e4_10s -> belt inert, player-only stream"
+  },
+  "lambda_fired": {
+   "value": 4e-05,
+   "unit": "1/body/game-s",
+   "src": "0659 (wiki/budget-1e9): 3.6-4.3e-5, K-flat, p=1.0"
+  },
+  "lambda_planned": {
+   "value": 7.1e-05,
+   "unit": "1/body/game-s",
+   "src": "cd3b: 2 ev/body/interval (belt_first 14071*2 gs)"
+  },
+  "cost_cd3b_m1": {
+   "value": 29.3,
+   "unit": "us",
+   "src": "cd3b composition constant (M1)"
+  },
+  "m1_over_x86_event": {
+   "value": 0.5859154929577465,
+   "unit": "x",
+   "src": "cd3b: shipped 208 M1 = 355 x86"
+  },
+  "split8_survival": {
+   "value": 4.92,
+   "unit": "x",
+   "src": "cd3b: split 8 (de7b, welded) x secular survival 0.615 (1a46)"
+  },
+  "stream_composed_cd3b": {
+   "value": [
+    5.3,
+    8.4
+   ],
+   "unit": "cores M1",
+   "src": "cd3b letter"
+  },
+  "churn_73b5": {
+   "value": [
+    0.35,
+    1.4
+   ],
+   "unit": "cores",
+   "src": "73b5 (gold, checker-corrected): 355/E_pair at E*=1024-256, leak-certified"
+  },
+  "churn_old": {
+   "value": [
+    2.8,
+    5.5
+   ],
+   "unit": "cores",
+   "src": "08d0 (superseded by 73b5)"
+  },
+  "mint_worst": {
+   "value": 1.9,
+   "unit": "cores",
+   "src": "cd3b: every Dohnanyi conjunction re-mints at 16.4 us"
+  },
+  "view_due_form": {
+   "value": 0.1,
+   "unit": "cores",
+   "src": "e3a4"
+  },
+  "frame_bound": {
+   "value": 0.72,
+   "unit": "cores",
+   "src": "12 ms x 60 fps"
+  },
+  "floor_write_ns": {
+   "value": 50.0,
+   "unit": "ns",
+   "src": "b063: the binding's output bits, 1-2 lines"
+  },
+  "floor_arith_us": {
+   "value": 6.0,
+   "unit": "us",
+   "src": "a765: key 2.3 + Carlson compile <=2.9 (de99) + tail ~1"
+  },
+  "kick_m1_cd6e_us": {
+   "value": [
+    8.0,
+    19.0
+   ],
+   "unit": "us",
+   "src": "cd6e: composed closed-form kick, lean-cold, flat in e"
+  },
+  "kick_native_262f_us": {
+   "value": 4.0,
+   "unit": "us",
+   "src": "262f: native port projection at belt keys"
+  }
+ },
+ "events_per_wall_s_at_1e9_rtf100": 4000000.0,
+ "stream_row": {
+  "shipped_measured_m1": 193.35,
+  "shipped_cd3b_letter_m1": 117.2,
+  "composed_measured_m1": 39.3,
+  "composed_cd3b_letter_m1": 23.82,
+  "at_write_floor": 0.2,
+  "at_arith_floor_shipped_cadence": 24.0,
+  "at_arith_floor_split8": 4.88,
+  "at_cd6e_composed_split8": 6.5,
+  "closure_cost_us": 4.92
+ },
+ "cpu_ledger_post_73b5": {
+  "stream_composed": {
+   "today_cost": [
+    39.3,
+    39.3
+   ],
+   "cd3b_letter_cost": [
+    5.3,
+    8.4
+   ],
+   "src": "this run x cd3b"
+  },
+  "cert_churn": {
+   "cores": [
+    0.35,
+    1.4
+   ],
+   "src": "73b5 (replaces 2.8-5.5)"
+  },
+  "key_mint_worst": {
+   "cores": [
+    0.0,
+    1.9
+   ],
+   "src": "cd3b (0 with efd4 intern)"
+  },
+  "view_serve": {
+   "cores": [
+    0.1,
+    0.1
+   ],
+   "src": "e3a4"
+  },
+  "frame": {
+   "cores": [
+    0.72,
+    0.72
+   ],
+   "src": "budget"
+  }
+ },
+ "total": {
+  "today_cost": [
+   40.47,
+   43.42
+  ],
+  "today_over_budget": [
+   10.12,
+   10.85
+  ],
+  "cd3b_letter_cost": [
+   6.47,
+   12.52
+  ],
+  "letter_over_budget": [
+   1.62,
+   3.13
+  ],
+  "pre_73b5_letter": [
+   10.8,
+   16.6
+  ],
+  "stream_share_today": [
+   0.97,
+   0.91
+  ]
+ }
+}
