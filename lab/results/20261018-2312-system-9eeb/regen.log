@@ -1,0 +1,136 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 3m 41s
+=== ON arm: the cell serves the rebind, exact key carried (P1-P8) ===
+warning: unused import: `Orbit`
+  --> crates/universe/src/universe.rs:44:13
+   |
+44 |     orbit::{Orbit, OrbitKey, Scalar},
+   |             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running tests/qmemo.rs (/home/glmlab/lab-target-2/release/deps/qmemo-6c8b6cac928745fa)
+
+running 1 test
+arm=on cycles=796 wall_ms=398 fit_ms=0 kick_served=1764 kick_builds=58 build_rate=0.0329 cells=85 standing_test_cells_metric=distinct_quantized_cells/cycles
+census vs exact compile: period max 6.786e-4 med 5.839e-5 | advance max 1.322e-4 | knot_delta_max 0 | exact_recurrence 0.000
+outcome hash 0x7f43b75a59fff0f3 vs rerun 0x7f43b75a59fff0f3
+test the_cell_serves_the_rebind_with_the_exact_key_carried ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.79s
+
+=== OFF arm: the shipped law verbatim, the patch inert ===
+warning: unused import: `Orbit`
+  --> crates/universe/src/universe.rs:44:13
+   |
+44 |     orbit::{Orbit, OrbitKey, Scalar},
+   |             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running tests/qmemo.rs (/home/glmlab/lab-target-2/release/deps/qmemo-6c8b6cac928745fa)
+
+running 1 test
+arm=off cycles=796 wall_ms=475 fit_ms=0 exact_recurrence 0.000 max_period_err 0.000e0 (served untouched: true)
+test unset_the_law_is_verbatim ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.48s
+
+=== The standing memo.rs measurement, both arms (exact keys never recur; cells do) ===
+(expected under ES_QMEMO=1: the served stream's recurrence is ~0.898, so this shipped
+ test's own >0.9 guard FAILS by design of the law change — the run's instrument is the
+ build-rate assert in the qmemo test above; the number to read here is 'quantized cells N (hit H)')
+warning: unused import: `Orbit`
+  --> crates/universe/src/universe.rs:44:13
+   |
+44 |     orbit::{Orbit, OrbitKey, Scalar},
+   |             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running tests/memo.rs (/home/glmlab/lab-target-2/release/deps/memo-7cc19a79de1610da)
+
+running 1 test
+796 distinct cycle rebinds: exact shapes 796 (hit 0.000), quantized cells 42 (hit 0.947)
+test the_exact_shape_never_recurs_and_the_laws_memo_cell_does ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+=== The suites, gate off (inertness): space and universe ===
+      1 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+      1 test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+      1 test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+      1 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+      1 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+      1 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+      1 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+      1 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+      1 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.56s
+      1 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+      1 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+      1 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+      1 test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 16.79s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.51s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.32s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.34s
+      1 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+      1 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.81s
+      1 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+      1 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.16s
+      1 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.15s
+      1 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.93s
+      1 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.79s
+      1 test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 27.42s
+=== FIT column (dossier table row 2): the same qmemo arms under --features prof ===
+    Finished `release` profile [optimized + debuginfo] target(s) in 4m 14s
+warning: unused import: `Orbit`
+  --> crates/universe/src/universe.rs:44:13
+   |
+44 |     orbit::{Orbit, OrbitKey, Scalar},
+   |             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.21s
+     Running tests/qmemo.rs (/home/glmlab/lab-target-2/release/deps/qmemo-5fd431b54df646e0)
+
+running 1 test
+arm=on cycles=796 wall_ms=396 fit_ms=45 kick_served=1764 kick_builds=58 build_rate=0.0329 cells=85 standing_test_cells_metric=distinct_quantized_cells/cycles
+census vs exact compile: period max 6.786e-4 med 5.839e-5 | advance max 1.322e-4 | knot_delta_max 0 | exact_recurrence 0.000
+outcome hash 0x7f43b75a59fff0f3 vs rerun 0x7f43b75a59fff0f3
+test the_cell_serves_the_rebind_with_the_exact_key_carried ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.79s
+
+warning: unused import: `Orbit`
+  --> crates/universe/src/universe.rs:44:13
+   |
+44 |     orbit::{Orbit, OrbitKey, Scalar},
+   |             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running tests/qmemo.rs (/home/glmlab/lab-target-2/release/deps/qmemo-5fd431b54df646e0)
+
+running 1 test
+arm=off cycles=796 wall_ms=485 fit_ms=128 exact_recurrence 0.000 max_period_err 0.000e0 (served untouched: true)
+test unset_the_law_is_verbatim ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.49s
+

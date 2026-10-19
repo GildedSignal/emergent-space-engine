@@ -1,0 +1,4 @@
+Working...
+Everything is in place: pre-registered predictions, dossier, regen.sh, the topic page, and the patch — with both arms, the standing test, and both suites run on shipped code.
+
+**The kick's compile bill and the per-body standing-shape bill are one mechanism — the rebind keys the cycle by the exact (E, L) where the law's own 11+11-bit cell should be — and serving the rebind from the cell with the exact key carried (the carried form, not law.md's killed write-back) deletes the per-kick compile (FIT −64 %, 129→47 ms per 796-kick stream: 58 cold builds serve 1,764 rebinds) and bounds standing shapes by cells (85, not bodies), while the exact-key channel never snaps (recurrence 0.000), reruns are bit-identical, and every gate band holds (period ≤ 6.8e-4 inside B2's 1e-3, advance 75× inside B1's, knot counts unchanged).**
