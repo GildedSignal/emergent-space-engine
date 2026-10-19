@@ -1,0 +1,31 @@
+rung N=100000 (100028 bodies), burn, rtf 100, 240 s of wall time, engine budget 12 ms; build 4.51 s, peak footprint 237 MB (now 237 MB)
+probe gs=1002 rss_mb=259 hwm_mb=259 held=0 mints=1067 answers=1067 expired=0
+probe gs=2001 rss_mb=281 hwm_mb=281 held=0 mints=2136 answers=1941 expired=195
+probe gs=3001 rss_mb=285 hwm_mb=285 held=0 mints=2223 answers=2028 expired=195
+probe gs=4001 rss_mb=289 hwm_mb=289 held=0 mints=2271 answers=2076 expired=195
+probe gs=5001 rss_mb=291 hwm_mb=291 held=0 mints=2320 answers=2125 expired=195
+probe gs=6001 rss_mb=295 hwm_mb=295 held=0 mints=2354 answers=2159 expired=195
+probe gs=7001 rss_mb=297 hwm_mb=297 held=0 mints=2378 answers=2183 expired=195
+probe gs=8001 rss_mb=300 hwm_mb=300 held=0 mints=2403 answers=2208 expired=195
+probe gs=9001 rss_mb=302 hwm_mb=302 held=0 mints=2427 answers=2232 expired=195
+probe gs=10001 rss_mb=304 hwm_mb=304 held=0 mints=2451 answers=2256 expired=195
+probe gs=11001 rss_mb=308 hwm_mb=308 held=0 mints=2472 answers=2277 expired=195
+probe gs=12001 rss_mb=311 hwm_mb=311 held=0 mints=2484 answers=2289 expired=195
+probe gs=13001 rss_mb=313 hwm_mb=313 held=0 mints=2496 answers=2301 expired=195
+probe gs=14001 rss_mb=388 hwm_mb=388 held=0 mints=2508 answers=2312 expired=196
+probe gs=15001 rss_mb=552 hwm_mb=552 held=0 mints=2520 answers=2319 expired=201
+probe gs=16001 rss_mb=556 hwm_mb=556 held=0 mints=2532 answers=2320 expired=212
+probe gs=17001 rss_mb=561 hwm_mb=562 held=1 mints=2545 answers=2320 expired=224
+probe gs=18001 rss_mb=568 hwm_mb=570 held=0 mints=2557 answers=2320 expired=237
+probe gs=19001 rss_mb=613 hwm_mb=617 held=0 mints=2569 answers=2320 expired=249
+probe gs=20001 rss_mb=636 hwm_mb=636 held=0 mints=2581 answers=2320 expired=261
+probe gs=21001 rss_mb=636 hwm_mb=636 held=0 mints=2593 answers=2320 expired=273
+probe gs=22001 rss_mb=640 hwm_mb=640 held=0 mints=2602 answers=2320 expired=282
+probe gs=23001 rss_mb=642 hwm_mb=642 held=0 mints=2608 answers=2320 expired=288
+frames after 1 s: 14340  engine ms p50 0.010 p90 1.691 p99 11.928 max 403.585; over 12 ms: 58; frames behind: 2, worst lag 1.448 s; events/frame p50 0 p99 222 max 7411; scans held max 75
+game 23898.0 s after the first second: kicks 137951 (5.771e-5/body/game-s), events 182476 (7.633e-5/body/game-s), stats {opens 489, boundaries 36923, handoffs 1, lost 25, refused 0, slices 7112, encounters 3884}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 237 MB at the build's end, 642 MB at the flight's end (now 642 MB); 2348 B a body from the build; dashboard bytes/body 1488; view gather 5052.7 ms cold, 2154.3 ms warm (100048 seen); catalogue 100076 entries
+frames over the budget (first 12): [8367, 8416, 8466, 8516, 8565, 9011, 11094, 11143, 11193, 11243, 11292, 11342]; the player's doll (frame, doll): [(0, 2), (948, 0)]
+scans: mints 2614 answers 2320 expired 294 held_end 0; ttl_s Some("8")
+worst frames (frame, ms, events, lag s): (8416, 403.58, 7411, 0.000) (8516, 371.23, 7161, 0.000) (8466, 236.39, 4562, 0.000) (8367, 56.85, 1097, 0.000) (11937, 44.18, 1, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=14400 build_s=4.51 foot_build_mb=237 foot_end_mb=642 b_per_body=2348 p50_ms=0.010 p99_ms=11.928 max_ms=403.585 over=58 lag_s=1.448 kicks_per_body_gs=5.771e-5 events_per_body_gs=7.633e-5 refusals=0 dead=0 held_max=75 view_ms=2154.3 truncated=false wall_s=23.9

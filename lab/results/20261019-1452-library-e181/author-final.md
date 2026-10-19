@@ -1,0 +1,4 @@
+Working...
+All artifacts are complete: `predictions.md` (pre-registered, 4 of 5 held, one half-held), `dossier.md` with the five library lessons, `regen.sh` (~4 min), `work/patch.diff`, six flight logs, and the `wiki/nladder.md` proposal with the standing conflicts untouched.
+
+**Claim:** flying the record's named-but-unflown fence for the first time — expiring held scans past 16 game-s (off = shipped bit for bit) — deletes the nladder's burn-mode memory ratchet at its worst arm (shipped: 1,600 MB guard-stop at 29.6k game-s; fenced: flat 613–702 MB through 41.9k game-s, counter identity 2,723 = 2,496 + 227 + 0 exact) at a measured deletion price of ≤ 10 encounters in 3,986 (≤ 0.3%, against Musk's verbatim 10% add-back bar) — so the fence should count pinned **bytes**, not scans (`SCAN_BACKLOG`'s 2048 = 26 GB at 10⁵, dimensionally wrong), and the dropped tail is measurably the dead one (~35× emptier than the answered scans).

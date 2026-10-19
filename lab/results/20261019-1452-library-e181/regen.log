@@ -1,0 +1,27 @@
+error: patch failed: crates/universe/examples/nladder.rs:14
+error: crates/universe/examples/nladder.rs: patch does not apply
+error: patch failed: crates/universe/src/encounter.rs:40
+error: crates/universe/src/encounter.rs: patch does not apply
+error: patch failed: crates/universe/src/universe.rs:207
+error: crates/universe/src/universe.rs: patch does not apply
+patch already applied
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 14.09s
+== headline numbers ==
+-- ctrl_10e4_coast
+game 1898.5 s after the first second: kicks 3624 (1.903e-4/body/game-s), events 11115 (5.838e-4/body/game-s), stats {opens 37, boundaries 3499, handoffs 0, lost 22, refused 0, slices 3955, encounters 119}; refusals held 0, dead 0, alive(player) true
+scans: mints 193 answers 193 expired 0 held_end 0; ttl_s None
+ladder: n=10000 bodies=10028 flight=coast rtf=100 frames=1200 build_s=0.45 foot_build_mb=27 foot_end_mb=43 b_per_body=2458 p50_ms=0.034 p99_ms=5.670 max_ms=11.668 over=0 lag_s=1.448 kicks_per_body_gs=1.903e-4 events_per_body_gs=5.838e-4 refusals=0 dead=0 held_max=1 view_ms=212.8 truncated=false wall_s=1.8
+-- A2_shipped
+guard: resident over 1600 MB at frame 17739, game 29563 s
+game 29463.0 s after the first second: kicks 146552 (4.973e-5/body/game-s), events 299066 (1.015e-4/body/game-s), stats {opens 618, boundaries 144783, handoffs 1, lost 27, refused 0, slices 7112, encounters 3986}; refusals held 0, dead 0, alive(player) true
+scans: mints 2648 answers 2521 expired 0 held_end 127; ttl_s None
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=17739 build_s=4.53 foot_build_mb=237 foot_end_mb=1611 b_per_body=2349 p50_ms=0.010 p99_ms=11.924 max_ms=399.390 over=91 lag_s=1.448 kicks_per_body_gs=4.973e-5 events_per_body_gs=1.015e-4 refusals=0 dead=0 held_max=243 view_ms=2196.7 truncated=true wall_s=27.2
+-- B2_ttl16
+game 41898.0 s after the first second: kicks 201197 (4.801e-5/body/game-s), events 372287 (8.883e-5/body/game-s), stats {opens 847, boundaries 163124, handoffs 3, lost 27, refused 0, slices 7116, encounters 3978}; refusals held 0, dead 0, alive(player) true
+scans: mints 2723 answers 2463 expired 260 held_end 0; ttl_s Some("16")
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=25200 build_s=4.40 foot_build_mb=238 foot_end_mb=702 b_per_body=2348 p50_ms=0.009 p99_ms=11.915 max_ms=313.284 over=124 lag_s=1.448 kicks_per_body_gs=4.801e-5 events_per_body_gs=8.883e-5 refusals=0 dead=0 held_max=150 view_ms=2150.2 truncated=false wall_s=31.2
+-- C_ttl8
+game 23898.0 s after the first second: kicks 137951 (5.771e-5/body/game-s), events 182476 (7.633e-5/body/game-s), stats {opens 489, boundaries 36923, handoffs 1, lost 25, refused 0, slices 7112, encounters 3884}; refusals held 0, dead 0, alive(player) true
+scans: mints 2614 answers 2320 expired 294 held_end 0; ttl_s Some("8")
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=14400 build_s=4.51 foot_build_mb=237 foot_end_mb=642 b_per_body=2348 p50_ms=0.010 p99_ms=11.928 max_ms=403.585 over=58 lag_s=1.448 kicks_per_body_gs=5.771e-5 events_per_body_gs=7.633e-5 refusals=0 dead=0 held_max=75 view_ms=2154.3 truncated=false wall_s=23.9

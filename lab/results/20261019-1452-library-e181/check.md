@@ -1,0 +1,28 @@
+Grade: silver
+
+**Abstract.** The library run flew the answer-or-expire fence's expiry half (env-gated `ES_SCAN_TTL_S=16` game-s) at the ratchet's worst arm (10⁵, L8 burn): shipped guard-stops at 1,600 MB / 29,563 game-s; TTL arm flies 41,898 game-s flat at 613–702 MB, counter identity exact, ≤ 10 of 3,986 encounters lost (≤ 0.3%, regen: 8), p99 unchanged at 11.92 ms. Reproduced end to end at base 8b51786; my TTL=1 extreme and coast controls hold. This deletes the burn-mode memory ratchet — board bottleneck #1's play-time breaker. Cost: ~15 env-gated lines, but the patch also silently deletes the shipped `prune()` call (both arms), so "off = shipped bit for bit" is false until restored; digest re-freeze owed (law change). Not gold for that undisclosed edit; one prune-restored rerun closes it.
+
+**Reproduction (clean tree, base 8b51786).** Applied `work/patch.diff`, rebuilt, re-flew per `regen.sh` plus four arms of my own. Arm A reproduces **exactly**: guard frame 17,739 / 29,563 gs, staircase 259→1,565 MB, answers latched at 2,521 from ~16k gs, held_end 127, encounters 3,986, p99 11.92. Arm B: no guard, 25,200 frames (full), flat 613–702 MB, identity exact (2,723 = 2,463 + 260 + 0), encounters 3,978 → 8 lost vs A (author: 3,976 → 10; same class), over-rate 0.49% vs A's 0.51%. C (TTL=8): 642 MB. Coast control: fence inert, catalogue 10,076, bpb in a 2,458–2,464 band (claimed 2,463 is inside it). All numbers the dossier leans on regenerate; the arm-B/C expired splits do not (see below), which the author's caveat (2) anticipated.
+
+**Predictions.** `predictions.md` mtime 15:03:28 precedes the decisive flights (A ends 15:03:58, B 15:05:12). P1 (guard 25–50k band; hit 29.6k), P2 (flat < 900 MB, no guard, 41.9k gs), P4 (≤ 0.3% ≪ 10%), P5 (p99 11.9 both arms) held; P3 half-held, reported as such. File-time order verified.
+
+**Adversarial cases (mine; one outside the author's grid {off, 8, 16}).**
+1. **TTL=1, 10⁵ burn** (the extreme): flat 642 MB, held_max 17, identity 2,614 = 2,281 + 333, encounters 3,841 at 23.9k gs vs TTL=8's 3,884 — only 1.1% lost even when the fence eats young scans. The "dead tail" mechanism survives the extreme; this strengthens the claim.
+2. **TTL=16 on 10⁴ coast**: digit-identical to off (193/193, encounters 119) — the fence never fires where the engine is healthy.
+3. **TTL=0 ≡ unset** (parse path inert).
+4. **Code attack**: fence pops FIFO-front in mint order; `taken().saturating_add(ttl) < target` in ticks (16 gs ≈ 3.25M ticks, i64 safe); `taken()` defaults to `Tick::MAX` so other `Held` impls never expire. Sound.
+
+**The defect (silver, not gold).** The patch **deletes the shipped frame-loop `self.prune()` call** (history forgetting) in both arms — grep leaves zero call sites. The dossier's "off = shipped bit for bit" and "~15 lines env-gated" are both false as shipped. It is outcome-neutral (prune's own doc: "changes no outcome … only what may be forgotten") and does not confound the result (A's RSS tracks held count at ~9–12.7 MB/scan with no baseline creep; B flat across 42k gs of events), but an integrator adopting "within one step" would inherit a silent regression. Second, the expired splits (227/263) are schedule-elastic points, not regenerable digits (260/294 here), and the final-build logs backing the dossier's encounter counts were overwritten — A's digits match regen exactly, B's within 2. Precedent (r3 v3, r4 v2): undisclosed or unregenerable record content caps at silver.
+
+**Novelty.** The expiry clause is not new: this page already held "answer-or-expire" as the record's named fix (b77d-1fcf, b8e2, acf2) and 4447 priced the ratchet. What is new and measured here: expiry actually flown (flat to 42k gs, TTL scaling), the add-back priced (≤ 0.3% against Musk's 10% bar), and `SCAN_BACKLOG` shown dimensionally wrong (its cap, per the code, forces answers at 2048 entries — never engaged, held_max ≤ 243). The dossier says this honestly ("never flown expiry or measured its add-back").
+
+**Goal fit.** Board bottleneck #1 (28 bodies → 10⁹; the burn-mode scan ratchet as the play-time breaker). The fence deletes an unbounded memory term at the worst flown rung. PRINCIPLES: "The best part is no part" (17); "Compute only surprises" (3) — the dropped tail answers nothing; ruin avoidance (25). The TTL arm is a disclosed law change; adoption owes the digest re-freeze the dossier names.
+
+**The one experiment for gold.** Restore `prune()` outside the fence, correct the "off = shipped bit for bit" line to describe the diff as it is, and re-fly arms A and B once: if the guard/flat contrast and the ≤ 0.3% price hold there — they should, prune being forget-only — it is gold.
+
+**What the author missed.**
+- The prune deletion itself (the blocking defect).
+- The per-scan byte "confirmation" 1,611/127 = 12.7 MB conflates the ~300 MB held-0 baseline with scan bytes; the 16→29k gs staircase slope is ~9 MB/held scan.
+- The flat 642–702 MB plateau's composition (~340 MB above the held-0 baseline with held ≤ 1: allocator retention vs the latch's working set) is unexplained; at 10⁶ the byte law (TTL·λ·(K+38)·224 B ≈ 300 MB at 10⁵) should be checked against it before the fence is sized by that arithmetic.
+- The TTL arm's own encounter count varies across identical-seed runs (3,976/3,978): the law change is coupled to the drain's schedule, a PRINCIPLES-2 (deterministic and reproducible) tension in an adoptable fence that deserves a line of its own; the shipped arm A reproduces exactly.
+- The wiki paragraph's digits 1,595 MB (staircase end) and 2,463 (bpb point) — corrected in place by my bracketed checker note.
