@@ -1,0 +1,27 @@
+== 12800 extinction (fill 0.7, vmax 2^16, burn 1024, horizon 24576) ==
+seed                                  blocks_F64 (2048 ch each) ext@blk  m_whole  m@8192  m@12288 m_late4k F64_late    F1  p99/50 p99/50_l8 mxp50_l8 b0mx/p50   T_e T/side
+   1 [407.5, 87.5, 56.9, 26.0, 18.5, 8.7, 6.6, 1.5, 1.8, 1.7, 1.3, 3.6]       7    2.04%   3.43%    2.85%    0.43%     2.64  1.68   1.094     1.044    1.013    1.109  2048    8.5
+      mean64 139659  F64_whole 58.13 = mean64*m^2 58.13  spec_share_early 0.55
+   2 [404.4, 104.4, 48.6, 20.6, 11.2, 3.9, 1.9, 1.5, 2.1, 1.2, 1.4, 0.9]       5    2.00%   3.37%    2.79%    0.28%     1.12  1.62   1.093     1.045    1.009    1.120  2048    8.5
+      mean64 139170  F64_whole 55.71 = mean64*m^2 55.71  spec_share_early 0.52
+   3 [421.0, 109.4, 59.5, 26.6, 17.7, 4.5, 1.6, 2.8, 1.9, 2.7, 1.8, 1.2]       5    2.10%   3.54%    2.94%    0.33%     1.51  1.72   1.099     1.044    1.009    1.103  2048    8.5
+      mean64 139914  F64_whole 61.58 = mean64*m^2 61.58  spec_share_early 0.53
+
+== The n-invariant instrument: late-4096 window F64 (raw late-m carries a
+   1/sqrt(mean64) counting floor; F64_late = m^2 * mean64 is scale-free) ==
+n   400 s1 mean64_late     4079 m_late4k  2.38% F64_late  2.31
+n  1600 s1 mean64_late    17530 m_late4k  1.18% F64_late  2.44
+n  6400 s1 mean64_late    68801 m_late4k  0.85% F64_late  4.96
+n  6400 s2 mean64_late    68504 m_late4k  0.87% F64_late  5.15
+n  6400 s3 mean64_late    68359 m_late4k  0.65% F64_late  2.86
+n 12800 s1 mean64_late   139808 m_late4k  0.43% F64_late  2.64
+n 12800 s2 mean64_late   139293 m_late4k  0.28% F64_late  1.12
+n 12800 s3 mean64_late   139535 m_late4k  0.33% F64_late  1.51
+
+== 6400 corrected row + late-m (seeds 1-3, horizon 8192) ==
+s1 F64  38.18 mean64   69032 m  2.35% m_late4k 0.85% F64_late  4.96 F1  1.34 p99/50 1.106 b0mx/p50 1.115 blocks [117.2, 19.5, 7.3, 2.7]
+s2 F64  39.05 mean64   68617 m  2.39% m_late4k 0.87% F64_late  5.15 F1  1.36 p99/50 1.105 b0mx/p50 1.116 blocks [126.9, 17.7, 6.9, 3.0]
+s3 F64  43.77 mean64   68780 m  2.52% m_late4k 0.65% F64_late  2.86 F1  1.46 p99/50 1.114 b0mx/p50 1.117 blocks [134.1, 19.6, 3.6, 1.9]
+
+== poly_r corrected cell (seed 1, radii 0.75,1) ==
+F64  17.26 mean64   33798 m  2.26% b0mx/p50 1.102 T 2048 sh 0.23 blocks [39.1, 16.6, 11.2, 2.5]
