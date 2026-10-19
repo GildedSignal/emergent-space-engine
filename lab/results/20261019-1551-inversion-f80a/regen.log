@@ -1,0 +1,31 @@
+error: patch failed: crates/universe/examples/nladder.rs:14
+error: crates/universe/examples/nladder.rs: patch does not apply
+error: patch failed: crates/universe/src/encounter.rs:40
+error: crates/universe/src/encounter.rs: patch does not apply
+error: patch failed: crates/universe/src/universe.rs:207
+error: crates/universe/src/universe.rs: patch does not apply
+patch already applied
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.82s
+done
+== OFF (TTL unset, prune restored = shipped) (174 probes, to gs 174,016) ==
+  window gs        rss MB    MB/1k gs   held(max)  hist_total(end)  gt1(end)   +bindings/1k gs
+          0-   15,000       123      3.07    1083        41,698    10,521     830.4
+      15000-   40,000       537     16.12     156        66,752    30,064     224.5
+      40000-   60,000       595      2.00     231        74,733    30,064     407.4
+      60000-   95,000       680      2.47     329        97,052    30,065     642.3
+      95000-  130,000       776      2.77     382       155,110    30,065    1686.0
+     130000-  200,000       900      2.68     450       241,552    30,065    1882.5
+  end: gs=174,016 rss=900 hwm=900 held=450 mints=3224 answers=2774 expired=0 hist_total=241,552 hist_gt1=30,065 hist_max=2017 (8.03 bindings/body)
+
+== ON (TTL=16, prune restored) (419 probes, to gs 419,016) ==
+  window gs        rss MB    MB/1k gs   held(max)  hist_total(end)  gt1(end)   +bindings/1k gs
+          0-   15,000       103      1.69      32        41,716    10,539     832.0
+      15000-   40,000       182      1.38       1        66,752    30,064     224.5
+      40000-   60,000       172     -0.53       1        74,733    30,064     407.4
+      60000-   95,000       212      1.18       1        97,052    30,065     642.3
+      95000-  130,000       303      2.65       1       155,142    30,065    1686.6
+     130000-  200,000       537      3.30       1       306,046    30,065    2134.8
+     200000-  419,016      1457      4.19       1       866,168    30,065    2550.5
+  end: gs=419,016 rss=1457 hwm=1457 held=0 mints=3427 answers=1090 expired=2337 hist_total=866,168 hist_gt1=30,065 hist_max=7921 (28.80 bindings/body)
+
