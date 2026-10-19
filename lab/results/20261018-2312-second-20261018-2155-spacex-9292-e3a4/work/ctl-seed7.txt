@@ -1,0 +1,21 @@
+skyserve N=10000 (10028 bodies) burn level=8 rtf=100 frames=360 stride=1 theta_f=0.008 near_ls=100 seed=7 build=0.42s
+census f60: far 9718 near 349 cells(root,θf) 786 beta 0.000074 rate 1.000000 obs (-171.7,-450.9) ls alive true
+census f120: far 9718 near 348 cells(root,θf) 786 beta 0.000237 rate 1.000000 obs (-171.7,-450.9) ls alive true
+census f180: far 9718 near 342 cells(root,θf) 786 beta 0.000530 rate 1.000000 obs (-171.8,-450.9) ls alive true
+census f240: far 9718 near 341 cells(root,θf) 786 beta 0.000824 rate 1.000000 obs (-171.8,-450.9) ls alive true
+(truncated at frame 273)
+anchors over 212 intervals: far pairs 2060216; one-step >θf/2 displayed 0 (0.0000%), root 0 (0.0000%); displayed cells(θf) changed p50 6 p99 18
+raw angle change/frame rad: displayed p50 2.88e-6 p99 4.86e-6 max 5.25e-6; root p50 3.29e-7 p99 2.17e-6 max 8.22e-6; tube-quantum jumps (residual>1e-9): 1332 of 1030108 sampled (0.1293%/frame), jump mag p50 3.66e-7 p99 7.14e-7
+near per frame p50 342 max 349; warp one-step root residual rad p50 0.00e0 p99 4.44e-16 max 7.14e-7; |dbeta| p50 4.92e-6 p99 4.92e-6; far rows/frame 9718
+never-repair warp accumulated root error rad (sampled every 30 frames): p50 0.00e0 p99 4.44e-16 max 1.28e-4
+policy naive root θ=8.0e-3: repairs/frame p50 0.0 p99 0.0 max 0; mean 0 over 212 intervals = 0.0000% of far rows/frame; last-quarter mean 0.00/frame = 0.0000% (inserts 9718, drops 0)
+policy naive root θ=8.0e-4: repairs/frame p50 0.0 p99 2.0 max 3; mean 16 over 212 intervals = 0.0008% of far rows/frame; last-quarter mean 0.28/frame = 0.0029% (inserts 9718, drops 0)
+policy naive disp θ=8.0e-3: repairs/frame p50 0.0 p99 0.0 max 0; mean 0 over 212 intervals = 0.0000% of far rows/frame; last-quarter mean 0.00/frame = 0.0000% (inserts 9718, drops 0)
+policy naive disp θ=8.0e-4: repairs/frame p50 0.0 p99 2.0 max 3; mean 16 over 212 intervals = 0.0008% of far rows/frame; last-quarter mean 0.28/frame = 0.0029% (inserts 9718, drops 0)
+policy warp root θ=8.0e-3: repairs/frame p50 0.0 p99 0.0 max 0; mean 0 over 212 intervals = 0.0000% of far rows/frame; last-quarter mean 0.00/frame = 0.0000% (inserts 9718, drops 0)
+policy warp root θ=8.0e-4: repairs/frame p50 0.0 p99 0.0 max 0; mean 0 over 212 intervals = 0.0000% of far rows/frame; last-quarter mean 0.00/frame = 0.0000% (inserts 9718, drops 0)
+policy warp disp θ=8.0e-3: repairs/frame p50 0.0 p99 0.0 max 0; mean 0 over 212 intervals = 0.0000% of far rows/frame; last-quarter mean 0.00/frame = 0.0000% (inserts 9718, drops 0)
+policy warp disp θ=8.0e-4: repairs/frame p50 0.0 p99 0.0 max 0; mean 0 over 212 intervals = 0.0000% of far rows/frame; last-quarter mean 0.00/frame = 0.0000% (inserts 9718, drops 0)
+rebin f120 θ=8.0e-3: 0.24 ms for 9718 far rows (25 ns/row)
+rebin f120 θ=8.0e-4: 0.39 ms for 9718 far rows (40 ns/row)
+warm gather ms/frame mean 240.2 over 212 census frames (24.7 µs per far row)

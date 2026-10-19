@@ -1,0 +1,41 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unnecessary parentheses around method argument
+   --> crates/universe/examples/skyserve.rs:166:30
+    |
+166 |                     *m.entry((((r.root + std::f64::consts::PI) / th).floor() as i64)).or_default() += 1;
+    |                              ^                                                     ^
+    |
+    = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+    |
+166 -                     *m.entry((((r.root + std::f64::consts::PI) / th).floor() as i64)).or_default() += 1;
+166 +                     *m.entry(((r.root + std::f64::consts::PI) / th).floor() as i64).or_default() += 1;
+    |
+
+warning: unnecessary parentheses around method argument
+   --> crates/universe/examples/skyserve.rs:195:27
+    |
+195 |                 *pc.entry((((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64)).or_default() += 1;
+    |                           ^                                                            ^
+    |
+help: remove these parentheses
+    |
+195 -                 *pc.entry((((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64)).or_default() += 1;
+195 +                 *pc.entry(((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64).or_default() += 1;
+    |
+
+warning: unnecessary parentheses around method argument
+   --> crates/universe/examples/skyserve.rs:199:27
+    |
+199 |                 *cc.entry((((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64)).or_default() += 1;
+    |                           ^                                                            ^
+    |
+help: remove these parentheses
+    |
+199 -                 *cc.entry((((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64)).or_default() += 1;
+199 +                 *cc.entry(((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64).or_default() += 1;
+    |
+
+warning: `emergent-universe` (example "skyserve") generated 3 warnings (run `cargo fix --example "skyserve"` to apply 3 suggestions)
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.21s
+regen done: grep 'anchors\|policy\|rebin\|near per frame\|never-repair\|raw angle' *.txt

@@ -1,0 +1,354 @@
+diff --git a/crates/universe/examples/skyserve.rs b/crates/universe/examples/skyserve.rs
+new file mode 100644
+index 00000000..be8e0753
+--- /dev/null
++++ b/crates/universe/examples/skyserve.rs
+@@ -0,0 +1,348 @@
++//! Sky serve: the far-row record's own cost law, flown through the broken window
++//! (lab run 20261018-2312-second-20261018-2155-spacex-9292-e3a4, second author on 20261018-2155-spacex-9292).
++//!
++//! 9292's checker broke "0 pairs past half a cell" outside (L15 × ≤ 500 game-s) × (θ_f = 8e-3)
++//! and priced a naive staleness-repair tier (~0.4 %·K far rows/frame). 9292's design sentence
++//! says the record composes "the shared (β, displacement) warp" — the displacement half was
++//! never measured. This probe flies the record itself, as accounting, beside the shipped
++//! `gather_cached` (the same call the page flies): it holds a per-far-row record (the stored
++//! root-frame offset at last repair) and serves it the way the record would —
++//! `served = stored − (o_now − o_at_repair)`, displayed through the shipped `aberration` —
++//! repairing a row only when its serve error crosses half the repair quantum. What it counts
++//! is the record's per-frame bill: repairs, near rows, cells, and the one-shot zoom re-bin.
++//!
++//! Policies (state per far row, all simulated in one pass, at two floors: θ_f and θ_f/10):
++//! - `naive`: store the root angle, compose only aberration — repair when the angle error
++//!   (root- or display-triggered) passes q/2 (the checker's tier is naive/root);
++//! - `warp`: store the offset vector, subtract the observer's accumulated displacement
++//!   (the record's own design) — same triggers;
++//! - a never-repair warp observer records the error growth (the drift law).
++//!
++//! cargo run --release -p emergent-universe --example skyserve --
++//!   [<N> <coast|burn> [frames [rtf [stride] [level [theta_f [wall_s [seed]]]]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{aberration, gather_cached, ViewCache};
++use emergent_universe::{Budget, Config};
++use std::collections::{HashMap, HashSet};
++use std::time::{Duration, Instant};
++
++/// cc75's near set: closer than this (light-seconds) counts as resolvable content.
++const NEAR_LS: f64 = 100.0;
++
++fn wrap(a: f64) -> f64 {
++    let mut a = a.abs();
++    if a > std::f64::consts::PI {
++        a = std::f64::consts::TAU - a;
++    }
++    a
++}
++
++fn ang(v: [f64; 2]) -> f64 {
++    v[1].atan2(v[0])
++}
++
++fn norm(v: [f64; 2]) -> [f64; 2] {
++    let d = v[0].hypot(v[1]).max(1e-300);
++    [v[0] / d, v[1] / d]
++}
++
++fn pct(sorted: &mut Vec<f64>, p: f64) -> f64 {
++    if sorted.is_empty() {
++        return 0.0;
++    }
++    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// One row as the census sees it (the shipped gather's own output).
++struct Now {
++    id: usize,
++    near: bool,
++    disp: f64,
++    root: f64,
++    offset: [f64; 2],
++}
++
++/// The record's per-row state under a repair policy.
++#[derive(Clone, Copy)]
++struct Rec {
++    offset: [f64; 2], // stored root-frame offset at last repair (ls)
++    obs: [f64; 2],    // observer root position at last repair (ls)
++    angle: f64,       // stored root angle at last repair (the naive policy's whole state)
++}
++
++impl Rec {
++    fn new(offset: [f64; 2], obs: [f64; 2]) -> Self {
++        Rec { offset, obs, angle: ang(offset) }
++    }
++}
++
++const POLS: [&str; 2] = ["naive", "warp"];
++const TRIGS: [&str; 2] = ["root", "disp"];
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "burn".into());
++    let frames: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(360);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let stride: usize = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let level: u8 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(8);
++    let theta_f: f64 = args.get(7).and_then(|s| s.parse().ok()).unwrap_or(8e-3);
++    let wall_s: u64 = args.get(8).and_then(|s| s.parse().ok()).unwrap_or(52);
++    let seed: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let burn = flight == "burn";
++    let floors = [theta_f, theta_f / 10.0];
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    println!(
++        "skyserve N={n} ({bodies} bodies) {flight} level={level} rtf={rtf} frames={frames} stride={stride} theta_f={theta_f} near_ls={NEAR_LS} seed={seed} build={build:.2}s"
++    );
++    let mut cache = ViewCache::default();
++    // record state per policy combo: pol(2) × trigger(2) × floor(2)
++    let mut maps: Vec<HashMap<usize, Rec>> = (0..8).map(|_| HashMap::new()).collect();
++    let mut repairs = vec![Vec::<f64>::new(); 8]; // repairs per interval per combo
++    let (mut inserts, mut drops) = ([0u64; 8], [0u64; 8]);
++    let mut obs_w: HashMap<usize, Rec> = HashMap::new(); // never-repair warp (drift law)
++    let (mut intervals, mut warm_ms) = (0u64, 0.0f64);
++    let (mut far_pairs, mut moved_disp, mut moved_root) = (0u64, 0u64, 0u64);
++    let mut near_counts: Vec<f64> = Vec::new();
++    let mut onestep_res: Vec<f64> = Vec::new();
++    let mut obserr: Vec<f64> = Vec::new();
++    let mut dbeta: Vec<f64> = Vec::new();
++    let mut cells_chg: Vec<f64> = Vec::new();
++    let mut droot: Vec<f64> = Vec::new();
++    let mut ddisp: Vec<f64> = Vec::new();
++    let (mut jump_n, mut jump_mag) = (0u64, Vec::<f64>::new());
++    let mut last: Option<(Vec<Now>, [f64; 2], [f64; 2])> = None;
++    let mut rebins: Vec<(usize, f64, f64, usize)> = Vec::new();
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(wall_s) {
++            println!("(truncated at frame {f})");
++            break;
++        }
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, level));
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) },
++            i64::MAX,
++        );
++        if f % stride != 0 || f < 60 {
++            continue;
++        }
++        let tg = Instant::now();
++        let Some(v) = gather_cached(&p.u, &p.names, &mut cache) else { continue };
++        warm_ms += tg.elapsed().as_secs_f64() * 1e3;
++        let obs = v.position_light_seconds;
++        let beta = v.beta;
++        let now: Vec<Now> = v
++            .seen
++            .iter()
++            .map(|s| Now {
++                id: s.id,
++                near: s.light_seconds < NEAR_LS,
++                disp: ang(s.direction),
++                root: ang(s.offset),
++                offset: s.offset,
++            })
++            .collect();
++        let far: Vec<&Now> = now.iter().filter(|r| !r.near).collect();
++        near_counts.push((now.len() - far.len()) as f64);
++        if f == 120 || f == 720 || f == 1420 {
++            for th in floors {
++                let t = Instant::now();
++                let mut m: HashMap<i64, u32> = HashMap::new();
++                for r in far.iter() {
++                    *m.entry((((r.root + std::f64::consts::PI) / th).floor() as i64)).or_default() += 1;
++                }
++                rebins.push((f, t.elapsed().as_secs_f64() * 1e3, th, far.len()));
++            }
++        }
++        if f % 60 == 0 {
++            let occ = far
++                .iter()
++                .map(|r| ((r.root + std::f64::consts::PI) / floors[0]).floor() as i64)
++                .collect::<HashSet<_>>()
++                .len();
++            println!(
++                "census f{f}: far {} near {} cells(root,θf) {occ} beta {:.6} rate {:.6} obs ({:.1},{:.1}) ls alive {}",
++                far.len(),
++                now.len() - far.len(),
++                beta[0].hypot(beta[1]),
++                v.rate,
++                obs[0],
++                obs[1],
++                v.alive
++            );
++        }
++        if let Some((prev, pbeta, pobs)) = last.take() {
++            intervals += 1;
++            dbeta.push((beta[0] - pbeta[0]).hypot(beta[1] - pbeta[1]));
++            let pmap: HashMap<usize, &Now> = prev.iter().map(|r| (r.id, r)).collect();
++            let cur_far: HashSet<usize> = far.iter().map(|r| r.id).collect();
++            let mut pc: HashMap<i64, u32> = HashMap::new();
++            for r in prev.iter().filter(|r| !r.near) {
++                *pc.entry((((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64)).or_default() += 1;
++            }
++            let mut cc: HashMap<i64, u32> = HashMap::new();
++            for r in far.iter() {
++                *cc.entry((((r.disp + std::f64::consts::PI) / floors[0]).floor() as i64)).or_default() += 1;
++            }
++            let mut chg = 0u32;
++            for k in cc.keys().copied().collect::<Vec<_>>() {
++                if cc.get(&k) != pc.get(&k) {
++                    chg += 1;
++                }
++            }
++            for k in pc.keys() {
++                if !cc.contains_key(k) {
++                    chg += 1;
++                }
++            }
++            cells_chg.push(chg as f64);
++            let dobs = [obs[0] - pobs[0], obs[1] - pobs[1]];
++            let mut rep_frame = [0u64; 8];
++            for r in far.iter() {
++                let Some(q) = pmap.get(&r.id) else { continue };
++                far_pairs += 1;
++                let dd = wrap(r.disp - q.disp);
++                let dr = wrap(r.root - q.root);
++                ddisp.push(dd);
++                droot.push(dr);
++                moved_disp += (dd > floors[0] / 2.0) as u64;
++                moved_root += (dr > floors[0] / 2.0) as u64;
++                if intervals % 2 == 0 {
++                    let res = wrap(r.root - ang([q.offset[0] - dobs[0], q.offset[1] - dobs[1]]));
++                    onestep_res.push(res);
++                    if res > 1e-9 {
++                        jump_n += 1;
++                        jump_mag.push(res);
++                    }
++                }
++                for pol in 0..2usize {
++                    for trig in 0..2usize {
++                        for fl in 0..2usize {
++                            let idx = pol * 4 + trig * 2 + fl;
++                            let m = &mut maps[idx];
++                            let re = match m.get(&r.id) {
++                                None => {
++                                    m.insert(r.id, Rec::new(r.offset, obs));
++                                    inserts[idx] += 1;
++                                    continue;
++                                }
++                                Some(re) => *re,
++                            };
++                            let (sroot, sdisp) = match pol {
++                                0 => (
++                                    re.angle,
++                                    ang(aberration([re.angle.cos(), re.angle.sin()], beta).0),
++                                ),
++                                _ => {
++                                    let so = [re.offset[0] + re.obs[0] - obs[0], re.offset[1] + re.obs[1] - obs[1]];
++                                    (ang(so), ang(aberration(norm(so), beta).0))
++                                }
++                            };
++                            let err = match trig {
++                                0 => wrap(r.root - sroot),
++                                _ => wrap(r.disp - sdisp),
++                            };
++                            if err > floors[fl] / 2.0 {
++                                m.insert(r.id, Rec::new(r.offset, obs));
++                                rep_frame[idx] += 1;
++                            }
++                        }
++                    }
++                }
++                // never-repair warp observer, sampled (the drift law)
++                if intervals % 30 == 0 {
++                    match obs_w.get(&r.id) {
++                        Some(re) => {
++                            let so = [re.offset[0] + re.obs[0] - obs[0], re.offset[1] + re.obs[1] - obs[1]];
++                            obserr.push(wrap(r.root - ang(so)));
++                        }
++                        None => {
++                            obs_w.insert(r.id, Rec::new(r.offset, obs));
++                        }
++                    }
++                }
++            }
++            // drop rows that left the far tier (handouts, near transitions, deaths)
++            for r in prev.iter().filter(|r| !r.near) {
++                if !cur_far.contains(&r.id) {
++                    for idx in 0..8 {
++                        if maps[idx].remove(&r.id).is_some() {
++                            drops[idx] += 1;
++                        }
++                    }
++                    obs_w.remove(&r.id);
++                }
++            }
++            for idx in 0..8 {
++                repairs[idx].push(rep_frame[idx] as f64);
++            }
++        }
++        last = Some((now, beta, obs));
++    }
++    let ip = intervals.max(1) as f64;
++    let fp = far_pairs.max(1) as f64;
++    println!(
++        "anchors over {intervals} intervals: far pairs {far_pairs}; one-step >θf/2 displayed {} ({:.4}%), root {} ({:.4}%); displayed cells(θf) changed p50 {:.0} p99 {:.0}",
++        moved_disp, 100.0 * moved_disp as f64 / fp,
++        moved_root, 100.0 * moved_root as f64 / fp,
++        pct(&mut cells_chg, 0.5), pct(&mut cells_chg, 0.99),
++    );
++    println!(
++        "raw angle change/frame rad: displayed p50 {:.2e} p99 {:.2e} max {:.2e}; root p50 {:.2e} p99 {:.2e} max {:.2e}; tube-quantum jumps (residual>1e-9): {} of {} sampled ({:.4}%/frame), jump mag p50 {:.2e} p99 {:.2e}",
++        pct(&mut ddisp, 0.5), pct(&mut ddisp, 0.99), pct(&mut ddisp, 1.0),
++        pct(&mut droot, 0.5), pct(&mut droot, 0.99), pct(&mut droot, 1.0),
++        jump_n, onestep_res.len(), 100.0 * jump_n as f64 / onestep_res.len().max(1) as f64,
++        pct(&mut jump_mag, 0.5), pct(&mut jump_mag, 0.99),
++    );
++    println!(
++        "near per frame p50 {:.0} max {:.0}; warp one-step root residual rad p50 {:.2e} p99 {:.2e} max {:.2e}; |dbeta| p50 {:.2e} p99 {:.2e}; far rows/frame {:.0}",
++        pct(&mut near_counts, 0.5), pct(&mut near_counts, 1.0),
++        pct(&mut onestep_res, 0.5), pct(&mut onestep_res, 0.99), pct(&mut onestep_res, 1.0),
++        pct(&mut dbeta, 0.5), pct(&mut dbeta, 0.99), far_pairs as f64 / ip,
++    );
++    if !obserr.is_empty() {
++        println!(
++            "never-repair warp accumulated root error rad (sampled every 30 frames): p50 {:.2e} p99 {:.2e} max {:.2e}",
++            pct(&mut obserr, 0.5), pct(&mut obserr, 0.99), pct(&mut obserr, 1.0)
++        );
++    }
++    for pol in 0..2usize {
++        for trig in 0..2usize {
++            for fl in 0..2usize {
++                let idx = pol * 4 + trig * 2 + fl;
++                let total: u64 = repairs[idx].iter().map(|&x| x as u64).sum();
++                let n = repairs[idx].len().max(4);
++                let tail = &repairs[idx][n - n / 4..];
++                let tail_mean: f64 = tail.iter().sum::<f64>() / tail.len().max(1) as f64;
++                println!(
++                    "policy {} {} θ={:.1e}: repairs/frame p50 {:.1} p99 {:.1} max {:.0}; mean {total:.0} over {intervals} intervals = {:.4}% of far rows/frame; last-quarter mean {:.2}/frame = {:.4}% (inserts {}, drops {})",
++                    POLS[pol], TRIGS[trig], floors[fl],
++                    pct(&mut repairs[idx], 0.5), pct(&mut repairs[idx], 0.99), pct(&mut repairs[idx], 1.0),
++                    100.0 * total as f64 / fp, tail_mean,
++                    100.0 * tail_mean / (far_pairs as f64 / ip), inserts[idx], drops[idx],
++                );
++            }
++        }
++    }
++    for (f, ms, th, rows) in &rebins {
++        println!("rebin f{f} θ={th:.1e}: {ms:.2} ms for {rows} far rows ({:.0} ns/row)", ms / *rows as f64 * 1e6);
++    }
++    println!(
++        "warm gather ms/frame mean {:.1} over {} census frames ({:.1} µs per far row)",
++        warm_ms / ip, intervals, warm_ms / ip / (far_pairs as f64 / ip).max(1.0) * 1e3,
++    );
++}
