@@ -1,0 +1,227 @@
+diff --git a/crates/lattice/examples/fleetburst.rs b/crates/lattice/examples/fleetburst.rs
+new file mode 100644
+index 00000000..90a5cfff
+--- /dev/null
++++ b/crates/lattice/examples/fleetburst.rs
+@@ -0,0 +1,221 @@
++//! Formation burst law (chaos-shadowing open direction 2): two counter-streaming
++//! coherent fleets in a Bounce box, shipped `Chronon` + `Law::RelativisticV1`, Q = 2^20.
++//! Fleet conventions follow `worlds::galaxy`: unit-mass bouncers, radius q, spacing 6q,
++//! jitter ±q, bulk drift ±v per axis, dispersion σ per component. The box re-crosses the
++//! fleets forever, so SUSTAINED coherence (the unpriced half) is on stage, not one shock.
++//! Controls: `--scene thermal` (same box, same grid, uniform velocities, zero drift) and
++//! `--aligned` (σ=0, jitter=0: the pure shock machine — the instrument's positive
++//! control); `--nojitter` isolates velocity dispersion from transverse offset.
++//! `--scene mixed` (e56b): one coherent n/2 fleet crossing a thermal n/2 belt — the game
++//! case. `--boxscale` moves only the far wall (round-trip clock), `--nofleet` leaves the
++//! belt alone (matched control), `--free` drops the container (one crossing by geometry).
++//!
++//! Output: TSV `tick contacts walls ops` per chronon; header lines starting `#` carry the
++//! scene parameters and the final digest. Per-tick contacts/walls come from the kept event
++//! log binned by tick; ops is the stepper's charged-op delta per tick.
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Law, Response, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Kind, Stepper};
++
++const Q: i64 = 1 << 20;
++
++struct Geom {
++    per_row: i64,
++    extent: i64, // light-chronons per fleet side
++    w: i64,
++    h: i64,
++}
++
++fn geom(n: i64) -> Geom {
++    let per_row = (n as f64 / 2.0).sqrt().ceil() as i64;
++    let extent = per_row * 6;
++    Geom { per_row, extent, w: 2 * extent + extent / 2, h: extent + 12 }
++}
++
++fn grid_fleet(
++    rng: &mut Rng,
++    x0: i64,
++    y0: i64,
++    per_row: i64,
++    m: i64,
++    kx: i64,
++    sx: i64,
++    sy: i64,
++    jitter: bool,
++    id: &mut u64,
++) -> Vec<Body> {
++    (0..m)
++        .map(|j| {
++            let x = [
++                (x0 + (j % per_row) * 6) * Q + if jitter { rng.range(-Q, Q) } else { 0 },
++                (y0 + (j / per_row) * 6) * Q + if jitter { rng.range(-Q, Q) } else { 0 },
++            ];
++            let k = [
++                kx + if sx > 0 { rng.range(-sx, sx) } else { 0 },
++                if sy > 0 { rng.range(-sy, sy) } else { 0 },
++            ];
++            let b = Body::new(*id, x, k, 1, Q, Response::Bounce);
++            *id += 1;
++            b
++        })
++        .collect()
++}
++fn head_on(n: i64, sx: i64, sy: i64, seed: u64, aligned: bool, jitter: bool) -> (World, Geom) {
++    let g = geom(n);
++    let mut rng = Rng(seed ^ (n as u64) ^ 0xF1E7);
++    let (sx, sy) = if aligned { (0, 0) } else { (sx, sy) };
++    let jitter = jitter && !aligned;
++    let mut id = 1u64;
++    let m = n / 2;
++    let mut bodies = grid_fleet(&mut rng, 3, 6, g.per_row, m, Q / 4, sx, sy, jitter, &mut id);
++    let gap = g.extent / 2;
++    let mut b = grid_fleet(&mut rng, 3 + g.extent + gap, 6, g.per_row, m, -Q / 4, sx, sy, jitter, &mut id);
++    bodies.append(&mut b);
++    let w = World::new(Q, Some(Container { min: [0, 0], max: [g.w * Q, g.h * Q] }), bodies)
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("fleet world within the law's ranges");
++    (w, g)
++}
++
++/// Same box, same 6q grid over its whole area, velocities uniform in [-v, v] per
++/// component, zero drift: the thermal control at matched fill and speed scale.
++fn thermal(n: i64, vmax: i64, seed: u64) -> (World, Geom) {
++    let g = geom(n);
++    let mut rng = Rng(seed ^ (n as u64) ^ 0x7E4);
++    let cols = (g.w - 6) / 6;
++    let mut bodies = Vec::with_capacity(n as usize);
++    for j in 0..n {
++        let (cx, cy) = (3 + (j % cols) * 6, 3 + (j / cols) * 6);
++        let x = [(cx * Q + rng.range(-Q / 2, Q / 2)), (cy * Q + rng.range(-Q / 2, Q / 2))];
++        let k = [rng.range(-vmax, vmax), rng.range(-vmax, vmax)];
++        bodies.push(Body::new(j as u64 + 1, x, k, 1, Q, Response::Bounce));
++    }
++    let w = World::new(Q, Some(Container { min: [0, 0], max: [g.w * Q, g.h * Q] }), bodies)
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("thermal world within the law's ranges");
++    (w, g)
++}
++
++/// The game case (chaos-shadowing leftover): one coherent n/2 fleet crossing a thermal
++/// n/2 belt (the cloud). The fleet grid sits at the left (`head_on` conventions), the
++/// cloud fills the band [3+1.5*extent, 3+2.5*extent) on a 6q grid with ±q/2 offsets;
++/// `boxscale` stretches the box to the right, moving only the far wall while fleet and
++/// cloud stay fixed — the round-trip clock changes, the crossing does not. `--nofleet`
++/// leaves the cloud alone (the matched control); `--free` drops the container.
++fn mixed(
++    n: i64,
++    sx: i64,
++    sy: i64,
++    seed: u64,
++    jitter: bool,
++    cloudvmax: i64,
++    boxscale: f64,
++    nofleet: bool,
++    free: bool,
++) -> (World, Geom) {
++    let mut g = geom(n);
++    g.w = (g.w as f64 * boxscale).round() as i64;
++    let mut rng = Rng(seed ^ (n as u64) ^ 0x91D);
++    let mut id = 1u64;
++    let m = n / 2;
++    let mut bodies = Vec::new();
++    if !nofleet {
++        bodies = grid_fleet(&mut rng, 3, 6, g.per_row, m, Q / 4, sx, sy, jitter, &mut id);
++    }
++    let cx0 = 3 + g.extent + g.extent / 2;
++    let cols = g.extent / 6;
++    for j in 0..m {
++        let x = [
++            (cx0 + (j % cols) * 6) * Q + rng.range(-Q / 2, Q / 2),
++            (6 + (j / cols) * 6) * Q + rng.range(-Q / 2, Q / 2),
++        ];
++        let k = [rng.range(-cloudvmax, cloudvmax), rng.range(-cloudvmax, cloudvmax)];
++        bodies.push(Body::new(id, x, k, 1, Q, Response::Bounce));
++        id += 1;
++    }
++    let container =
++        if free { None } else { Some(Container { min: [0, 0], max: [g.w * Q, g.h * Q] }) };
++    let w = World::new(Q, container, bodies)
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("mixed world within the law's ranges");
++    (w, g)
++}
++
++fn main() {
++    let mut scene = String::new();
++    let mut n = 1600i64;
++    let mut sx = 0i64;
++    let mut sy = 0i64;
++    let mut vmax = Q / 4;
++    let mut cloudvmax = Q / 16;
++    let mut boxscale = 1.0f64;
++    let mut seed = 1u64;
++    let mut horizon = 8192i64;
++    let mut aligned = false;
++    let mut jitter = true;
++    let mut free = false;
++    let mut nofleet = false;
++    let mut out = String::new();
++    let mut args = std::env::args().skip(1);
++    while let Some(a) = args.next() {
++        let a = a.clone();
++        match a.as_str() {
++            "--scene" => scene = args.next().expect("value"),
++            "--n" => n = args.next().expect("value").parse().unwrap(),
++            "--sigma" => {
++                let v = args.next().expect("value").parse().unwrap();
++                sx = v;
++                sy = v;
++            }
++            "--sx" => sx = args.next().expect("value").parse().unwrap(),
++            "--sy" => sy = args.next().expect("value").parse().unwrap(),
++            "--vmax" => vmax = args.next().expect("value").parse().unwrap(),
++            "--cloudvmax" => cloudvmax = args.next().expect("value").parse().unwrap(),
++            "--boxscale" => boxscale = args.next().expect("value").parse().unwrap(),
++            "--free" => free = true,
++            "--nofleet" => nofleet = true,
++            "--seed" => seed = args.next().expect("value").parse().unwrap(),
++            "--horizon" => horizon = args.next().expect("value").parse().unwrap(),
++            "--aligned" => aligned = true,
++            "--nojitter" => jitter = false,
++            "--out" => out = args.next().expect("value"),
++            _ => panic!("unknown arg {a}"),
++        }
++    }
++    let (w, g) = match scene.as_str() {
++        "head" => head_on(n, sx, sy, seed, aligned, jitter),
++        "thermal" => thermal(n, vmax, seed),
++        "mixed" => mixed(n, sx, sy, seed, jitter, cloudvmax, boxscale, nofleet, free),
++        _ => panic!("unknown scene {scene}"),
++    };
++    let mut step = Chronon::new(w, true).expect("genesis valid");
++    let mut buf = String::with_capacity(48 * horizon as usize);
++    let mut prev_ops = 0u64;
++    for t in 1..=horizon {
++        step.step();
++        let (mut c, mut wa) = (0u64, 0u64);
++        for e in step.log().events.iter().rev().take_while(|e| e.tick == t) {
++            match e.kind {
++                Kind::Contact => c += 1,
++                Kind::Wall => wa += 1,
++            }
++        }
++        let ops = step.metrics().ops;
++        buf.push_str(&format!("{t} {c} {wa} {}\n", ops - prev_ops));
++        prev_ops = ops;
++    }
++    let log = step.log();
++    let head = format!(
++        "# scene={scene} n={n} sx={sx} sy={sy} vmax={vmax} cloudvmax={cloudvmax} boxscale={boxscale} nofleet={nofleet} free={free} seed={seed} aligned={aligned} jitter={jitter} horizon={horizon} q={Q} law=RelativisticV1 per_row={} extent={} w={} h={} fill={:.4}\n# contacts={} walls={} digest={}\n",
++        g.per_row, g.extent, g.w, g.h,
++        (n as f64 * std::f64::consts::PI) / (g.w as f64 * g.h as f64),
++        log.contacts, log.walls, log.digest()
++    );
++    if out.is_empty() {
++        print!("{head}{buf}");
++    } else {
++        std::fs::write(&out, format!("{head}{buf}")).expect("write");
++        eprintln!("{head}");
++    }
++}

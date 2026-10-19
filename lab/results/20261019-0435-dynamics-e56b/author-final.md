@@ -1,0 +1,4 @@
+Working...
+Everything verified end-to-end: regen green (`REGEN_DONE`, `DETERMINISM_OK`, 2.6 min), all dossier numbers reproduce exactly from the regenerated flights, controls pass on both sides (cold belt flat at F64 0.91; free space shows the one season), and the wiki page carries the fold-in.
+
+**Claim:** the game case's leftover is closed — a coherent fleet crossing a belt is not a wall-reflection train but **one crossing season (~14·extent ch, ~65× the cold belt's window rate) followed by an area-extensive hot plateau** (late rate × box width constant within 9% across a 3× box, 15.5× the matched cold belt, stationary to H=24576, formation dead after the first crossing), and in free space one season with no step at all: the persistence is the confinement's, not the fleet's — so the allocator budgets one season plus a confinement-triggered rate step, and no train guard is ever needed for fleet×belt.
