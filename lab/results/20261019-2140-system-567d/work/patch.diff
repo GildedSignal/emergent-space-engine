@@ -1,0 +1,383 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..d4b7ad10 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,10 +14,30 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
++ 
++#[cfg(target_os = "linux")]
++/// (resident bytes now, its peak) on Linux: /proc/self/statm resident pages and VmHWM (the lab box).
++fn footprint() -> (u64, u64) {
++    let now = std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|s| s.split_whitespace().nth(1)?.parse::<u64>().ok())
++        .map_or(0, |pages| pages * 4096);
++    let peak = std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmHWM:"))
++                .and_then(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok())
++        })
++        .map_or(0, |kb| kb * 1024);
++    (now, peak)
++}
+ 
++#[cfg(target_os = "macos")]
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+@@ -47,6 +67,8 @@ fn main() {
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
++    let census_on = std::env::var("ES_ENTRY_CENSUS").map_or(false, |v| v != "0" && !v.is_empty());
++    emergent_universe::bind::census::ON.store(census_on, std::sync::atomic::Ordering::Relaxed);
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+     let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
+@@ -64,6 +86,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
++        emergent_universe::bind::census::FRAME.store(f as u64, std::sync::atomic::Ordering::Relaxed);
+         if t_start.elapsed() > Duration::from_secs(55) {
+             truncated = true;
+             break;
+@@ -86,6 +109,10 @@ fn main() {
+                 stage_calls[k] += calls[k];
+             }
+         }
++        if census_on && f > 0 && f % 300 == 0 {
++            let (rss, _) = footprint();
++            println!("f={f} rss {:.0} MB | {}", rss as f64 / 1e6, emergent_universe::bind::census::summary());
++        }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+@@ -120,6 +147,10 @@ fn main() {
+         dead += (!r.alive) as usize;
+     }
+     // the view: one gather from a cold cache and one from the warm one, wall (skipped when the run is near its 60 s).
++    if census_on {
++        let (rss, _) = footprint();
++        println!("pre-gather | rss {:.0} MB | {} | {}", rss as f64 / 1e6, emergent_universe::bind::census::summary(), emergent_universe::bind::census::decode_tail());
++    }
+     let mut cache = ViewCache::default();
+     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
+     // (a cold gather costs about 30 us a body: it runs only when it fits in the run's 60 s)
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..a6c93dc4 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -34,6 +34,276 @@ pub struct Entry {
+     pub unit: Unit,
+ }
+ 
++/// Rough resident bytes of one compiled trajectory (knots, crossings, tails; an estimate,
++pub(crate) fn entry_bytes(t: &Trajectory) -> u64 {
++    match t {
++        Trajectory::Cycle(c) => {
++            let s = c.shape();
++            64 + (s.knots().len() as u64) * (std::mem::size_of::<emergent_space::orbit::Knot>() as u64)
++                + (s.crossings().len() as u64) * 8
++                + 16
++        }
++        Trajectory::Passage(_) => 2048,
++        Trajectory::Plunge(_) => 512,
++    }
++}
++
++impl Drop for Entry {
++    fn drop(&mut self) {
++        census::dropped(self as *const Entry as usize, entry_bytes(&self.trajectory));
++    }
++}
++
++/// Print-only census (`ES_ENTRY_CENSUS=1`): who a resident compiled trajectory serves.
++/// Every minted `Entry` is stamped with its mint frame; every `decode` on it is counted.
++/// Never an outcome: when off, one relaxed atomic load per decode. Lock-free (thread-local:
++/// the resolver is single-threaded on this bench); undercounts rather than corrupts if a
++/// build ever resolves on worker threads.
++pub mod census {
++    use std::cell::RefCell;
++    use std::collections::HashMap;
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++    pub static ON: AtomicBool = AtomicBool::new(false);
++    pub static FRAME: AtomicU64 = AtomicU64::new(0);
++
++    struct Rec {
++        born: u64,
++        reads: u64,
++        reads_after: u64,
++    }
++    thread_local! {
++        static REG: RefCell<HashMap<usize, Rec>> = RefCell::new(HashMap::new());
++        static READS: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
++    }
++
++    #[derive(Clone, Default)]
++    pub struct Totals {
++        pub minted: u64,
++        pub dropped: u64,
++        pub decodes: u64,
++        /// dropped with zero decodes strictly after the mint frame
++        pub drop_silent: u64,
++        /// reads-after histogram over dropped entries: 0, 1, 2, 3-5, 6-15, 16-63, 64+
++        pub drop_hist: [u64; 7],
++        pub live: u64,
++        pub live_silent: u64,
++        pub live_bytes: u64,
++        pub top1_decodes: u64,
++    }
++    thread_local! {
++        static TOT: RefCell<Totals> = RefCell::new(Totals::default());
++    }
++
++    pub fn register(ptr: usize, bytes: u64) {
++        if !ON.load(Ordering::Relaxed) {
++            return;
++        }
++        let born = FRAME.load(Ordering::Relaxed);
++        REG.with_borrow_mut(|m| {
++            m.insert(ptr, Rec { born, reads: 0, reads_after: 0 });
++        });
++    /// Reader contexts: 0 engine (own-body events, deadlines), 1 encounter scan, 2 view gather.
++    #[derive(Clone, Default)]
++    pub struct CtxTotals {
++        pub decodes: [u64; 3],
++        /// entries whose only later-frame readers were scans/views (engine-silent after mint)
++        pub drop_eng_silent: u64,
++        pub live_eng_silent: u64,
++    }
++    thread_local! {
++        static CTX: RefCell<u8> = const { RefCell::new(0) };
++        static CTXTOT: RefCell<CtxTotals> = RefCell::new(CtxTotals::default());
++    }
++
++    /// Marks the reader context for decodes on this thread until the guard drops.
++    pub fn enter(c: u8) -> CtxGuard {
++        CTX.with_borrow_mut(|x| *x = c);
++        CtxGuard
++    }
++    pub struct CtxGuard;
++    impl Drop for CtxGuard {
++        fn drop(&mut self) {
++            CTX.with_borrow_mut(|x| *x = 0);
++        }
++    }
++
++        TOT.with_borrow_mut(|t| {
++            t.minted += 1;
++            t.live_bytes += bytes;
++        });
++    }
++
++    pub fn read(ptr: usize) {
++        if !ON.load(Ordering::Relaxed) {
++            return;
++        }
++        let f = FRAME.load(Ordering::Relaxed);
++        REG.with_borrow_mut(|m| {
++            if let Some(r) = m.get_mut(&ptr) {
++                r.reads += 1;
++                if f > r.born {
++    struct Rec {
++        born: u64,
++        reads: u64,
++        reads_after: u64,
++        /// later-frame reads by engine (own body) vs scan/view
++        ra_engine: u64,
++        ra_scan: u64,
++    }
++    fn rec_new(born: u64) -> Rec {
++        Rec { born, reads: 0, reads_after: 0, ra_engine: 0, ra_scan: 0 }
++    }
++        TOT.with_borrow_mut(|t| t.decodes += 1);
++    }
++
++    pub fn dropped(ptr: usize, bytes: u64) {
++        if !ON.load(Ordering::Relaxed) {
++            return;
++        }
++        let rec = REG.with_borrow_mut(|m| m.remove(&ptr));
++        READS.with_borrow_mut(|v| v.push(rec.as_ref().map_or(0, |r| r.reads)));
++        let Some(r) = rec else { return };
++        TOT.with_borrow_mut(|t| {
++            t.dropped += 1;
++            t.live_bytes = t.live_bytes.saturating_sub(bytes);
++            if r.reads_after == 0 {
++                t.drop_silent += 1;
++            }
++        REG.with_borrow_mut(|m| {
++            m.insert(ptr, rec_new(born));
++        });
++                0 => 0,
++                1 => 1,
++                2 => 2,
++                3..=5 => 3,
++                6..=15 => 4,
++                16..=63 => 5,
++                _ => 6,
++            }] += 1;
++        });
++    }
++    pub fn read(ptr: usize) {
++        if !ON.load(Ordering::Relaxed) {
++            return;
++        }
++        let f = FRAME.load(Ordering::Relaxed);
++        let c = CTX.with_borrow(|x| *x);
++        REG.with_borrow_mut(|m| {
++            if let Some(r) = m.get_mut(&ptr) {
++                r.reads += 1;
++                if f > r.born {
++                    r.reads_after += 1;
++                    if c == 0 {
++                        r.ra_engine += 1;
++                    } else {
++                        r.ra_scan += 1;
++                    }
++                }
++            }
++        });
++        CTXTOT.with_borrow_mut(|t| t.decodes[c.min(2) as usize] += 1);
++        TOT.with_borrow_mut(|t| t.decodes += 1);
++    }
++            let at = |p: f64| s[(((s.len() - 1) as f64 * p).round()) as usize];
++            let nz = s.iter().filter(|&&x| x > 0).count();
++            format!(
++                "decode/entry p50 {} p90 {} p99 {} max {} nonzero {}/{}",
++                at(0.5),
++                at(0.9),
++                at(0.99),
++    pub fn dropped(ptr: usize, bytes: u64) {
++        if !ON.load(Ordering::Relaxed) {
++            return;
++        }
++        let rec = REG.with_borrow_mut(|m| m.remove(&ptr));
++        READS.with_borrow_mut(|v| v.push(rec.as_ref().map_or(0, |r| r.reads)));
++        let Some(r) = rec else { return };
++        TOT.with_borrow_mut(|t| {
++            t.dropped += 1;
++            t.live_bytes = t.live_bytes.saturating_sub(bytes);
++            if r.reads_after == 0 {
++                t.drop_silent += 1;
++            }
++            if r.ra_engine == 0 {
++                CTXTOT.with_borrow_mut(|c| c.drop_eng_silent += 1);
++            }
++            t.drop_hist[match r.reads_after {
++                0 => 0,
++                1 => 1,
++                2 => 2,
++                3..=5 => 3,
++                6..=15 => 4,
++                16..=63 => 5,
++                _ => 6,
++            }] += 1;
++        });
++    }
++                s.len()
++            )
++        })
++    }
++
++    pub fn summary() -> String {
++        let mut t = Totals::default();
++        REG.with_borrow(|m| {
++            TOT.with_borrow(|tot| t = tot.clone());
++            t.live = m.len() as u64;
++            t.live_silent = m.values().filter(|r| r.reads_after == 0).count() as u64;
++        });
++        let mut v = READS.with_borrow(|v| v.clone());
++        v.extend(REG.with_borrow(|m| m.values().map(|r| r.reads).collect::<Vec<_>>()));
++        if !v.is_empty() {
++            v.sort_unstable();
++            let k = ((v.len() as f64 * 0.01).ceil() as usize).max(1);
++            t.top1_decodes = v[v.len() - k..].iter().sum();
++        }
++        let pct = |a: u64, b: u64| if b == 0 { 0.0 } else { 100.0 * a as f64 / b as f64 };
++        format!(
++            "census: minted {} dropped {} (silent-after-mint {:.1}%, reads-after hist {:?}) live {} (silent {:.1}%, ~{:.1} MB) decodes {} top1% {:.1}%",
++            t.minted,
++            t.dropped,
++            pct(t.drop_silent, t.dropped),
++            t.drop_hist,
++    pub fn summary() -> String {
++        let mut t = Totals::default();
++        REG.with_borrow(|m| {
++            TOT.with_borrow(|tot| t = tot.clone());
++            t.live = m.len() as u64;
++            t.live_silent = m.values().filter(|r| r.reads_after == 0).count() as u64;
++            CTXTOT.with_borrow(|c| {
++                c.live_eng_silent = m.values().filter(|r| r.ra_engine == 0).count() as u64;
++                t.live_silent = m.values().filter(|r| r.reads_after == 0).count() as u64;
++            });
++        });
++        let mut v = READS.with_borrow(|v| v.clone());
++        v.extend(REG.with_borrow(|m| m.values().map(|r| r.reads).collect::<Vec<_>>()));
++        if !v.is_empty() {
++            v.sort_unstable();
++            let k = ((v.len() as f64 * 0.01).ceil() as usize).max(1);
++            t.top1_decodes = v[v.len() - k..].iter().sum();
++        }
++        let (d0, d1, d2, les, des) = CTXTOT.with_borrow(|c| (c.decodes[0], c.decodes[1], c.decodes[2], c.live_eng_silent, c.drop_eng_silent));
++        let pct = |a: u64, b: u64| if b == 0 { 0.0 } else { 100.0 * a as f64 / b as f64 };
++        format!(
++            "census: minted {} dropped {} (silent-after-mint {:.1}%, engine-silent {:.1}%, reads-after hist {:?}) live {} (silent {:.1}%, engine-silent {:.1}%, ~{:.1} MB) decodes {} [engine {} scan {} view {}] top1% {:.1}%",
++            t.minted,
++            t.dropped,
++            pct(t.drop_silent, t.dropped),
++            pct(des, t.dropped),
++            t.drop_hist,
++            t.live,
++            pct(t.live_silent, t.live),
++            pct(les, t.live),
++            t.live_bytes as f64 / 1e6,
++            t.decodes,
++            d0,
++            d1,
++            d2,
++            pct(t.top1_decodes, t.decodes),
++        )
++    }
++
+ /// The catalogue of compiled trajectories behind the tubes' key indexes.
+ #[derive(Default)]
+ pub struct Catalogue {
+@@ -115,6 +385,7 @@ pub struct Binding {
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    census::read(entry as *const Entry as usize);
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+@@ -267,6 +538,7 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
++    census::register(Arc::as_ptr(&entry) as usize, entry_bytes(&entry.trajectory));
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+         let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+         let at = time_of(peri, clock_exp)?.add(unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..96d17d85 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -346,6 +346,7 @@ impl Universe {
+         let orbit = Orbit::compile(key)?;
+         let period = unit.to_doll(orbit.period()?)?;
+         let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
++        crate::bind::census::register(Arc::as_ptr(&entry) as usize, crate::bind::entry_bytes(&entry.trajectory));
+         // Periapsis `phase` of a period before tick 0.
+         let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
+         let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
