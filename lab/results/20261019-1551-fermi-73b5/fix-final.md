@@ -1,0 +1,5 @@
+regen.sh fiFixed and proven. Three defects, all in regen's path: `tee` used a repo-root-relative path after `cd work` (the recorded exit 1), `ledger.py` was truncated at the (F) header so dossier §5's numbers never regenerated, and the epochflux fallback `cp` died in a patchless tree (missing `examples/` dir). The (F) body now parses `work/out/*.txt` and asserts every quoted value — 5.208×10⁻⁶ (8/1,535,976), E=1 and dv0 zero everywhere, E-shape 1.60×10⁻³ → 6.78×10⁻² at P=1024 (s1: 6.91×10⁻²), w p50 53,946 exact, armed(10⁶) 0.7767, dues 7.49×10⁴/4.66×10⁵/1.78×10⁶, deep flips 0.169–0.174/kick.
+
+Full rerun from the restored tree: exit 0, `REGEN-DONE`, 18 s (fallback copy → build → 5 seeded streams, bit-identical to the author's outputs → ledger (A)–(F) → `work/out/ledger.txt` written), inside the 15-minute budget with three orders of magnitude to spare.
+
+**Claim:** regen.sh now regenerates every dossier number end-to-end in 18 s (exit 0), the failure being a relative-path `tee`, a ledger.py truncated before its (F) reproduction table, and a fallback copy into a nonexistent directory — all three fixed and re-flown.

@@ -1,0 +1,32 @@
+(A) wholesale row recomputed  = 355.3 cores   [1a29 quote: 355]
+
+(B) row at E_pair=1024: e828 355/E_pair = 0.347 cores
+    row at E_cell=1.024e+06: 1176 355/E_cell = 3.47e-04 cores   [their quote: 3.5e-4]
+    understatement factor n/2 = 1000 (their cell), 5000 (the occupancy the 355 is priced at)
+    re-arms per cell kick = (n-1)/E_pair = 9.76  -> row 0.347 cores; divisor is E_pair at ANY n
+
+(C) kick interval = 5.604e+09 ticks  [e828: 5.7e9; 0659 cadence x 1/TICK_SECONDS]
+    r = passages per touch = 5.09e-06   [e828: 5e-6]
+    synodic at |da|=2.6e-05 AU: 1.09e+15 ticks -> r = 5.1e-06
+    synodic at |da|=5.0e-05 AU: 5.66e+14 ticks -> r = 9.9e-06
+    synodic at |da|=1.0e-04 AU: 2.83e+14 ticks -> r = 2.0e-05
+    P=4 needs one kick per 2.17e+10 game-s = 7.9e+05x the shipped cadence
+    belt orbit ~1.25e+08 game-s -> ~4520 kicks/body/orbit  [1b1f's quote: 0.1-0.25; ~10^4x apart]
+
+(D) 1176 per candidate per cell kick = 7.2e-09 (2/n applied to THEIR side only)  [their quote 7.2e-9, '140x under']
+    like-for-like per pair per touch: 7.2e-06 vs 1e-06 budget = 7x OVER at P=4 — the budget binds at 1176's coupling; it does not bind at the game coupling r:
+      E=64: passages per blind span = r*E = 3.3e-04 -> per-kick game leak <= 8.1e-08 (e828 bound) << budget
+      E=256: passages per blind span = r*E = 1.3e-03 -> per-kick game leak <= 2.0e-08 (e828 bound) << budget
+      E=1024: passages per blind span = r*E = 5.2e-03 -> per-kick game leak <= 5.1e-09 (e828 bound) << budget
+
+(E) churn row: 08d0-conditional 2.8-5.5 / wholesale-if-9fd1-falls 355 -> measured-then-corrected: 0.35-1.4 cores (E*=1024-256)
+    ledger total 10.8-16.6 -> 5.6-15.2 cores (conservative re-pairing; shift -1.4 to -5.1 cores; the 363-core arm is dead)
+
+(F) epochflux reproduction (work/out/):
+    book anchors: w p50 53946 exact; armed(1e6) 0.7767; dues q10/50/90 = 7.49e+04/4.66e+05/1.78e+06
+    smallh: dv0 flips 0.0 at every H; deep H=10^6 flips 0.169-0.174/kick
+    777 E=1 P=1: 0.0e+00 (0/3071961) - zero by construction; dv0 zero at every E and P
+    777 E=2 P=1: 5.208e-06 (8/1535976)   [e828: 5.2e-6]
+    E-shape at P=1024: 1.60e-03 (E=2) -> 6.78e-02 (E=1024) on 777; 6.91e-02 on s1 - saturating 1.6e-3 -> 6.8e-2
+    both replicas' raw measurements agree; the conflict was units, not physics
+REGEN-DONE
