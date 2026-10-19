@@ -1,0 +1,69 @@
+loadavg at start: 0.61 0.58 0.31
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+warning: unnecessary parentheses around block return value
+  --> crates/universe/examples/beltcensus.rs:17:5
+   |
+17 |     (((bits) & 2047, (bits >> 11) & 63, (bits >> 17) & 2047, ((bits >> 28) as u16 as i16)))
+   |     ^                                                                                     ^
+   |
+   = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+   |
+17 -     (((bits) & 2047, (bits >> 11) & 63, (bits >> 17) & 2047, ((bits >> 28) as u16 as i16)))
+17 +     ((bits) & 2047, (bits >> 11) & 63, (bits >> 17) & 2047, ((bits >> 28) as u16 as i16))
+   |
+
+warning: unused variable: `f`
+   --> crates/universe/examples/beltcensus.rs:173:13
+    |
+173 |         for f in 0..frames {
+    |             ^ help: if this is intentional, prefix it with an underscore: `_f`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "beltcensus") generated 2 warnings (run `cargo fix --example "beltcensus"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.93s
+=== beltcensus 3000 1 0 1800 ===
+census: n=3000 seed=1 belt_bodies=2699 build_s=0.1 census_s=0.01 wall_s=0.1 game_s=0 kicks=0
+birth: belt cycles=2699 weak_share=1.0000 distinct_keys=2695 cells_w11=1095 cells_w9=363 cells_w7=101 cells_w5=28
+birth_shapes: belt cells=1095 shaped=1095 failed=0 bytes=764800 knots_p50=7 other cells=237 shaped=237 failed=0 bytes=135648 knots_p50=6 total_bytes=900448 bytes_per_belt_body=333.62
+stream: rebinds=0 distinct_keys=0 cells_w11=0 cells_w9=0 cells_w7=0 cells_w5=0 cold_first_touch=0 new_beyond_birth=0 recurrence=1.0000 rebinds_per_cell=0.0 fires_p50=0 cells_per_body_p50=0
+stream_split: belt rebinds=0 cells_w11=0 recurrence=1.0000 | other rebinds=0 cells_w11=0 recurrence=1.0000
+=== beltcensus 10000 1 50 1800 ===
+census: n=10000 seed=1 belt_bodies=9699 build_s=0.4 census_s=16.43 wall_s=16.9 game_s=89252 kicks=167235
+birth: belt cycles=9699 weak_share=1.0000 distinct_keys=9667 cells_w11=1425 cells_w9=411 cells_w7=112 cells_w5=30
+birth_shapes: belt cells=1425 shaped=1425 failed=0 bytes=1055480 knots_p50=7 other cells=237 shaped=237 failed=0 bytes=135648 knots_p50=6 total_bytes=1191128 bytes_per_belt_body=122.81
+stream: rebinds=165288 distinct_keys=11394 cells_w11=1475 cells_w9=449 cells_w7=145 cells_w5=60 cold_first_touch=1475 new_beyond_birth=47 recurrence=0.9911 rebinds_per_cell=112.1 fires_p50=3 cells_per_body_p50=1
+stream_split: belt rebinds=29097 cells_w11=1425 recurrence=0.9510 | other rebinds=136191 cells_w11=506 recurrence=0.9963
+=== beltcensus 30000 1 50 1800 ===
+census: n=30000 seed=1 belt_bodies=29699 build_s=1.3 census_s=19.27 wall_s=20.5 game_s=84550 kicks=220135
+birth: belt cycles=29699 weak_share=1.0000 distinct_keys=29423 cells_w11=1610 cells_w9=441 cells_w7=117 cells_w5=31
+birth_shapes: belt cells=1610 shaped=1610 failed=0 bytes=1249336 knots_p50=8 other cells=237 shaped=237 failed=0 bytes=135648 knots_p50=6 total_bytes=1384984 bytes_per_belt_body=46.63
+stream: rebinds=218204 distinct_keys=31200 cells_w11=1650 cells_w9=476 cells_w7=149 cells_w5=60 cold_first_touch=1650 new_beyond_birth=39 recurrence=0.9924 rebinds_per_cell=132.2 fires_p50=3 cells_per_body_p50=1
+stream_split: belt rebinds=89097 cells_w11=1610 recurrence=0.9819 | other rebinds=129107 cells_w11=493 recurrence=0.9962
+=== beltcensus 100000 1 50 1800 ===
+census: n=100000 seed=1 belt_bodies=99699 build_s=4.3 census_s=23.99 wall_s=28.3 game_s=67342 kicks=306046
+birth: belt cycles=99699 weak_share=1.0000 distinct_keys=96358 cells_w11=1731 cells_w9=467 cells_w7=122 cells_w5=32
+birth_shapes: belt cells=1731 shaped=1731 failed=0 bytes=1401000 knots_p50=8 other cells=237 shaped=237 failed=0 bytes=135648 knots_p50=6 total_bytes=1536648 bytes_per_belt_body=15.41
+stream: rebinds=304239 distinct_keys=97968 cells_w11=1760 cells_w9=494 cells_w7=148 cells_w5=55 cold_first_touch=1760 new_beyond_birth=29 recurrence=0.9942 rebinds_per_cell=172.9 fires_p50=2 cells_per_body_p50=1
+stream_split: belt rebinds=201226 cells_w11=1731 recurrence=0.9914 | other rebinds=103013 cells_w11=455 recurrence=0.9956
+=== beltcensus 300000 1 0 1800 ===
+census: n=300000 seed=1 belt_bodies=299699 build_s=12.9 census_s=0.34 wall_s=13.3 game_s=0 kicks=0
+birth: belt cycles=299699 weak_share=1.0000 distinct_keys=270195 cells_w11=1831 cells_w9=484 cells_w7=127 cells_w5=33
+birth_shapes: belt cells=1831 shaped=1831 failed=0 bytes=1537768 knots_p50=8 other cells=237 shaped=237 failed=0 bytes=135648 knots_p50=6 total_bytes=1673416 bytes_per_belt_body=5.58
+stream: rebinds=0 distinct_keys=0 cells_w11=0 cells_w9=0 cells_w7=0 cells_w5=0 cold_first_touch=0 new_beyond_birth=0 recurrence=1.0000 rebinds_per_cell=0.0 fires_p50=0 cells_per_body_p50=0
+stream_split: belt rebinds=0 cells_w11=0 recurrence=1.0000 | other rebinds=0 cells_w11=0 recurrence=1.0000
+=== beltcensus 10000 2 50 1800 ===
+census: n=10000 seed=2 belt_bodies=9699 build_s=0.4 census_s=24.24 wall_s=24.7 game_s=88650 kicks=193065
+birth: belt cycles=9699 weak_share=1.0000 distinct_keys=9667 cells_w11=1420 cells_w9=401 cells_w7=110 cells_w5=29
+birth_shapes: belt cells=1420 shaped=1420 failed=0 bytes=1046568 knots_p50=7 other cells=244 shaped=244 failed=0 bytes=138920 knots_p50=6 total_bytes=1185488 bytes_per_belt_body=122.23
+stream: rebinds=189485 distinct_keys=11374 cells_w11=1484 cells_w9=448 cells_w7=146 cells_w5=64 cold_first_touch=1484 new_beyond_birth=61 recurrence=0.9922 rebinds_per_cell=127.7 fires_p50=3 cells_per_body_p50=1
+stream_split: belt rebinds=29097 cells_w11=1420 recurrence=0.9512 | other rebinds=160388 cells_w11=498 recurrence=0.9969
+=== memo.rs control, hook OFF ===
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+=== memo.rs control, hook ON (ES_CENSUS=1) ===
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
