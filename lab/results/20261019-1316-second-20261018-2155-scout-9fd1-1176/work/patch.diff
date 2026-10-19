@@ -1,0 +1,414 @@
+diff --git a/crates/encounters/examples/epoch_leak.rs b/crates/encounters/examples/epoch_leak.rs
+new file mode 100644
+index 00000000..00843713
+--- /dev/null
++++ b/crates/encounters/examples/epoch_leak.rs
+@@ -0,0 +1,408 @@
++//! Epoch-rule leak on the SHIPPED tier's own due structure (lab run
++//! 20261019-1316-second-20261018-2155-scout-9fd1-1176; the checker-named gold
++//! experiment for 20261018-2155-scout-9fd1).
++//!
++//! e87d's integer replica (arm_sections + arm_pair's integer setup +
++//! dioph::first_hit on a make_belt cell) with an EPOCH dial E, a KICK dial
++//! kappa and a TIME-COUPLING dial P (conjunction opportunities per touch).
++//!
++//! Semantics (book logic in integers; floats only build sections, as shipped):
++//!  * Real time advances P conjunction opportunities per touch (dt = P*pj), so
++//!    sections anchored at the touch time tau give k_t = the pair's from-now
++//!    due: the index of the first in-window opportunity. With no kicks this
++//!    decrements by P per touch and each event fires exactly once (dv0 control).
++//!  * One touch = one kick dv = kappa*|v| in a random direction to one member
++//!    (alternating), exact state->element rebuild at tau.
++//!  * Opportunities fire on the global clock: span (t, t+1] holds P of them;
++//!    opportunity g = t*P + l is a TRUE EVENT iff k_t == l (between touches
++//!    the rotation is frozen, so only the l-th can be the first hit).
++//!  * The book re-arms exactly at touches t with t % E == 0: due_g = t*P + k_t.
++//!    A true event at g is CAUGHT iff g == due_g (the tier examined that
++//!    conjunction: its own re-arm or its scheduled due), else a LEAK. When a
++//!    book's due passes its span (the standing list re-decides the pair at its
++//!    due), the book refreshes to base + k_t (counted as due_refresh).
++//!  * Belt-real coupling: R ~ 0.1-0.25 kicks/body/orbit (1b1f), ~1 opportunity
++//!    per orbit per section => P ~ 1/(2R) ~ 2-5 opportunities per touch. The
++//!    P dial brackets it: 1 (2-5x accelerated), 4 (belt-real), 16 (decelerated).
++//!
++//! Modes: anchors (w/d/pi/k_first + per-kappa |delta c0|/|delta d|/|delta pi|
++//! /delta w| of ONE kick — delta c0 is the constant e87d did not report),
++//! flips (P(k'<=H | k>H) per touch at small horizons — the boundary-flux
++//! primitive), grid (the epoch sim; dv0 control first), heldout.
++
++use emergent_encounters::belt::{make_belt, Rng, Spec};
++use emergent_encounters::dioph::first_hit;
++use emergent_encounters::kepler::{Body, TICKS};
++use emergent_encounters::pairs::cone_pairs;
++use emergent_encounters::tier::arm_sections;
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++const RHO: f64 = 3.34e-6; // design reach B = 5e5 m (e87d's cell)
++const SAFETY: f64 = 1.1; // 1a29's shipped Phase-A arm
++const NPAIRS: usize = 5000;
++const T: u64 = 2048;
++const ES: [u64; 8] = [1, 2, 4, 8, 16, 64, 256, 1024];
++const FAR: u64 = u64::MAX / 4;
++
++/// One section's integer rotation, replicating arm_pair's setup anchored at t0.
++struct Rot {
++    c0: u64,
++    d: u64,
++    pi: u64,
++    w: u64,
++}
++
++fn rots_ticks(bi: &Body, bj: &Body, t0t: i128) -> Vec<Rot> {
++    let mut out = Vec::new();
++    for sec in arm_sections(bi, bj, RHO, SAFETY) {
++        let ti = sec.ti as i128;
++        let tj = sec.tj as i128;
++        let pi = bi.period as i128;
++        let pj = bj.period as i128;
++        let ext = pi + 2 * pj;
++        let base = tj + (t0t - ext - tj).div_euclid(pj) * pj;
++        let w1 = sec.w1 as i128;
++        let w = (w1 + sec.w2 as i128).clamp(0, pi - 1);
++        let c0 = (ti - base + w1).rem_euclid(pi);
++        let d = (pi - pj.rem_euclid(pi)).rem_euclid(pi);
++        out.push(Rot { c0: c0 as u64, d: d as u64, pi: pi as u64, w: w as u64 });
++    }
++    out
++}
++
++/// Pair due from now: min over sections of first_hit. k = 0 (the anchor's own
++/// opportunity is in-window) is returned as-is and fires at g = base + 0 in
++/// the current span: at most a one-span timing blur, consistent between the
++/// book and the truth (counted for disclosure).
++fn due_ticks(bi: &Body, bj: &Body, t0t: i128, k0: &mut u64) -> u64 {
++    let mut best = u64::MAX;
++    for r in rots_ticks(bi, bj, t0t) {
++        match first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut 0) {
++            Some(k) => {
++                if k == 0 {
++                    *k0 += 1;
++                }
++                best = best.min(k as u64);
++            }
++            None => {} // static section (d = 0, c0 outside window): never hits
++        }
++    }
++    best
++}
++
++fn rots_at(bi: &Body, bj: &Body, t0: f64) -> Vec<Rot> {
++    rots_ticks(bi, bj, (t0 * TICKS) as i128)
++}
++
++/// Pair due from now: min over sections of first_hit (k=0 folded to 1, counted).
++fn due_at(bi: &Body, bj: &Body, t0: f64, k0: &mut u64) -> u64 {
++    due_ticks(bi, bj, (t0 * TICKS) as i128, k0)
++}
++
++/// Exact kick: state at t, add dv along (cos th, sin th), rebuild epoch-0 Body.
++fn kick(b: &Body, t: f64, dv: f64, th: f64) -> Body {
++    let s = b.state(t);
++    let vx = s[2] + dv * th.cos();
++    let vy = s[3] + dv * th.sin();
++    let (x, y) = (s[0], s[1]);
++    let r = (x * x + y * y).sqrt();
++    let v2 = vx * vx + vy * vy;
++    let a = 1.0 / (2.0 / r - v2);
++    let rv = x * vx + y * vy;
++    let ex = (v2 - 1.0 / r) * x - rv * vx;
++    let ey = (v2 - 1.0 / r) * y - rv * vy;
++    let e = (ex * ex + ey * ey).sqrt();
++    let pom = ey.atan2(ex).rem_euclid(TAU);
++    let n = a.powf(-1.5);
++    let mut ea = if e > 1e-14 { ((1.0 - r / a) / e).clamp(-1.0, 1.0).acos() } else { 0.0 };
++    if rv < 0.0 {
++        ea = TAU - ea;
++    }
++    let m = (ea - e * ea.sin()).rem_euclid(TAU);
++    let lam0 = (pom + m - n * t).rem_euclid(TAU);
++    Body::new(a, e, pom, lam0)
++}
++
++fn vmax(b: &Body) -> f64 {
++    let s = b.state(0.0);
++    s[2].hypot(s[3])
++}
++
++fn median(v: &mut [f64]) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn make_cell(seed: u64) -> Vec<Body> {
++    let spec = Spec {
++        name: "cell".into(),
++        n: 2000,
++        sigma_e: 0.07,
++        rho: RHO,
++        a_lo: 2.0,
++        a_hi: 2.0 + 1e-4,
++        keys: 0,
++        seed,
++        orbits: 1.0,
++    };
++    make_belt(&spec)
++}
++
++#[derive(Default, Clone, Copy)]
++struct Counters {
++    events: u64,
++    misses: u64,
++    rearms: u64,
++    due_refresh: u64,
++}
++
++/// One pass at coupling P: walk T touches per sampled pair; every E cell
++/// consumes the same k_t stream with its own book. kap = dv/v (0 = dv0 control).
++fn run_pass(seed: u64, kap: f64, p: u64, npairs: usize, tag: &str) {
++    let t_start = Instant::now();
++    let belt = make_cell(seed);
++    let cp = cone_pairs(&belt, RHO);
++    let stride = (cp.pairs.len() / npairs).max(1);
++    let sample: Vec<(u32, u32)> = cp.pairs.iter().step_by(stride).copied().take(npairs).collect();
++    let mut cells = vec![Counters::default(); ES.len()];
++    let mut noarm = Counters::default();
++    let mut rng = Rng(seed ^ (kap.to_bits() as u64) ^ (p.wrapping_mul(0x9E37_79B9_7F4A_7C15)));
++    let mut k0fold_total = 0u64;
++    for &(i, j) in &sample {
++        let mut bi = belt[i as usize];
++        let mut bj = belt[j as usize];
++        let vi = vmax(&bi);
++        let vj = vmax(&bj);
++        let mut k0 = 0u64;
++        let _ = due_at(&bi, &bj, 0.0, &mut k0); // candidate check: sections exist
++        k0fold_total += k0;
++        let mut book = vec![FAR; ES.len()];
++        let mut t0t: i128 = 0; // real time of the current touch, exact integer ticks
++        let mut prev_k: u64 = u64::MAX; // k at the previous touch (boundary dedup)
++        for t in 0..T {
++            let tau = t0t as f64 / TICKS; // float time for the kick's state evaluation
++            // (1) the kick lands at tau (none in the dv0 control)
++            if kap > 0.0 {
++                let th = TAU * rng.f64();
++                if t % 2 == 0 {
++                    bi = kick(&bi, tau, kap * vi, th);
++                } else {
++                    bj = kick(&bj, tau, kap * vj, th);
++                }
++            }
++            // (2) the pair's true from-now due from the fresh rotation (exact anchor)
++            let mut k0 = 0u64;
++            let k = due_ticks(&bi, &bj, t0t, &mut k0);
++            k0fold_total += k0;
++            let base = t * p;
++            let next_base = (t + 1) * p;
++            // (3) books re-arm at t % E == 0 (t = 0 included)
++            for (ei, &e) in ES.iter().enumerate() {
++                if t % e == 0 {
++                    book[ei] = if k == u64::MAX { FAR } else { base + k };
++                    cells[ei].rearms += 1;
++                }
++            }
++            // (4) the span's P opportunities fire, judged by k (event iff k in [1,P];
++            // k=0 is the same opportunity as the previous span's l=P, so it fires
++            // only as a FRESH boundary event: prev_k > P, e.g. kick-created)
++            let fresh0 = k == 0 && prev_k > p;
++            if k != u64::MAX && ((k >= 1 && k <= p) || fresh0) {
++                let g = base + k;
++                if std::env::var("DBG").is_ok() && kap == 0.0 && t % 2 == 1 && g != book[1] {
++                    eprintln!("DBGMISS pair {} t {} k {} g {} due2 {} kprev_sums {}", i, t, k, g, book[1], 0);
++                }
++                for (ei, _e) in ES.iter().enumerate() {
++                    cells[ei].events += 1;
++                    if g == book[ei] {
++                        book[ei] = FAR; // caught: examined at its conjunction
++                    } else {
++                        cells[ei].misses += 1; // leak: fired uncovered
++                    }
++                }
++                noarm.events += 1;
++                noarm.misses += 1;
++            }
++            // (5) standing-list redecision when a book's due passes its span
++            for (ei, _e) in ES.iter().enumerate() {
++                if book[ei] <= next_base {
++                    book[ei] = if k == u64::MAX { FAR } else { base + k };
++                    cells[ei].due_refresh += 1;
++                }
++            }
++            // advance real time by P passages of j (exact integer ticks)
++            t0t += p as i128 * bj.period as i128;
++            prev_k = k;
++        }
++    }
++    let np = sample.len() as u64;
++    for (ei, &e) in ES.iter().enumerate() {
++        let c = &cells[ei];
++        let touches = np * T;
++        println!(
++            "{},{},{},{:.0e},{},{},{},{},{},{},{:.3e},{:.4}",
++            tag, e, p, kap, np, touches, c.events, c.misses, c.rearms, c.due_refresh,
++            c.misses as f64 / touches as f64,
++            if c.events > 0 { c.misses as f64 / c.events as f64 } else { f64::NAN }
++        );
++    }
++    println!(
++        "{},noarm,{},{:.0e},{},{},{},{},0,0,{:.3e},{:.4}",
++        tag, p, kap, np, np * T, noarm.events, noarm.misses,
++        noarm.misses as f64 / (np * T) as f64,
++        noarm.misses as f64 / noarm.events as f64
++    );
++    eprintln!(
++        "# {} seed {} kap {:.0e} P {} pairs {} k0fold {} [{:.1}s]",
++        tag, seed, kap, p, np, k0fold_total, t_start.elapsed().as_secs_f32()
++    );
++}
++
++fn anchors() {
++    let belt = make_cell(20261018);
++    let cp = cone_pairs(&belt, RHO);
++    let stride = (cp.pairs.len() / 60_000).max(1);
++    let sample: Vec<(u32, u32)> = cp.pairs.iter().step_by(stride).copied().take(60_000).collect();
++    let mut wsv = Vec::new();
++    let mut dsv = Vec::new();
++    let mut pisv = Vec::new();
++    let mut kf = Vec::new();
++    let mut rng = Rng(99);
++    let mut k0fold = 0u64;
++    for &(i, j) in sample.iter().take(50_000) {
++        let bi = &belt[i as usize];
++        let bj = &belt[j as usize];
++        for r in rots_at(bi, bj, 0.0) {
++            wsv.push(r.w as f64);
++            dsv.push(r.d as f64);
++            pisv.push(r.pi as f64);
++            match first_hit(r.c0 as u128, r.d as u128, r.pi as u128, 0, r.w as u128, &mut 0) {
++                Some(k) => kf.push(if k == 0 { k0fold += 1; 0.5 } else { k as f64 }),
++                None => kf.push(f64::INFINITY),
++            }
++        }
++    }
++    let kff: Vec<f64> = kf.iter().copied().filter(|x| x.is_finite()).collect();
++    println!(
++        "ANCHOR w_p50,{:.1},d_p50,{:.3e},pi_p50,{:.3e},k_p50,{:.3e},k_fin,{},k_tot,{},k0fold,{}",
++        median(&mut wsv), median(&mut dsv), median(&mut pisv),
++        median(&mut kff.clone()), kff.len(), kf.len(), k0fold
++    );
++    for h in [1u64, 2, 4, 16, 256, 4096] {
++        let a = kf.iter().filter(|&&k| k <= h as f64).count();
++        println!("ARMED0 H={},frac,{:.3e}", h, a as f64 / kf.len() as f64);
++    }
++    // one-kick deltas per kappa, INCLUDING delta c0 (e87d's missing constant)
++    for kap in [2f64.powi(-26), 2f64.powi(-23), 2f64.powi(-20), 2f64.powi(-17), 2f64.powi(-14)] {
++        let mut dc0 = Vec::new();
++        let mut dd = Vec::new();
++        let mut dpi = Vec::new();
++        let mut dw = Vec::new();
++        let mut used = 0u64;
++        for &(i, j) in sample.iter().take(30_000) {
++            if used >= 20_000 {
++                break;
++            }
++            let bi = &belt[i as usize];
++            let bj = &belt[j as usize];
++            let r0 = rots_at(bi, bj, 0.0);
++            let bk = kick(bi, 0.0, kap * vmax(bi), TAU * rng.f64());
++            let r1 = rots_at(&bk, bj, 0.0);
++            if r0.len() != r1.len() || r0.is_empty() {
++                continue;
++            }
++            used += 1;
++            for (a, b) in r0.iter().zip(r1.iter()) {
++                let shift = (a.c0 as i128 - b.c0 as i128).rem_euclid(a.pi as i128);
++                let shift = shift.min(a.pi as i128 - shift) as f64;
++                dc0.push(shift);
++                dd.push((a.d as i64 - b.d as i64).abs() as f64);
++                dpi.push((a.pi as i64 - b.pi as i64).abs() as f64);
++                dw.push((a.w as i64 - b.w as i64).abs() as f64);
++            }
++        }
++        println!(
++            "KICKDELTA kap={:.0e}: dc0_p50,{:.3e},dc0_max,{:.3e},dd_p50,{:.3e},dpi_p50,{:.3e},dw_p50,{:.1},pairs,{}",
++            kap,
++            median(&mut dc0),
++            dc0.iter().cloned().fold(0.0, f64::max),
++            median(&mut dd),
++            median(&mut dpi),
++            median(&mut dw),
++            used
++        );
++    }
++}
++
++/// Flip-into-H per touch at small horizons: P(k' <= H | k > H), one kick each.
++fn flips() {
++    let belt = make_cell(20261018);
++    let cp = cone_pairs(&belt, RHO);
++    let stride = (cp.pairs.len() / 200_000).max(1);
++    let sample: Vec<(u32, u32)> = cp.pairs.iter().step_by(stride).copied().take(200_000).collect();
++    let hs = [1u64, 2, 4, 8, 16, 64, 256, 4096];
++    for kap in [0.0, 2f64.powi(-26), 2f64.powi(-23), 2f64.powi(-20), 2f64.powi(-17), 2f64.powi(-14)] {
++        let mut rng = Rng(7 ^ (kap.to_bits() as u64));
++        let mut silent = vec![0u64; hs.len()];
++        let mut flip = vec![0u64; hs.len()];
++        let mut pairs = 0u64;
++        for &(i, j) in &sample {
++            let bi = &belt[i as usize];
++            let bj = &belt[j as usize];
++            let mut k0 = 0u64;
++            let k = due_at(bi, bj, 0.0, &mut k0);
++            let bk = if kap == 0.0 { *bi } else { kick(bi, 0.0, kap * vmax(bi), TAU * rng.f64()) };
++            let mut k0b = 0u64;
++            let k2 = due_at(&bk, bj, 0.0, &mut k0b);
++            pairs += 1;
++            for (hi, &h) in hs.iter().enumerate() {
++                if k > h {
++                    silent[hi] += 1;
++                    if k2 <= h {
++                        flip[hi] += 1;
++                    }
++                }
++            }
++        }
++        for (hi, &h) in hs.iter().enumerate() {
++            println!(
++                "FLIP kap={:.0e},H={},silent,{},flip,{},rate,{:.3e},per_H,{:.3e}",
++                kap, h, silent[hi], flip[hi],
++                flip[hi] as f64 / silent[hi] as f64,
++                flip[hi] as f64 / silent[hi] as f64 / h as f64
++            );
++        }
++        eprintln!("# flips kap {:.0e} pairs {}", kap, pairs);
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("all");
++    match mode {
++        "anchors" => anchors(),
++        "flips" => flips(),
++        "grid" | "all" => {
++            println!("tag,E,P,kappa,npairs,touches,events,misses,rearms,due_refresh,leak_per_touch,miss_frac");
++            run_pass(20261018, 0.0, 4, NPAIRS, "dv0"); // instrument control
++            for kap in [2f64.powi(-26), 2f64.powi(-23), 2f64.powi(-14)] {
++                for &p in &[1u64, 4] {
++                    run_pass(20261018, kap, p, NPAIRS, "grid");
++                    run_pass(777, kap, p, NPAIRS, "grid");
++                }
++            }
++            for seed in [20261018u64, 777] {
++                run_pass(seed, 2f64.powi(-23), 16, NPAIRS, "grid16");
++            }
++        }
++        "heldout" => {
++            println!("tag,E,P,kappa,npairs,touches,events,misses,rearms,due_refresh,leak_per_touch,miss_frac");
++            run_pass(424242, 2f64.powi(-23), 4, NPAIRS, "heldout");
++        }
++        _ => eprintln!("modes: anchors | flips | grid | heldout"),
++    }
++}
