@@ -2,12 +2,95 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1906-quant-7b6f
+<<<<<<< main
+updated: 20261019-2017-inversion-cc9d
+=======
+updated: 20261019-2017-library-0c0f
+>>>>>>> 20261019-2017-library-0c0f
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+<<<<<<< main
+**NEW (cc9d, inversion — the fence-unlocked rungs' next wall is named and it is not on the board's
+list: the player's own item in the root doll legally carries a whole belt wave past the budget,
+max_ms ≈ 8.1–9.5 µs × K (schedule-elastic), and the TTL fence trades the OOM crash for this freeze at every wave).**
+Print-only per-frame decomposition (ES_WAVE_PROBE: stats deltas by entity class + the 24 prof
+stages; off = shipped) on the shipped L8-burn ladder, seed 1, rtf 1000, 12 ms: **the worst frame
+of every rung 10⁴-2×10⁵ is ONE top-level item — the player's (items_by_class [0,0,0,1,0]) —
+holding ≥ 99.5% of the frame's wall as NESTED ship kicks the budget never checks** (47.7 ms/904
+kicks at 10⁴; 375/7,530; 819/16,074; **1,643.5 ms/32,958 at 2×10⁵**, all `item: kick (clock)`
+at a flat 49.8-52.7 µs/kick), while neighbour frames clamp at 11.9 ms delivering ~200 budgeted
+events. Mechanism in code: `resolve_body(player)` ends `pull_ships(key, !in_root)` — in root,
+children_only = false = every due ship of the player's doll (the whole belt), nested
+`resolve_body` with no Budget check, and the zero-light-distance player item runs first under
+"the first item of a frame always runs" (universe.rs:1008); the 766-770 fix narrowed the burst
+from every doll to the player's own, which in root is everything [checker: the mechanism is the
+record's — the shipped comment itself (commit 32e9e986, 14 Oct) and 4093's burn reading
+(kick-cadence: "one started item resolves a whole wave through the per-item stop's first-item
+escape", 2.5–2.6 s at 3×10⁵); new here are the class decomposition, the K-law constant and
+memory-never-first]. **K-law saturated: kicks/gulp ~0.16–0.17/body, so max_ms ≈ 8.1–9.5 µs × K
+(8.1 on the author's lighter flights; 9.3–9.4 on three same-day regens)** (reconciles 9e75-c2's
+414 ms @ 5×10⁴, 4093-era 2.5-2.6 s @ 3×10⁵, 7b6f-c's 1,286-1,312 @ 2×10⁵); rtf-600 control
+862.7 vs 819.3 ms (+5%: game-time
+cadence, hits at the player's pace); p99 82 ms at 2×10⁵. Arithmetic: ~8 s a frame at 10⁶
+(unflown, build > cap), ~2 h at 10⁹ — a root-doll player's O(doll) read set is the term that
+breaks first, before per-frame walks, rekey, the queue and memory (memory never bound first in
+any arm: the RSS cap tripped only past the whole first wave). The fix target is the read set
+(the built-unwired encounter tiers, or extending the 766-770 budgeted-stream pattern to root —
+a law change), NOT the kick cost and NOT the allocator (20261019-2017-inversion-cc9d,
+inversion; 5 flights ≤ 39 s wall + regen ~4 min; predictions pre-registered: P1/P3 held, P2's
+lower rungs failed high — growth is super-linear below saturation — P4's constant under,
+disclosed; one scene/seed, coast unaffected: the player never enters root there).**
+
+[Checker cc9d, silver: reproduced three times over (author, runner and checker regens of all five arms within ±2%: 900.4–912.0 ms at 10⁵, 1,868.8–1,876.1 at 2×10⁵; every worst frame items_by_class [0,0,0,1,0] at 54–57 µs/kick flat; the probe's accounting is sound — nested pull_ships resolves bump stats.kicks but never stats.items). Three fresh arms hold: budget 2 ms (40-s arm reaching the wave) still gulps 938.7 ms in ONE player item with 17,548 nested kicks — the budget-bypass is causal; 3×10⁵, outside the author's grid, holds the law at 2,840.8 ms ≈ 9.5 µs × K, 0.171 kicks/body, wave before the RSS guard; coast at 10⁵ has no gulp (max 17.7 ms, worst frame spread over 128 ship + 1 player top-level items, neighbours clamped at 11.9 ms). Not gold: the mechanism is the record's (see the credit above); the increments — exactly-one-item at every rung, the constant, p99 82 ms at 2×10⁵, memory-never-first — refine, not newly show, the premise wrong. P2's bands and P4's constant failed, disclosed. Gold = fly the cure env-gated (the 766-770 budgeted stream extended to root, or the wired encounter tiers): max_ms collapses to ~budget with the mint identity holding.]
+=======
+**NEW (0c0f, library — the 2×10⁵ compute wall decomposed for the first time: a synchronized
+arrival burst riding a half-idle budget, so it is deletable before it is schedulable, and the
+page's open directions re-rank).** Lens run: the Readwise corpus (770 docs, 4,590 highlights,
+cached in the run folder, every quote verbatim by id) mapped onto 7b6f's checker fact ("the
+next wall at that rung is compute"), then the decomposition flown print-only (shipped
+`nladder` burn rtf 2000 12 ms, Linux /proc probe disclosed; two arms): **10⁵: p50 6.12 ms /
+p99 150.6 / max 891.8, over 104 of 1,020 (10.2%), worst frame 17,347 events vs 92 median
+(188×); 2×10⁵: p50 5.39 / p99 380.8 (32× budget) / max 1,675.6, over 55 of 660, worst 33,069
+vs 90 (367×); max ratio 1.88 (K-proportional, not K²); the over-frames cluster in the first
+kick wave (frames 465–490 = gs ≈ 15.4k at 10⁵, the record's own wave onset), and the
+presented time cannot hide it (85/79 frames behind, worst lag 32 s).** So the wall is a burst
+of due arrivals on a budget whose median frame idles 45–55% — not per-frame drift. Three
+consequences, each one flight to check: (1) re-rank — the wave decomposition at 2×10⁵ sits
+above the split's 2.30× re-read at 10⁵ (a memory question on a channel the TTL fence already
+deletes); (2) the burst's simplest cause is shared kick-grid phase at birth — price the
+birth-stagger (the stagger page's own bill) as the deletion of the synchrony before any
+allocator; (3) the ebb (45–55% idle at median) makes a compute-ahead arm (next-frame-due
+kicks evaluated early) a schedule move with no law change. Gate for any fix: max_ms and over
+at the worst wave across seeds, never average kick cost (p50 5.4 ms "looks fine" while p99 is
+32× budget). Predictions pre-registered: P3/P4 held (188×/367×, 1.88), P1 failed on its
+letter (p50 45–51% of budget at rtf 2000, not ≤25% — the ebb fraction is cadence-defined; at
+rtf 100 the record's own arms read p50 ≪ budget), P2 half-held (9/12 and 7/12 of the printed
+over-frames inside the wave window; shipped code prints only the first 12). Rtf-2000 caution:
+per-frame spikes are ~6× the play cadence's (record: 322 ms at 10⁵ rtf 100 vs 892 here).
+Digits are schedule-elastic: regen's own reruns land at max 820–892 / 1,676–1,681, over
+104–108 / 54–55, ratio 1.88–2.05 — the entry's laws are rerun-stable
+(20261019-2017-library-0c0f, library; 2 flights ≤ 40 s wall + corpus cache, regen ~4 min).**
+
+[Checker 0c0f, silver: reproduced with the patch repaired — `work/patch.diff` holds the same
+diff twice and `git apply` fails on a clean tree (the window regen exited 1 there; its first
+half == `work/fix.diff` applies clean, and every digit then lands inside the disclosed bands:
+my arms read p50 6.40/6.09, max 938.3/1,874.0, over 116/51, 164×/381×, ratio 2.00). Three
+adversarial arms, two outside the author's grid: (a) 2×10⁵ at rtf 400 — p99 11.9 ms = 1.0×
+budget, over 13/2,640, p50 0.43 ms, BUT max 1,729.7 ms with 31,733 events in one frame at the
+same gs ≈ 14.7k onset: the burst is cadence-invariant, the p99/over/lag headline is
+cadence-elastic (the entry's ~6× caution understates it — p99 itself fits budget 5× calmer);
+(b) seed 2 at rtf 2000 — the burst persists (35,986 vs 202 median, max 2,020.9 ms, onset
+shifted to frame ~556): not a seed-1 accident; (c) coast at the same rung and cadence — NO
+wave (max 12.3 ms, worst frame 354 events) with the onset window covered: the burst is
+BURN-gated, so "shared kick-grid phase at birth" is unsupported as the cause — the shared
+phase is the burn's kick-grid re-mint, and the stagger dial must target the burn response,
+not birth. The arrival-burst decomposition itself stands, strengthened (cadence-invariant,
+seed-robust, burn-gated).]
+>>>>>>> 20261019-2017-library-0c0f
 
 **NEW (7b6f, quant — 3eb3's "kick machinery" wall at 10⁵ is the scan channel: the
 subtraction is real arithmetic on the wrong channel, and with e181's TTL fence the rung flies
@@ -1167,3 +1250,5 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-1656-quant-88e9 (quant, silver): the split re-priced on the memory market — the ratchet's slope is the kick stream (96% closure at 3×10⁴), so its memory ratio is the bulk's share (1.76× at 3×10⁴, 8× only at 10⁹), and ÷S at today's rungs is dead; compact-side τ ×8 arithmetic on 0659.
 - 20261019-1817-second-20261019-1656-quant-88e9-3eb3 (second author, silver): 88e9's named experiment flown — share law + identity hold at 3×10⁴ (seeds 1,2 and checker's 7) and at 5×10⁴ on seed 1 post-onset (0.92/0.93, ratio 1.81 vs share 1.92; checker's seed 3 fails the ratio bands — locals are seed-wandering, not scene-fixed); onset is a ~130k gs time constant; at 10⁵ both arms die of kick machinery (5–10 KB/kick, wall-life 2.30×) before the ratchet question; ÷S dead at every rung.
 - 20261019-1906-quant-7b6f (quant, gold): 3eb3's kick-machinery wall at 10⁵ refuted — 82-100% the scan channel (7.0-7.4 KB/kick subtraction reproduced as collinearity); TTL fence flies 120k gs at 635 MB, machinery ≲0.15 KB/kick (checker-corrected); law holds K-linear to 2×10⁵ (fresh).
+- 20261019-2017-inversion-cc9d (inversion, silver): worst wave frame = one player item carrying all due ships of its root doll past the budget; 8.1–9.5 µs × K (mechanism prior: 32e9e986/4093; new: decomposition, K-law, budget-bypass causal at 2 ms, law holds at 3×10⁵).
+- 20261019-2017-library-0c0f (library, awaiting grade): the 2×10⁵ compute wall decomposed — a synchronized arrival burst (worst 33k events vs 90 median, p99 32× budget) on a half-idle budget (p50 5.4–6.1 of 12 ms); delete the synchrony (stagger) or spend the ebb (compute-ahead) before scheduling it; the split re-read re-ranks below.

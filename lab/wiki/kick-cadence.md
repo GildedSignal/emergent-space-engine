@@ -2,11 +2,41 @@ topic: kick-cadence
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0431-second-20261018-0143-components-16ec-49e9
+updated: 20261019-2017-second-20261019-1906-spacex-9edc-225d
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+**NEW (225d, second author on 9edc — the checker's named experiment run whole: the
+resolution-coupling dial is DEAD at every flyable octave, and the formation's 99.6% standing
+duplication is a BIRTH-only property that one kick per ship erases).** 9edc's census extended
+print-only (mint-kind split birth/kick/other; carried-kick counter; a shadow refcount of live
+intern keys `(doll, mu, clockwise, OrbitKey)` scoring every mint that lands on a key another
+live binding holds — the hit a key-dedup insert would ask; two instruments agree everywhere:
+`shadow_keys` = end-of-flight distinct census = `cat_live`) on two scenes × the shipped Δs dial
+`step_log2` (de7b's octaves, the global form of `BELT_SPLIT`; S=5 = the split-8 bulk effect,
+4× coarser; S=9 = 4× finer — NOTE `step_log2` counts kicks per period, so higher = finer).
+Formation (efd4's 512-ship one-(E,L) fleet at 1 AU rebuilt to survive, planet 2⁻¹⁰ at 0.39 AU,
+dead 0, 500k game-s): **513 birth mints land 511 on an existing key (99.6%; 2,047/2,049 =
+99.9% at 4× fleet), then distinct keys 2 → 323 → 513 within two crests — every kicked ship's
+first-kick key is unique, cross_kick = 0 in 57,783 mints across five octaves** (0 again in
+29,724 at 4× fleet; scatter control: birth cross 0, the intern's null). Belt (9edc's own
+`nladder 10000`): **0 same, 0 cross in 1,399,871 fired kicks at S = 5/6/7/9** (belt
+19,637/48,548/91,709/96,364; tube 0 same in 1,143,306; births 10,076 all distinct; S=7
+reproduces 9edc's arm A: 91,709/406,387 vs 92,737/407,984), the finest cadence ever flown
+(dv ≈ 2⁻²⁵·v per kick) still moving the key every time. Mint rate is exactly 2×/octave
+(formation 1,921/3,719/7,432/14,917/29,794) — the dial collapses the mint BY RATE ONLY, never
+by content; the fine side's bill is measured too (end footprint 58→119 MB across S=5→9: retired
+Segments keep their Entry alive — minted history grows with rate). Consequences: (1) open
+direction 1 (the resolution coupling) is DECIDED dead across its flyable range — no `BELT_SPLIT`
+value makes kick mints intern-able; (2) efd4's intern is re-scoped to exactly the birth mint
+under concentration (Δs-independent — a spec compile) + the corpse term; (3) the kick mint
+(≈688 B + table per few bits of news, at every cadence) is the memory ratchet's outright
+deletion target; (4) 3294's fire-rate-1.000 extends across the dial (carry ≤0.5%, tube path
+only)
+(20261019-2017-second-20261019-1906-spacex-9edc-225d; predictions P1–P5 held, label
+fine/coarse inverted in predictions.md and corrected in the dossier; regen ~5 min warm).**
+
 **NEW (9edc, spacex — the kick comb's own news fraction, the half the 99.88% boundary
 result never covered, measured: it is 100% news, and the duplicate-mint delete is dead).**
 Print-only census (`ES_KICK_NEWS`, off = shipped path — the off arm's counters read zero
@@ -320,14 +350,20 @@ attribution.]
 **The budget: cadence is the largest priced wall.** Of the billion-body event budget's three walls — kick compute (29 µs today), layout (gather-4 sustains 2.7× pointer-chasing), cadence — cadence is 64 → 0.3 kicks/orbit = 213×: no layout reaches a 10⁹-body battle at 10× real time on today's 64/orbit cadence, while year-scale belts already pass 10⁹ at 10× real time even at today's 29 µs per kick (a4ed, gold; compute/layout walls → `kick-jet`). On the shipped integer plane the frontier is regime-split by a measured 8×: the resonant bulk holds at 16 kicks per perturbation period (B17), deep passages need ≥ 128 (B13), and the plane serves both with one doll-wide Δs tied to the fastest secondary — paying the passage price everywhere; cutting the bulk's cadence 8× is the named build (7f97). 3294 closes its premise on shipped code: the fire gate is inert (rate 1.000, impulses ≥ 2⁷ units), so the regime-split loses nothing at the quantum — the dial is free to move to the behaviour's own floor.
 
 ## Refuted
+
 - **"The kick's re-fit mostly reproduces the standing orbit (the duplicate-mint delete)":
   measured dead on the stirred belt's kick stream — 0 identical `OrbitKey`s in 2,037,393
   fired kicks (belt, tube and clock paths; 10⁴ and 3×10⁴; seeds 1 and 2; the 20-s
   pre-wave control too; checker arms: seed 3, burn and 10⁵ all 0); every fired kick
   mints a new orbit, and the universe-side catalogue (bind.rs) has no key lookup to dedup
-  with. Prior: efd4 had already measured the stock side (0.4% standing duplication on
-  the belt; memo dead); the formation half (99.6%) is not killed by this run
-  (20261019-1906-spacex-9edc).**
+  with. Prior: efd4 had already measured the stock side (0.4% standing duplication on the
+  belt; memo dead). EXTENDED DEAD ACROSS THE DIAL by 225d: 0 same and 0 cross (shadow
+  intern) in 1,399,871 further belt kicks at S = 5/6/7/9 (4× coarser to 4× finer — dv down
+  to 2⁻²⁵·v per kick) and in 57,783 formation kicks across five octaves; and efd4's 99.6%
+  co-orbital standing duplication is a BIRTH-only property (511/513 birth mints cross;
+  distinct 2→323→513 within two crests; 99.9% at 4× fleet, cross_kick 0 in 29,724) — the
+  intern's kick-side win is zero everywhere flown, at every cadence
+  (20261019-1906-spacex-9edc; 20261019-2017-second-…-225d).**
 
 - **"If `BELT_SPLIT` does not stretch the boundary comb, it becomes the composed stream's
   majority" (this page's open direction 1, the unclosable ~15.7-M1-core branch): dead by
@@ -392,13 +428,16 @@ attribution.]
 - **The sub-quantum kick regime at the flown grid (this page's "the sigma-delta carry" as a living belt mechanism, and any "accumulator absorbs the belt's kicks" adoption): measured absent — fire rate 1.000 with impulses ≥ 2⁷ units on four arms; nothing accumulates between grid kicks anywhere in the flown plane (3294). The accumulator remains law (it engages at finer Δs or weaker tides by construction), but the shipped grid never enters its regime.**
 
 ## Open directions
-1. **The resolution coupling (this run's handback):** the key's grid resolves every
-   one-quantum dv, so the mint's bill is ~0.5 KB+table per few bits of news. The dial that
-   couples them is Δs/cadence (`BELT_SPLIT`, de7b's step octaves): price the flip
-   fraction and the mint bytes as a function of the split (a split that coarsens the
-   velocity quantum should drive flips → same-key at some S, collapsing the mint the way
-   this run proves it does not collapse today) — the information arithmetic to size S,
-   never measured on the mint side. The burn arm and a 10⁵ rung are the unflown scope.
+1. **DECIDED (225d): the resolution coupling is dead across the flyable range.** The flip
+   fraction is 1.0000 and the shadow-intern cross-hit 0 at every Δs octave flown (S = 5..9 =
+   4× coarser to 4× finer, formation and belt, 1.46M further mints; at the finest, dv ≈
+   2⁻²⁵·v per kick still moves the key), so no split value makes kick mints intern-able and
+   the information arithmetic to "size S" has no S to size: the dial collapses the mint by
+   rate only (2×/octave, exact), never by content. What remains of the handback: efd4's
+   intern scoped to the birth mint under concentration (measured 99.6–99.9%, Δs-free), and
+   the kick mint's outright deletion as the memory ratchet's target. Unflown edges: S ≥ 10
+   (memory-dominated: footprint doubles at 4× finer), the Trojan (L4/L5) formation whose
+   tide's phase-average could cancel, and the burn arm (9edc's checker flew it: 0 same).
 
 
 2. **Decided (20261017-1149-fermi-de7b, direct flight + seeds 20261017-1240-second-…-f790):
@@ -490,3 +529,5 @@ attribution.]
 - 20261018-0143-components-16ec (components, gold): the key-range test flown as a
 - 20261018-0431-second-20261018-0143-components-16ec-49e9 (second author): the burn question closed — pinned-decision harness (`schedule` at a canonical tick) proves the fast path digest-neutral on thrusting populations (1198b23e ×4, 100% skip, 338 passages read), the divergence mechanism measured both sides (equal tick → equal digest; unequal → unequal), the slow_cycle refusal branch flight-proven (5,126 refused, digest identical), and the decomposition regenerates (clock_share 0.166–0.187 from one command).
 - 20261019-1906-spacex-9edc (spacex, awaiting grade): the kick comb is 100% news — 0/2.04M
+- 20261019-1906-spacex-9edc (spacex, silver): the kick comb is 100% news — 0/2.04M identical
+- 20261019-2017-second-20261019-1906-spacex-9edc-225d (second author): the named experiment run
