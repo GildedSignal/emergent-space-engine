@@ -1,0 +1,32 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 15.00s
+== ctrl-70k: 78433 gs flown; max_gap now-oldest 1655.1 s; held_max 174; over 0
+   hist: max generations on one body 67; peak total retired 32028 (1.07/body); rss 80 -> 157 MB; bpb 1211 -> 1417
+   hist_total series (gs:total): 10075:787 12087:762 14100:20429 16108:30514 18121:30502 20132:30512 22144:30478 24154:30519 26167:30520 28171:30507 30174:30526 32180:30515 34190:30484 36197:30513 38210:30496 40220:30520 42224:32028 44238:30496 46250:30510 48254:30473 50268:30497 52280:30504 54293:30472 56298:30497 58309:30509 60323:30473 62335:30496 64347:30499 66360:30516 68370:30522 70382:30566 72396:30508 74409:30472 76420:30499 78433:30508
+   game 79073.3 s after the first second: kicks 211338 (8.901e-5/body/game-s), events 393946 (1.659e-4/body/game-s), stats {opens 566, boundaries 180368,
+
+== pin6e9: 76356 gs flown; max_gap now-oldest 29552.9 s; held_max 203; over 83
+   hist: max generations on one body 1448; peak total retired 90002 (3.00/body); rss 83 -> 281 MB; bpb 1218 -> 1726
+   hist_total series (gs:total): 10066:17402 12078:20506 14092:41423 16100:56488 18113:59675 20124:62759 22133:65867 24143:69009 26145:72245 28150:75365 30161:76430 32172:76317 34182:76312 36192:76278 38202:76343 40212:77913 42216:90002 44226:76283 46228:76107 48235:76059 50245:75995 52255:75968 54265:75832 56272:75640 58282:75620 60292:75522 62305:75408 64315:75267 66325:75582 68337:78402 70339:87643 72343:76385 74348:75119 76356:75113
+   game 77207.4 s after the first second: kicks 208443 (8.991e-5/body/game-s), events 387949 (1.673e-4/body/game-s), stats {opens 566, boundaries 177265,
+
+== pin12e9: 60259 gs flown; max_gap now-oldest 59105.9 s; held_max 191; over 724
+   hist: max generations on one body 2877; peak total retired 151322 (5.04/body); rss 83 -> 383 MB; bpb 1218 -> 2221
+   hist_total series (gs:total): 10076:17427 12090:20507 14102:41572 16103:56513 18113:59675 20123:62759 22133:65867 24143:69009 26156:72246 28166:75391 30173:78541 32185:81676 34193:84837 36205:87978 38213:91088 40220:95690 42222:106468 44228:129932 46231:132972 48235:136066 50239:139095 52243:142111 54247:145144 56251:148194 58255:151269 60259:151322
+   game 62056.3 s after the first second: kicks 155782 (8.360e-5/body/game-s), events 312345 (1.676e-4/body/game-s), stats {opens 566, boundaries 154323,
+
+== ctrl-5ms: 1003 gs flown; max_gap now-oldest 0.0 s; held_max 1; over 4
+   hist: max generations on one body 24; peak total retired 649 (0.02/body); rss 75 -> 80 MB; bpb 1201 -> 1211
+   game 1345.8 s after the first second: kicks 2686 (6.646e-5/body/game-s), events 8345 (2.065e-4/body/game-s), stats {opens 32, boundaries 2554, handoff
+
+== ctrl-burn: 2005 gs flown; max_gap now-oldest 0.0 s; held_max 241; over 0
+   hist: max generations on one body 775; peak total retired 1408 (0.05/body); rss 75 -> 95 MB; bpb 1201 -> 1211
+   game 2398.1 s after the first second: kicks 5651 (7.848e-5/body/game-s), events 17742 (2.464e-4/body/game-s), stats {opens 334, boundaries 4644, hando
+
+--- pin67M (negative control, not in analyze.py's table):
+probe: gs=16113 rss_mb=156 bpb=1421 hist_gt1=136 hist_total=31006 hist_max=37 gap_s=330.5
+probe: gs=18126 rss_mb=156 bpb=1420 hist_gt1=136 hist_total=30979 hist_max=36 gap_s=330.5
+prune: max gap now-oldest 1652.9 s over the flight; pinned 67108864
+--- wiki page: python3 lab/results/20261019-0141-inversion-4a71/wiki/build_page.py rebuilds it from lab/wiki/nladder.md (the run
+    started from the page WITH its two standing conflicts; the checked-in wiki/nladder.md here
+    is the built resolution — build_page.py is kept for provenance, not needed for the numbers).

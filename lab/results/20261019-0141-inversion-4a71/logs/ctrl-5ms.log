@@ -1,0 +1,10 @@
+rung N=30000 (30028 bodies), coast, rtf 100, 15 s of wall time, engine budget 5 ms; build 1.34 s, peak footprint 74 MB (now 74 MB)
+probe: gs=2 rss_mb=75 bpb=1201 hist_gt1=28 hist_total=135 hist_max=4 gap_s=0.0
+probe: gs=1003 rss_mb=80 bpb=1211 hist_gt1=111 hist_total=649 hist_max=24 gap_s=0.0
+frames after 1 s: 840  engine ms p50 0.043 p90 2.473 p99 4.706 max 6.663; over 5 ms: 4; frames behind: 41, worst lag 1.667 s; events/frame p50 2 p99 136 max 218; scans held max 1
+game 1345.8 s after the first second: kicks 2686 (6.646e-5/body/game-s), events 8345 (2.065e-4/body/game-s), stats {opens 32, boundaries 2554, handoffs 0, lost 17, refused 0, slices 3073}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 74 MB at the build's end, 80 MB at the flight's end (now 80 MB); 2374 B a body from the build; dashboard bytes/body 1211; view gather 1117.4 ms cold, 472.3 ms warm (30056 seen); catalogue 30071 entries
+prune: max gap now-oldest 0.0 s over the flight; pinned no
+frames over the budget (first 12): [208, 411, 621, 823]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (823, 6.66, 218, 1.435) (411, 6.09, 192, 1.407) (208, 5.32, 162, 1.395) (621, 5.22, 162, 1.423) (70, 4.77, 9, 1.667)
+ladder: n=30000 bodies=30028 flight=coast rtf=100 frames=900 build_s=1.34 foot_build_mb=74 foot_end_mb=80 b_per_body=2374 p50_ms=0.043 p99_ms=4.706 max_ms=6.663 over=4 lag_s=1.667 kicks_per_body_gs=6.646e-5 events_per_body_gs=2.065e-4 refusals=0 dead=0 held_max=1 view_ms=472.3 truncated=false wall_s=3.5 max_gap_s=0.0
