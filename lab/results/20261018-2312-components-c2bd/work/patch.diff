@@ -1,0 +1,131 @@
+diff --git a/crates/universe/examples/quantum.rs b/crates/universe/examples/quantum.rs
+new file mode 100644
+index 00000000..49230375
+--- /dev/null
++++ b/crates/universe/examples/quantum.rs
+@@ -0,0 +1,125 @@
++//! The doll's time quantum as a component (the components lens): the shipped `Δs` law gives
++//! every free body of a doll `2^step_log2` kicks per period of the DOLL'S SHORTEST SECONDARY,
++//! whatever its own orbit (ext.rs: `Δs = 2^−k·P_D/f'(c)`; the root doll of the plane: Cinder,
++//! 88 d), while the fleet path sizes steps by the body's own tube period (fleet.rs). This
++//! instrument builds the plane's root doll alone (star + Cinder/Home/Giant with `PLANETS`'s
++//! exact parameters, no player/fleet/locals) plus belt and probe ships, and measures per class
++//! what the cadence costs in kicks per own orbit and what coarsening `step_log2` breaks:
++//! element drift against the k=7 control, refusals, losses.
++//!
++//! `quantum K ORBITS` — one arm; element tables at 9 checkpoints, cadence at birth and steady.
++//! cargo run --release -p emergent-universe --example quantum -- 7 2
++
++use emergent_universe::num::to_f64;
++use emergent_universe::scenario::{AU, PLANETS, STAR_RADIUS};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++use emergent_space::orbit::Scalar;
++
++fn elems(u: &Universe, id: usize) -> Option<(f64, f64)> {
++    let key = u.rec(id).b.entry.trajectory.key()?;
++    let kf = key.k as f64 * 2f64.powi(key.k_exponent as i32 - 48);
++    let e = 1.0 / kf - 1.0;
++    Some((to_f64(key.periapsis) / (1.0 - e) / AU as f64, e))
++}
++
++fn main() {
++    let k: i32 = std::env::args().nth(1).and_then(|x| x.parse().ok()).unwrap_or(7);
++    let orbits: f64 = std::env::args().nth(2).and_then(|x| x.parse().ok()).unwrap_or(2.0);
++    let cfg = Config { step_log2: k, ..Config::default() };
++    let t0 = std::time::Instant::now();
++    let mut u = Universe::new(Scalar::integer(STAR_RADIUS), cfg);
++    u.threads = 1;
++    for p in &PLANETS {
++        let b = u
++            .add_body(
++                Kind::Planet,
++                OrbitSpec { doll: 0, periapsis: Scalar::integer(p.periapsis), e_q48: p.e_q48, clockwise: false, angle: p.angle, phase: p.phase },
++                Scalar::ZERO,
++            )
++            .unwrap();
++        let surface = Scalar::raw(p.radius as i128, -p.mass_log2).unwrap();
++        u.add_doll(p.name, b, p.mass_log2, surface).unwrap();
++    }
++    // The probes: the belt (2–3 AU, e spread as the ladder's Rayleigh 0.07 scale), the
++    // Giant-neighbourhood probes (5.1/5.3 AU), and far probes (8, 20 AU). e as Q48.
++    let mut tracked: Vec<(&str, usize)> = Vec::new();
++    let mut add = |u: &mut Universe, class: &'static str, a_au: f64, e: f64, phase: u32| {
++        let id = u
++            .add_body(
++                Kind::Ship,
++                OrbitSpec {
++                    doll: 0,
++                    periapsis: Scalar::integer((a_au * (1.0 - e) * AU as f64) as i64),
++                    e_q48: (e * (1u64 << 48) as f64) as u64,
++                    clockwise: false,
++                    angle: phase,
++                    phase,
++                },
++                Scalar::raw(34, -10).unwrap(),
++            )
++            .unwrap();
++        tracked.push((class, id));
++    };
++    for (j, a) in [2.05, 2.2, 2.35, 2.5, 2.65, 2.8, 2.95].iter().enumerate() {
++        let e = 0.02 + 0.015 * j as f64;
++        add(&mut u, "belt", *a, e, (j as u32 + 1) * 0x2000_0000);
++    }
++    add(&mut u, "gnear", 5.1, 0.03, 0x3000_0000);
++    add(&mut u, "gnear", 5.3, 0.03, 0x4800_0000);
++    add(&mut u, "far", 8.0, 0.05, 0x6000_0000);
++    add(&mut u, "far", 20.0, 0.05, 0x7800_0000);
++    let mut u = u;
++    u.start().unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    // Cadence at birth (the plan's first spacing) on samples.
++    for (class, id) in tracked.iter().take(4).chain(tracked.iter().skip(7).take(4)) {
++        let ts: Vec<i64> = u.rec(*id).plan.iter().map(|it| it.t).collect();
++        if ts.len() >= 2 {
++            let d = (ts[1] - ts[0]) as f64 * TICK_SECONDS / 86400.0;
++            println!("CAD k {k} {class} id {id} interval_d {d:.4}");
++        } else {
++            println!("CAD k {k} {class} id {id} plan_items {}", ts.len());
++        }
++    }
++    // The flight: ORBITS of a 2.5 AU belt body (P = 2.5^1.5 yr), 9 checkpoints.
++    let years = orbits * 2.5f64.powf(1.5);
++    let t_end = (years * 31_557_600.0 / TICK_SECONDS) as i64;
++    let n_ck = 8;
++    for ck in 0..=n_ck {
++        let t = ((ck as f64 / n_ck as f64) * t_end as f64) as i64;
++        u.settle(t);
++        for (class, id) in &tracked {
++            let r = u.rec(*id);
++            let (a, e) = elems(&u, *id).unwrap_or((f64::NAN, f64::NAN));
++            println!(
++                "EL k {k} ck {ck} t_yr {:.4} {class} id {id} a {a:.6} e {e:.6} alive {} refus {}",
++                t as f64 * TICK_SECONDS / 31_557_600.0,
++                r.alive,
++                r.refusals
++            );
++        }
++    }
++    // Steady cadence after the flight, all probes.
++    for (class, id) in &tracked {
++        let ts: Vec<i64> = u.rec(*id).plan.iter().map(|it| it.t).collect();
++        if ts.len() >= 2 {
++            let d = (ts[1] - ts[0]) as f64 * TICK_SECONDS / 86400.0;
++            let (a, _) = elems(&u, *id).unwrap_or((f64::NAN, f64::NAN));
++            let porbit = a.powf(1.5) * 365.25;
++            println!("CAD2 k {k} {class} id {id} interval_d {d:.4} a_au {a:.3} kicks_per_orbit {:.0}", porbit / d);
++        }
++    }
++    let st = &u.stats;
++    println!(
++        "SUM k {k} orbits {orbits} build_s {build:.2} wall_s {:.2} kicks {} opens {} boundaries {} handoffs {} lost {} refused {} encounters {}",
++        t0.elapsed().as_secs_f64(),
++        st.kicks,
++        st.opens,
++        st.boundaries,
++        st.handoffs,
++        st.lost,
++        st.refused,
++        st.encounters
++    );
++}

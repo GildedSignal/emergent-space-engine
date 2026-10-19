@@ -1,0 +1,4 @@
+Working...
+`regen.sh` reproduces every number deterministically in 34 s. All artifacts in place: `predictions.md` (pre-registered, honestly scored — P1's constant and P2's walk prediction both failed as predicted-kill branches), `dossier.md`, `raw/`, `wiki/kick-cadence.md`, and the instrument (`crates/universe/examples/quantum.rs`, saved as the run's patch).
+
+**Claim:** the doll's time quantum is a measured doll-global clock — the belt is kicked every ~0.16 d (~8,000/orbit, 4.3× finer than the doc's own letter, confirmed by `belt_first`'s 14,097 game-s on the shipped plane) — and one dial from k=7 to k=0 holds the belt's behaviour (element drift ≤ 8.3×10⁻⁵, bounded not walking, zero refusals) at **82× fewer kicks**, with the law's own clamps flooring at ~15–21 kicks/orbit (~450× under shipped) and the near-Giant regime breaking first: the quantum must be the body's, not the doll's (PRINCIPLES 33 — the lion kicked at the raindrop's heartbeat).

@@ -1,0 +1,74 @@
+== machine state ==
+Sun Oct 18 11:31:05 PM UTC 2026
+ 23:31:05 up 52 days, 14:33,  0 user,  load average: 5.47, 4.78, 3.00
+MemTotal:       16316708 kB
+MemAvailable:   13545380 kB
+== build ==
+== the sweep (belt 2.5 AU orbits: 2-orbit arms k in 7 5 3 2 1 0 -2; long arms k in 7 2) ==
+== the shipped plane's own belt cadence, independent witness (belt_first, 5 s) ==
+     Running `/home/glmlab/lab-target-3/release/examples/belt_first 300`
+belt: 150 bodies, first item (game s) min 13382 p01 13435 p50 14097 p99 14418 max 14429
+== analysis ==
+== cadence (steady, 2-orbit arms): interval days, kicks per own orbit ==
+class   id k=   7 k=   5 k=   3 k=   2 k=   1 k=   0 k=  -2
+belt     3       -       -       -     200       -       -       -
+belt     4       -    1757     439       -       -       -       -
+belt     5    7745       -     484     242       -      59       -
+belt     6    8242       -       -       -     129       -       -
+belt     7    8561    2140     535     267       -       -      15
+belt     8    9165       -       -     287       -       -      21
+belt     9       -       -       -       -       -      84       -
+gnear   10   14174    3544     887     443       -     113       -
+gnear   11   25348       -       -     791     396       -      70
+far     12       -       -    2802       -       -     287       -
+far     13       -       -    6965       -    1416     733       5
+
+== drift vs the k=7 control, 2-orbit arms: |a_k - a_7|/a_7 by checkpoint ==
+class   id  a_7(au)       k=5       k=3       k=2       k=1       k=0      k=-2
+belt     3    2.010  0.00e+00  2.99e-06  9.45e-06  8.46e-06  3.28e-05  5.97e-05
+belt     4    2.126  9.41e-07  4.70e-07  1.08e-05  1.32e-05  2.40e-05  1.72e-04
+belt     5    2.238  0.00e+00  4.47e-07  3.13e-06  1.07e-05  7.60e-06  1.37e-04
+belt     6    2.347  4.26e-07  4.26e-06  4.26e-06  1.96e-05  5.15e-05  8.95e-05
+belt     7    2.454  0.00e+00  4.08e-07  3.67e-06  8.97e-06  1.14e-05  1.02e-04
+belt     8    2.557  3.91e-07  1.17e-06  3.52e-06  4.69e-06  6.73e-05  6.92e-05
+belt     9    2.658  0.00e+00  0.00e+00  7.53e-07  2.26e-06  8.28e-06  4.97e-05
+gnear   10    4.951  4.04e-05  5.43e-04  1.14e-03  1.15e-03  1.27e-03  4.54e-02
+gnear   11    5.146  1.55e-06  5.05e-06  8.75e-06  1.65e-05  3.03e-05  3.39e-04
+far     12    7.619  9.19e-07  2.23e-06  1.44e-06  8.66e-06  2.12e-04  2.35e-04
+far     13   19.048  5.25e-08  1.89e-06  7.56e-06  1.44e-04  6.04e-04  2.25e-03
+
+== walk vs bounded: |a_k - a_7|/a_7 per checkpoint (last body state per class shown; long arms) ==
+k= 7 belt id 3: 2-orbit drift 0.00e+00 -> 6-orbit drift 0.00e+00  (ratio 0.0)
+k= 7 belt id 4: 2-orbit drift 0.00e+00 -> 6-orbit drift 0.00e+00  (ratio 0.0)
+k= 7 belt id 5: 2-orbit drift 0.00e+00 -> 6-orbit drift 0.00e+00  (ratio 0.0)
+k= 7 belt id 6: 2-orbit drift 0.00e+00 -> 6-orbit drift 0.00e+00  (ratio 0.0)
+k= 7 belt id 7: 2-orbit drift 0.00e+00 -> 6-orbit drift 0.00e+00  (ratio 0.0)
+k= 7 belt id 8: 2-orbit drift 0.00e+00 -> 6-orbit drift 0.00e+00  (ratio 0.0)
+k= 7 belt id 9: 2-orbit drift 0.00e+00 -> 6-orbit drift 0.00e+00  (ratio 0.0)
+k= 2 belt id 3: 2-orbit drift 9.45e-06 -> 6-orbit drift 8.46e-06  (ratio 0.9)
+k= 2 belt id 4: 2-orbit drift 1.08e-05 -> 6-orbit drift 5.17e-06  (ratio 0.5)
+k= 2 belt id 5: 2-orbit drift 3.13e-06 -> 6-orbit drift 8.94e-07  (ratio 0.3)
+k= 2 belt id 6: 2-orbit drift 4.26e-06 -> 6-orbit drift 1.19e-05  (ratio 2.8)
+k= 2 belt id 7: 2-orbit drift 3.67e-06 -> 6-orbit drift 2.45e-06  (ratio 0.7)
+k= 2 belt id 8: 2-orbit drift 3.52e-06 -> 6-orbit drift 2.35e-06  (ratio 0.7)
+k= 2 belt id 9: 2-orbit drift 7.53e-07 -> 6-orbit drift 6.40e-06  (ratio 8.5)
+
+== per-checkpoint walk check (k=-2, 2-orbit arm), all belt: drift at ck2/4/6/8 ==
+belt id 3: 5.27e-05 1.90e-04 5.57e-05 5.97e-05
+belt id 4: 4.61e-05 0.00e+00 6.21e-05 1.72e-04
+belt id 5: 1.61e-05 7.64e-05 7.37e-05 1.37e-04
+belt id 6: 7.41e-05 5.62e-05 1.83e-05 8.95e-05
+belt id 7: 6.11e-06 4.93e-05 2.69e-04 1.02e-04
+belt id 8: 4.03e-05 3.72e-05 2.38e-04 6.92e-05
+belt id 9: 4.40e-05 7.83e-05 2.63e-06 4.97e-05
+
+== kick bills (SUM) ==
+k= -2 orbits=2 kicks=    722 wall_s=   0.04 refused=0 lost=0
+k=  0 orbits=2 kicks=   1361 wall_s=   0.10 refused=0 lost=0
+k=  1 orbits=2 kicks=   2474 wall_s=   0.18 refused=0 lost=0
+k=  2 orbits=2 kicks=   3726 wall_s=   0.31 refused=0 lost=0
+k=  2 orbits=6 kicks=  10727 wall_s=   0.89 refused=0 lost=0
+k=  3 orbits=2 kicks=   7316 wall_s=   0.62 refused=0 lost=0
+k=  5 orbits=2 kicks=  27915 wall_s=   2.41 refused=0 lost=0
+k=  7 orbits=2 kicks= 111535 wall_s=   9.55 refused=0 lost=0
+k=  7 orbits=6 kicks= 319867 wall_s=  27.11 refused=0 lost=0
