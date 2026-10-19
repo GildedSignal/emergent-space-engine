@@ -1,0 +1,71 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.5
+   Compiling shlex v2.0.1
+   Compiling serde v1.0.229
+   Compiling find-msvc-tools v0.1.12
+   Compiling cc v1.4.5
+   Compiling serde_derive v1.0.229
+   Compiling num-integer v0.1.47
+   Compiling blake3 v1.8.7
+   Compiling num-bigint v0.4.8
+   Compiling cfg-if v1.0.4
+   Compiling constant_time_eq v0.4.2
+   Compiling arrayvec v0.7.8
+   Compiling cpufeatures v0.3.1
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/lattice)
+   Compiling emergent-lattice-event v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/lattice-event)
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 26.42s
+=== k1e4: 10000 burn 20 1000 12 ===
+rung N=10000 (10028 bodies), burn, rtf 1000, 20 s of wall time, engine budget 12 ms; build 0.56 s, peak footprint 27 MB (now 27 MB)
+ladder: n=10000 bodies=10028 flight=burn rtf=1000 frames=1200 build_s=0.56 foot_build_mb=27 foot_end_mb=76 b_per_body=2400 p50_ms=2.587 p99_ms=11.943 max_ms=47.597 over=8 lag_s=16.021 kicks_per_body_gs=2.137e-4 events_per_body_gs=3.885e-4 refusals=0 dead=0 held_max=1074 view_ms=220.2 truncated=false wall_s=6.2
+=== k5e4: 50000 burn 24 1000 12 ===
+rung N=50000 (50028 bodies), burn, rtf 1000, 24 s of wall time, engine budget 12 ms; build 2.36 s, peak footprint 118 MB (now 118 MB)
+ladder: n=50000 bodies=50028 flight=burn rtf=1000 frames=1440 build_s=2.36 foot_build_mb=118 foot_end_mb=491 b_per_body=2304 p50_ms=2.574 p99_ms=22.957 max_ms=422.767 over=50 lag_s=15.940 kicks_per_body_gs=7.649e-5 events_per_body_gs=1.107e-4 refusals=0 dead=0 held_max=1080 view_ms=1117.0 truncated=false wall_s=14.3
+=== k1e5: 100000 burn 24 1000 12 ===
+rung N=100000 (100028 bodies), burn, rtf 1000, 24 s of wall time, engine budget 12 ms; build 4.73 s, peak footprint 232 MB (now 232 MB)
+ladder: n=100000 bodies=100028 flight=burn rtf=1000 frames=1440 build_s=4.73 foot_build_mb=232 foot_end_mb=975 b_per_body=2293 p50_ms=2.581 p99_ms=43.613 max_ms=905.457 over=65 lag_s=15.940 kicks_per_body_gs=6.076e-5 events_per_body_gs=7.788e-5 refusals=0 dead=0 held_max=1078 view_ms=2240.8 truncated=false wall_s=23.8
+=== k2e5: 200000 burn 24 1000 12 ===
+rung N=200000 (200028 bodies), burn, rtf 1000, 24 s of wall time, engine budget 12 ms; build 9.49 s, peak footprint 460 MB (now 460 MB)
+ladder: n=200000 bodies=200028 flight=burn rtf=1000 frames=1392 build_s=9.49 foot_build_mb=460 foot_end_mb=1816 b_per_body=2287 p50_ms=2.590 p99_ms=89.283 max_ms=1868.812 over=66 lag_s=15.860 kicks_per_body_gs=5.454e-5 events_per_body_gs=6.313e-5 refusals=0 dead=0 held_max=1078 view_ms=4504.7 truncated=false wall_s=42.8
+flight stopped early by ES_RSS_CAP_MB=1750
+=== rtf600: 100000 burn 26 600 12 ===
+rung N=100000 (100028 bodies), burn, rtf 600, 26 s of wall time, engine budget 12 ms; build 4.76 s, peak footprint 232 MB (now 232 MB)
+ladder: n=100000 bodies=100028 flight=burn rtf=600 frames=1560 build_s=4.76 foot_build_mb=232 foot_end_mb=467 b_per_body=2292 p50_ms=1.414 p99_ms=11.950 max_ms=941.870 over=14 lag_s=8.745 kicks_per_body_gs=8.422e-5 events_per_body_gs=1.028e-4 refusals=0 dead=0 held_max=1031 view_ms=2261.3 truncated=false wall_s=21.2
+
+— the worst frame of each arm, decomposed (one top-level player item, nested clock-kicks):
+[k1e4]
+wave probe: 1140 frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):
+  f 895     47.6 ms items 899 kicks 898 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 47.5, 0.0] | process (whole) 42.6 ms; item: kick (clock) 42.5 ms;   fit: bind_surface (kicks, hand-outs) 17.6 ms; apply (whole) 4.3 ms;   position walk (root_state_raw) 3.5 ms
+  f 905     46.8 ms items 886 kicks 883 opens 0 bounds 3 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 46.6, 0.0] | process (whole) 41.8 ms; item: kick (clock) 41.8 ms;   fit: bind_surface (kicks, hand-outs) 17.2 ms; apply (whole) 4.2 ms;   position walk (root_state_raw) 3.4 ms
+[k5e4]
+wave probe: 1380 frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):
+  f 893    422.8 ms items 7866 kicks 7865 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 421.7, 0.0] | item: kick (clock) 374.0 ms; process (whole) 373.9 ms;   fit: bind_surface (kicks, hand-outs) 155.5 ms; apply (whole) 41.5 ms;   position walk (root_state_raw) 30.3 ms
+  f 903    395.6 ms items 7302 kicks 7299 opens 0 bounds 3 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 394.9, 0.0] | item: kick (clock) 348.7 ms; process (whole) 348.6 ms;   fit: bind_surface (kicks, hand-outs) 145.4 ms; apply (whole) 40.1 ms;   position walk (root_state_raw) 28.1 ms
+[k1e5]
+wave probe: 1380 frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):
+  f 893    905.5 ms items 16530 kicks 16529 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 903.5, 0.0] | item: kick (clock) 795.4 ms; process (whole) 795.0 ms;   fit: bind_surface (kicks, hand-outs) 333.7 ms; apply (whole) 92.9 ms;   position walk (root_state_raw) 64.8 ms
+  f 903    838.5 ms items 15405 kicks 15402 opens 0 bounds 3 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 837.2, 0.0] | item: kick (clock) 736.9 ms; process (whole) 736.5 ms;   fit: bind_surface (kicks, hand-outs) 307.8 ms; apply (whole) 86.4 ms;   position walk (root_state_raw) 60.0 ms
+[k2e5]
+wave probe: 1333 frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):
+  f 893   1868.8 ms items 34047 kicks 34046 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 1864.5, 0.0] | item: kick (clock) 1640.5 ms; process (whole) 1639.8 ms;   fit: bind_surface (kicks, hand-outs) 690.1 ms; apply (whole) 191.8 ms;   position walk (root_state_raw) 132.7 ms
+  f 903   1723.3 ms items 31469 kicks 31466 opens 0 bounds 3 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 1720.7, 0.0] | item: kick (clock) 1513.5 ms; process (whole) 1512.7 ms;   fit: bind_surface (kicks, hand-outs) 634.5 ms; apply (whole) 177.5 ms;   position walk (root_state_raw) 122.5 ms
+[rtf600]
+wave probe: 1500 frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):
+  f 1452    941.9 ms items 16846 kicks 16846 opens 0 bounds 0 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 940.6, 0.0] | item: kick (clock) 824.9 ms; process (whole) 824.4 ms;   fit: bind_surface (kicks, hand-outs) 350.3 ms; apply (whole) 99.6 ms;   position walk (root_state_raw) 67.5 ms
+  f 1436    904.3 ms items 16270 kicks 16270 opens 0 bounds 0 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 902.9, 0.0] | item: kick (clock) 793.2 ms; process (whole) 792.8 ms;   fit: bind_surface (kicks, hand-outs) 336.4 ms; apply (whole) 95.0 ms;   position walk (root_state_raw) 65.2 ms
+arm           K    max_ms  gulp kicks  us/kick
+k1e4      10000      47.6         898     53.0
+k5e4      50000     422.8        7865     53.8
+k1e5     100000     905.5       16529     54.8
+k2e5     200000    1868.8       34046     54.9
+rtf600   100000     941.9       16846     55.9
+
+saturated law: max_ms ≈ 9.3 µs × K  (10⁵ check 934.41 s vs 0.91 s measured; 10⁶ → 9 s; 10⁹ → 2.6 h a frame)

@@ -1,0 +1,110 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e54e8fba 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -21,6 +21,22 @@ extern "C" {
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
++    // The lab's boxes are Linux, where proc_pid_rusage does not exist: the resident set and its
++    // high-water mark stand in for the phys footprint and its lifetime peak (this run's stub).
++    if cfg!(target_os = "linux") {
++        let (mut now, mut peak) = (0u64, 0u64);
++        if let Ok(status) = std::fs::read_to_string("/proc/self/status") {
++            for line in status.lines() {
++                let kb = |l: &str| l.trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1000;
++                if let Some(v) = line.strip_prefix("VmRSS:") {
++                    now = kb(v);
++                } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                    peak = kb(v);
++                }
++            }
++        }
++        return (now, peak);
++    }
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+     let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+@@ -46,7 +62,21 @@ fn main() {
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
+-    let frames = (seconds * 60.0) as usize;
++    // This run's print-only instrument (off = the shipped output): ES_WAVE_PROBE keeps a per-frame
++    // decomposition (stats and stage deltas) and prints the worst frames; ES_RSS_CAP_MB stops the
++    // flight early (the lab's 2 GB box cap) without touching the engine.
++    let probe = std::env::var("ES_WAVE_PROBE").map_or(false, |v| v != "0" && !v.is_empty());
++    let rss_cap_mb: f64 = std::env::var("ES_RSS_CAP_MB").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
++    struct WaveRow {
++        f: usize,
++        ms: f64,
++        ev: u64,
++        d: emergent_universe::universe::Stats,
++        stages: Vec<(usize, u64, u64)>,
++    }
++    let mut wave_rows: Vec<WaveRow> = Vec::new();
++    let (mut rss_capped,) = (false,);
++     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+     let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
+@@ -77,6 +107,7 @@ fn main() {
+             let _ = emergent_universe::prof::take();
+         }
+         let start = Instant::now();
++        let pre_stats = p.u.stats;
+         let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
+         let took = start.elapsed();
+         let (ns, calls) = emergent_universe::prof::take();
+@@ -86,7 +117,21 @@ fn main() {
+                 stage_calls[k] += calls[k];
+             }
+         }
++        if probe && f >= 60 {
++            let d = p.u.stats;
++            wave_rows.push(WaveRow {
++                f,
++                ms: took.as_secs_f64() * 1e3,
++                ev: frame.events,
++                d: emergent_universe::universe::Stats { kicks: d.kicks - pre_stats.kicks, opens: d.opens - pre_stats.opens, boundaries: d.boundaries - pre_stats.boundaries, handoffs: d.handoffs - pre_stats.handoffs, lost: d.lost - pre_stats.lost, refused: d.refused - pre_stats.refused, slices: d.slices - pre_stats.slices, encounters: d.encounters - pre_stats.encounters, decisions: d.decisions - pre_stats.decisions, leavers: d.leavers - pre_stats.leavers, dissolved: d.dissolved - pre_stats.dissolved, cost_ns: std::array::from_fn(|k| d.cost_ns[k].saturating_sub(pre_stats.cost_ns[k])), items: std::array::from_fn(|k| d.items[k].saturating_sub(pre_stats.items[k])) },
++                stages: (0..emergent_universe::prof::N).filter(|&k| ns[k] > 0).map(|k| (k, ns[k], calls[k])).collect(),
++            });
++        }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if rss_cap_mb > 0.0 && f % 16 == 0 && footprint().0 as f64 / 1e6 > rss_cap_mb {
++            rss_capped = true;
++            break;
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -160,4 +205,29 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    if rss_capped {
++        println!("flight stopped early by ES_RSS_CAP_MB={rss_cap_mb:.0}");
++    }
++    if probe {
++        let mut by_ms: Vec<&WaveRow> = wave_rows.iter().collect();
++        by_ms.sort_by(|a, b| b.ms.partial_cmp(&a.ms).unwrap());
++        println!("wave probe: {} frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):", wave_rows.len());
++        for r in by_ms.iter().take(5) {
++            let mut st: Vec<(u64, &str)> = r.stages.iter().map(|(k, ns, _)| (*ns, emergent_universe::prof::NAMES[*k])).collect();
++            st.sort_by(|a, b| b.0.cmp(&a.0));
++            let top: Vec<String> = st.iter().take(5).map(|(ns, name)| format!("{name} {:.1} ms", *ns as f64 / 1e6)).collect();
++            println!(
++                "  f {} {:>8.1} ms items {} kicks {} opens {} bounds {} slices {} items_by_class {:?} ms_by_class {:?} | {}",
++                r.f, r.ms, r.ev, r.d.kicks, r.d.opens, r.d.boundaries, r.d.slices, r.d.items,
++                r.d.cost_ns.map(|c| (c as f64 / 1e6 * 10.0).round() / 10.0),
++                top.join("; ")
++            );
++        }
++        if let Some(w) = by_ms.first() {
++            let lo = w.f.saturating_sub(8);
++            let hi = w.f + 8;
++            let trace: Vec<String> = wave_rows.iter().filter(|r| r.f >= lo && r.f <= hi).map(|r| format!("(f{} {:.1}ms ev{} k{})", r.f, r.ms, r.ev, r.d.kicks)).collect();
++            println!("around the worst frame: {}", trace.join(" "));
++        }
++    }
+ }
