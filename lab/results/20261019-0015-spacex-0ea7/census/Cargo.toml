@@ -1,0 +1,13 @@
+[package]
+name = "census"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+emergent-space = { path = "../../../../crates/space" }
+emergent-universe = { path = "../../../../crates/universe" }
+
+[profile.release]
+debug = false
