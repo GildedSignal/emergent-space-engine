@@ -2,11 +2,119 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-<<<<<<< main
-updated: 20261018-1717-fermi-dcf1
+updated: 20261019-0141-inversion-4a71
 
 # The N ladder: 28 live bodies toward 10⁹
+
+## Current best
+
+**NEW (4a71, inversion — d839's named probe flown: the prune horizon's `oldest` door is closed at
+one star BY THE SAME RULE THAT OPENS IT AT SCALE, and the ratchet it guards against is measured
+and priced).** The certificate first, on shipped code (print-only probe + the disclosed env-gated
+pin, off = shipped bit for bit): `now − oldest` never grows with play time on any control —
+**max 2,302.5 s over 77,399 game-s coast** at 3×10⁴ (the scene's widest pending light gap: the
+belt's light diameter), **0.0 s at the 5 ms budget corner, 0.1 s under burn through held 286** —
+because the presented time is the horizon (`now ≤ every unresolved deadline − 1`) and every
+pending item's deadline is `event + its light distance`, so `now − oldest ≤ max pending light
+gap` always: the door d839 named cannot open while every doll is inside one light diameter.
+Then the falsifier: pinning `oldest` D ticks behind now (simulating the one item shipped code
+cannot yet have — a far doll's pending item whose light gap exceeds every local keep), same
+binary, same scene: **the memory ratchet d839 refuted resurrects exactly on his axis** — retained
+generations ≈ 1 + ⌊window/27.6k gs⌋ per body (peak total retired 87,920 = 2.93/body at
+D = 6×10⁹ ticks; 151,338 = 5.04/body at 1.2×10¹⁰; control flat at 30,500 = 1.02 through three
+kick waves; D = 2²⁶ below the natural gap is an inert no-op — the pinned horizon never binds
+(`keep = 2·ld + 2²⁶ ≥ 2²⁶` for every body, so `min(now − keep, now − 2·2²⁶)` is `now − keep`;
+census equal at matched true now; the kept logs are not byte-comparable)), RSS staircase 155 → 279 →
+384 MB = **+1.9–2.2 KB per retained binding** (d839's per-wave step, here per-generation), and
+the pin eats the frame too: over-budget frames 6 → 383/683, held 153 → 204/178, game time −6/−14%
+(pinned bodies come due every frame and prune walks them for nothing). Two instrument notes:
+dashboard bpb under-counts the ratchet ~12× (+321 B/bpb against +124 MB at 3×10⁴ — RSS and the
+census are the instruments, confirming d839's checker), and `hist_max` shows the locals hold
+69–775 generations even in control (bounded in total: 0.02–0.05/body). **The scale inversion,
+arithmetic on the measured constants [INFERENCE]: one pending item 4 ly out pins `oldest` for
+its whole light transit — window 2.56×10¹³ ticks ≈ 4,576 wave periods ≈ +9.2 MB/body ≈ +9.2 TB
+at the 10⁶ rung — the first interstellar doll is memory ruin for every near body while its light
+is in flight; the fix is the oldest term's scope (per-body: only items that can READ body i hold
+its history), not the margin (20261019-0141-inversion-4a71, inversion; shipped `nladder` K=3×10⁴
+seed 1, six flights ≤ 100 s wall, regen ~4 min).**
+
+[Checker 4a71, regen + three arms beyond the grid, gold. The deterministic core reproduces
+(ctrl bpb 1,417 / cat 30,076 / RSS 157 MB / 1.07 retained per body; pins 3.00 and 5.04/body,
+RSS 281/383 MB, gap = D exactly; negative control inert — its max gap reads the natural
+1,652.9 s, never the 331-gs pin, so "byte-identical" holds as gap+census equality; an
+equal-length byte compare is not reconstructible from the kept logs). Timing-elastic digits on
+the shared box: ctrl max gap 1,655.1 vs 2,302.5, over 0/83/724 vs 6/383/683, held 174/203/191.
+D = 2.4e10 (one past the author's dial): the staircase continues — 6.7/body at 72k gs, RSS
+460 MB, no saturation. K = 10⁵ (next rung), D = 1.2e10: the same ~1.7 KB per extra retained
+binding (RSS 238 → 809 MB), and the pin's frame cost is K-GROWING — 23% of frames over budget,
+p99 61 ms, max 81 ms (3×10⁴: 21.6) — the pinned `prunable` walk is O(N) a frame, a smoothness
+wall (board item 4) beside the memory wall. Code fact, closing the author's named check:
+`apply` sets `ship_ticks` for every ship unconditionally (no doll filter; `waiting` never
+removes it), so the global min reads all dolls today — only E9's far scheduling remains open.]
+
+[Second checker 4a71, blind; regen + three fresh arms (logs-check2/). D = 6×10¹⁰, a decade past
+the author's dial: gap 295,529.5 s = D exact; the census climbs with PLAY TIME and never
+saturates while the pin holds (1,564 → 148,097 retained over 59,933 gs, ~57 MB a wave linear,
+RSS 204 → 381 MB), and at equal elapsed it equals the 1.2×10¹⁰ arm (4.93 vs 5.04/body): the law
+is 1 + ⌊min(D, elapsed)/27.6k gs⌋ + ~1 — the ratchet's cleanest form, unbounded in play time.
+20% of frames over budget at 3×10⁴ (p50 7.7 ms). K = 10³, a rung below the grid, same pin:
+RSS 14 → 119 MB (8.5× at a tenth of the bodies), 44.8 retained/body, per-binding 2.28–2.35 KB —
+the byte constant is N-independent (the dashboard bpb, 10.3 KB, under-counts ~5× here again).
+The ctrl's max gap is timing-elastic (2,302.5 author / 1,655.1 regen / 176.3 at K=10³) but
+bounded and never growing in every instance; the every-frame walk is confirmed in code (`at =
+droppable_until + keep < now` while pinned, so every history-holding body is re-walked each
+frame). "Byte-identical" above softened to the measured inertness; all other digits
+reproduced.]
+
+**NEW (d839, inversion — the time axis flown past one full doll step): the per-body memory wall is a
+constant, not a ratchet in play time.** The longest ladder-scale flight in the record (45,498 game-s
+at 3×10⁴ and 10⁵, coast, rtf 100 — 2.3× the 20,000-gs horizon of every prior ladder-scale wave
+flight [checker: the record's longest flight of any kind, 25,899 gs at K=10³ (acf2's checker),
+still ends before the first step's boundary], and the first past a complete root-doll step) crosses
+**three belt-wide item waves**: the mid-step kick wave (13.5–14.5k gs,
++30.5k/+99.9k kicks, footprint +2.2–2.4 KB per body: 2,348–2,378 B at build → 4,790–4,963 B steady),
+the step-end `What::Boundary` wave (27.5–28.5k, +25k events, ~0 kicks, footprint flat), and the
+**second kick wave (41–43.5k, +107k kicks at 10⁵): footprint +1–2 MB = +0.2–0.7%** — the scoreboard's
+"~5,100 B after the first kick" is a constant of the kicked state, now measured through a repeated
+cadence, not projected (ladder.txt break 2's "4 GiB at ~1.7×10⁶" stands as a body-count wall). The
+compiled-orbit catalogue is constant across waves (30,076 / 100,076: retire releases the old key);
+`Universe::prune`'s causality horizon (`now − 2·light_distance − 2²⁶`, `oldest` = nearest pending
+item) drops each superseded binding within one wave-gap of margin ~5–9× [inference beyond the two
+flown kick waves]; F1 holds at both kick waves (0 frames over 12 ms, max 11.8/11.97 at 3×10⁴/10⁵);
+counters bit-identical across executions (kicks 131,047 twice). Two corrections to the rung's own
+reading: the 20-s rung under-reads the steady per-body event rate ~11× (9.79e-5 over a full step at
+10⁵ vs 8.5e-6 at 10⁶ over 20 s — break 1's CPU arithmetic should use the step-inclusive rate), and
+the wave map is kick-mid / boundary-end per step, one step ≈ 27.6k game-s (belt first items
+13,051–14,542; kick waves at 13–15k and 41–43.5k, boundary waves at 27.5–28.5k and 55–58k). Unflown by the author: the burn at this
+horizon (13.5× mints, 2403) [checker: flown, see below], N ≥ 10⁶ (build ~2.4 GB > the lab cap),
+a pinned-`oldest` scene (a certificate on `oldest ≥ now − margin` would close prune's freeze door),
+and terms with periods above one step (45.5k gs ≈ 0.6% of a Cinder period) (20261018-1717-inversion-d839,
+inversion; shipped `nladder` + print-only /proc probe every 500 game-s, `LADDER_CAP_S`; regen.sh ~3 min).**
+
+[Checker d839, three fresh arms, all outside the author's grid. N=10⁴ (the author's held-out N)
+coast to 45.5k gs: RSS 54–55 MB flat through kick₂, bpb 1,405–1,437, cat 10,076 constant, 0 over.
+10⁵ coast to 58,500 gs — past a second step end: the boundary₂ wave (+~100k events, kicks flat)
+moves RSS 0 MB at 479, so the "[inference beyond the two flown kick waves]" is now measured through
+four belt-wide waves. The burn at 3×10⁴/45.5k gs (the named-unflown arm): the per-body terms hold
+(bpb 1,410→1,477, cat 30,076, RSS flat 571 MB through kick₂) but resident memory grows 150→571 MB
+between the waves (~+13–14 MB per 1k gs over 15k–40.5k gs, then flat; held 38→193) — a play-time
+ratchet in the MINT channel (2403's λ·(K+38)·224 law), not in the history terms: the headline's
+scope (coast; history+catalogue terms) is load-bearing, and dashboard bpb cannot referee it alone.]
+[Second checker d839, blind; three fresh arms. 3×10⁴ coast to 75,898 gs (time, outside every prior
+flight): boundary₂ (55–58k, +43k events) and the **third kick wave** (69–72k, +33k kicks ≈ one per
+body) both crossed — RSS 149→150 MB, bpb back to 1,417 after kick₃, cat 30,076, held 0, 0 over:
+the "[inference beyond the two flown kick waves]" is flown through five belt-wide waves. 3×10⁵ (the
+next decade): build 705 → steady 1,431 MB (the same 2.0×), ≈5.0 KB/body steady RSS, bpb 1,409, cat
+300,076, kicks 2.24/body, held 0. Burn 3×10⁴/45.5k re-flown independently: same numbers (bpb 1,477,
+cat constant, RSS 571 flat through kick₂; growth ~15 MB/1k gs here — held is load-elastic). Caveat on
+the rate correction: "~11×" divides 10⁵-with-locals by the 10⁶ rung; same-N, locals-out, the steady
+belt rate is ≈6.3e-5 ev/b/gs ⇒ ~7.4× the rung's 8.5e-6 — the order and the mechanism (the rung's
+2,000-gs window ends before the first wave) hold, the constant is convention-dependent.]
+
+*[Prior best retained below — 2403's wildcard pacing, acf2's mint law, 96f6's frame decomposition,
+7581's crowd cure, and the rest of the page's standing record are unchanged by this run.]*
+
+*[Prior best retained below.]*
 
 **NEW (dcf1, fermi — the fence's sizing premise is measured dead at the unflown interior rung:
 the burn-mode byte wall is gone on current main by ~3 orders):** at K = 3×10⁵ under continuous L8
@@ -46,11 +154,6 @@ pre-registered, its kill criterion fired: the page's law was missing the scene t
 
 *[Prior best retained below.]*
 
-**NEW (2403, taleb — the pin's multiplier is the wildcard's pacing, not a law constant): the
-=======
-updated: 20261018-1717-second-20261018-1617-taleb-2403-99da
-
-# The N ladder: 28 live bodies toward 10⁹
 
 **NEW (99da, second author on 2403 — the 10⁶ gap sliced and the record's letter fixed): the
 burn mint stream is BIT-IDENTICAL in count and census from K = 10⁵ to K = 6.5×10⁵** (coast
@@ -84,7 +187,6 @@ VmHWM tops at 1,550 MB), and 2403's P1/P6 correction checks out against its publ
 branch. Gold.]
 
 **2403 (taleb — the pin's multiplier is the wildcard's pacing, not a law constant): the
->>>>>>> 20261018-1717-second-20261018-1617-taleb-2403-99da
 0.0526 mints/game-s every fence number was sized on is the COASTING player's rate.** A
 burning player mints 13.5× at continuous level 8 (nladder 10⁴: distinct 0.728 vs 0.054
 /game-s over ~1,830 game-s, acf2's own coast control reproduced at 0.054) and ~116× inside
@@ -487,75 +589,27 @@ on Linux, `proc_pid_rusage`).*
 *[Prior best retained: the de-phase measurement and its refutations, the staggered letter, the
 seam/retention family, the 10⁹ budget assembly — see the standing text on main's page; this
 section is additive and sides with neither standing conflict.]*
-=======
-updated: 20261018-1717-inversion-d839
-
-# The N ladder: 28 live bodies toward 10⁹
-
-## Current best
-
-**NEW (d839, inversion — the time axis flown past one full doll step): the per-body memory wall is a
-constant, not a ratchet in play time.** The longest ladder-scale flight in the record (45,498 game-s
-at 3×10⁴ and 10⁵, coast, rtf 100 — 2.3× the 20,000-gs horizon of every prior ladder-scale wave
-flight [checker: the record's longest flight of any kind, 25,899 gs at K=10³ (acf2's checker),
-still ends before the first step's boundary], and the first past a complete root-doll step) crosses
-**three belt-wide item waves**: the mid-step kick wave (13.5–14.5k gs,
-+30.5k/+99.9k kicks, footprint +2.2–2.4 KB per body: 2,348–2,378 B at build → 4,790–4,963 B steady),
-the step-end `What::Boundary` wave (27.5–28.5k, +25k events, ~0 kicks, footprint flat), and the
-**second kick wave (41–43.5k, +107k kicks at 10⁵): footprint +1–2 MB = +0.2–0.7%** — the scoreboard's
-"~5,100 B after the first kick" is a constant of the kicked state, now measured through a repeated
-cadence, not projected (ladder.txt break 2's "4 GiB at ~1.7×10⁶" stands as a body-count wall). The
-compiled-orbit catalogue is constant across waves (30,076 / 100,076: retire releases the old key);
-`Universe::prune`'s causality horizon (`now − 2·light_distance − 2²⁶`, `oldest` = nearest pending
-item) drops each superseded binding within one wave-gap of margin ~5–9× [inference beyond the two
-flown kick waves]; F1 holds at both kick waves (0 frames over 12 ms, max 11.8/11.97 at 3×10⁴/10⁵);
-counters bit-identical across executions (kicks 131,047 twice). Two corrections to the rung's own
-reading: the 20-s rung under-reads the steady per-body event rate ~11× (9.79e-5 over a full step at
-10⁵ vs 8.5e-6 at 10⁶ over 20 s — break 1's CPU arithmetic should use the step-inclusive rate), and
-the wave map is kick-mid / boundary-end per step, one step ≈ 27.6k game-s (belt first items
-13,051–14,542; kick waves at 13–15k and 41–43.5k, boundary waves at 27.5–28.5k and 55–58k). Unflown by the author: the burn at this
-horizon (13.5× mints, 2403) [checker: flown, see below], N ≥ 10⁶ (build ~2.4 GB > the lab cap),
-a pinned-`oldest` scene (a certificate on `oldest ≥ now − margin` would close prune's freeze door),
-and terms with periods above one step (45.5k gs ≈ 0.6% of a Cinder period) (20261018-1717-inversion-d839,
-inversion; shipped `nladder` + print-only /proc probe every 500 game-s, `LADDER_CAP_S`; regen.sh ~3 min).**
-
-[Checker d839, three fresh arms, all outside the author's grid. N=10⁴ (the author's held-out N)
-coast to 45.5k gs: RSS 54–55 MB flat through kick₂, bpb 1,405–1,437, cat 10,076 constant, 0 over.
-10⁵ coast to 58,500 gs — past a second step end: the boundary₂ wave (+~100k events, kicks flat)
-moves RSS 0 MB at 479, so the "[inference beyond the two flown kick waves]" is now measured through
-four belt-wide waves. The burn at 3×10⁴/45.5k gs (the named-unflown arm): the per-body terms hold
-(bpb 1,410→1,477, cat 30,076, RSS flat 571 MB through kick₂) but resident memory grows 150→571 MB
-between the waves (~+13–14 MB per 1k gs over 15k–40.5k gs, then flat; held 38→193) — a play-time
-ratchet in the MINT channel (2403's λ·(K+38)·224 law), not in the history terms: the headline's
-scope (coast; history+catalogue terms) is load-bearing, and dashboard bpb cannot referee it alone.]
-[Second checker d839, blind; three fresh arms. 3×10⁴ coast to 75,898 gs (time, outside every prior
-flight): boundary₂ (55–58k, +43k events) and the **third kick wave** (69–72k, +33k kicks ≈ one per
-body) both crossed — RSS 149→150 MB, bpb back to 1,417 after kick₃, cat 30,076, held 0, 0 over:
-the "[inference beyond the two flown kick waves]" is flown through five belt-wide waves. 3×10⁵ (the
-next decade): build 705 → steady 1,431 MB (the same 2.0×), ≈5.0 KB/body steady RSS, bpb 1,409, cat
-300,076, kicks 2.24/body, held 0. Burn 3×10⁴/45.5k re-flown independently: same numbers (bpb 1,477,
-cat constant, RSS 571 flat through kick₂; growth ~15 MB/1k gs here — held is load-elastic). Caveat on
-the rate correction: "~11×" divides 10⁵-with-locals by the 10⁶ rung; same-N, locals-out, the steady
-belt rate is ≈6.3e-5 ev/b/gs ⇒ ~7.4× the rung's 8.5e-6 — the order and the mechanism (the rung's
-2,000-gs window ends before the first wave) hold, the constant is convention-dependent.]
-
-*[Prior best retained below — 2403's wildcard pacing, acf2's mint law, 96f6's frame decomposition,
-7581's crowd cure, and the rest of the page's standing record are unchanged by this run.]*
->>>>>>> 20261018-1717-inversion-d839
-
 ## Refuted
 - **"Memory per body might grow with every cadence wave" (this run's own pre-registered ratchet
   hypothesis, P2's falsifier — and the unspoken assumption behind quoting only first-kick bytes)**:
   measured flat through the second full kick wave and the boundary wave at 3×10⁴ and 10⁵
   (+0.2–0.7% per wave); the steady state is one retired + one current binding per body
   (20261018-1717-inversion-d839).
+- **"The prune horizon is safe as shipped, at any scale" (the unspoken assumption behind d839's
+  constant — that no pending item can sit far in the past): the door is closed at one star only
+  because the widest pending light gap there is ~2,300 s; the horizon rule makes `now − oldest`
+  equal to that gap BY CONSTRUCTION, so the certificate is scale-coupled and inverts at the
+  first far doll (20261019-0141-inversion-4a71).
 
 ## Open directions
-1. *(existing directions unchanged; add)* The burn flight past one full doll step (the burning
-   wildcard's scan channel and the wave's memory under 13.5× mints, together unflown); and a
-   pinned-`oldest` probe — a body whose nearest pending item sits in the past would freeze
-   `prune`'s horizon and resurrect the ratchet; none exists on the ladder scene, and a certificate
-   would close the class.
+1. *(4a71)* The pinned-`oldest` probe is flown: the certificate is `oldest ≥ now − max pending
+   light gap` (2,302.5 s measured at one star; 0–0.1 s in the quiet scenes), and the ratchet it
+   guards against is measured: +1 generation/body per 27.6k gs of pin window, ~2 KB/retained
+   binding (RSS staircase +124/+229 MB at D = 6e9/1.2e10 ticks), frames over budget 6→383/683.
+   The adoption question is the oldest term's SCOPE: per-body (only items that can read body i
+   hold its history) instead of the global min — over-conservative by the ratio of widest to
+   local light gap, ~1 at one star, ~10⁵ at the first interstellar doll. A real far-doll arm
+   needs the E9 far-system wiring first; until then the pin is the honest simulation.
 
 ## Runs
 - 20261013-2130-library-ae3d (silver): store updates event-cheap with spikes in compaction steps; memory 12.3→48.4 bits/member under storm; five falsifiable ladder rules.
@@ -716,3 +770,4 @@ belt rate is ≈6.3e-5 ev/b/gs ⇒ ~7.4× the rung's 8.5e-6 — the order and th
 - 20261018-1717-fermi-dcf1 (fermi, awaiting grade): the burn byte wall is dead at 3e5 (HWM K-flat 0.026 MB/game-s vs the law's 47; held <=187; 0 over 12 ms; frame and player stream N-flat); the view gather (5.0 us/seen-body, seen=N+61) is the ladder's first N-growing term.
 - 20261018-1717-inversion-d839 (inversion, awaiting grade): memory through cadence waves is flat —
 - 20261018-1717-second-20261018-1617-taleb-2403-99da (second author, awaiting grade): the 10⁶ gap sliced — arrivals bit-identical 10⁵→6.5×10⁵ (145/2,069, census equal), multiplier 16.8× at both, 10⁶ wall ≈ 43 game-s; 2403's P1/P6 corrected to not-held.
+- 20261019-0141-inversion-4a71 (inversion, awaiting grade): prune's global `oldest` measured — closed at one star (gap = the widest pending light gap, 2,302.5 s, flat in play time, 0–0.1 s at the 5 ms corner and burn), and the ratchet it guards is real: a pin deeper than the gap staircases memory (+1 generation/body per 27.6k gs, ~2 KB/retained binding, +124/+229 MB) and eats the frame (over 6→383/683); at 4 ly one pending item is ~9.2 MB/body.

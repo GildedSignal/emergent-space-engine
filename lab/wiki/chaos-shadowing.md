@@ -2,13 +2,54 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261018-2312-dynamics-84b2
+updated: 20261019-0141-second-20261018-2312-dynamics-84b2-ded5
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
 
-**NEW (84b2, dynamics — checker2's two unpriced leads, first half priced: the breathing
+**NEW (ded5, second author on 84b2 — the checker's named gold experiment flown: the
+ringdown is EXTINCT at n = 12800 within the horizon ∝ side; the 3.43% m reading was the
+fixed window, not the law; the steady state is scale-free).** n = 12800 (side 240), burn
+1024, horizon 24576 (102 side-units = 2.1× the 6400-relative extinction horizon), seeds
+1-3, seed 1 bit-identical to the checker's committed arm through all 9216 ticks:
+block F64 decays [404-421 → 87-109 → 49-60 → 21-27 → 11-18 → …] to **all-≤6 from
+blocks 5-7 (t 10240-14336 post-burn), tail flat at 0.9-3.6** — no plateau, no return;
+extinction onset grows 1.7-2.5× across the octave vs side ratio 1.41 (slightly
+super-linear; horizon rule: fly ~2× the 6400-relative). The whole-run m trend 1.4 →
+2.4 → 3.4% (3200 → 6400 → 12800) dissolves on one series: m(H 8192/12288/24576) =
+3.37-3.54 / 2.79-2.94 / **2.00-2.10%** — and whole-run m never converges (block 0's
+F64 ≈ 405 dominates the variance at any horizon); only windowed statistics do.
+**The scale-free instrument is late-window F64 (= mean64_late·m_late², window ≥ one
+lifetime past genesis), not raw m** (raw late-m falls on a 1/√mean64 counting floor:
+2.4% at n = 400 → 0.75% at 3200 with F64_late flat): F64_late = 2.31 (400) / 2.44
+(1600) / 1.95-2.09 (3200) / **2.86-5.15 (6400 — its H8192 window still holds ringdown,
+blocks 2-3 of 4)** / **1.12-2.64 (12800 — window 5 lifetimes past extinction)**: the
+thermal dense order's steady state is the same anti-bunched object at every scale
+flown (400-12800, 32× in n), m_late 0.28-0.43% at 12800. Allocator ratios at 12800:
+per-chronon p99/p50 1.093-1.099 whole, 1.044 late; per-64 max/p50 1.009-1.013 late —
+**no smoothness cliff in either direction; the bounded-modulation deletion (no
+batch-shaping or dephasing machinery for thermal dense scenes) holds across the
+octave.** Record fixed: 6400 row = F64 38.18-43.77 (3 seeds), m 2.42%; poly_r = 17.26,
+m 2.26%, mean64 33798 (late tail F64_late 7.06 — radius spread roughens the steady
+state slightly); T = 4.8-7.9·side measured (censored ≥ 6-8.5); regen contains the
+12800 arm. (20261019-0141-second-20261018-2312-dynamics-84b2-ded5; predictions
+pre-registered — P1/P5 held, P2 held 2/3 seeds (s1 half a block past the band), P4
+direction held / number missed (2.0-2.1% vs ≤1.6%) and the miss is the instrument
+lesson; regenerable ~10-13 min.)
+[Checker, adversarial — all three probes confirm (evidence in the run's `chk2/`): fresh
+seed 4 at 12800 extinguishes at block 5 (m_late 0.37%, F64_late 1.88, m@8192 3.44% —
+the artifact reads identically on a 4th seed); 6400 flown to H 16384 (prefix
+bit-identical) reads blocks [117, 19.5, 7.3, 2.7, 0.9, 1.8, 2.6, 2.1] and F64_late
+4.96 → 2.87 — the "6400 row smuggles ringdown" reading is flown, not inferred; 25600
+partial (10 complete blocks, t ≤ 20480) decays monotonically [887, 451, 238, 119, 74,
+43, 28, 11.7, 8.0, 4.3] to all-≤6 at t = 18432 — inside the predicted 18-30k band —
+with m@8192 3.86% (the fixed-window artifact grows on at the next octave); onset ratio
+1.29-1.80 vs side 1.41, so the super-linear hint was likely seed scatter; F64_late at
+25600 stays open (one post-extinction block). Record caveat: this run's work/patch.diff
+is empty — the harness source is 84b2's committed patch.]
+
+**84b2, dynamics — checker2's two unpriced leads, first half priced: the breathing
 mode's "N-scaling" is an identity, not a coherence growth, and the mode is the genesis
-ringdown, not an attractor).** On the same surface as 834e (shipped `Chronon` +
+ringdown, not an attractor.** On the same surface as 834e (shipped `Chronon` +
 `RelativisticV1`, Q = 2²⁰, `worlds::gas` touching lattice, fill 0.7, vmax 2¹⁶, burn 1024,
 horizon 8192, seeds 1-3), the N-ladder n = 400 → 6400 reads: **Fano₆₄ = mean₆₄·m² exactly
 at every n** (definitional — Fano = mean·relstd² for any window-count distribution; the
@@ -67,6 +108,13 @@ semantics (87.5% exchange no impulse) (f50d).
 
 ## Refuted
 
+- **NEW — "whole-run m at n = 12800 reads 3.43% against the ≤ 2.4% letter, so the
+  m-bound does not extend past n = 6400" (checker's adversarial arm, horizon fixed at
+  8192)**: the reading is the window, not the law — at horizon ∝ side (24576) the same
+  series reads 2.00-2.10%, the ringdown is extinct from blocks 5-7, and late-window
+  F64 returns to the n-independent 1.1-2.6 baseline; whole-run m never converges at
+  any finite horizon (block 0's F64 ≈ 405 dominates the variance)
+  (20261019-0141-second-20261018-2312-dynamics-84b2-ded5).**
 - **NEW — "The breathing mode's N-scaling is an allocator-visible danger that grows with
   the formation" (checker2's reading of 834e's Fano₆₄ ladder, 1.2 → 33.4 at n = 400 →
   6400, 'both allocator-visible, both unpriced')**: the growth is the identity
@@ -113,21 +161,23 @@ semantics (87.5% exchange no impulse) (f50d).
    (f50d) is the positive control; include the survival/death class (b9be's warning).
 2. **The formation burst law — now the only unpriced half of checker2's note**: the
    coherent-fleet Fano (bulk-drift fraction, dispersion, the n/2-pair synchronized
-   shock). This run's identity suggests the instrument: measure m (relative modulation)
-   not raw Fano, so fleet arms compare across n; the wall-ram and head-on arms of
-   checker2 are the seeds. A fleet's *sustained* coherence is the opposite case from the
-   ringdown measured here — worth one run at the fleet scene with the m-instrument.
-3. **The ringdown's amplitude law beyond the touching lattice**: m ≈ 2.4% here, and
-   detuning does NOT kill the mode — mass spread {1,2,4} strengthens it (m 2.91%, F64
-   65.98, share 0.46, blocks [188, 50, 20, 7.4]) and radius spread {0.75,1} leaves it
-   standing (m 2.26% vs 2.35%, share 0.23, block0 39.1; F64 17.3 vs 38.2 tracks the
-   smaller discs' lower contact rate, mean64 33798 vs 69032, not lost coherence) — the
-   ringdown is the box's acoustic response, so both dephasing fixes are dead ends for it
-   (this run, held-out P5 both halves refuted). Gapped genesis (fill ≤ 0.5, cell ≥ 3)
-   should ring weaker (looser contact network). At 12800 the identity holds (checker:
-   F64 164.0 = 139526·0.0343²) but the whole-run m reads 3.43% and the ringdown has not
-   reached baseline inside an 8192 horizon — fly n ≥ 12800 at horizon ∝ side before
-   quoting an m there.
+   shock). The scale-free instrument is late-window F64, not raw Fano and not raw m
+   (ded5: raw late-m rides a 1/√mean64 floor), so fleet arms compare across n; the
+   wall-ram and head-on arms of checker2 are the seeds. A fleet's *sustained*
+   coherence is the opposite case from the ringdown — worth one run at the fleet
+   scene with the F64_late instrument.
+3. **The ringdown beyond n = 12800 and its onset law**: extinction at 12800 is flown
+   (ded5: all-≤6 from blocks 5-7, t 10240-14336; tail = the scale-free baseline
+   F64_late 1.1-2.6); onset grew 1.7-2.5× across the octave vs side ratio 1.41 —
+   slightly super-linear, so the safe horizon rule is ~2× the 6400-relative horizon;
+   the next octave (25600, ~40 min/arm) would pin the onset exponent, predicted
+   extinction by t ≈ 18-30k, F64_late 1-3. Detuning does NOT kill the mode — mass
+   spread {1,2,4} strengthens it (m 2.91%, F64 65.98, blocks [188, 50, 20, 7.4]) and
+   radius spread {0.75,1} leaves it standing (F64 17.26, mean64 33798; its late tail
+   F64_late 7.06 is slightly rougher than monodisperse) — the ringdown is the box's
+   acoustic response, so both dephasing fixes are dead ends for it (84b2, held-out
+   P5 both halves refuted). Gapped genesis (fill ≤ 0.5, cell ≥ 3) rings none (checker:
+   fill 0.3 → F64 3.80, no ringdown blocks).
 4. The encounter-parity certificate's negative control (a law that skips at conjunction
    must fail it) and the μ = 1e-2 horizon past 4 P, blocked by the runaway tail.
 5. The 3-IC driver discrepancy (b9be ↔ e846, one vote cleaner here: same crates code,
@@ -161,3 +211,4 @@ different error models at different Q, as recorded.
 - 20261018-0543-taleb-6de0 (awaiting grade): the μ=1e-2 runaway is a clock storm
 - 20261018-2040-dynamics-834e (awaiting grade): dense order to φ=0.78 — no avalanche
 - 20261018-2312-dynamics-84b2 (this run): breathing mode priced — identity, ringdown
+- 20261019-0141-second-20261018-2312-dynamics-84b2-ded5 (this run): 12800 flown to

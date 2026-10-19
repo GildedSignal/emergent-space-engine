@@ -5,6 +5,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
+| [entry](entry.md) | open | 0 | (no current best yet) |
+| [budget-1e9](budget-1e9.md) | open | 1 | **The board's interlocking formula (CPU = N·rate·cost + encounters; memory = N·bits + N_live·bytes) |
 | [cell-rebind](cell-rebind.md) | open | 1 | **The kick's compile bill and the per-body standing-shape bill are one mechanism — the exact |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
@@ -19,15 +21,15 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [order-boundary](order-boundary.md) | open | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
-| [representation-premises](representation-premises.md) | open | 9 | **The design doc teaches three dead letters and one unmeasured cost, and its perturbation |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
-| [chaos-shadowing](chaos-shadowing.md) | open | 16 | (no current best yet) |
 | [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
+| [chaos-shadowing](chaos-shadowing.md) | open | 17 | (no current best yet) |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [allocator-ratchet](allocator-ratchet.md) | open | 18 | (no current best yet) |
+| [representation-premises](representation-premises.md) | open | 18 | **Prior standing record, unchanged (compiled from the runs below):** |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
@@ -38,4 +40,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open **conflict to resolve** | 118 | <<<<<<< main |
-| [nladder](nladder.md) | open **conflict to resolve** | 158 | **NEW (d839, inversion — the time axis flown past one full doll step): the per-body memory wall is a |
+| [nladder](nladder.md) | open | 159 | **NEW (4a71, inversion — d839's named probe flown: the prune horizon's `oldest` door is closed at |
