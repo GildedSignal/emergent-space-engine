@@ -1,0 +1,244 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..6a9fad06 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -13,13 +13,14 @@ use emergent_universe::thrust::word;
+ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+-
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +31,14 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stand-in: resident set now (statm) and the peak resident high-water mark (VmHWM).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let now = std::fs::read_to_string("/proc/self/statm").ok().and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok())).map(|p| p * 4096).unwrap_or(0);
++    let peak = std::fs::read_to_string("/proc/self/status").ok().and_then(|s| s.lines().find(|l| l.starts_with("VmHWM:")).and_then(|l| l.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))).map(|kb| kb * 1024).unwrap_or(0);
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -49,7 +58,8 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let seed: u64 = std::env::var("ES_LADDER_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -57,12 +67,12 @@ fn main() {
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+-    let (mut held_max, mut truncated) = (0usize, false);
+     let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
+     let mut last_stats = p.u.stats;
+-    let mut alive = true;
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    let (mut held_max, mut truncated) = (0usize, false);
++    let mut alive = true;
+     for f in 0..frames {
+         if t_start.elapsed() > Duration::from_secs(55) {
+             truncated = true;
+@@ -160,4 +170,13 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    let nk = emergent_universe::news::snapshot();
++    println!(
++        "kicknews: clock_fired={} clock_same={} clock_flip={} clock_plunge={} belt_fired={} belt_same={} belt_flip={} tube_fired={} tube_same={} tube_flip={} cat_inserts={} cat_hit={} self_ok={} cat_live={} sizes binding={} entry={} segment={}",
++        nk[emergent_universe::news::CLOCK_FIRED], nk[emergent_universe::news::CLOCK_SAME], nk[emergent_universe::news::CLOCK_FLIP], nk[emergent_universe::news::CLOCK_PLUNGE],
++        nk[emergent_universe::news::BELT_FIRED], nk[emergent_universe::news::BELT_SAME], nk[emergent_universe::news::BELT_FLIP],
++        nk[emergent_universe::news::TUBE_FIRED], nk[emergent_universe::news::TUBE_SAME], nk[emergent_universe::news::TUBE_FLIP],
++        nk[emergent_universe::news::CAT_INSERTS], nk[emergent_universe::news::CAT_HIT], nk[emergent_universe::news::SELF_OK], p.u.catalogue_live(),
++        std::mem::size_of::<emergent_universe::bind::Binding>(), std::mem::size_of::<emergent_universe::bind::Entry>(), std::mem::size_of::<emergent_universe::body::Segment>()
++    );
+ }
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..9485a8b2 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -9,6 +9,7 @@ pub mod fleet;
+ pub mod force;
+ pub mod lorentz;
+ pub mod num;
++pub mod news;
+ pub mod observe;
+ pub mod prof;
+ pub mod radial;
+diff --git a/crates/universe/src/news.rs b/crates/universe/src/news.rs
+new file mode 100644
+index 00000000..736a0b45
+--- /dev/null
++++ b/crates/universe/src/news.rs
+@@ -0,0 +1,107 @@
++//! Print-only census of the kick rebind's news (env `ES_KICK_NEWS`): does a fired kick's
++//! re-fit reproduce the standing compiled orbit (same `OrbitKey`), or mint a new one?
++//! Counters only; the shipped path is untouched when the flag is off.
++
++use crate::bind::Entry;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++pub static C: [AtomicU64; 14] = [
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0),
++];
++pub const CLOCK_FIRED: usize = 0;
++pub const CLOCK_SAME: usize = 1;
++pub const CLOCK_FLIP: usize = 2;
++pub const CLOCK_PLUNGE: usize = 3;
++pub const BELT_FIRED: usize = 4;
++pub const BELT_SAME: usize = 5;
++pub const BELT_FLIP: usize = 6;
++pub const TUBE_FIRED: usize = 7;
++pub const TUBE_SAME: usize = 8;
++pub const TUBE_FLIP: usize = 9;
++pub const CAT_INSERTS: usize = 10;
++pub const CAT_HIT: usize = 11;
++pub const SELF_OK: usize = 12;
++static ON: AtomicBool = AtomicBool::new(false);
++static INIT: AtomicBool = AtomicBool::new(false);
++
++pub fn on() -> bool {
++    if !INIT.swap(true, Ordering::Relaxed) {
++        ON.store(std::env::var("ES_KICK_NEWS").is_ok(), Ordering::Relaxed);
++    }
++    ON.load(Ordering::Relaxed)
++}
++
++/// `true` when the two entries are the same compiled orbit for the catalogue's purposes
++/// (same key, same sense; the anchor in `Tube` is per-binding news either way).
++fn same_entry(old: &Entry, new: &Entry) -> Option<bool> {
++    match (old.trajectory.key(), new.trajectory.key()) {
++        (Some(a), Some(b)) => Some(a == b && old.clockwise == new.clockwise),
++        (None, None) => None, // a plunge carries no key; counted separately
++        _ => Some(false),
++    }
++}
++
++/// Census one fired kick's rebind: `old` is the standing binding's entry, `new` the
++/// re-fit's, `belt` whether the body sits in the belt's radial band.
++fn note(slot_fired: usize, slot_same: usize, slot_flip: usize, old: &Entry, new: &Entry, belt: bool) {
++    let _ = belt;
++    C[slot_fired].fetch_add(1, Ordering::Relaxed);
++    match same_entry(old, new) {
++        Some(true) => {
++            C[slot_same].fetch_add(1, Ordering::Relaxed);
++        }
++        Some(false) => {
++            C[slot_flip].fetch_add(1, Ordering::Relaxed);
++        }
++        None => {
++            C[CLOCK_PLUNGE].fetch_add(1, Ordering::Relaxed);
++        }
++    }
++}
++
++/// The clock path (`kick_clock`): doll-0 ships and the player; `belt` splits the band.
++pub fn kick_clock_entry(old: &Entry, new: &Entry, belt: bool) {
++    if !on() {
++        return;
++    }
++    if belt {
++        note(BELT_FIRED, BELT_SAME, BELT_FLIP, old, new, belt);
++    } else {
++        note(CLOCK_FIRED, CLOCK_SAME, CLOCK_FLIP, old, new, belt);
++    }
++}
++
++/// The tube path (`kick`): bodies of the deeper dolls.
++pub fn kick_tube_entry(old: &Entry, new: &Entry) {
++    if !on() {
++        return;
++    }
++    note(TUBE_FIRED, TUBE_SAME, TUBE_FLIP, old, new, false);
++}
++
++pub fn cat_insert() {
++    if on() {
++        C[CAT_INSERTS].fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++pub fn snapshot() -> [u64; 14] {
++    let mut out = [0u64; 14];
++    for (i, c) in C.iter().enumerate() {
++        out[i] = c.load(Ordering::Relaxed);
++    }
++    out
++}
++
++/// Instrument control: the comparison's `true` branch must be reachable (an entry equals
++/// itself). Counted once, on the first censused kick.
++pub fn selfcheck(old: &Entry) {
++    static DONE: AtomicBool = AtomicBool::new(false);
++    if DONE.swap(true, Ordering::Relaxed) {
++        return;
++    }
++    C[SELF_OK].store(matches!(same_entry(old, old), Some(true)) as u64, Ordering::Relaxed);
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..35e1ee21 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -430,7 +430,14 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        if crate::news::on() {
++            let old_entry = self.rec.b.entry.clone();
++            self.rebind(next, t, d)?;
++            crate::news::kick_tube_entry(&old_entry, &self.rec.b.entry);
++            crate::news::selfcheck(&old_entry);
++        } else {
++            self.rebind(next, t, d)?;
++        }
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -690,7 +697,11 @@ impl Work<'_, '_> {
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
+-            self.rebind(next, t, d)?;
++            let old_entry = self.rec.b.entry.clone();
++            let bound = self.rebind(next, t, d)?;
++            let au11 = Scalar::raw(111_430_000, 0)?;
++            let belt = crate::news::on() && norm2(x).ok().and_then(|r| r.sub(au11).ok()).and_then(|s| s.fixed(0).ok()).unwrap_or(0) > 0;
++            crate::news::kick_clock_entry(&old_entry, &bound.entry, belt);
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..25a9ba6d 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -644,6 +644,7 @@ impl Universe {
+         }
+         if let Some(entry) = upd.new_entry.take() {
+             if let Ok(id) = self.cat.insert(entry) {
++                crate::news::cat_insert();
+                 upd.rec.b.tube.key = id;
+             }
+         }

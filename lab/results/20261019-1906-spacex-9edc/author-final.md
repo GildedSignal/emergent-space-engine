@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place (`predictions.md` pre-registered before the flights, `dossier.md`, `regen.sh`, `wiki/kick-cadence.md`, `work/patch.diff` + observed outputs).
+
+**Claim:** on the shipped engine the kick comb is 100% news — 0 of 2,037,393 fired kicks across both paths, two rungs and two seeds re-fit the same `OrbitKey` (selfcheck-verified instrument), the universe-side catalogue has no key lookup (`cat_inserts` = fired; `cat_live` = one entry per body), so the "duplicate-mint delete" for the memory ratchet is dead: every one-quantum tide impulse mints a whole new ~0.5 KB-plus-table orbit against a few bits of physical news, making the resolution coupling (the key's grid vs the kick's dv quantum — the same dial as `BELT_SPLIT`) the honest lever, now sized by information.
