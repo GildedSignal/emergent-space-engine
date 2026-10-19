@@ -1,0 +1,18 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.34s
+     Running `target/release/xtask universe --replay-all`
+replay-all: 3 flight(s) in /Users/julien_laurent/Research/emergent-wt/burst2/artifacts/flights, longest first, 55 s in all; now baed04e74989 (dirty), law es-space-v2 #1f4a0c0c593ccdea
+changed    20261013T143932Z-seed1.json  the digest differs, the law changed since 73c98a46996f (law es-space-v2 #be41b063b93acb52 -> es-space-v2 #1f4a0c0c593ccdea): 7a9ec8f1ad0e -> 6b0b2ef568a1
+changed    20261013T143859Z-seed1.json  the digest differs, the law changed since 73c98a46996f (law es-space-v2 #be41b063b93acb52 -> es-space-v2 #1f4a0c0c593ccdea): d1fba9298aa9 -> 302fe36c93e1
+changed    20261013T143928Z-seed1.json  the loss changed: hit Home at 7.51 km/s (relative to Home), at world time 6 min 35 s (tick 80084992) -> hit Home at 7.42 km/s (relative to Home), at world time 6 min 35 s (tick 78643200); the digest differs, the law changed since 73c98a46996f (law es-space-v2 #be41b063b93acb52 -> es-space-v2 #1f4a0c0c593ccdea): 67023bcc26bc -> 0256433c6271
+replay-all: 0 same, 3 changed, 0 unchecked, 0 skipped (time), 0 regression(s), 0.8 s
+
+exit=0 elapsed=1.509s

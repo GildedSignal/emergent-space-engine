@@ -195,11 +195,19 @@ pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
         return Ok((entry.unit.to_doll(p.initial_radius())?.exponent() as i32 - 60, p.speed_bound()?.scale(1)?.exponent() as i32 - 60));
     }
     let key = entry.trajectory.key().ok_or(Error::Refused("turning key"))?;
+    let outer = match &entry.trajectory {
+        Trajectory::Passage(p) => Some(p.outer_radius),
+        _ => None,
+    };
+    word_for_key(key, outer)
+}
+
+fn word_for_key(key: emergent_space::orbit::OrbitKey, outer: Option<Scalar>) -> Res<(i32, i32)> {
     let k = key.shape()?;
-    let r_max = match &entry.trajectory {
-        Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
-        Trajectory::Passage(p) => p.outer_radius,
-        Trajectory::Plunge(_) => unreachable!(),
+    let r_max = if key.periodic() {
+        key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?
+    } else {
+        outer.ok_or(Error::Refused("passage edge"))?
     };
     let v_max = Scalar::ONE.div(key.periapsis.mul(k)?)?.sqrt()?.scale(1)?;
     Ok((r_max.exponent() as i32 - 60, v_max.exponent() as i32 - 60))
@@ -223,6 +231,18 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, 
 
 pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
     let t_fit = crate::prof::t();
+    let input = in_tube_units(exact, unit)?;
+    if let Ok((key, radius)) = Rebinding::turning_key(input) {
+        let outer = if key.periodic() { None } else {
+            Some(edge.map(|e| unit.to_tube(e)).transpose()?.unwrap_or(radius.scale(1)?))
+        };
+        let (len, vel) = word_for_key(key, outer)?;
+        let (cur_len, cur_vel) = (exact.length_exponent as i32, exact.velocity_exponent as i32);
+        let exact = coarsen(exact, len.max(cur_len), vel.max(cur_vel));
+        let bound = bind_in(exact, t, clock_exp, edge, unit, surface);
+        crate::prof::add(crate::prof::FIT, t_fit);
+        return bound;
+    }
     let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
     crate::prof::add(crate::prof::FIT, t_fit);
     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
@@ -234,17 +254,30 @@ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<S
         return Ok(bound);
     }
     let (nl, nv) = (len.max(cur_len), vel.max(cur_vel));
-    let shift = |v: i64, by: i32| -> i64 { if by <= 0 { v } else { v / (1i64 << by.min(62)) } };
-    let coarser = IntegerState {
-        position: [shift(exact.position[0], nl - cur_len), shift(exact.position[1], nl - cur_len)],
-        velocity: [shift(exact.velocity[0], nv - cur_vel), shift(exact.velocity[1], nv - cur_vel)],
-        length_exponent: nl as i16,
-        velocity_exponent: nv as i16,
-    };
+    let coarser = coarsen(exact, nl, nv);
     let t_again = crate::prof::t();
     let again = bind_in(coarser, t, clock_exp, edge, unit, surface);
     crate::prof::add(crate::prof::FIT2, t_again);
     again
+}
+
+/// Compile a reconciled course only when its cheap turning key can reach the surface.
+/// Radial arcs still use the full inverse; a turning orbit above the surface needs no certificate.
+pub(crate) fn bind_impact(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Scalar) -> Res<Option<Bound>> {
+    if let Ok((key, _)) = Rebinding::turning_key(in_tube_units(exact, unit)?) {
+        if unit.to_doll(key.periapsis)? >= surface { return Ok(None); }
+    }
+    bind_surface(exact, t, clock_exp, edge, unit, Some(surface)).map(Some)
+}
+
+fn coarsen(exact: IntegerState, nl: i32, nv: i32) -> IntegerState {
+    let shift = |v: i64, by: i32| -> i64 { if by <= 0 { v } else { v / (1i64 << by.min(62)) } };
+    IntegerState {
+        position: exact.position.map(|v| shift(v, nl - exact.length_exponent as i32)),
+        velocity: exact.velocity.map(|v| shift(v, nv - exact.velocity_exponent as i32)),
+        length_exponent: nl as i16,
+        velocity_exponent: nv as i16,
+    }
 }
 
 /// The state in the tube's units (`M_D`): positions divided by `μ`, rounded toward zero at the word (a fit is
@@ -300,5 +333,68 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
         event_time: t,
         kick: Kick::NONE,
         impact: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn choosing_the_word_before_compiling_preserves_the_old_fit() {
+        use crate::{fleet::Order, scenario::plane, thrust::word, Config};
+        let mut checked = 0;
+        let mut coarsened = 0;
+        for level in [0, 8, 15] {
+            let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
+            p.u.input(0, word(1, level)).unwrap();
+            for t in [20_000_000, 200_000_000, 400_000_000] {
+                p.u.settle(t);
+                for i in 0..p.u.n_bodies() {
+                    let r = p.u.rec(i);
+                    if !r.alive { continue; }
+                    let mut st = r.b.readout(t).unwrap();
+                    if checked % 2 == 0 {
+                        st.position = st.position.map(|x| x.checked_mul(2).unwrap());
+                        st.velocity = st.velocity.map(|x| x.checked_mul(2).unwrap());
+                        st.length_exponent -= 1;
+                        st.velocity_exponent -= 1;
+                    }
+                    let d = &p.u.dolls[r.b.doll as usize];
+                    let unit = p.u.ctx().tube_unit(i, r.b.doll).unwrap();
+                    let edge = crate::step::passage_edge(&p.u.ctx(), r.b.doll);
+                    let first = bind_in(st, t, r.b.clock_exp, edge, unit, Some(d.surface)).unwrap();
+                    // The original compile-first formula, independent of the new helper.
+                    let (len, vel) = if let Trajectory::Plunge(arc) = &first.entry.trajectory {
+                        (first.entry.unit.to_doll(arc.initial_radius()).unwrap().exponent() as i32 - 60,
+                         arc.speed_bound().unwrap().scale(1).unwrap().exponent() as i32 - 60)
+                    } else {
+                        let key = first.entry.trajectory.key().unwrap();
+                        let k = key.shape().unwrap();
+                        let radius = match &first.entry.trajectory {
+                            Trajectory::Cycle(_) => key.periapsis.div(k.scale(1).unwrap().sub(Scalar::ONE).unwrap()).unwrap(),
+                            Trajectory::Passage(p) => p.outer_radius,
+                            _ => unreachable!(),
+                        };
+                        let speed = Scalar::ONE.div(key.periapsis.mul(k).unwrap()).unwrap().sqrt().unwrap().scale(1).unwrap();
+                        (radius.exponent() as i32 - 60, speed.exponent() as i32 - 60)
+                    };
+                    let expected = if len > st.length_exponent as i32 || vel > st.velocity_exponent as i32 {
+                        coarsened += 1;
+                        bind_in(coarsen(st, len.max(st.length_exponent as i32), vel.max(st.velocity_exponent as i32)), t, r.b.clock_exp, edge, unit, Some(d.surface)).unwrap()
+                    } else { first };
+                    let got = bind_surface(st, t, r.b.clock_exp, edge, unit, Some(d.surface)).unwrap();
+                    assert_eq!(got.units, expected.units);
+                    assert_eq!(got.tube, expected.tube);
+                    assert_eq!(got.residual, expected.residual);
+                    assert_eq!(got.turn, expected.turn);
+                    assert_eq!(got.orbit, expected.orbit);
+                    assert_eq!(got.entry.trajectory.key(), expected.entry.trajectory.key());
+                    checked += 1;
+                }
+            }
+        }
+        println!("old/new exact fits: {checked}, requiring coarsening: {coarsened}");
+        assert!(checked > 300 && coarsened > 0, "checked {checked}, coarsened {coarsened}");
     }
 }

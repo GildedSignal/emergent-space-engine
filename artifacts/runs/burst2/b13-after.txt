@@ -1,0 +1,17 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.96s
+     Running `target/release/xtask behave --law plane --gates B13`
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25165923)\t100%; charged; 0:00 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 1.49 2.85 3.38 }","power_source":"Now drawing from 'AC Power'","swap":"total = 5120.00M  used = 4463.19M  free = 656.81M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-19T22:24:05Z","unix":1792448645,"when":"start"}
+B13 FAIL assists: 60/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 2.12e-2 ΔL 2.12e-2; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [1.53 s]
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25165923)\t100%; charged; 0:00 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 1.61 2.85 3.38 }","power_source":"Now drawing from 'AC Power'","swap":"total = 5120.00M  used = 4463.19M  free = 656.81M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-19T22:24:07Z","unix":1792448647,"when":"end"}
+behave plane (B13): FAIL B13
+
+exit=1 elapsed=3.099s

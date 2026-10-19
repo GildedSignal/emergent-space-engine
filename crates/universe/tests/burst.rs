@@ -98,3 +98,46 @@ fn the_dynamics_cap_does_not_bank_doublings_for_a_later_jump() {
     }
     assert_eq!(p.u.rec(p.player).refusals, 0);
 }
+
+#[test]
+fn refining_the_quantum_refines_the_early_geometric_ramp_too() {
+    let mut steps = Vec::new();
+    for finer in [0, 4] {
+        let d = Config::default();
+        let cfg = Config { step_log2: d.step_log2 + finer, thrust_quantum_log2: d.thrust_quantum_log2 + finer, ..d };
+        let mut p = plane(cfg, 5, Order::Sparse, 1, 8).unwrap();
+        p.u.settle(2_000_000);
+        p.u.input(p.u.now, word(1, 4)).unwrap();
+        p.u.settle(2_000_000 + (100.0 / emergent_universe::view::TICK_SECONDS) as i64);
+        steps.push(p.u.rec(p.player).interval);
+        assert_eq!(p.u.rec(p.player).refusals, 0);
+    }
+    assert!(steps[1] <= steps[0] / 8, "16x refinement regrew the shipped ramp: {steps:?}");
+}
+
+#[test]
+fn a_shortened_root_interval_pays_only_its_own_gravity() {
+    use emergent_universe::{body::What, force, num::{scale2, time_of}};
+    let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
+    p.u.input(0, word(1, 15)).unwrap();
+    p.u.settle((200.0 / emergent_universe::view::TICK_SECONDS) as i64);
+    assert_eq!(p.u.rec(p.player).b.doll, 0);
+    // Opposite turn keys cancel; the held decision still caps the clock interval.
+    p.u.input(p.u.now, word(12, 8)).unwrap();
+    let rec = p.u.rec(p.player);
+    let mid = rec.plan.iter().find(|i| i.what == What::Kick(0)).unwrap().t;
+    p.u.settle(mid - 1);
+    let rec = p.u.rec(p.player);
+    let (x, v) = rec.b.cartesian(mid).unwrap();
+    let ctx = p.u.ctx();
+    let field = force::field(&ctx.secondaries(0, mid, p.player).unwrap(), x).unwrap();
+    let dv = scale2(field.accel, time_of(rec.interval, rec.b.clock_exp).unwrap()).unwrap();
+    let ext = rec.ext.unwrap();
+    assert!(ext.time(ext.y(field.potential).unwrap(), ext.ds).unwrap() > time_of(rec.interval * 2, rec.b.clock_exp).unwrap(), "the control must actually shorten the clock");
+    p.u.settle(mid);
+    let (_, got) = p.u.rec(p.player).b.cartesian(mid).unwrap();
+    for c in 0..2 {
+        assert!((to_f64(got[c]) - to_f64(v[c]) - to_f64(dv[c])).abs() < 1e-15);
+    }
+    assert_eq!(p.u.rec(p.player).refusals, 0);
+}

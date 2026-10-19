@@ -38,6 +38,7 @@ pub struct Config {
     pub step_log2: i32,
     /// The first burn interval moves at most `2^-thrust_quantum_log2` of the local speed;
     /// later intervals grow geometrically, capped at that absolute rapidity quantum.
+    /// Refinement above the shipped quantum also subdivides the geometric ramp.
     pub thrust_quantum_log2: i32,
 }
 impl Default for Config {

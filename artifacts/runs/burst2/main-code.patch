@@ -1,0 +1,1064 @@
+diff --git a/crates/space/ENVELOPE.md b/crates/space/ENVELOPE.md
+index 5354ffde..90062449 100644
+--- a/crates/space/ENVELOPE.md
++++ b/crates/space/ENVELOPE.md
+@@ -40,6 +40,13 @@ no oversized absolute period is ever constructed. Public Cartesian event states
+ have explicit common length/velocity exponents. The former fixed Q20/Q30 API is
+ a compatibility boundary and may refuse values its units cannot express.
+ 
++For hyperbolic k below 2^-28, the key stores k as a 48-bit normalized mantissa
++and its own i16 exponent. Exponent zero retains the old Q48 bits above that
++boundary. Angular factors use the bounded Q62 projection of k; clock numerators,
++the speed scale and the clock gap use its full scaled value. A tiny k may vanish
++from an O(1) angular factor, but never from sqrt(k) or q/k. Both inverse paths
++(state and invariants) retain this scale; memo keys and universe digests include it.
++
+ Rebinding is necessarily a quotient **and a remainder**: a rounded orbit fit is
+ not injective. For integer event state X and decoder F, store C=X-F(Q(X)). Then
+ F(Q(X))+C=X exactly. Translation and kicks operate on this reconstructed integer
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index 38f16fdf..d74a2a57 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -278,9 +278,11 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let discriminant = b.mul(b)?.sub(compact.mul(Scalar::integer(16))?.mul(compact.add(d)?)?)?;
+     let k = compact.add(d)?.scale(1)?.div(b.add(discriminant.sqrt()?)?)?;
+     let word = u64::try_from(k.fixed(48)?).map_err(|_| Error::Range)?.min(1 << 48);
+-    if k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
++    if k >= Scalar::power_of_two(-28) && k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
+         return Err(Error::Range);
+     }
++    let scaled = k < Scalar::power_of_two(-28);
++    let full_k = k;
+     let mut k = word;
+     // Classification follows the conserved binding energy, including a parabolic tie.
+     if alpha.is_zero() {
+@@ -290,12 +292,12 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     } else {
+         k = k.max((1 << 47) + 1);
+     }
+-    let key = OrbitKey::new(rp, k)?;
++    let key = if scaled { OrbitKey::scaled(rp, full_k)? } else { OrbitKey::new(rp, k)? };
+     // The clock's gap, from the state and not from the key: E² = f²/den exactly (E = f·u^t), and E² = tn/d, so d = tn·den/f².
+-    // No cancellation, so E has no ceiling short of what the state's own words hold (the Q48 k keeps the shape, which does not
++    // No cancellation, so E has no ceiling short of what the state's own words hold (k keeps the shape, which does not
+     // need E: positions and velocities read k alone).
+     if alpha.is_positive() && key.needs_gap()? {
+-        let (q, k) = (key.compactness()?, Scalar::raw(k as i128, -48)?);
++        let (q, k) = (key.compactness()?, key.shape()?);
+         let one_minus_2q = Scalar::ONE.sub(q.scale(1)?)?;
+         let tn = k.mul(one_minus_2q)?.mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
+         let gap = tn.mul(den)?.div(lapse.mul(lapse)?)?;
+diff --git a/crates/space/src/inverse.rs b/crates/space/src/inverse.rs
+index 9e537d7c..0d800b70 100644
+--- a/crates/space/src/inverse.rs
++++ b/crates/space/src/inverse.rs
+@@ -372,6 +372,7 @@ pub(crate) fn photon(impact: crate::scaled::Scalar) -> Result<Option<OrbitKey>>
+     Ok(Some(OrbitKey {
+         periapsis: radius,
+         k: k.fixed(48)? as u64,
++        k_exponent: 0,
+         null: true,
+         gap: None,
+     }))
+@@ -455,5 +456,18 @@ fn fit_cubic(c: Cubic) -> Result<OrbitKey> {
+     } else {
+         &k >> shift
+     };
++    if k < (&one >> 28) {
++        let key = OrbitKey::scaled(rp, scalar(&k)?)?;
++        if key.needs_gap()? {
++            let q = key.compactness()?;
++            let k = key.shape()?;
++            let tn = k.mul(Scalar::ONE.sub(q.scale(1)?)?)?
++                .mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
++            // b/a = E²-1, retained from the exact invariant/state polynomial.
++            let energy2 = scalar(&c.b.div(&c.a).add(&c.a.n(1)).fixed())?;
++            return key.with_gap(tn.div(energy2)?);
++        }
++        return Ok(key);
++    }
+     OrbitKey::new(rp, word.to_u64().ok_or(Error::Range)?)
+ }
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 0aa1d27e..f77046d7 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -30,8 +30,9 @@ fn square_root(a: i128) -> Result<Scalar> {
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+ pub struct OrbitKey {
+     pub periapsis: Scalar,
+-    /// 1/(1+e), Q48. Bound >1/2; parabolic =1/2; hyperbolic <1/2.
++    /// Mantissa of 1/(1+e): `k * 2^(k_exponent-48)`. Exponent zero retains Q48.
+     pub k: u64,
++    pub k_exponent: i16,
+     /// Zero rest mass uses the same radial shape, with a null clock numerator.
+     pub null: bool,
+     /// The clock's gap `d = k − q(3k²+η²)` (`q` = 1/periapsis, η = 1−k) as a number with its own exponent, where the Q48 `k`
+@@ -56,10 +57,28 @@ impl OrbitKey {
+         Ok(Self {
+             periapsis,
+             k,
++            k_exponent: 0,
+             null: false,
+             gap: None,
+         })
+     }
++    /// Preserve the Q48 domain bit for bit; below its relative-precision floor,
++    /// move the binary point instead of rejecting the orbit. The 48-bit mantissa
++    /// is normalized to [1/2,1), independently of the periapsis and clock gap.
++    pub fn scaled(periapsis: Scalar, k: Scalar) -> Result<Self> {
++        if !k.is_positive() || k > Scalar::ONE {
++            return Err(Error::Range);
++        }
++        if k >= Scalar::power_of_two(-28) {
++            return Self::new(periapsis, k.fixed(48)? as u64);
++        }
++        let exponent = k.exponent().checked_add(1).ok_or(Error::Range)?;
++        let mantissa = k.scale(-(exponent as i32))?.fixed(48)? as u64;
++        Ok(Self { k_exponent: exponent, ..Self::new(periapsis, mantissa)? })
++    }
++    pub fn shape(self) -> Result<Scalar> {
++        Scalar::raw(self.k as i128, self.k_exponent as i32 - 48)
++    }
+     /// Whether this weak-field hyperbolic key's proper clock needs the exact gap. The weak branch's clock is first order in
+     /// `q`: its numerator `√d = √k·√(1 − 2q·term)` is expanded with `term = (3k²+η²)/(2k)`, whose error is `s²/8` with
+     /// `s = 2q·term`. That is below the branch's own truncation (`q² ≤ 2^-36`) while `s < 2^-16`, and
+@@ -75,7 +94,7 @@ impl OrbitKey {
+         if q > Scalar::power_of_two(WEAK_EXPONENT) {
+             return Ok(false);
+         }
+-        let k = Scalar::raw(self.k as i128, -48)?;
++        let k = self.shape()?;
+         let eta = Scalar::ONE.sub(k)?;
+         let s = q.mul(k.mul(k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?)?.div(k)?;
+         Ok(s >= Scalar::power_of_two(-16))
+@@ -96,7 +115,7 @@ impl OrbitKey {
+         Self::new(p.mul(Scalar::raw(k as i128, -48)?)?, k)
+     }
+     pub fn periodic(self) -> bool {
+-        !self.null && self.k > HALF
++        !self.null && self.k_exponent == 0 && self.k > HALF
+     }
+     pub fn memo_key(self) -> Result<Self> {
+         self.quantized(MEMO_SHAPE_BITS, MEMO_SCALE_BITS)
+@@ -115,6 +134,11 @@ impl OrbitKey {
+             return Ok(self);
+         }
+         Self::new(self.periapsis, self.k)?;
++        if self.k_exponent != 0 {
++            let mut key = Self::scaled(self.periapsis.quantize(scale_bits)?, self.shape()?.quantize(shape_bits)?)?;
++            key.gap = self.gap.map(|g| g.quantize(shape_bits)).transpose()?;
++            return Ok(key);
++        }
+         // The clock is singular at e=1. Quantize distance from that boundary,
+         // not k itself: a relative quantum preserves information at every eccentricity.
+         let k = if self.periodic() {
+@@ -123,7 +147,7 @@ impl OrbitKey {
+                 .fixed(48)? as u64;
+             (UNIT + gap) / 2
+         } else {
+-            Scalar::raw(self.k as i128, -48)?
++            self.shape()?
+                 .quantize(shape_bits)?
+                 .fixed(48)? as u64
+         };
+@@ -137,6 +161,7 @@ impl OrbitKey {
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+ pub struct ShapeKey {
+     pub k: u64,
++    pub k_exponent: i16,
+     /// Zero selects the Taylor coefficients at q=0. The binding retains its actual q.
+     pub compactness: Scalar,
+     pub null: bool,
+@@ -146,6 +171,7 @@ impl ShapeKey {
+         let q = key.compactness()?;
+         Ok(Self {
+             k: key.k,
++            k_exponent: key.k_exponent,
+             compactness: if !key.null && q <= Scalar::power_of_two(WEAK_EXPONENT) {
+                 Scalar::ZERO
+             } else {
+@@ -209,18 +235,19 @@ impl OrbitShape {
+         &self.crossings
+     }
+     fn new(key: ShapeKey) -> Result<Self> {
+-        if (key.k == 0 && !key.null) || key.k > UNIT {
++        if (key.k == 0 && !key.null) || key.k > UNIT || key.k_exponent > 0 {
+             return Err(Error::Range);
+         }
+         if key.compactness < Scalar::ZERO || key.compactness >= Scalar::power_of_two(-1) {
+             return Err(Error::NoBoundOrbit);
+         }
+-        let k = (key.k as i128) << 14;
++        let scalar_k = Scalar::raw(key.k as i128, key.k_exponent as i32 - 48)?;
++        let k = scalar_k.fixed(62)?;
+         let q = key.compactness.fixed(62)?;
+         let eta = ONE - k;
+         let d = k - product(q, product(3 * k, k) + product(eta, eta));
+         // A turning orbit must be outside its separatrix; refusal is dynamical, not a size cap.
+-        if q < 0 || ONE - product(q, 6 * k + 2 * eta) <= 0 || (!key.null && d <= 0) {
++        if q < 0 || ONE - product(q, 6 * k + 2 * eta) <= 0 || (!key.null && d <= 0 && key.k_exponent == 0) {
+             return Err(Error::NoBoundOrbit);
+         }
+         let tn = if key.null {
+@@ -228,13 +255,23 @@ impl OrbitShape {
+         } else {
+             product(product(k, ONE - 2 * q), ONE + product(2 * q, ONE - 2 * k))
+         };
+-        if tn <= 0 {
++        if tn <= 0 && key.k_exponent == 0 {
+             return Err(Error::NoBoundOrbit);
+         }
+         let floor = (2 * k - ONE).max(1);
+-        let t_numerator = square_root(tn)?;
++        // Q62 resolves O(1) angular factors, but must not round away sqrt(k).
++        // Tiny shapes keep both clock numerators and their ratio in scaled form.
++        let t_numerator = if key.k_exponent != 0 {
++            scalar_k.mul(Scalar::ONE.sub(key.compactness.scale(1)?)?)?
++                .mul(Scalar::ONE.add(key.compactness.scale(1)?.mul(Scalar::ONE.sub(scalar_k.scale(1)?)?)?)?)?.sqrt()?
++        } else { square_root(tn)? };
+         let tau_numerator = if key.null {
+             Scalar::ZERO
++        } else if key.k_exponent != 0 {
++            let eta = Scalar::ONE.sub(scalar_k)?;
++            let d = scalar_k.sub(key.compactness.mul(scalar_k.mul(scalar_k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?)?)?;
++            if !d.is_positive() { return Err(Error::NoBoundOrbit); }
++            d.sqrt()?
+         } else {
+             square_root(d)?
+         };
+@@ -258,6 +295,9 @@ impl OrbitShape {
+             tau_numerator,
+             weak_tau_term: if key.null {
+                 Scalar::ZERO
++            } else if key.k_exponent != 0 {
++                let eta = Scalar::ONE.sub(scalar_k)?;
++                scalar_k.mul(scalar_k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?.div(scalar_k.scale(1)?)?
+             } else {
+                 f(product(3 * k, k) + product(eta, eta))?.div(f(2 * k)?)?
+             },
+@@ -451,7 +491,7 @@ impl OrbitShape {
+         }
+     }
+     fn bound(key: ShapeKey) -> Result<Self> {
+-        if key.k <= HALF {
++        if key.k_exponent != 0 || key.k <= HALF {
+             return Err(Error::NotPeriodic);
+         }
+         let mut s = Self::new(key)?;
+@@ -514,13 +554,14 @@ impl Orbit {
+         }
+         // A symbolic circle has no radial instability to integrate. The same
+         // azimuth/clock readout applies on either side of the ISCO, down to r>3M.
+-        if key.k == UNIT && key.compactness()? >= Scalar::ONE.div(Scalar::integer(6))? {
++        if key.k_exponent == 0 && key.k == UNIT && key.compactness()? >= Scalar::ONE.div(Scalar::integer(6))? {
+             let q = key.compactness()?;
+             if q >= Scalar::ONE.div(Scalar::integer(3))? {
+                 return Err(Error::NoBoundOrbit);
+             }
+             let mut shape = OrbitShape::bound(ShapeKey {
+                 k: UNIT,
++                k_exponent: 0,
+                 compactness: Scalar::ZERO,
+                 null: false,
+             })?;
+@@ -544,11 +585,12 @@ impl Orbit {
+         }
+         let shape = Arc::new(OrbitShape::bound(ShapeKey {
+             k: key.k,
++            k_exponent: key.k_exponent,
+             compactness: Scalar::ZERO,
+             null: false,
+         })?);
+         let time_scale = key.periapsis.mul(key.periapsis.sqrt()?)?;
+-        let k = Scalar::raw(key.k as i128, -48)?;
++        let k = key.shape()?;
+         let period = shape.knots.last().unwrap().sum.0[1]
+             .mul(time_scale)?
+             .scale(1)?;
+@@ -578,11 +620,12 @@ impl Orbit {
+         if shape.key.compactness != q && !key.periodic() && key.gap.is_none() {
+             let _ = OrbitShape::new(ShapeKey {
+                 k: key.k,
++                k_exponent: key.k_exponent,
+                 compactness: q,
+                 null: key.null,
+             })?;
+         }
+-        let k = f((key.k as i128) << 14)?;
++        let k = key.shape()?;
+         let tn = k
+             .mul(Scalar::ONE.sub(q.scale(1)?)?)?
+             .mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
+@@ -648,7 +691,7 @@ impl Orbit {
+         if normalized_time < Scalar::ZERO {
+             return Err(Error::Range);
+         }
+-        if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
++        if self.key.k_exponent == 0 && self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+             if normalized_time > Scalar::raw(2 * PI, -61)? {
+                 return Err(Error::Range);
+             }
+@@ -701,7 +744,7 @@ impl Orbit {
+         Ok(state)
+     }
+     pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+-        if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
++        if self.key.k_exponent == 0 && self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+             if radius != self.key.periapsis {
+                 return Err(Error::Range);
+             }
+@@ -712,7 +755,7 @@ impl Orbit {
+         if x < low - 64 || x > ONE + 64 {
+             return Err(Error::Range);
+         }
+-        let psi = if self.key.k == UNIT {
++        let psi = if self.key.k_exponent == 0 && self.key.k == UNIT {
+             0
+         } else {
+             self.shape.cut(x.clamp(low, ONE))
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index dd90ea9c..c8fa90ed 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -195,7 +195,7 @@ pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
+         return Ok((entry.unit.to_doll(p.initial_radius())?.exponent() as i32 - 60, p.speed_bound()?.scale(1)?.exponent() as i32 - 60));
+     }
+     let key = entry.trajectory.key().ok_or(Error::Refused("turning key"))?;
+-    let k = Scalar::raw(key.k as i128, -48)?;
++    let k = key.shape()?;
+     let r_max = match &entry.trajectory {
+         Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
+         Trajectory::Passage(p) => p.outer_radius,
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 2d26cd27..a0f8f6c5 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -99,8 +99,8 @@ pub trait BodyStore: Send + Sync {
+     fn push(&mut self, r: BodyRec) -> usize;
+     /// Retire a binding into body `i`'s history (the view reads the past through it).
+     fn retire(&mut self, i: usize, seg: Segment);
+-    /// Forget history that ended before `before`, keeping at least the last segment.
+-    fn prune(&mut self, i: usize, before: Tick);
++    /// Forget history that ended before `before`, keeping at least the last segment; how many segments went.
++    fn prune(&mut self, i: usize, before: Tick) -> usize;
+     /// The binding that holds at `t` (current, or a retired one), if still remembered.
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding>;
+     /// The current binding's event time (the body's committed tick).
+@@ -113,6 +113,12 @@ pub trait BodyStore: Send + Sync {
+     }
+     /// Bytes held per body (the arrays, the catalogue share of its compiled trajectory, history).
+     fn bytes_of(&self, i: usize) -> usize;
++    /// Retired bindings held for body `i`.
++    fn history_len(&self, i: usize) -> usize;
++    /// When the oldest retired binding of body `i` ended, if [`BodyStore::prune`] could forget it (more than one is held).
++    fn droppable_until(&self, i: usize) -> Option<Tick>;
++    /// Body `i`'s current binding and every retained one, oldest first (what a reader can still ask for).
++    fn bindings_of(&self, i: usize) -> Vec<Binding>;
+ }
+ 
+ #[derive(Default)]
+@@ -139,11 +145,14 @@ impl BodyStore for PlainBodies {
+     fn retire(&mut self, i: usize, seg: Segment) {
+         self.history[i].push_back(seg);
+     }
+-    fn prune(&mut self, i: usize, before: Tick) {
++    fn prune(&mut self, i: usize, before: Tick) -> usize {
+         let h = &mut self.history[i];
++        let mut gone = 0;
+         while h.len() > 1 && h[0].until < before {
+             h.pop_front();
++            gone += 1;
+         }
++        gone
+     }
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
+         let r = &self.recs[i];
+@@ -172,6 +181,16 @@ impl BodyStore for PlainBodies {
+     fn doll(&self, i: usize) -> u16 {
+         self.recs[i].b.doll
+     }
++    fn history_len(&self, i: usize) -> usize {
++        self.history[i].len()
++    }
++    fn droppable_until(&self, i: usize) -> Option<Tick> {
++        let h = &self.history[i];
++        h.front().filter(|_| h.len() > 1).map(|s| s.until)
++    }
++    fn bindings_of(&self, i: usize) -> Vec<Binding> {
++        self.history[i].iter().map(|s| s.b.clone()).chain(std::iter::once(self.recs[i].b.clone())).collect()
++    }
+     fn bytes_of(&self, i: usize) -> usize {
+         let r = &self.recs[i];
+         let shape = match &r.b.entry.trajectory {
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 6ac036dc..15785824 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -53,6 +53,8 @@ pub struct Ctx<'a> {
+     /// Per doll: the bodies that pull others in it (secondaries), in id order.
+     pub sources: &'a [Vec<usize>],
+     pub cfg: &'a Config,
++    /// Where each doll's bodies can be, by radius: who a scan must read.
++    pub radial: &'a crate::radial::Radial,
+ }
+ 
+ impl Ctx<'_> {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index 4616f6c1..e8e74e0c 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -9,7 +9,8 @@
+ //! (the neighbourhood the player's own instruments would call close).
+ use crate::bind::Binding;
+ use crate::ctx::Ctx;
+-use crate::num::{sub2, time_of, Res, Tick, V2};
++use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
++use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+ use std::sync::{Arc, Mutex, OnceLock};
+@@ -161,8 +162,17 @@ impl Encounters for PlayerNeighbourhood {
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
++        // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
++        // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        let near = (|| -> Option<Vec<usize>> {
++            let (x, v) = me.cartesian(t).ok()?;
++            let h = time_of(interval, me.clock_exp).ok()?;
++            let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
++            let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
++            ctx.radial.candidates(me.doll, &w)
++        })();
+         let mut candidates = Vec::new();
+-        for j in 0..ctx.bodies.len() {
++        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index 63b54c19..fda3b93e 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -134,7 +134,7 @@ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+     let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
+     let Trajectory::Cycle(c) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
+     let key = c.key();
+-    let k = Scalar::raw(key.k as i128, -48)?;
++    let k = key.shape()?;
+     let den = k.scale(1)?.sub(Scalar::ONE)?;
+     if !den.is_positive() {
+         return Err(Error::Refused("a source on an unbound orbit"));
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 99887123..83a0a557 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -11,6 +11,7 @@ pub mod lorentz;
+ pub mod num;
+ pub mod observe;
+ pub mod prof;
++pub mod radial;
+ pub mod scenario;
+ pub mod step;
+ pub mod thrust;
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 0ae6e743..98852ebf 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -151,6 +151,19 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
+ /// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
+ /// a test's own): the same star, planets, moon, ships and player.
+ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
++    plane_with_extra(cfg, seed, order, threads, world, 0)
++}
++
++/// [`plane`] with `extra` more real bodies: ships made by [`ladder_ship`] (the N ladder's population: a few hundred about
++/// Home and the Moon, the rest in a belt about the star), each on its own exact orbit, with the ids after the plane's own ships
++/// and before the player's. `extra = 0` is the plane, bit for bit.
++pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_with_extra(cfg, seed, order, threads, world, extra)
++}
++
++/// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
++pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -243,6 +256,12 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+         ships.push(id);
+         names.push(format!("Skimmer {}", k + 1));
+     }
++    // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
++    for k in 0..extra {
++        let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
++        ships.push(u.add_body(Kind::Ship, spec, radius)?);
++        names.push(String::new());
++    }
+     // The fleet: lattice radius of Home's low orbit (7,000 km: 4,740 root units), starting at angle 0.
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
+@@ -259,3 +278,104 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+     u.start()?;
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
++
++// ---- the N ladder's population -------------------------------------------------------------------
++
++/// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.
++pub fn ladder_locals(extra: u64) -> u64 {
++    (extra / 2).min(300)
++}
++
++/// splitmix64's finalizer: the ladder's only source of randomness, with the seed (integers all the way).
++fn mix64(mut z: u64) -> u64 {
++    z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    z ^ (z >> 31)
++}
++
++/// Draw `lane` of ship `k`: independent of every other ship's draws (a counter, not a stream).
++fn draw(seed: u64, k: u64, lane: u64) -> u64 {
++    mix64(mix64(seed ^ 0x5DEE_CE66_D1CE_4E5B) ^ k.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (lane << 56))
++}
++
++/// `e · 2^48` of a Rayleigh draw of scale `sigma_milli / 1000` from a uniform 32-bit `u`: `σ √(−2 ln(1 − u))`, in integers
++/// (`log2` by squaring, `ln = ln2 · log2`, an integer root): the same bits on every machine.
++pub fn rayleigh_q48(u: u32, sigma_milli: u64) -> u64 {
++    let d = (1u64 << 32) - u as u64; // the survival probability, d / 2^32, in (0, 1]
++    let k = 63 - d.leading_zeros() as u64;
++    let mut x = (d as u128) << (62 - k); // the mantissa in [1, 2), Q62
++    let mut frac = 0u64;
++    for _ in 0..32 {
++        x = (x * x) >> 62;
++        frac <<= 1;
++        if x >= 2u128 << 62 {
++            x >>= 1;
++            frac |= 1;
++        }
++    }
++    let l2 = (32u64 << 32) - ((k << 32) | frac); // log2(2^32 / d), Q32
++    let ln = (l2 as u128 * 2_977_044_472u128) >> 32; // ln 2 = 2977044472 / 2^32; ln(2^32 / d), Q32
++    let e2 = ((ln * 2 * (sigma_milli as u128).pow(2)) << 64) / 1_000_000; // e², Q96
++    e2.isqrt() as u64 // e · 2^48
++}
++
++/// One ship of the N ladder: the orbit it is made on and its radius. Ship `k` of `extra`: the first [`ladder_locals`] are about
++/// Home (a quarter of them on the Moon's orbit, 60 degrees ahead of or behind it, where a ship stays; the rest from just above
++/// the surface out to two thirds of the Moon's distance, Rayleigh eccentricities); the rest are a belt about the star between 2
++/// and 3 AU (Rayleigh eccentricities of scale 0.07, periapsis above 1.2 AU: no crossing of Home's orbit), uniform angles. Each is
++/// a real body on its own exact orbit; nothing is averaged, and every number is an integer from the seed and `k`.
++pub fn ladder_ship(seed: u64, k: u64, extra: u64, home_doll: u16) -> Res<(OrbitSpec, Scalar)> {
++    let d = |lane: u64| draw(seed, k, lane);
++    let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
++    let locals = ladder_locals(extra);
++    if k >= locals {
++        // The belt: a uniform in [2, 3) AU at 2^-8 of a root unit, e Rayleigh (re-drawn above 0.4), p = a (1 - e).
++        let a_q8 = ((2 * AU as u128) << 8) + (d(1) as u128 % ((AU as u128) << 8));
++        let mut e = rayleigh_q48((d(2) >> 32) as u32, 70);
++        for lane in 16.. {
++            if e <= (2u64 << 48) / 5 {
++                break;
++            }
++            e = rayleigh_q48((d(lane) >> 32) as u32, 70);
++        }
++        let p_q8 = a_q8 - ((a_q8 * e as u128) >> 48);
++        let spec = OrbitSpec { doll: 0, periapsis: Scalar::raw(p_q8 as i128, -8)?, e_q48: e, clockwise: false, angle, phase };
++        return Ok((spec, Scalar::raw(34, -10)?));
++    }
++    let radius = Scalar::raw(34, -10 + 18)?;
++    if k < locals / 4 {
++        // About the Moon: its orbit (periapsis 260,000 root units, e = 1/20, the Moon's angle), 3 % off in size at most, e within a
++        // tenth of its own, 60 degrees ahead of it or behind (L4 and L5) within 5 degrees.
++        let jit = |lane: u64| (d(lane) >> 32) as i128 - (1i128 << 31); // [-2^31, 2^31): [-1/2, 1/2) turn of 2^32
++        let base = 260_000i128 << 16;
++        let peri_q16 = base + base * 6 * jit(4) / (100 * (1i128 << 32));
++        let e = ((1i128 << 48) / 20 + ((1i128 << 48) / 100) * jit(5) / (1i128 << 32)) as u64;
++        let sixth = (1i128 << 32) / 6;
++        let phase = 0x7000_0000i128 + if d(6) & 1 == 0 { sixth } else { -sixth } + jit(7) / 36;
++        let spec = OrbitSpec {
++            doll: home_doll,
++            periapsis: Scalar::raw(peri_q16, 18 - 16)?,
++            e_q48: e,
++            clockwise: false,
++            angle: 0x1000_0000,
++            phase: phase.rem_euclid(1 << 32) as u32,
++        };
++        return Ok((spec, radius));
++    }
++    // About Home: a in [5,200 root units, 2^5 times that): an octave uniform and the place in it uniform; e Rayleigh of scale 0.03
++    // (re-drawn above 0.1: the periapsis clears the surface); 1 in 8 against the planet's turn.
++    let lo_q16 = 5_200u128 << 16;
++    let oct = d(1) % 5;
++    let a_q16 = (lo_q16 << oct) + (((lo_q16 << oct) * (d(2) >> 32) as u128) >> 32);
++    let mut e = rayleigh_q48((d(2) & 0xFFFF_FFFF) as u32, 30);
++    for lane in 16.. {
++        if e <= (1u64 << 48) / 10 {
++            break;
++        }
++        e = rayleigh_q48((d(lane) >> 32) as u32, 30);
++    }
++    let p_q16 = a_q16 - ((a_q16 * e as u128) >> 48);
++    let spec = OrbitSpec { doll: home_doll, periapsis: Scalar::raw(p_q16 as i128, 18 - 16)?, e_q48: e, clockwise: d(5) & 7 == 0, angle, phase };
++    Ok((spec, radius))
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 32207e7f..327e16c6 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -64,8 +64,9 @@ impl Budget {
+     pub fn wall(ms: f64) -> Self {
+         Self { events: u64::MAX, until: Some(Instant::now() + std::time::Duration::from_secs_f64(ms / 1e3)) }
+     }
+-    fn spent(&self, done: u64) -> bool {
+-        done >= self.events || self.until.is_some_and(|u| Instant::now() >= u)
++    /// Spent, or the wall left is less than `margin_ns` (what the next item may cost).
++    fn spent_before(&self, done: u64, margin_ns: u64) -> bool {
++        done >= self.events || self.until.is_some_and(|u| Instant::now() + std::time::Duration::from_nanos(margin_ns) >= u)
+     }
+ }
+ 
+@@ -77,6 +78,9 @@ const SCAN_MARGIN_NS: u64 = 750_000;
+ /// frame resolves anything else once this many are waiting, the oldest first, so the memory they hold is bounded.
+ const SCAN_BACKLOG: usize = 2048;
+ 
++/// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
++const FRAME_TAIL_NS: u64 = 50_000;
++
+ /// The encounter hash chain's next link.
+ fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+     let mut h = blake3::Hasher::new();
+@@ -157,6 +161,26 @@ pub struct Universe {
+     cat: Catalogue,
+     pub fleets: Vec<Fleet>,
+     queue: Option<Calendar>,
++    /// Every ship's next tick (its slot is the body id, its key the tick: the order is `(tick, id)`), whatever its place in the queue:
++    /// the minimum is the ship the player's scan must wait for ([`Universe::pull_ships`]), and the ships due by the target are the ones
++    /// the queue holds ([`Universe::requeue`]). Kept by [`Universe::apply`], the one place a body's plan changes.
++    ship_ticks: Calendar,
++    /// The same, for the ships of a planet's doll only (not the root's): the ones the player's scan must wait for when the player is in a
++    /// planet's doll ([`Universe::pull_ships`]). Kept by [`Universe::apply`].
++    child_ticks: Calendar,
++    /// The ships that are not in the queue (their next tick is after the target), keyed by that tick: [`Universe::rekey`] moves the
++    /// ones the target reaches into the queue, once ([`Universe::requeue`] keeps every ship in exactly one of the two).
++    waiting: Calendar,
++    /// How far the observer has moved since the start (root units, rounded up at each frame): the queue's keys are a deadline plus the
++    /// `moved` of when it was computed, so `key - moved` is never later than the deadline the present observer gives (a light distance
++    /// changes by at most the observer's displacement), and an entry need not be re-keyed when the observer moves.
++    moved: Tick,
++    observed: bool,
++    /// Where each doll's bodies can be, by radius ([`crate::radial`]): kept by [`Universe::apply`] and [`Universe::prune`].
++    radial: crate::radial::Radial,
++    /// The bodies whose history holds more than one retired binding (the only ones [`Universe::prune`] can shorten), keyed by the
++    /// earliest tick it could: the end of the oldest one plus what is kept behind the present (twice the light distance, and a margin).
++    prunable: Calendar,
+     /// The presented time of the last frame, and the position of the player used for deadlines.
+     pub now: Tick,
+     player: Option<usize>,
+@@ -185,6 +209,9 @@ pub struct Universe {
+     scans: VecDeque<Arc<dyn Held>>,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
++    /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
++    /// forgets (1/64 an item of the class). A frame with a wall to keep starts an item only if that much is left, once it has resolved one.
++    item_ns: [u64; 5],
+     pub enc_log: Vec<Encounter>,
+     enc_digest: [u8; 32],
+     pub contacts: u64,
+@@ -200,7 +227,6 @@ pub struct Universe {
+ struct Lanes {
+     planets: Vec<usize>,
+     moons: Vec<usize>,
+-    ships: Vec<usize>,
+ }
+ 
+ /// The heading a player's nose starts at: along its velocity at tick 0 in its doll's axes (prograde, so that "forward" burns
+@@ -221,6 +247,13 @@ impl Universe {
+             cat: Catalogue::default(),
+             fleets: Vec::new(),
+             queue: None,
++            ship_ticks: Calendar::new(0),
++            child_ticks: Calendar::new(0),
++            waiting: Calendar::new(0),
++            moved: 0,
++            observed: false,
++            radial: crate::radial::Radial::default(),
++            prunable: Calendar::new(0),
+             now: 0,
+             player: None,
+             observer: [0.0; 2],
+@@ -237,6 +270,7 @@ impl Universe {
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
+             scan_ns: 0,
++            item_ns: [0; 5],
+             enc_log: Vec::new(),
+             enc_digest: [0; 32],
+             contacts: 0,
+@@ -247,7 +281,7 @@ impl Universe {
+     }
+ 
+     pub fn ctx(&self) -> Ctx<'_> {
+-        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
+     }
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+@@ -315,7 +349,7 @@ impl Universe {
+         // Periapsis `phase` of a period before tick 0.
+         let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
+         let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
+-        let k = Scalar::raw(key.k as i128, -48)?;
++        let k = key.shape()?;
+         let r_max = unit.to_doll(key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?)?; // apoapsis: p/(2k − 1)
+         let v_max = Scalar::integer(2).mul(Scalar::ONE.div(key.periapsis)?)?.sqrt()?.scale(1)?;
+         Ok((entry, Tube::new(0, spec.angle, peri), crate::bind::choose_units(r_max, v_max)))
+@@ -409,7 +443,7 @@ impl Universe {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+-        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }.tube_unit(i, spec.doll)?;
++        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }.tube_unit(i, spec.doll)?;
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+@@ -441,19 +475,25 @@ impl Universe {
+     /// Everything is made: plan every body's first interval and build the queue.
+     pub fn start(&mut self) -> Res<()> {
+         let n = self.bodies.len();
+-        self.lanes = Lanes {
+-            planets: self.kinds(Kind::Planet),
+-            moons: self.kinds(Kind::Moon),
+-            ships: self.kinds(Kind::Ship),
+-        };
++        self.lanes = Lanes { planets: self.kinds(Kind::Planet), moons: self.kinds(Kind::Moon) };
+         self.pos = vec![[0.0; 2]; n];
++        self.body_cap = n + self.fleets.iter().map(|f| f.n_members).sum::<usize>();
++        self.ship_ticks = Calendar::new(self.body_cap + self.fleets.len());
++        self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
++        self.waiting = Calendar::new(self.body_cap + self.fleets.len());
++        self.prunable = Calendar::new(self.body_cap + self.fleets.len());
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+             let upd = step::replan(&self.ctx(), i, rec, 0);
+             self.apply(i, upd);
+         }
+-        self.body_cap = n + self.fleets.iter().map(|f| f.n_members).sum::<usize>();
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
++        // Every ship waits for the target to reach its tick (none is due at the start).
++        for i in 0..n {
++            if self.info[i].kind == Kind::Ship {
++                self.requeue(i);
++            }
++        }
+         let (ctx, fleets) = self.split();
+         for f in fleets.iter_mut() {
+             f.start(&ctx);
+@@ -477,7 +517,7 @@ impl Universe {
+ 
+     /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+     fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+-        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }, &mut self.fleets)
++        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }, &mut self.fleets)
+     }
+ 
+     /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
+@@ -525,25 +565,66 @@ impl Universe {
+         self.key_of(e).map(|(t, _)| t.saturating_add(self.light_distance(e)))
+     }
+ 
++    /// Put entity `e` in the queue at its deadline (its key is the deadline plus `moved`: see [`Universe::moved`]). **A ship whose next
++    /// item is after the frame's target is not in the queue** but `waiting`, by its tick: the queue holds what can be resolved now, in
++    /// the order of its deadlines (when its light reaches the player), and a ship that nothing is due for costs nothing a frame (it was
++    /// popped, set aside and put back every frame before: N pops and N sets a frame, whatever happened). The presentable horizon cannot
++    /// depend on it: its deadline is its tick plus its distance, after the target. It enters the queue when the target reaches its tick
++    /// ([`Universe::rekey`]) or when its own item gives it a tick the target already covers.
+     fn requeue(&mut self, e: usize) {
+         let t0 = crate::prof::t();
+-        let d = self.deadline_of(e);
++        let ship = e < self.bodies.len() && self.info[e].kind == Kind::Ship;
++        let key = self.key_of(e);
++        let (queued, waiting) = if ship && key.is_some_and(|k| k.0 > self.target) {
++            (None, key.map(|k| k.0))
++        } else {
++            (self.deadline_of(e).map(|d| d.saturating_add(self.moved)), None)
++        };
+         if let Some(q) = self.queue.as_mut() {
+-            let _ = q.set(e, d.map(Scalar::integer));
++            let _ = q.set(e, queued.map(Scalar::integer));
++        }
++        if ship {
++            let _ = self.waiting.set(e, waiting.map(Scalar::integer));
+         }
+         crate::prof::add(crate::prof::REQUEUE, t0);
+     }
+ 
+-    /// Recompute every deadline from the player's present position (a scheduling heuristic only).
++    /// The deadline a queue key stands for: never later than the one the present observer gives.
++    fn deadline_of_key(&self, key: Scalar) -> Tick {
++        (key.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick).saturating_sub(self.moved)
++    }
++
++    /// Recompute the deadline of the few that are always queued from the player's present position (a scheduling heuristic only): the
++    /// planets, the moons, the player, the fleets and the next hand-out; and move the ships the target now reaches into the queue. A ship
++    /// already queued keeps its key (it is sound however the observer moved: [`Universe::moved`]): a backlog of due ships costs nothing a
++    /// frame (every due ship was re-keyed every frame before: a wave of kicks larger than a frame's budget was re-keyed whole each frame,
++    /// and the re-keying alone could eat the budget).
+     pub fn rekey(&mut self) {
+         let t0 = crate::prof::t();
+         if let Some(p) = self.player {
+             if let Ok((pos, _)) = crate::observe::root_state_raw(&self.ctx(), p, self.bodies.event_time(p).max(self.now)) {
++                if self.observed {
++                    let step = (pos[0] - self.observer[0]).hypot(pos[1] - self.observer[1]);
++                    self.moved = self.moved.saturating_add(step.ceil().min(4e18) as Tick);
++                }
++                self.observed = true;
+                 self.observer = pos;
+             }
+         }
+-        for e in 0..self.bodies.len() {
+-            self.requeue(e);
++        for k in 0..self.lanes.planets.len() {
++            self.requeue(self.lanes.planets[k]);
++        }
++        for k in 0..self.lanes.moons.len() {
++            self.requeue(self.lanes.moons[k]);
++        }
++        if let Some(p) = self.player {
++            self.requeue(p);
++        }
++        while let Some((t, i)) = self.waiting.peek() {
++            if t.fixed(0).unwrap_or(i128::MAX) > self.target as i128 {
++                break;
++            }
++            self.requeue(i);
+         }
+         for f in 0..self.fleets.len() {
+             self.requeue(self.fleet_entity(f));
+@@ -556,6 +637,7 @@ impl Universe {
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
+         let t_apply = crate::prof::t();
++        let retired = !upd.retired.is_empty();
+         for seg in upd.retired.drain(..) {
+             self.cat.release(seg.b.tube.key);
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+@@ -575,7 +657,14 @@ impl Universe {
+         }
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
++        self.radial.note(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), &upd.rec.b);
+         self.bodies.put(i, upd.rec);
++        if self.info[i].kind == Kind::Ship {
++            let next = self.bodies.next_time(i);
++            let _ = self.ship_ticks.set(i, next.map(Scalar::integer));
++            let child = next.filter(|_| self.bodies.doll(i) != 0);
++            let _ = self.child_ticks.set(i, child.map(Scalar::integer));
++        }
+         // The position cache is read by `light_distance` and nothing else, and the player's light distance is zero by
+         // definition (`rekey` reads the observer from the player's own state): its walk of the doll chain, the dearest
+         // thing `apply` did after a player item, bought nothing.
+@@ -586,6 +675,9 @@ impl Universe {
+             }
+             crate::prof::add(crate::prof::ROOT, t_walk);
+         }
++        if retired {
++            self.key_prune(i, Tick::MIN);
++        }
+         crate::prof::add(crate::prof::APPLY, t_apply);
+     }
+ 
+@@ -593,6 +685,20 @@ impl Universe {
+         ids.iter().filter_map(|&i| self.key_of(i)).min()
+     }
+ 
++    /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
++    /// with `children_only`, the items of the ships of a planet's doll only.
++    fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
++        loop {
++            let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
++            let Some((t, i)) = ticks.peek() else { break };
++            if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {
++                break;
++            }
++            self.resolve_body(i);
++            self.requeue(i);
++        }
++    }
++
+     /// Resolve every item of `ids` with a key below `key`, in key order.
+     fn pull(&mut self, ids: &[usize], key: (Tick, usize)) {
+         while let Some(k) = self.lane(ids) {
+@@ -633,9 +739,7 @@ impl Universe {
+             while self.handouts.front().is_some_and(|(_, l)| l.tick < key.0) {
+                 self.resolve_handout();
+             }
+-            let ships = std::mem::take(&mut self.lanes.ships);
+-            self.pull(&ships, key);
+-            self.lanes.ships = ships;
++            // ...and the ships with an item before the player's: after the player's own item (below), which reads none of them.
+         }
+         let rec = self.bodies.rec(i);
+         let t_process = crate::prof::t();
+@@ -656,6 +760,14 @@ impl Universe {
+         }
+         self.apply(i, upd);
+         if kind == Kind::Player {
++            // The scan reads the ships of the player's doll at its tick, so the ships with an item before it are resolved first. A ship of
++            // the root doll never leaves it (the motion law v2 has no capture from the root: `step::Work::maybe_capture`), so when the
++            // player is in a planet's doll after its item, the root's ships cannot be read by the scan: they are left to the queue, in the
++            // order of their deadlines and inside the frame's budget (the player's item pulled every due ship of every doll before, a burst
++            // the size of the root's whole wave of kicks, inside one item and outside the budget). Ships read only the sources, and the
++            // player reads no ship: resolving the player's item before theirs changes no bit.
++            let in_root = self.bodies.doll(i) == 0;
++            self.pull_ships(key, !in_root);
+             let t_enc = crate::prof::t();
+             self.encounters_for_player();
+             crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
+@@ -680,7 +792,7 @@ impl Universe {
+                     let _ = q.set(e, None);
+                     q.peek()
+                 });
+-                let cap = second.map_or(Tick::MAX, |(d, _)| (d.fixed(0).unwrap_or(i128::MAX) as Tick).saturating_sub(dist));
++                let cap = second.map_or(Tick::MAX, |(d, _)| self.deadline_of_key(d).saturating_sub(dist));
+                 self.resolve_fleet(f, cap);
+             }
+             None => {
+@@ -782,7 +894,6 @@ impl Universe {
+             let i = self.bodies.push(rec);
+             self.info.push(BodyInfo { kind: Kind::Ship, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: Some((f as u16, l.member as u16)), born: l.tick });
+             self.pos.push([0.0; 2]);
+-            self.lanes.ships.push(i);
+             Ok(i)
+         })();
+         match made {
+@@ -882,7 +993,7 @@ impl Universe {
+             self.take_due(target);
+             crate::prof::add(crate::prof::TAKE_DUE, t_due);
+             let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+-            let dl = dl.fixed(0).unwrap_or(i128::MAX) as Tick;
++            let dl = self.deadline_of_key(dl);
+             let Some((t, _)) = self.key_of(e) else {
+                 let _ = self.queue.as_mut().map(|q| q.set(e, None));
+                 continue;
+@@ -893,7 +1004,10 @@ impl Universe {
+                 deferred.push(e);
+                 continue;
+             }
+-            if budget.spent(done) {
++            // The next item is started only if what such an item has cost lately is left (a frame overran by the one item it started
++            // with a few microseconds to spare: up to 1.4 ms through the root's wave of kicks); the first item of a frame always runs.
++            let class = if e < self.bodies.len() { self.info[e].kind as usize } else { 4 };
++            if budget.spent_before(done, if done == 0 { 0 } else { self.item_ns[class] + FRAME_TAIL_NS }) {
+                 overflow = dl <= target;
+                 break;
+             }
+@@ -904,17 +1018,21 @@ impl Universe {
+                 self.answer_front();
+                 continue;
+             }
++            let t_item = Instant::now();
+             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                 self.resolve_wave(e, target);
+             } else {
+                 self.resolve_entity(e);
+             }
++            let ns = t_item.elapsed().as_nanos() as u64;
++            let m = &mut self.item_ns[class];
++            *m = if ns >= *m { ns } else { *m - *m / 64 };
+             done = self.resolved - start;
+         }
+         // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
+         let mut horizon = target;
+         if let Some((dl, _)) = self.queue.as_ref().and_then(|q| q.peek()) {
+-            horizon = horizon.min(dl.fixed(0).unwrap_or(i128::MAX) as Tick - 1);
++            horizon = horizon.min(self.deadline_of_key(dl) - 1);
+         }
+         for e in deferred {
+             if let Some(d) = self.deadline_of(e) {
+@@ -957,16 +1075,16 @@ impl Universe {
+     pub fn frame_to(&mut self, wall_dt: f64, rtf: f64, budget: Budget, limit: Tick) -> Frame {
+         let want = (rtf * wall_dt / crate::view::TICK_SECONDS) as Tick;
+         let target = self.now.saturating_add(want.max(1)).min(limit.max(self.now));
++        // Histories older than every light cone the view can need are forgotten, every frame and inside its budget (before the
++        // items): a call visits only the bodies that can be shortened now (it ran every 64th frame, after the items, and that frame
++        // paid for 64 frames' worth).
++        let t_prune = crate::prof::t();
++        self.prune();
++        crate::prof::add(crate::prof::PRUNE, t_prune);
+         let a = self.advance(target, budget);
+         let before = self.now;
+         self.now = a.horizon.max(self.now);
+-        // Histories older than every light cone the view can need are forgotten.
+         self.frames += 1;
+-        if self.frames % 64 == 0 {
+-            let t_prune = crate::prof::t();
+-            self.prune();
+-            crate::prof::add(crate::prof::PRUNE, t_prune);
+-        }
+         Frame { target, presented: self.now, ticks: self.now - before, events: a.events, overflow: a.overflow }
+     }
+ 
+@@ -1097,17 +1215,44 @@ impl Universe {
+         self.bodies.rec(i)
+     }
+ 
++    /// Key body `i` in `prunable` at the earliest tick its oldest retired binding could be forgotten (never before `after`), or take it
++    /// out when it holds one or none.
++    fn key_prune(&mut self, i: usize, after: Tick) {
++        let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(2 * self.light_distance(i) + (1 << 26)).max(after));
++        let _ = self.prunable.set(i, at.map(Scalar::integer));
++    }
++
+     /// Forget history the view can no longer need: older than twice the body's light distance (plus a
+-    /// margin) behind the present, and older than the oldest item any body still has to resolve.
++    /// margin) behind the present, and older than the oldest item any body still has to resolve. Only the bodies whose oldest
++    /// binding could go by now are visited (`prunable`, by that tick: a body is visited once when it can be shortened, not every
++    /// call while it has history: the bodies kicked since the last call were each visited, a spike the size of a wave of kicks);
++    /// one the oldest item holds back, or whose light distance grew, is visited again at the next call. When a binding is forgotten
++    /// changes no outcome (only what may be forgotten is): nothing at or after the oldest item reads what ended before it.
+     pub fn prune(&mut self) {
+-        let oldest = (0..self.bodies.len()).filter_map(|i| self.bodies.next_time(i)).min().unwrap_or(self.now).min(self.now);
+-        for i in 0..self.bodies.len() {
++        // The oldest item any body still has to resolve (the planets, the moons and the player by a walk of those few, the ships by the minimum of `ship_ticks`).
++        let mut oldest = self.now;
++        let few = self.lanes.planets.iter().chain(&self.lanes.moons).copied().chain(self.player);
++        for i in few {
++            if let Some(t) = self.bodies.next_time(i) {
++                oldest = oldest.min(t);
++            }
++        }
++        if let Some((t, _)) = self.ship_ticks.peek() {
++            oldest = oldest.min(t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick);
++        }
++        while let Some((at, i)) = self.prunable.peek() {
++            if at.fixed(0).unwrap_or(i128::MAX) > self.now as i128 {
++                break;
++            }
+             let keep = 2 * self.light_distance(i) + (1 << 26);
+-            self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26)));
++            if self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26))) > 0 {
++                // what a reader can still ask for shrank: so does where the body is registered
++                self.radial.rebuild(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), self.bodies.bindings_of(i).iter());
++            }
++            self.key_prune(i, self.now + 1);
+         }
+     }
+ 
+-    /// Bytes per body (arrays, compiled trajectory share, history), averaged.
+     pub fn bytes_per_body(&self) -> usize {
+         let n = self.bodies.len().max(1);
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n
+@@ -1146,6 +1291,9 @@ impl Universe {
+             if let Some(key) = r.b.entry.trajectory.key() {
+                 put_s(&mut h, key.periapsis);
+                 put(&mut h, key.k as i128);
++                if key.k_exponent != 0 {
++                    put(&mut h, key.k_exponent as i128);
++                }
+                 if let Some(gap) = key.gap {
+                     put_s(&mut h, gap);
+                 }

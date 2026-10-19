@@ -1,0 +1,541 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..075ec5bb 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -416,6 +416,12 @@ impl Rebinding {
+         fit.residual = Residual::between(state, fit.decoded_event()?);
+         Ok(fit)
+     }
++    /// The turning key and input radius, before compiling its trajectory. A radial arc returns `NoBoundOrbit`.
++    pub fn turning_key(state: IntegerState) -> Result<(OrbitKey, Scalar)> {
++        let (key, radius, _, _) = fit_key(state, true)?;
++        Ok((key, radius))
++    }
++
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
+         let trajectory = if key.periodic() {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..6c4d4b51 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -195,11 +195,19 @@ pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
+         return Ok((entry.unit.to_doll(p.initial_radius())?.exponent() as i32 - 60, p.speed_bound()?.scale(1)?.exponent() as i32 - 60));
+     }
+     let key = entry.trajectory.key().ok_or(Error::Refused("turning key"))?;
++    let outer = match &entry.trajectory {
++        Trajectory::Passage(p) => Some(p.outer_radius),
++        _ => None,
++    };
++    word_for_key(key, outer)
++}
++
++fn word_for_key(key: emergent_space::orbit::OrbitKey, outer: Option<Scalar>) -> Res<(i32, i32)> {
+     let k = key.shape()?;
+-    let r_max = match &entry.trajectory {
+-        Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
+-        Trajectory::Passage(p) => p.outer_radius,
+-        Trajectory::Plunge(_) => unreachable!(),
++    let r_max = if key.periodic() {
++        key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?
++    } else {
++        outer.ok_or(Error::Refused("passage edge"))?
+     };
+     let v_max = Scalar::ONE.div(key.periapsis.mul(k)?)?.sqrt()?.scale(1)?;
+     Ok((r_max.exponent() as i32 - 60, v_max.exponent() as i32 - 60))
+@@ -223,6 +231,18 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>,
+ 
+ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
+     let t_fit = crate::prof::t();
++    let input = in_tube_units(exact, unit)?;
++    if let Ok((key, radius)) = Rebinding::turning_key(input) {
++        let outer = if key.periodic() { None } else {
++            Some(edge.map(|e| unit.to_tube(e)).transpose()?.unwrap_or(radius.scale(1)?))
++        };
++        let (len, vel) = word_for_key(key, outer)?;
++        let (cur_len, cur_vel) = (exact.length_exponent as i32, exact.velocity_exponent as i32);
++        let exact = coarsen(exact, len.max(cur_len), vel.max(cur_vel));
++        let bound = bind_in(exact, t, clock_exp, edge, unit, surface);
++        crate::prof::add(crate::prof::FIT, t_fit);
++        return bound;
++    }
+     let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
+     crate::prof::add(crate::prof::FIT, t_fit);
+     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+@@ -234,19 +254,39 @@ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<S
+         return Ok(bound);
+     }
+     let (nl, nv) = (len.max(cur_len), vel.max(cur_vel));
+-    let shift = |v: i64, by: i32| -> i64 { if by <= 0 { v } else { v / (1i64 << by.min(62)) } };
+-    let coarser = IntegerState {
+-        position: [shift(exact.position[0], nl - cur_len), shift(exact.position[1], nl - cur_len)],
+-        velocity: [shift(exact.velocity[0], nv - cur_vel), shift(exact.velocity[1], nv - cur_vel)],
+-        length_exponent: nl as i16,
+-        velocity_exponent: nv as i16,
+-    };
++    let coarser = coarsen(exact, nl, nv);
+     let t_again = crate::prof::t();
+     let again = bind_in(coarser, t, clock_exp, edge, unit, surface);
+     crate::prof::add(crate::prof::FIT2, t_again);
+     again
+ }
+ 
++/// Compile a reconciled course only when its cheap turning key can reach the surface.
++/// Radial arcs still use the full inverse; a turning orbit above the surface needs no certificate.
++pub(crate) fn bind_impact(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Scalar) -> Res<Option<Bound>> {
++    let input = in_tube_units(exact, unit)?;
++    if let Ok((key, radius)) = Rebinding::turning_key(input) {
++        if unit.to_doll(key.periapsis)? >= surface { return Ok(None); }
++        // An outbound unbound turning orbit has no future periapsis. Its old
++        // periapsis may be under the surface without holding a future impact.
++        if !key.periodic() && unit.to_doll(radius)? > surface {
++            let (x, v) = scalars(&input)?;
++            if dot2(x, v)? >= Scalar::ZERO { return Ok(None); }
++        }
++    }
++    bind_surface(exact, t, clock_exp, edge, unit, Some(surface)).map(Some)
++}
++
++fn coarsen(exact: IntegerState, nl: i32, nv: i32) -> IntegerState {
++    let shift = |v: i64, by: i32| -> i64 { if by <= 0 { v } else { v / (1i64 << by.min(62)) } };
++    IntegerState {
++        position: exact.position.map(|v| shift(v, nl - exact.length_exponent as i32)),
++        velocity: exact.velocity.map(|v| shift(v, nv - exact.velocity_exponent as i32)),
++        length_exponent: nl as i16,
++        velocity_exponent: nv as i16,
++    }
++}
++
+ /// The state in the tube's units (`M_D`): positions divided by `μ`, rounded toward zero at the word (a fit is
+ /// not injective, and the remainder taken against the doll's own readout below carries what it discards).
+ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+@@ -302,3 +342,81 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
+         impact: None,
+     }
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn the_outbound_unbound_impact_rejection_matches_the_compiled_course() {
++        let unit = Unit::of(Scalar::ONE).unwrap();
++        let surface = Scalar::integer(20_000);
++        for sign in [-1, 1] {
++            let st = IntegerState { position: [1_000_000, 0], velocity: [sign * 100, sign], length_exponent: 0, velocity_exponent: -14 };
++            let fit = bind_surface(st, 0, 0, None, unit, Some(surface)).unwrap();
++            let b = Binding { doll: 0, tube: fit.tube, entry: fit.entry, residual: fit.residual, turn: fit.turn, units: fit.units, clock_exp: 0, event_time: 0, kick: Kick::NONE, impact: None };
++            assert!(!b.entry.trajectory.key().unwrap().periodic());
++            let impact = crate::step::next_impact(&b, surface, 0).unwrap();
++            assert_eq!(impact.is_some(), sign < 0);
++            assert_eq!(bind_impact(st, 0, 0, None, unit, surface).unwrap().is_some(), impact.is_some());
++        }
++    }
++
++    #[test]
++    fn choosing_the_word_before_compiling_preserves_the_old_fit() {
++        use crate::{fleet::Order, scenario::plane, thrust::word, Config};
++        let mut checked = 0;
++        let mut coarsened = 0;
++        for level in [0, 8, 15] {
++            let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++            p.u.input(0, word(1, level)).unwrap();
++            for t in [20_000_000, 200_000_000, 400_000_000] {
++                p.u.settle(t);
++                for i in 0..p.u.n_bodies() {
++                    let r = p.u.rec(i);
++                    if !r.alive { continue; }
++                    let mut st = r.b.readout(t).unwrap();
++                    if checked % 2 == 0 {
++                        st.position = st.position.map(|x| x.checked_mul(2).unwrap());
++                        st.velocity = st.velocity.map(|x| x.checked_mul(2).unwrap());
++                        st.length_exponent -= 1;
++                        st.velocity_exponent -= 1;
++                    }
++                    let d = &p.u.dolls[r.b.doll as usize];
++                    let unit = p.u.ctx().tube_unit(i, r.b.doll).unwrap();
++                    let edge = crate::step::passage_edge(&p.u.ctx(), r.b.doll);
++                    let first = bind_in(st, t, r.b.clock_exp, edge, unit, Some(d.surface)).unwrap();
++                    // The original compile-first formula, independent of the new helper.
++                    let (len, vel) = if let Trajectory::Plunge(arc) = &first.entry.trajectory {
++                        (first.entry.unit.to_doll(arc.initial_radius()).unwrap().exponent() as i32 - 60,
++                         arc.speed_bound().unwrap().scale(1).unwrap().exponent() as i32 - 60)
++                    } else {
++                        let key = first.entry.trajectory.key().unwrap();
++                        let k = key.shape().unwrap();
++                        let radius = match &first.entry.trajectory {
++                            Trajectory::Cycle(_) => key.periapsis.div(k.scale(1).unwrap().sub(Scalar::ONE).unwrap()).unwrap(),
++                            Trajectory::Passage(p) => p.outer_radius,
++                            _ => unreachable!(),
++                        };
++                        let speed = Scalar::ONE.div(key.periapsis.mul(k).unwrap()).unwrap().sqrt().unwrap().scale(1).unwrap();
++                        (radius.exponent() as i32 - 60, speed.exponent() as i32 - 60)
++                    };
++                    let expected = if len > st.length_exponent as i32 || vel > st.velocity_exponent as i32 {
++                        coarsened += 1;
++                        bind_in(coarsen(st, len.max(st.length_exponent as i32), vel.max(st.velocity_exponent as i32)), t, r.b.clock_exp, edge, unit, Some(d.surface)).unwrap()
++                    } else { first };
++                    let got = bind_surface(st, t, r.b.clock_exp, edge, unit, Some(d.surface)).unwrap();
++                    assert_eq!(got.units, expected.units);
++                    assert_eq!(got.tube, expected.tube);
++                    assert_eq!(got.residual, expected.residual);
++                    assert_eq!(got.turn, expected.turn);
++                    assert_eq!(got.orbit, expected.orbit);
++                    assert_eq!(got.entry.trajectory.key(), expected.entry.trajectory.key());
++                    checked += 1;
++                }
++            }
++        }
++        println!("old/new exact fits: {checked}, requiring coarsening: {coarsened}");
++        assert!(checked > 300 && coarsened > 0, "checked {checked}, coarsened {coarsened}");
++    }
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index a0f8f6c5..e0b77085 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -47,9 +47,9 @@ pub struct Thrust {
+     pub level: u8,
+     /// Heading in turns, Q32.
+     pub heading: u32,
+-    /// When the thrust now held started counting (the last flush), in ticks.
++    /// Origin of the burn's clock ledger, moved through gravity rebindings, in ticks.
+     pub since: Tick,
+-    /// Proper time paid ahead by the last centred impulse (root units).
++    /// Credit at `since` in proper root units: positive prepaid time, negative unpaid time.
+     pub ahead: Scalar,
+     /// Current burn cadence after caps, and whole-step kicks since the decision.
+     pub cadence_step: i64,
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index 15785824..09c9d95f 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -38,6 +38,7 @@ pub struct Config {
+     pub step_log2: i32,
+     /// The first burn interval moves at most `2^-thrust_quantum_log2` of the local speed;
+     /// later intervals grow geometrically, capped at that absolute rapidity quantum.
++    /// Refinement above the shipped quantum also subdivides the geometric ramp.
+     pub thrust_quantum_log2: i32,
+ }
+ impl Default for Config {
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 0230c790..7989e803 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -324,6 +324,28 @@ pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar
+     Ok(tau.scale(-(shift as i32))?)
+ }
+ 
++/// The potentially impacting coast a decision at `t` would leave: reconcile prepaid
++/// proper time without changing the record. The plan and HUD judge this course.
++pub(crate) fn impact_course(ctx: &Ctx, i: usize, rec: &BodyRec, t: Tick) -> Res<Option<Binding>> {
++    let Some(th) = rec.thrust.filter(|th| th.keys & 3 == 1 || th.keys & 3 == 2) else {
++        return Ok(Some(rec.b.clone()));
++    };
++    let doll = &ctx.dolls[rec.b.doll as usize];
++    let dtau = proper_since(&rec.b, doll.shift, th.since, t)?.sub(th.ahead)?;
++    if dtau.is_zero() { return Ok(Some(rec.b.clone())); }
++    let st = rec.b.readout(t)?;
++    let (x, v) = scalars(&st)?;
++    let (_, v) = thrust::owed(ctx.cfg, th, dtau, x, v, doll.unit.mu)?;
++    let q = |c: usize| -> Res<i64> {
++        i64::try_from(v[c].fixed(-(st.velocity_exponent as i32))?).map_err(|_| Error::Refused("velocity outside the word"))
++    };
++    let st = IntegerState { velocity: [q(0)?, q(1)?], ..st };
++    let Some(fit) = crate::bind::bind_impact(st, t, rec.b.clock_exp, passage_edge(ctx, rec.b.doll), ctx.tube_unit(i, rec.b.doll)?, doll.surface)? else { return Ok(None) };
++    Ok(Some(Binding { doll: rec.b.doll, tube: fit.tube, entry: fit.entry, residual: fit.residual,
++        turn: fit.turn, units: fit.units, clock_exp: rec.b.clock_exp, event_time: t,
++        kick: Kick::NONE, impact: None }))
++}
++
+ /// Passage tubes are compiled out to four sphere-of-influence radii: past the edge the ship has
+ /// been released long before the tube ends.
+ pub(crate) fn passage_edge(ctx: &Ctx, doll: u16) -> Option<Scalar> {
+@@ -357,6 +379,13 @@ impl Work<'_, '_> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
+         let old = &self.rec.b;
++        // A gravity rebind is not a burn payment. Move the clock ledger to the
++        // new binding, carrying any prepaid credit (or unpaid debt) through it.
++        if let Some(th) = self.rec.thrust.as_mut().filter(|th| th.keys != 0 && th.since < t) {
++            let elapsed = proper_since(old, self.ctx.dolls[old.doll as usize].shift, th.since, t)?;
++            th.ahead = th.ahead.sub(elapsed)?;
++            th.since = t;
++        }
+         // The tube's length since the last binding is the body's clock reading (root units).
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+@@ -417,9 +446,10 @@ impl Work<'_, '_> {
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // Only the tide enters the observation ramp; the burn keeps its prepaid proper-time account.
+         let added;
+-        let next = if thrusting {
+-            // At every level: the tide, then the burn's signed payment through this interval's end.
+-            let v2 = self.burn(x, add2(v, dv)?, t, t + (self.rec.interval >> (2 * level as i64)) / 2)?;
++        let next = if thrusting && level == 0 {
++            // The burn is paid at its whole interval's midpoint. Gravity's finer
++            // substeps keep their own impulses and carry the unpaid clock through rebind.
++            let v2 = self.burn(x, add2(v, dv)?, t, t + self.rec.interval / 2)?;
+             added = dv;
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
+@@ -518,6 +548,14 @@ impl Work<'_, '_> {
+     /// so a stale impact never outlives the orbit it was read from; the item is re-checked at its tick all the same.
+     fn plan_terminal(&mut self, t: Tick) -> Res<()> {
+         self.rec.plan.retain(|item| item.what != What::Crash);
++        if self.rec.thrust.is_some_and(|th| th.keys & 3 == 1 || th.keys & 3 == 2) {
++            if let Some(course) = impact_course(self.ctx, self.i, &self.rec, t)? {
++                if let Some(tick) = next_impact(&course, self.doll().surface, t)? {
++                    insert(&mut self.rec.plan, Item { t: tick.max(t + 1), what: What::Crash });
++                }
++            }
++            return Ok(());
++        }
+         if let Some(tick) = self.rec.b.terminal_tick()? {
+             insert(&mut self.rec.plan, Item { t: tick, what: What::Crash });
+         } else if self.rec.kind != Kind::Planet
+@@ -679,9 +717,12 @@ impl Work<'_, '_> {
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
+-        let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+-        let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
++        // A held burn caps the physical interval. Its gravity kick represents that
++        // interval, not the unshortened fictitious tick the coast would have taken.
++        let w = if thrusting { time_of(self.rec.interval, self.rec.b.clock_exp)? }
++            else { ext.time(ext.y(f.potential)?, ext.ds)? };
++        let dv = scale2(f.accel, w)?;
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+             let v2 = self.burn(x, add2(v, dv)?, t, t + self.rec.interval / 2)?;
+@@ -759,11 +800,15 @@ impl Work<'_, '_> {
+     fn burn_kicked(&mut self) {
+         if let Some(th) = self.rec.thrust.as_mut().filter(|th| th.keys != 0) {
+             th.kicks = th.kicks.saturating_add(1);
+-            if th.kicks % 3 == 0 { th.cadence_step = th.cadence_step.saturating_mul(2); }
++            // Refining a kick also subdivides the geometric ramp. Otherwise extra tiny
++            // startup kicks regrow the same early intervals, so a "finer" burn is not finer.
++            let refinement = (self.ctx.cfg.thrust_quantum_log2 - crate::ctx::Config::default().thrust_quantum_log2).clamp(0, 28);
++            let per_double = 3u32 << refinement;
++            if th.kicks % per_double == 0 { th.cadence_step = th.cadence_step.saturating_mul(2); }
+         }
+     }
+ 
+-    /// Start with the speed-fraction step; double only every third whole-step kick.
++    /// Start with the speed-fraction step; shipped growth doubles every third whole-step kick.
+     /// The radial dynamics and absolute rapidity quantum cap every interval.
+     fn thrust_step(&mut self, t: Tick) -> Res<i64> {
+         let mut th = self.rec.thrust.expect("held thrust");
+@@ -964,6 +1009,57 @@ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+ mod tests {
+     use super::*;
+ 
++    #[test]
++    fn gravity_rebindings_carry_the_burns_unpaid_clock() {
++        use crate::{fleet::Order, scenario::plane, Config};
++        let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
++        p.u.settle(2_000_000);
++        p.u.input(p.u.now, thrust::word(1, 8)).unwrap();
++        let mid = p.u.rec(p.player).plan.iter().find(|i| i.what == What::Kick(0)).unwrap().t;
++        p.u.settle(mid);
++        let before = p.u.rec(p.player);
++        let th = before.thrust.unwrap();
++        let at = mid + 1234;
++        let elapsed = proper_since(&before.b, p.u.dolls[before.b.doll as usize].shift, th.since, at).unwrap();
++        let ctx = p.u.ctx();
++        let mut w = Work { ctx: &ctx, i: p.player, rec: before, retired: Vec::new(), new_entry: None };
++        let mut st = w.rec.b.readout(at).unwrap();
++        st.velocity[0] += 1; // a separate gravity impulse, with no burn payment
++        w.rebind(st, at, w.rec.b.doll).unwrap();
++        let carried = w.rec.thrust.unwrap();
++        assert_eq!(carried.since, at);
++        assert_eq!(carried.ahead, th.ahead.sub(elapsed).unwrap());
++        assert_eq!((carried.heading, carried.kicks), (th.heading, th.kicks));
++        let read = at + 1234;
++        let rest = proper_since(&w.rec.b, ctx.dolls[w.rec.b.doll as usize].shift, at, read).unwrap();
++        let dtau = elapsed.add(rest).unwrap().sub(th.ahead).unwrap();
++        let (x, v) = w.rec.b.cartesian(read).unwrap();
++        let (heading, want) = thrust::owed(ctx.cfg, th, dtau, x, v, ctx.dolls[w.rec.b.doll as usize].unit.mu).unwrap();
++        let (got_heading, dv) = crate::observe::held_thrust(&ctx, &w.rec, read).unwrap().unwrap();
++        assert_eq!(heading, got_heading);
++        for c in 0..2 { assert!((crate::num::to_f64(v[c]) + dv[c] - crate::num::to_f64(want[c])).abs() < 1e-18); }
++    }
++
++    #[test]
++    fn a_zero_gravity_substep_does_not_make_a_burn_payment() {
++        use crate::{fleet::Order, scenario::plane, Config};
++        let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
++        p.u.settle(2_000_000);
++        p.u.input(p.u.now, thrust::word(1, 8)).unwrap();
++        let mid = p.u.rec(p.player).plan.iter().find(|i| i.what == What::Kick(0)).unwrap().t;
++        p.u.settle(mid);
++        let mut rec = p.u.rec(p.player);
++        let b = rec.b.clone();
++        let th = rec.thrust;
++        rec.plan = vec![Item { t: mid + 1234, what: What::Kick(3) }];
++        let update = process(&p.u.ctx(), p.player, rec);
++        assert_eq!(update.kind, Resolved::Kick);
++        assert!(update.new_entry.is_none());
++        assert_eq!(update.rec.b.event_time, b.event_time);
++        assert_eq!(update.rec.thrust, th);
++        assert_eq!(update.rec.refusals, 0);
++    }
++
+     /// The passage's analytic guess finds the tick the bisection finds: for every member the plane hands out
+     /// (passages and cycles, from every state the frame hands over), from periapsis and from the binding event.
+     #[test]
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..0f9a774f 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -429,8 +429,9 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+ /// better than a wrong one: the engine's own refusal is shown elsewhere).
+ fn impact_course(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> Option<Impact> {
+     let doll = &u.dolls[rec.b.doll as usize];
+-    let tick = crate::step::next_impact(&rec.b, doll.surface, t_now.max(rec.b.event_time)).ok().flatten()?;
+-    let (x, v) = rec.b.cartesian(tick).ok()?;
++    let course = crate::step::impact_course(&u.ctx(), u.player()?, rec, t_now.max(rec.b.event_time)).ok()??;
++    let tick = crate::step::next_impact(&course, doll.surface, t_now.max(course.event_time)).ok().flatten()?;
++    let (x, v) = course.cartesian(tick).ok()?;
+     let (x, v) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
+     let r = dot(x, x).sqrt().max(1e-300);
+     Some(Impact { body: doll.name, tick, seconds: (tick - t_now).max(0) as f64 * TICK_SECONDS, at: [x[0] / r, x[1] / r], speed: dot(v, v).sqrt() })
+diff --git a/crates/universe/tests/burst.rs b/crates/universe/tests/burst.rs
+index a6bb211b..6acb5122 100644
+--- a/crates/universe/tests/burst.rs
++++ b/crates/universe/tests/burst.rs
+@@ -98,3 +98,46 @@ fn the_dynamics_cap_does_not_bank_doublings_for_a_later_jump() {
+     }
+     assert_eq!(p.u.rec(p.player).refusals, 0);
+ }
++
++#[test]
++fn refining_the_quantum_refines_the_early_geometric_ramp_too() {
++    let mut steps = Vec::new();
++    for finer in [0, 4] {
++        let d = Config::default();
++        let cfg = Config { step_log2: d.step_log2 + finer, thrust_quantum_log2: d.thrust_quantum_log2 + finer, ..d };
++        let mut p = plane(cfg, 5, Order::Sparse, 1, 8).unwrap();
++        p.u.settle(2_000_000);
++        p.u.input(p.u.now, word(1, 4)).unwrap();
++        p.u.settle(2_000_000 + (100.0 / emergent_universe::view::TICK_SECONDS) as i64);
++        steps.push(p.u.rec(p.player).interval);
++        assert_eq!(p.u.rec(p.player).refusals, 0);
++    }
++    assert!(steps[1] <= steps[0] / 8, "16x refinement regrew the shipped ramp: {steps:?}");
++}
++
++#[test]
++fn a_shortened_root_interval_pays_only_its_own_gravity() {
++    use emergent_universe::{body::What, force, num::{scale2, time_of}};
++    let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
++    p.u.input(0, word(1, 15)).unwrap();
++    p.u.settle((200.0 / emergent_universe::view::TICK_SECONDS) as i64);
++    assert_eq!(p.u.rec(p.player).b.doll, 0);
++    // Opposite turn keys cancel; the held decision still caps the clock interval.
++    p.u.input(p.u.now, word(12, 8)).unwrap();
++    let rec = p.u.rec(p.player);
++    let mid = rec.plan.iter().find(|i| i.what == What::Kick(0)).unwrap().t;
++    p.u.settle(mid - 1);
++    let rec = p.u.rec(p.player);
++    let (x, v) = rec.b.cartesian(mid).unwrap();
++    let ctx = p.u.ctx();
++    let field = force::field(&ctx.secondaries(0, mid, p.player).unwrap(), x).unwrap();
++    let dv = scale2(field.accel, time_of(rec.interval, rec.b.clock_exp).unwrap()).unwrap();
++    let ext = rec.ext.unwrap();
++    assert!(ext.time(ext.y(field.potential).unwrap(), ext.ds).unwrap() > time_of(rec.interval * 2, rec.b.clock_exp).unwrap(), "the control must actually shorten the clock");
++    p.u.settle(mid);
++    let (_, got) = p.u.rec(p.player).b.cartesian(mid).unwrap();
++    for c in 0..2 {
++        assert!((to_f64(got[c]) - to_f64(v[c]) - to_f64(dv[c])).abs() < 1e-15);
++    }
++    assert_eq!(p.u.rec(p.player).refusals, 0);
++}
+diff --git a/crates/universe/tests/flight.rs b/crates/universe/tests/flight.rs
+index 725c0fe4..8b43d3dc 100644
+--- a/crates/universe/tests/flight.rs
++++ b/crates/universe/tests/flight.rs
+@@ -104,11 +104,17 @@ fn frame(p: &mut Plane, rtf: f64) -> View {
+     gather(&p.u, &p.names).expect("the player has a view")
+ }
+ 
+-/// The certificate the engine plans its impact from: the tube's periapsis is under the surface of its doll.
++/// The certificate the engine plans its impact from: the reconciled coast's periapsis is under the surface.
++/// A centred kick's raw tube includes prepaid thrust; cutting at the reading refunds it.
+ fn under_surface(p: &Plane) -> bool {
+     let rec = p.u.rec(p.player);
++    // Independently exercise the actual cut path; do not use the HUD's course helper as its oracle.
++    let level = rec.thrust.unwrap().level;
++    let cut = emergent_universe::step::decide(&p.u.ctx(), p.player, rec.clone(), p.u.now, word(0, level));
++    assert_eq!(cut.rec.refusals, rec.refusals, "the warning's hypothetical cut must succeed");
++    let b = cut.rec.b;
+     // a turning tube whose periapsis is under it, or a plunge (an arc that ends at it)
+-    rec.b.entry.trajectory.key().is_none_or(|k| rec.b.to_doll(k.periapsis).unwrap() < p.u.dolls[rec.b.doll as usize].surface)
++    b.entry.trajectory.key().is_none_or(|k| b.to_doll(k.periapsis).unwrap() < p.u.dolls[b.doll as usize].surface)
+ }
+ 
+ fn planned_crash(p: &Plane) -> bool {
+diff --git a/crates/universe/tests/t1_burn.rs b/crates/universe/tests/t1_burn.rs
+index 0ec4b2fe..0b7d6799 100644
+--- a/crates/universe/tests/t1_burn.rs
++++ b/crates/universe/tests/t1_burn.rs
+@@ -3,8 +3,9 @@
+ //! bounded error that shrinks as the cadence refines.
+ //!
+ //! The scene: the plane (seed 5), the player on its starting orbit about Home; at 10 s it burns, forward at levels 0, 4, 8,
+-//! 12 and 15 for 2,000 s (from doubling the orbital speed to 0.64 c), and in reverse at levels 0, 4 and 8 for half the time
+-//! the burn takes to stop the ship (it slows, it does not fall); then it coasts 100 s. The reading: the root-frame position
++//! 12 and 15 for 2,000 s (from doubling the orbital speed to 0.64 c), and in reverse at levels 0, 4 and 8.
++//! Amendment (the integrator, 14 October): the reverse L0 burn lasts 0.02·v₀/a (it loses 2% of its speed and stays up past the reading); reverse L4 and L8 keep 0.5·v₀/a.
++//! Then it coasts 100 s. The reading: the root-frame position
+ //! and velocity at the end of the coast. The reference is the same flight at a cadence 64 times finer (2^6 more kicks per
+ //! radial period and a thrust quantum 2^6 smaller); the error is the distance to the reference over what the burn itself
+ //! moved the ship (its distance to the flight that never burned), in position and in velocity.
+@@ -21,15 +22,25 @@
+ //! harness then lost the reverse L0 coast (the ship not alive at the reading, no refusal) and the run took 137 s. The harness
+ //! is repaired and split to fit 60 s by the job that changes the cadence (`artifacts/runs/burst/prompt.md`); the criteria
+ //! above do not change.
+-//! Centred payment + capped geometric cadence (this job): forward shipped position errors are
++//! First pass, centred payment + capped geometric cadence (13 October): forward shipped position errors are
+ //! 2.66e-4, 2.23e-4, 5.67e-4, 1.36e-4, 1.29e-5 at L0/4/8/12/15; velocity errors are
+ //! 3.12e-4, 6.86e-5, 2.09e-5, 3.82e-6, 5.42e-6. Reverse L4/L8 position errors are 7.55e-4/2.03e-4,
+ //! velocity 2.61e-5/3.16e-6. All readable shipped burns pass the 3e-2 accuracy limit, but T1 is FAIL:
+ //! forward L4 fails convergence in both readings; L8 fails position convergence. The reverse L0 reference
+ //! hits Home during the burn (~700 s world time, 7.51 km/s), before its 1,239 s cut. The old harness cut
+ //! the already lost ship and rebound its wreck, hiding the real loss time; it now reports loss before cutting.
+-//! Criteria, scene, burn durations and coast are unchanged. Nine split tests take 48.50 s in total in
++//! That first pass kept the original scene and durations. Its nine split tests took 48.50 s in total in
+ //! artifacts/runs/burst/t1-after.txt (therefore each is below 60 s); the coarse control fails at forward L0.
++//!
++//! Continuation (20 October): only the authorised L0 duration amendment above changes the scene.
++//! Refinement now subdivides the geometric ramp: previously 16x finer regrew the shipped 20.659 s
++//! interval at 100 s. Root-doll gravity pays the shortened burn interval, not the full fictitious tick
++//! (the previous weight reached 518 times the interval). No numerical criterion changed.
++//! Final shipped position/velocity errors, forward L0/4/8/12/15:
++//! 3.86e-4/3.60e-4, 2.26e-4/7.39e-5, 5.81e-4/1.85e-6, 1.34e-4/2.29e-6, 1.24e-5/5.25e-6.
++//! Reverse L0/4/8: 6.92e-4/3.69e-5, 7.55e-4/2.61e-5, 2.04e-4/3.19e-6.
++//! T1 PASS, 9/9; 44.69 s total, longest individual 10.51 s. The coarse control still fails at L0.
++//! Full measurements: artifacts/runs/burst2/suite-final.txt and test-times-final.json.
+ use emergent_universe::fleet::Order;
+ use emergent_universe::observe::root_state;
+ use emergent_universe::scenario::plane;
+@@ -106,7 +117,7 @@ fn check_burn(keys: u8, level: u8) {
+     let seconds = if keys == 1 {
+         2000.0
+     } else {
+-        0.5 * v0 / (g_of(&d, level) * 9.806_65)
++        (if level == 0 { 0.02 } else { 0.5 }) * v0 / (g_of(&d, level) * 9.806_65)
+     };
+     let burns = [(keys, level, seconds)];
+     let mut failures = Vec::new();
+@@ -205,7 +216,7 @@ fn t1_coarse_control() {
+     let burns = [0u8, 4, 8, 12, 15]
+         .map(|l| (1, l, 2000.0))
+         .into_iter()
+-        .chain([0u8, 4, 8].map(|l| (2, l, 0.5 * v0 / (g_of(&d, l) * 9.806_65))));
++        .chain([0u8, 4, 8].map(|l| (2, l, (if l == 0 { 0.02 } else { 0.5 }) * v0 / (g_of(&d, l) * 9.806_65))));
+     for (keys, level, seconds) in burns {
+         let coast = fly(d, 0, 0, seconds).unwrap();
+         let reference = fly(cadence(6), keys, level, seconds).unwrap();

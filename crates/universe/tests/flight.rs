@@ -104,11 +104,17 @@ fn frame(p: &mut Plane, rtf: f64) -> View {
     gather(&p.u, &p.names).expect("the player has a view")
 }
 
-/// The certificate the engine plans its impact from: the tube's periapsis is under the surface of its doll.
+/// The certificate the engine plans its impact from: the reconciled coast's periapsis is under the surface.
+/// A centred kick's raw tube includes prepaid thrust; cutting at the reading refunds it.
 fn under_surface(p: &Plane) -> bool {
     let rec = p.u.rec(p.player);
+    // Independently exercise the actual cut path; do not use the HUD's course helper as its oracle.
+    let level = rec.thrust.unwrap().level;
+    let cut = emergent_universe::step::decide(&p.u.ctx(), p.player, rec.clone(), p.u.now, word(0, level));
+    assert_eq!(cut.rec.refusals, rec.refusals, "the warning's hypothetical cut must succeed");
+    let b = cut.rec.b;
     // a turning tube whose periapsis is under it, or a plunge (an arc that ends at it)
-    rec.b.entry.trajectory.key().is_none_or(|k| rec.b.to_doll(k.periapsis).unwrap() < p.u.dolls[rec.b.doll as usize].surface)
+    b.entry.trajectory.key().is_none_or(|k| b.to_doll(k.periapsis).unwrap() < p.u.dolls[b.doll as usize].surface)
 }
 
 fn planned_crash(p: &Plane) -> bool {

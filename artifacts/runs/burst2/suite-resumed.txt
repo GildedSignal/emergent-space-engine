@@ -1,0 +1,29 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/crates/space)
+   Compiling emergent-engine v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/crates/engine)
+   Compiling emergent-universe v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/crates/universe)
+error: this file contains an unclosed delimiter
+   --> crates/universe/src/bind.rs:393:3
+    |
+193 | pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
+    |                                                   - unclosed delimiter
+...
+200 |     let r_max = match &entry.trajectory {
+    |                                         - this delimiter might not be properly closed...
+...
+210 | }
+    | - ...as it matches this but it has different indentation
+...
+393 | }
+    |  ^
+
+error: could not compile `emergent-universe` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

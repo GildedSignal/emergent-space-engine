@@ -324,6 +324,28 @@ pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar
     Ok(tau.scale(-(shift as i32))?)
 }
 
+/// The potentially impacting coast a decision at `t` would leave: reconcile prepaid
+/// proper time without changing the record. The plan and HUD judge this course.
+pub(crate) fn impact_course(ctx: &Ctx, i: usize, rec: &BodyRec, t: Tick) -> Res<Option<Binding>> {
+    let Some(th) = rec.thrust.filter(|th| th.keys & 3 == 1 || th.keys & 3 == 2) else {
+        return Ok(Some(rec.b.clone()));
+    };
+    let doll = &ctx.dolls[rec.b.doll as usize];
+    let dtau = proper_since(&rec.b, doll.shift, th.since, t)?.sub(th.ahead)?;
+    if dtau.is_zero() { return Ok(Some(rec.b.clone())); }
+    let st = rec.b.readout(t)?;
+    let (x, v) = scalars(&st)?;
+    let (_, v) = thrust::owed(ctx.cfg, th, dtau, x, v, doll.unit.mu)?;
+    let q = |c: usize| -> Res<i64> {
+        i64::try_from(v[c].fixed(-(st.velocity_exponent as i32))?).map_err(|_| Error::Refused("velocity outside the word"))
+    };
+    let st = IntegerState { velocity: [q(0)?, q(1)?], ..st };
+    let Some(fit) = crate::bind::bind_impact(st, t, rec.b.clock_exp, passage_edge(ctx, rec.b.doll), ctx.tube_unit(i, rec.b.doll)?, doll.surface)? else { return Ok(None) };
+    Ok(Some(Binding { doll: rec.b.doll, tube: fit.tube, entry: fit.entry, residual: fit.residual,
+        turn: fit.turn, units: fit.units, clock_exp: rec.b.clock_exp, event_time: t,
+        kick: Kick::NONE, impact: None }))
+}
+
 /// Passage tubes are compiled out to four sphere-of-influence radii: past the edge the ship has
 /// been released long before the tube ends.
 pub(crate) fn passage_edge(ctx: &Ctx, doll: u16) -> Option<Scalar> {
@@ -518,6 +540,14 @@ impl Work<'_, '_> {
     /// so a stale impact never outlives the orbit it was read from; the item is re-checked at its tick all the same.
     fn plan_terminal(&mut self, t: Tick) -> Res<()> {
         self.rec.plan.retain(|item| item.what != What::Crash);
+        if self.rec.thrust.is_some_and(|th| th.keys & 3 == 1 || th.keys & 3 == 2) {
+            if let Some(course) = impact_course(self.ctx, self.i, &self.rec, t)? {
+                if let Some(tick) = next_impact(&course, self.doll().surface, t)? {
+                    insert(&mut self.rec.plan, Item { t: tick.max(t + 1), what: What::Crash });
+                }
+            }
+            return Ok(());
+        }
         if let Some(tick) = self.rec.b.terminal_tick()? {
             insert(&mut self.rec.plan, Item { t: tick, what: What::Crash });
         } else if self.rec.kind != Kind::Planet
@@ -679,9 +709,12 @@ impl Work<'_, '_> {
         }
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let f = force::field(&secs, x)?;
-        let w = ext.time(ext.y(f.potential)?, ext.ds)?;
-        let dv = scale2(f.accel, w)?;
         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+        // A held burn caps the physical interval. Its gravity kick represents that
+        // interval, not the unshortened fictitious tick the coast would have taken.
+        let w = if thrusting { time_of(self.rec.interval, self.rec.b.clock_exp)? }
+            else { ext.time(ext.y(f.potential)?, ext.ds)? };
+        let dv = scale2(f.accel, w)?;
         let (next, carry) = if thrusting {
             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
             let v2 = self.burn(x, add2(v, dv)?, t, t + self.rec.interval / 2)?;
@@ -759,11 +792,15 @@ impl Work<'_, '_> {
     fn burn_kicked(&mut self) {
         if let Some(th) = self.rec.thrust.as_mut().filter(|th| th.keys != 0) {
             th.kicks = th.kicks.saturating_add(1);
-            if th.kicks % 3 == 0 { th.cadence_step = th.cadence_step.saturating_mul(2); }
+            // Refining a kick also subdivides the geometric ramp. Otherwise extra tiny
+            // startup kicks regrow the same early intervals, so a "finer" burn is not finer.
+            let refinement = (self.ctx.cfg.thrust_quantum_log2 - crate::ctx::Config::default().thrust_quantum_log2).clamp(0, 28);
+            let per_double = 3u32 << refinement;
+            if th.kicks % per_double == 0 { th.cadence_step = th.cadence_step.saturating_mul(2); }
         }
     }
 
-    /// Start with the speed-fraction step; double only every third whole-step kick.
+    /// Start with the speed-fraction step; shipped growth doubles every third whole-step kick.
     /// The radial dynamics and absolute rapidity quantum cap every interval.
     fn thrust_step(&mut self, t: Tick) -> Res<i64> {
         let mut th = self.rec.thrust.expect("held thrust");

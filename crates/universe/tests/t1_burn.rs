@@ -3,8 +3,9 @@
 //! bounded error that shrinks as the cadence refines.
 //!
 //! The scene: the plane (seed 5), the player on its starting orbit about Home; at 10 s it burns, forward at levels 0, 4, 8,
-//! 12 and 15 for 2,000 s (from doubling the orbital speed to 0.64 c), and in reverse at levels 0, 4 and 8 for half the time
-//! the burn takes to stop the ship (it slows, it does not fall); then it coasts 100 s. The reading: the root-frame position
+//! 12 and 15 for 2,000 s (from doubling the orbital speed to 0.64 c), and in reverse at levels 0, 4 and 8.
+//! Amendment (the integrator, 14 October): the reverse L0 burn lasts 0.02·v₀/a (it loses 2% of its speed and stays up past the reading); reverse L4 and L8 keep 0.5·v₀/a.
+//! Then it coasts 100 s. The reading: the root-frame position
 //! and velocity at the end of the coast. The reference is the same flight at a cadence 64 times finer (2^6 more kicks per
 //! radial period and a thrust quantum 2^6 smaller); the error is the distance to the reference over what the burn itself
 //! moved the ship (its distance to the flight that never burned), in position and in velocity.
@@ -21,15 +22,25 @@
 //! harness then lost the reverse L0 coast (the ship not alive at the reading, no refusal) and the run took 137 s. The harness
 //! is repaired and split to fit 60 s by the job that changes the cadence (`artifacts/runs/burst/prompt.md`); the criteria
 //! above do not change.
-//! Centred payment + capped geometric cadence (this job): forward shipped position errors are
+//! First pass, centred payment + capped geometric cadence (13 October): forward shipped position errors are
 //! 2.66e-4, 2.23e-4, 5.67e-4, 1.36e-4, 1.29e-5 at L0/4/8/12/15; velocity errors are
 //! 3.12e-4, 6.86e-5, 2.09e-5, 3.82e-6, 5.42e-6. Reverse L4/L8 position errors are 7.55e-4/2.03e-4,
 //! velocity 2.61e-5/3.16e-6. All readable shipped burns pass the 3e-2 accuracy limit, but T1 is FAIL:
 //! forward L4 fails convergence in both readings; L8 fails position convergence. The reverse L0 reference
 //! hits Home during the burn (~700 s world time, 7.51 km/s), before its 1,239 s cut. The old harness cut
 //! the already lost ship and rebound its wreck, hiding the real loss time; it now reports loss before cutting.
-//! Criteria, scene, burn durations and coast are unchanged. Nine split tests take 48.50 s in total in
+//! That first pass kept the original scene and durations. Its nine split tests took 48.50 s in total in
 //! artifacts/runs/burst/t1-after.txt (therefore each is below 60 s); the coarse control fails at forward L0.
+//!
+//! Continuation (20 October): only the authorised L0 duration amendment above changes the scene.
+//! Refinement now subdivides the geometric ramp: previously 16x finer regrew the shipped 20.659 s
+//! interval at 100 s. Root-doll gravity pays the shortened burn interval, not the full fictitious tick
+//! (the previous weight reached 518 times the interval). No numerical criterion changed.
+//! Final shipped position/velocity errors, forward L0/4/8/12/15:
+//! 3.86e-4/3.60e-4, 2.26e-4/7.39e-5, 5.81e-4/1.85e-6, 1.34e-4/2.29e-6, 1.24e-5/5.25e-6.
+//! Reverse L0/4/8: 6.92e-4/3.69e-5, 7.55e-4/2.61e-5, 2.04e-4/3.19e-6.
+//! T1 PASS, 9/9; 44.69 s total, longest individual 10.51 s. The coarse control still fails at L0.
+//! Full measurements: artifacts/runs/burst2/suite-final.txt and test-times-final.json.
 use emergent_universe::fleet::Order;
 use emergent_universe::observe::root_state;
 use emergent_universe::scenario::plane;
@@ -106,7 +117,7 @@ fn check_burn(keys: u8, level: u8) {
     let seconds = if keys == 1 {
         2000.0
     } else {
-        0.5 * v0 / (g_of(&d, level) * 9.806_65)
+        (if level == 0 { 0.02 } else { 0.5 }) * v0 / (g_of(&d, level) * 9.806_65)
     };
     let burns = [(keys, level, seconds)];
     let mut failures = Vec::new();
@@ -205,7 +216,7 @@ fn t1_coarse_control() {
     let burns = [0u8, 4, 8, 12, 15]
         .map(|l| (1, l, 2000.0))
         .into_iter()
-        .chain([0u8, 4, 8].map(|l| (2, l, 0.5 * v0 / (g_of(&d, l) * 9.806_65))));
+        .chain([0u8, 4, 8].map(|l| (2, l, (if l == 0 { 0.02 } else { 0.5 }) * v0 / (g_of(&d, l) * 9.806_65))));
     for (keys, level, seconds) in burns {
         let coast = fly(d, 0, 0, seconds).unwrap();
         let reference = fly(cadence(6), keys, level, seconds).unwrap();

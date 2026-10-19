@@ -1,0 +1,43 @@
+CASE coast budgeted
+rtf 100, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+coast                                true        0   0.000028    1.099   0.967         -     9.70    0.000   late=0 max_kicks=9 lag_ticks=0 frames=1200
+burn, coast, brake L2                true        0   0.000048    1.099   0.967         -     6.41    0.000   late=0 max_kicks=9 lag_ticks=0 frames=1200
+burn, coast, brake L8                true        0   0.001503    1.099   0.968         -     7.32    0.000   late=0 max_kicks=9 lag_ticks=0 frames=1200
+elapsed=3.008s exit=0
+CASE coast demand
+rtf 100, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+coast                                true        0   0.000028    1.099   0.967         -     6.52    0.000   late=0 max_kicks=9 lag_ticks=0 frames=1200
+burn, coast, brake L2                true        0   0.000048    1.099   0.967         -     6.86    0.000   late=0 max_kicks=9 lag_ticks=0 frames=1200
+burn, coast, brake L8                true        0   0.001503    1.099   0.968         -     6.99    0.000   late=0 max_kicks=9 lag_ticks=0 frames=1200
+elapsed=2.610s exit=0
+CASE throttle sweep budgeted
+rtf 100, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+LAG frame=510 wall=8.500000 elapsed_ms=11.649625 lag_ticks=325733 costs_ns=[0, 0, 0, 11623374, 118496] items=[0, 0, 0, 24, 24] bodies=71 kicks=21 target=172909625 presented=172583892
+LAG frame=511 wall=8.516667 elapsed_ms=11.548542 lag_ticks=325732 costs_ns=[0, 0, 0, 11538042, 121917] items=[0, 0, 0, 25, 25] bodies=71 kicks=21 target=172922267 presented=172596535
+LAG frame=512 wall=8.533333 elapsed_ms=11.511250 lag_ticks=280319 costs_ns=[0, 0, 0, 11499958, 151666] items=[0, 0, 0, 32, 31] bodies=71 kicks=20 target=172934910 presented=172654591
+LAG frame=513 wall=8.550000 elapsed_ms=11.527458 lag_ticks=215495 costs_ns=[0, 0, 0, 11516041, 148960] items=[0, 0, 0, 35, 30] bodies=71 kicks=20 target=172992966 presented=172777471
+LAG frame=514 wall=8.566667 elapsed_ms=11.515000 lag_ticks=215495 costs_ns=[0, 0, 0, 11503294, 154539] items=[0, 0, 0, 35, 31] bodies=71 kicks=20 target=173115846 presented=172900351
+LAG frame=515 wall=8.583333 elapsed_ms=11.676917 lag_ticks=190919 costs_ns=[0, 0, 0, 11665209, 156083] items=[0, 0, 0, 36, 31] bodies=71 kicks=21 target=173238726 presented=173047807
+LAG frame=516 wall=8.600000 elapsed_ms=11.611333 lag_ticks=92615 costs_ns=[0, 0, 0, 11599711, 151206] items=[0, 0, 0, 35, 30] bodies=71 kicks=20 target=173386182 presented=173293567
+LAG frame=517 wall=8.616667 elapsed_ms=11.588583 lag_ticks=76231 costs_ns=[0, 0, 0, 11577165, 155872] items=[0, 0, 0, 36, 31] bodies=71 kicks=20 target=173631942 presented=173555711
+throttle sweep 0→15→0                true        0   0.072165    1.099   1.034         -    11.68    1.604   late=0 max_kicks=21 lag_ticks=325733 frames=1200
+elapsed=1.435s exit=0
+CASE throttle sweep demand
+rtf 100, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+throttle sweep 0→15→0                true        0   0.075348    1.099   1.038         -    68.82    0.000   late=3 max_kicks=103 lag_ticks=0 frames=1200
+elapsed=1.435s exit=0
+CASE key mashing budgeted
+rtf 100, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+LAG frame=132 wall=2.200000 elapsed_ms=11.456542 lag_ticks=226404 costs_ns=[0, 0, 0, 11336998, 205917] items=[0, 0, 0, 20, 41] bodies=71 kicks=10 target=45003875 presented=44777471
+key mashing                          true        0   0.019020    1.043   0.967       yes    11.46    1.115   late=0 max_kicks=19 lag_ticks=226404 frames=1200
+elapsed=1.234s exit=0
+CASE key mashing demand
+rtf 100, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+key mashing                          true        0   0.018967    1.039   0.967       yes    16.60    0.000   late=1 max_kicks=19 lag_ticks=0 frames=1200
+elapsed=1.235s exit=0

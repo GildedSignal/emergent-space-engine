@@ -416,6 +416,12 @@ impl Rebinding {
         fit.residual = Residual::between(state, fit.decoded_event()?);
         Ok(fit)
     }
+    /// The turning key and input radius, before compiling its trajectory. A radial arc returns `NoBoundOrbit`.
+    pub fn turning_key(state: IntegerState) -> Result<(OrbitKey, Scalar)> {
+        let (key, radius, _, _) = fit_key(state, true)?;
+        Ok((key, radius))
+    }
+
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
         let (key, r, clockwise, incoming) = fit_key(state, true)?;
         let trajectory = if key.periodic() {

@@ -429,8 +429,9 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
 /// better than a wrong one: the engine's own refusal is shown elsewhere).
 fn impact_course(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> Option<Impact> {
     let doll = &u.dolls[rec.b.doll as usize];
-    let tick = crate::step::next_impact(&rec.b, doll.surface, t_now.max(rec.b.event_time)).ok().flatten()?;
-    let (x, v) = rec.b.cartesian(tick).ok()?;
+    let course = crate::step::impact_course(&u.ctx(), u.player()?, rec, t_now.max(rec.b.event_time)).ok()??;
+    let tick = crate::step::next_impact(&course, doll.surface, t_now.max(course.event_time)).ok().flatten()?;
+    let (x, v) = course.cartesian(tick).ok()?;
     let (x, v) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
     let r = dot(x, x).sqrt().max(1e-300);
     Some(Impact { body: doll.name, tick, seconds: (tick - t_now).max(0) as f64 * TICK_SECONDS, at: [x[0] / r, x[1] / r], speed: dot(v, v).sqrt() })

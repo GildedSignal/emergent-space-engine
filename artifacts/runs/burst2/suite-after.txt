@@ -1,0 +1,74 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/crates/space)
+   Compiling emergent-engine v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/crates/engine)
+   Compiling emergent-universe v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/crates/universe)
+   Compiling emergent-shipmem v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/crates/shipmem)
+   Compiling xtask v0.1.0 (/Users/julien_laurent/Research/emergent-wt/burst2/xtask)
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "tail") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 7m 11s
+     Running unittests src/lib.rs (target/release/deps/emergent_universe-0e0daa9296a44eb9)
+
+running 11 tests
+test bind::tests::choosing_the_word_before_compiling_preserves_the_old_fit ... ok
+test lorentz::tests::a_centre_is_at_rest_in_its_own_frame ... ok
+test lorentz::tests::a_handoff_out_and_back_is_the_identity ... beta 0.01: 2000 of 2000 comoving ships come back as the same words
+beta 0.01: slow ships come back within 0 words of the parent's on the first round trip, and never more than 0 in 500 (the contraction's bound: 3)
+beta 0.3: 2000 of 2000 comoving ships come back as the same words
+beta 0.3: slow ships come back within 1 words of the parent's on the first round trip, and never more than 1 in 500 (the contraction's bound: 3)
+beta 0.9: 2000 of 2000 comoving ships come back as the same words
+beta 0.9: slow ships come back within 5 words of the parent's on the first round trip, and never more than 5 in 500 (the contraction's bound: 11)
+ok
+test lorentz::tests::mulshr_is_a_floor_of_the_exact_product ... ok
+test lorentz::tests::rotations_round_trip_exactly_through_every_angle ... worst distance to the exact rotation: 4.71e-16 of the vector's size (the coefficients' 62 bits)
+ok
+test lorentz::tests::the_boost_is_exactly_invertible_and_is_lorentz ... beta 0.01: distance to the exact composition 3.4e-16 (of |v|+|w|); the Galilean difference 3.1e-4
+beta 0.3: distance to the exact composition 3.6e-16 (of |v|+|w|); the Galilean difference 1.3e-1
+beta 0.9: distance to the exact composition 2.4e-16 (of |v|+|w|); the Galilean difference 3.4e-1
+beta 0.99: distance to the exact composition 2.3e-16 (of |v|+|w|); the Galilean difference 3.6e-1
+ok
+test lorentz::tests::the_turn_is_exactly_invertible_and_within_two_quanta_of_the_rotation ... worst distance of the turn to the rotation: 3 quanta
+ok
+test step::tests::a_captured_ship_is_seen_with_the_relativistic_velocity ... relativistic composition: miss 0.0e0; the Galilean difference misses by 5.2e-2
+ok
+test step::tests::a_passages_exit_by_its_inverse_is_the_exit_by_bisection ... 21 passages of 42 handed out; 81 exits found, each the same by both ways
+ok
+test step::tests::a_ship_captured_and_released_returns_the_identical_integer_state_at_every_speed ... centre at 0.01c: 4000 of 4000 captured-then-released ships come back as the identical state
+centre at 0.3c: 4000 of 4000 captured-then-released ships come back as the identical state
+centre at 0.9c: 4000 of 4000 captured-then-released ships come back as the identical state
+ok
+test step::tests::a_thousand_handoff_round_trips_do_not_drift ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.48s
+
+     Running tests/burst.rs (target/release/deps/burst-e40aee5a56872a9a)
+
+running 5 tests
+test a_cut_refunds_the_prepaid_half_and_the_view_reads_that_same_decision ... ok
+test a_held_burn_doubles_only_every_third_whole_step_kick_and_a_decision_restarts_it ... ok
+test a_shortened_root_interval_pays_only_its_own_gravity ... ok
+test refining_the_quantum_refines_the_early_geometric_ramp_too ... ok
+test the_dynamics_cap_does_not_bank_doublings_for_a_later_jump ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests/clock.rs (target/release/deps/clock-5c058b3b82265f58)
+
+running 3 tests
+test c1_level_15_the_tubes_clock_is_the_ships_to_gamma_130 ... 
