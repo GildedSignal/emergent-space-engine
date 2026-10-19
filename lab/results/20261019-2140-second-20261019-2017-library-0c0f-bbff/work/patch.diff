@@ -1,0 +1,105 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..10b1a3aa 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: the current and peak resident size from /proc/self/status — the same quantities the
++/// lab's prior Linux flights probed. Disclosed instrumentation, print-only; no engine change.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        } else if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -37,6 +56,9 @@ fn pct(sorted: &[f64], p: f64) -> f64 {
+     sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
+ }
+ 
++// ES_FRAMES_CSV (lab run 20261019-2140-second-20261019-2017-library-0c0f-bbff): print-only, default off — every
++// frame's (frame, engine ms, events, lag s) appended to the file the variable names, for wave-window analysis.
++
+ fn main() {
+     let t_start = Instant::now();
+     let args: Vec<String> = std::env::args().collect();
+@@ -62,7 +84,14 @@ fn main() {
+     let mut last_stats = p.u.stats;
+     let mut alive = true;
+     let mut ran = 0usize;
+-    let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
++    let csv = std::env::var_os("ES_FRAMES_CSV");
++    let mut csv_file = csv.as_ref().and_then(|p| {
++        use std::io::Write;
++        std::fs::File::create(p).ok().map(|mut w| {
++            let _ = writeln!(w, "frame,ms,events,lag_s");
++            w
++        })
++    });
+     for f in 0..frames {
+         if t_start.elapsed() > Duration::from_secs(55) {
+             truncated = true;
+@@ -87,6 +116,10 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if let Some(w) = csv_file.as_mut() {
++            use std::io::Write;
++            let _ = writeln!(w, "{},{:.4},{},{}", f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS);
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..dec1e874 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -649,7 +649,19 @@ impl Work<'_, '_> {
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+         self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
+-        insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
++        // ES_STAGGER (ed3a's dial, lab run 20261015-0128-fermi-ed3a; default unset = shipped verbatim): stagger the birth grid
++        // of the root doll's ships over one step, so the first-kick wave arrives spread. The offset is a pure function of
++        // the body's id (no new state); the kick's weight is unchanged, only its time. Composed here with the player-item
++        // carry (cc9d) at the stall cadence (lab run 20261019-2140-second-20261019-2017-library-0c0f-bbff).
++        let off = if t == 0 && self.rec.kind == crate::body::Kind::Ship && std::env::var_os("ES_STAGGER").is_some() {
++            let mut z = (self.i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
++            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++            (((z ^ (z >> 31)) >> 33) as u128 * (2 * half) as u128 >> 31) as i64
++        } else {
++            0
++        };
++        insert(&mut self.rec.plan, Item { t: t + half + off, what: What::Kick(0) });
+         self.plan_terminal(t)
+     }
+ 
