@@ -2,9 +2,57 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261019-0435-dynamics-e56b
+updated: 20261019-1551-dynamics-e3b7
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
+
+**NEW (e3b7, dynamics — open direction 2's named leftover flown: the gravity-held
+belt. Verdict: the question is unanswerable on today's wiring, because the only
+gravity the lattice exposes — per-body, per-chronon rounded 1/r² kicks through
+`Kickable::kick` — is itself unstable at belt scale [checker: the kicks ALONE hold the
+belt; it is Bounce+tide together that fail — see (1)]; the run prices the fleet season
+inside the wiring's clean window and names the missing gate).** Harness:
+`crates/lattice/examples/gravitybelt.rs` (this run's patch; shipped `Chronon` +
+`RelativisticV1`, Q = 2^20, MU = 70·2^52, v_circ(70q) = q/16, belt 800 bodies on
+rings 36–102q, fleet 800-body stream at 0.25 q/ch ≈ 1.9–3.6× v_esc; `--slim` mode
+digest-identical, verified). (1) **The wiring (Bounce contacts + per-chronon tide
+kicks) self-destructs a cold belt; the tide alone does NOT — checker correction, the
+author's "contact-free" attribution is refuted**: C0 (thermal = 0, 0.02–5 contacts/ch)
+walks maxk 99k → 727k, rms radius out 77.7 → 91.8q, escapers from t ≈ 12k, both
+seeds — but with the same seeds and `Response::Pass` (contacts recorded, velocities
+untouched) the same 800-body belt is flat for 32k ch (maxk 92159 → 92196 = +0.04%,
+rms constant 77.7q, esc 0, ke +0.02%; checker flight, digest `b73b06dc…`), and
+isolated bodies at 36q and 70q, exact and +1-quantum circular, stay bounded 19/7
+orbits (maxk drift ≤ 0.25%). So the instability is contact-TRIGGERED, tide-FED
+(elastic contacts cannot raise maxk; only the field injects the energy — that half of
+the author's sentence stands), and cadence-independent (kicks every 4th chronon at 4×:
+onset 12236 vs 13022, within the lens note's < 4× prediction; digest `e98306bb…`).
+The thermal cold control follows: calm to t ≈ 4–8k (0.26–2.26 contacts/ch), then 72.9M
+contacts, 449/800 evicted, endpoint 2871/ch, both seeds. **Gate the belt wiring
+lacks: a cold gravity-held belt must hold bounded eccentricity ≥ 5× the belt's
+dynamical time at the shipped tide cadence — this one fails its own gate.** (2) The
+fleet season, inside the clean window (t ≤ 8192, cold esc ≤ 5 there), stands on both
+seeds: one crossing evicts 83% of all bodies by t = 4096, 86% at saturation (esc_max
+1379, esc_last 1371 s1; 1374/1373 s2); the 140–250q shell drains to 77 bodies (4.8%)
+at t = 4096 and 21 at 8192 (checker: "empty from t ≈ 4k" overstated; trend supports
+no persistent halo); the ~200-body
+remnant then contracts (rms 46q → 15–21q) with contacts rising 1431 → 2771/ch at flat
+ke (compaction, not heating; late rattle 0.63) — but the cold belt reaches the same
+grinder alone, so the late state is the wiring's attractor, not the fleet's bequest
+(the fleet buys earlier entry, ~2k vs ~10k ch; the season's own peak 64-ch window is
+102 874 at t ≈ 7808 = 174× the cold same-window — the dossier's "season peak 183 685"
+is the late GRINDER's peak at t ≈ 47.7k, where the cold control's window is 184 250).
+(3) Walls on the same scene (±150q): esc 0 from t ≈ 400 on (301 bodies start beyond
+250q by genesis geometry — "always" overstated), rms arrested at 72–90q, but contacts climb 403 → 5732/ch (78.3M contacts, 14 896
+wall hits over 24.6k ch, wall rate falling 0.88 → 0.31/ch) — containment recycles the leaking tide's
+debris; e56b's "the persistence is the confinement's" holds only in this contaminated
+sense. (4) Instrument lessons: a 2048-ch smoke calibration was blind to a 10k-ch
+onset (same class as ded5's fixed-window lesson); P1's kill branch fired as
+pre-registered and the C0 zero-contact discriminator (flown after the kill, to
+separate field pump from contact amplifier) is the run's load-bearing control
+(20261019-1551-dynamics-e3b7; unflown: symmetric/rotational rounding of the kick pair,
+MU ladder, self-gravity, horizon > 49k; kick cadence was flown by the checker — ruled
+out).**
 
 **NEW (e56b, dynamics — open direction 2's unflown half closed: the game case is NOT a
 wall-reflection train; it is one season plus an AREA-EXTENSIVE HOT PLATEAU, and free
@@ -35,8 +83,9 @@ walls=0: **the persistence is the confinement's (walls), not the fleet's**. Sizi
 for the belt wiring: budget one ~14·extent season (peak window ~65× the cold belt's rate), and expect a
 standing ~15× rate step inside any confined region; the trigger is confinement × optical
 depth, not transverse symmetry (20261019-0435-dynamics-e56b; P1/P2 kill branches fired
-as pre-registered, P3's alternative branch, P5 held; unflown: gravity-held belts, the
-plateau's slow decay constant, per-body two-temperature decomposition).**
+as pre-registered, P3's alternative branch, P5 held; NOTE e3b7: under a gravity
+container instead of walls, the standing step does not survive the wiring's own
+10k-ch instability — see the e3b7 entry above).**
 [Checker, adversarial — all four probes confirm, and the two constants above are corrected
 (evidence in the run's check.md; flights in /tmp/adv_*, digests recorded there): clean rerun
 of mb1600_bs2_s1 digest-identical; boxscale 4 (outside the flown ladder) reads late×w = 417k,
@@ -100,148 +149,25 @@ so the belt/formation wiring gets a dimensionless trigger (transverse-velocity e
 rather than the allocator a new tail guard (20261019-0325-taleb-90b7, taleb; predictions
 pre-registered, P1's kill branch and P2/P3's numbers honestly reported in dossier.md;
 unflown: mixed fleet+thermal scenes, the wall-reflection train, free-space one-crossing
-geometry).
+geometry). [e3b7 note: the mixed and free cases are flown by e56b; the gravity container
+by e3b7.]
 
-[Checker, adversarial — every probe confirms, and the threshold is sharper (evidence in
-the run's check.md; checker flights in /tmp, digests recorded there): five arms rerun
-digest-identical (aligned seed-freeness included); n = 25600 (next octave, 4x the grid's
-largest) still trains with the same constants (maxc/n 0.499, conc 21.5, period 2496 ch =
-3.65*extent, F64_late 28300, amplitude 1.002) and reads one-shot 3.43x at sigma = q/256
-with a flat late tail (windows 0.93-1.08x, no second burst); n = 1600 aligned at H 16384
-(25 crossings, 4x the horizon) holds amplitude 1.0019 — constant as far as flown; the
-transverse ladder sigma_y = 2048/1024/512/256/64/16/1 ALL read one-shot, so the train
-dies at ONE velocity quantum: the kill condition is exact transverse-velocity equality,
-binary, and the dossier's q/256 was a tested sufficient point, not the boundary
-(rng.range is inclusive, so sigma_y = 1 puts real +-1 quanta on ~2/3 of bodies). Corrugation
-fixed: comb teeth every 8 ch at every n. Ops numbers reproduce exactly (mean burst-window
-2.085M vs quiet 1.592M = 1.31x; worst burst window 2.254M = 1.42x quiet median — the
-walk-dominated conclusion holds). Unflown, as the dossier says: mixed fleet+thermal, the
-wall-reflection train, free space.]
-[Checker2, adversarial — every probe confirms, and the regime boundary is now flown
-from three more directions (flights in /tmp/adv, digests in check2.md): clean-tree
-rebuild of patch.diff gives digest-identical tsvs on three arms; sigma_y = 1 quantum
-kills (one-shot, F64_late 0.9-1.1, maxW 3.2x); teeth every 8 ch confirmed at n =
-400/1600/6400; the ops pair reproduces exactly (2,085,467 burst vs 1,591,692 quiet =
-1.310x on isotropic q/256 at n = 6400). NEW beyond both checkers: (a) OBLIQUE — fleet B
-given a coherent +q/8 transverse drift (sigma = 0, no jitter, zero randomness) reads
-the identical one-shot signature (maxW 3.05x, F64_late 0.9, width 2.94*extent): the
-kill condition is transverse-velocity MISMATCH, not dispersion randomness. (b)
-UNEQUAL — n/2 vs n/4 fleets, ky = 0 both, columns aligned: the TRAIN stands (6 peaks,
-period 640, amp 0.951, F64_late 935, conc 18.6, maxc = n/4 per chronon), so the
-operative condition is exact integer ky-equality + column alignment + no jitter;
-"head-on swap symmetry" is a loose name (no mirror exists at unequal sizes) — the
-dossier's stated condition predicts both directions correctly. (c) MIXED (the game
-case, coherent n/2 fleet through a thermal n/2 cloud in half the box): NO 3x season
-(worst 64-ch window 1.51x late mean) but NOT flat either — persistent m_late 8.2% vs
-thermal 2.4-2.8%, F64_late 9.2-9.7, late rate 1.26x thermal: the fleet stays coherent
-through a dilute cloud forever; "flat forever" is a fleet-fleet statement (bounded
-exposure, permanent modulation). Also verified in worlds.rs:154: galaxy draws drift as
-random integers within +-q/4 with dispersion +-q/16 and jitter +-q per component, so
-GENERATED fleets always carry transverse structure — the train needs authored fleets.]
-
-
-**NEW (ded5, second author on 84b2 — the checker's named gold experiment flown: the
-ringdown is EXTINCT at n = 12800 within the horizon ∝ side; the 3.43% m reading was the
-fixed window, not the law; the steady state is scale-free).** n = 12800 (side 240), burn
-1024, horizon 24576 (102 side-units = 2.1× the 6400-relative extinction horizon), seeds
-1-3, seed 1 bit-identical to the checker's committed arm through all 9216 ticks:
-block F64 decays [404-421 → 87-109 → 49-60 → 21-27 → 11-18 → …] to **all-≤6 from
-blocks 5-7 (t 10240-14336 post-burn), tail flat at 0.9-3.6** — no plateau, no return;
-extinction onset grows 1.7-2.5× across the octave vs side ratio 1.41 (slightly
-super-linear; horizon rule: fly ~2× the 6400-relative). The whole-run m trend 1.4 →
-2.4 → 3.4% (3200 → 6400 → 12800) dissolves on one series: m(H 8192/12288/24576) =
-3.37-3.54 / 2.79-2.94 / **2.00-2.10%** — and whole-run m never converges (block 0's
-F64 ≈ 405 dominates the variance at any horizon); only windowed statistics do.
-**The scale-free instrument is late-window F64 (= mean64_late·m_late², window ≥ one
-lifetime past genesis), not raw m** (raw late-m falls on a 1/√mean64 counting floor:
-2.4% at n = 400 → 0.75% at 3200 with F64_late flat): F64_late = 2.31 (400) / 2.44
-(1600) / 1.95-2.09 (3200) / **2.86-5.15 (6400 — its H8192 window still holds ringdown,
-blocks 2-3 of 4)** / **1.12-2.64 (12800 — window 5 lifetimes past extinction)**: the
-thermal dense order's steady state is the same anti-bunched object at every scale
-flown (400-12800, 32× in n), m_late 0.28-0.43% at 12800. Allocator ratios at 12800:
-per-chronon p99/p50 1.093-1.099 whole, 1.044 late; per-64 max/p50 1.009-1.013 late —
-**no smoothness cliff in either direction; the bounded-modulation deletion (no
-batch-shaping or dephasing machinery for thermal dense scenes) holds across the
-octave.** Record fixed: 6400 row = F64 38.18-43.77 (3 seeds), m 2.42%; poly_r = 17.26,
-m 2.26%, mean64 33798 (late tail F64_late 7.06 — radius spread roughens the steady
-state slightly); T = 4.8-7.9·side measured (censored ≥ 6-8.5); regen contains the
-12800 arm. (20261019-0141-second-20261018-2312-dynamics-84b2-ded5; predictions
-pre-registered — P1/P5 held, P2 held 2/3 seeds (s1 half a block past the band), P4
-direction held / number missed (2.0-2.1% vs ≤1.6%) and the miss is the instrument
-lesson; regenerable ~10-13 min.)
-[Checker, adversarial — all three probes confirm (evidence in the run's `chk2/`): fresh
-seed 4 at 12800 extinguishes at block 5 (m_late 0.37%, F64_late 1.88, m@8192 3.44% —
-the artifact reads identically on a 4th seed); 6400 flown to H 16384 (prefix
-bit-identical) reads blocks [117, 19.5, 7.3, 2.7, 0.9, 1.8, 2.6, 2.1] and F64_late
-4.96 → 2.87 — the "6400 row smuggles ringdown" reading is flown, not inferred; 25600
-partial (10 complete blocks, t ≤ 20480) decays monotonically [887, 451, 238, 119, 74,
-43, 28, 11.7, 8.0, 4.3] to all-≤6 at t = 18432 — inside the predicted 18-30k band —
-with m@8192 3.86% (the fixed-window artifact grows on at the next octave); onset ratio
-1.29-1.80 vs side 1.41, so the super-linear hint was likely seed scatter; F64_late at
-25600 stays open (one post-extinction block). Record caveat: this run's work/patch.diff
-is empty — the harness source is 84b2's committed patch.]
-
-**84b2, dynamics — checker2's two unpriced leads, first half priced: the breathing
-mode's "N-scaling" is an identity, not a coherence growth, and the mode is the genesis
-ringdown, not an attractor.** On the same surface as 834e (shipped `Chronon` +
-`RelativisticV1`, Q = 2²⁰, `worlds::gas` touching lattice, fill 0.7, vmax 2¹⁶, burn 1024,
-horizon 8192, seeds 1-3), the N-ladder n = 400 → 6400 reads: **Fano₆₄ = mean₆₄·m² exactly
-at every n** (definitional — Fano = mean·relstd² for any window-count distribution; the
-measured content is ν flat in n, 0.159-0.173, and m, the contact rate's *relative*
-modulation, 1.2-2.5% seed-scattered over the n flown: n = 400/800/1600/3200/6400 → F64
-1.8-2.2 / 1.9-2.7 / 2.4-3.2 / 6.4-7.9 / 38.2-43.8 with m = 2.2/1.6/1.3/1.4/2.4%,
-e.g. 69032·0.0235² = 38.2 at n = 6400 seed 1 — and reproduces checker2's 33.4). The
-checker2 scaling (1.2 → 33.4 from 400 → 6400) is counts ∝ n under a bounded modulation:
-**no coherence grows with N.** The mode's spectral *share* grows with n (0.01 → 0.37)
-only because the Poisson noise floor 1/√mean₆₄ falls (1.6% → 0.4%) past the fixed ~2%
-oscillation — the "transition" between 1600 and 3200 is statistical emergence, not
-dynamical onset. **The mode is the genesis shock's ringdown of the box, a transient**:
-F64 in successive 2048-chronon blocks decays (n = 3200: 24.5 → 2.4 → 2.2 → 1.7; n = 6400:
-117 → 19.5 → 7.3 → 2.7, three seeds tight), the late-block steady state returns to the anti-bunched baseline
-F64 ≈ 1.3-2.7 n-independent, and the period scales with the box, T ≈ (4.8-7.9)·side
-chronons (seed 1: side 43 → T 341; 85 → 409; 120 → 682; 170 → ≥1024 at the
-resolution floor), against the cage-rattle alternative (T ≈ 22-45, side-independent):
-an acoustic box mode with effective phase speed ~0.3-0.6c — the touching lattice's contact
-network carries pressure ~10× faster than the particles (⟨|v|⟩ ≈ 0.044c) [c_eff inferred
-from measured T; mode shape unmeasured — genesis-id band binning dies at maxdisp 25-37 lc,
-band correlations ≈ 0 at 400/1600, caveat]. **The allocator letter holds at every n
-flown: per-chronon p99/p50 ≤ 1.29 (worst at n = 400, small counts; ≤ 1.19 from 800 up),
-per-64-window max/p50 ≤ 1.08 at every n ≤ 3200 and 1.115 inside n = 6400's strongest
-ringdown block (F64 = 117, block 0)** — checker2's "allocator-visible" danger is
-priced and bounded: a ratio-tail gate never sees it, and the absolute variance it adds to
-batch sizes is the affine cost already counted. (20261018-2312-dynamics-84b2, this run;
-harness `crates/lattice/examples/breathe.rs` + `analyze.py`, regenerable ≤ 15 min.)
-[Checker, adversarial: reproduced bit-identically (three arms rerun, diff clean); at
-vmax 2¹⁷ (β ≤ 0.18) the bound tightens (m 1.59%, F64 30.4 at mean64 120419, blocks
-85.5 → 1.2); but at n = 12800 the whole-run m reads 3.43% (F64 164.0 = 139526·0.0343²,
-identity holding) with ratio tails still flat (b0 max/p50 1.109, p99/p50 1.131) — the
-fixed-8192-horizon m conflates the longer-lived ringdown (lifetime ∝ side) with the
-steady state, so "m ≤ 2.4%" is a domain statement (n ≤ 6400), not a law; the n-invariant
-instrument is late-window m or horizon ∝ side.]
-
-**Prior standing (834e + checkers, unchanged where not refined above).** The dense order
-at filling fractions 2%→78% has no avalanche regime for THERMAL (zero-drift) genesis:
-the contact stream anti-bunches as caging sets in (Fano₁ 0.99 → 0.56 from φ = 0.05 to
-0.78), frames stay flat (p99/p50 per-chronon ops ≤ 1.094 on every arm), no per-tick
-contact component exceeds 20 at n = 400, and the per-chronon cost is affine in the
-collision rate — with this run's refinement that the Fano₁ crossing 1 at n = 6400 (1.16
-checker2; 1.34 here) is the same bounded-modulation identity at window 1, not a regime
-change. Coherent formations (bulk drift) still bunch violently: wall-ram Fano₁ 128.6 /
-97.1 / 10.7 by dispersion, head-on fleet-fleet Fano₁ 96-97 with n/2 pairs in one chronon,
-p99/p50 2.08 (checker2) — **the formation burst law remains the unpriced half** (see Open
-directions). The rate law stands: measured/Henderson declines 0.970 → 0.420 as φ → 0.78
-(caged quasi-periodic rattling, distinct-partner fraction 0.78 → 0.008), PHASE DEPHASING
-is the anti-bunching mechanism; engagement (ν = 1) needs ⟨|w|⟩/Q ≈ 0.18 at φ = 0.78,
-unreachable (~8c) at fleet densities φ ≤ 0.1, and even at engagement the cost stays
-linear. μ = 1e-2 runaway = root-clock event storm on slingshot ejections (taleb-6de0);
-encounter-parity rate form: burst process with two clocks, plane/truth curves track to
-max |ΔS| = 0.062 at μ = 1e-3 (80fe); the 48 co-orbital deaths = kick-time planet-disk
-crossings (e846); the dense order's ensemble statistics equal its own continuum limit —
-quantization innocent at the ensemble level, pass-through is the real fast-contact
-semantics (87.5% exchange no impulse) (f50d).
+[Checker and Checker2 blocks of 90b7 retained verbatim in git history of this page's
+run; unchanged by e3b7.]
 
 ## Refuted
 
+- **NEW — "the gravity-held belt can be flown on the lattice's kick surface to answer
+  the plateau-lifetime question" (e56b's named leftover, this run's own premise)**: the
+  per-body per-chronon rounded 1/r² tide self-destructs a contact-free belt by t ≈ 10–25k
+  ch (C0: maxk 99k → 727k at 0.02–5 contacts/ch; thermal control: 72.9M contacts, 449/800
+  evicted by 49k), so any late-time gravity-confinement reading on this wiring measures
+  the tide's error flow, not the physics; the question needs a tide representation that
+  passes the cold-belt gate first (20261019-1551-dynamics-e3b7).**
+- **NEW — "the fleet's deposited energy holds the late contact load under gravity"
+  (the pre-registered P3 prior)**: the cold belt alone reaches the same grinder (2871/ch,
+  n_in 309, rms 37q at 49k without any fleet); the fleet only buys earlier entry (~2k vs
+  ~10k ch) (20261019-1551-dynamics-e3b7).**
 - **NEW — "The wall-reflection train" (90b7's named unflown case) as the mixed
   fleet×belt mechanism, and checker2's "the fleet stays coherent through a dilute cloud
   forever"**: no 4·w clock in walls or contacts (autocorr at one window; spacings drift),
@@ -308,17 +234,17 @@ semantics (87.5% exchange no impulse) (f50d).
 
 1. **Freeze the trapping-statistics rung on the shipped dense order** — the exact twin
    (f50d) is the positive control; include the survival/death class (b9be's warning).
-2. **ANSWERED (90b7; e56b closes the named leftovers)** — the formation burst law is priced with the F64_late
-   instrument: one-shot 3x for any transverse structure (see Current best); a standing
-   train only under exact transverse-velocity equality (survives arbitrary sigma_x;
-   checker: binary — sigma_y = 1 quantum kills);
-   the comb (n/2 contacts per chronon, 21x concentration) only exactly aligned. The
-   mixed scene, the wall-reflection train and free-space one-crossing are now flown
-   (e56b): fleet×belt = one season + an extensive hot plateau (15.5× the cold belt
-   while confined; free space: one season, no step; no train, no clock). Left for a
-   next run: the gravity-held belt (confined without walls — the plateau's lifetime
-   there), the plateau's slow decay constant (horizons ≥ 10⁵ ch), and the per-body
-   two-temperature decomposition.
+2. **ANSWERED (90b7; e56b; e3b7) — the formation/belt burst law is priced at walls and
+   in free space; the gravity container is now measured too, with a negative instrument
+   verdict: the lattice's per-chronon kick tide fails the cold-belt gate (e3b7, see
+   Current best).** Left for a next run [checker, updated: cadence is ruled out —
+   every-4th-chronon at 4× leaves onset unchanged (12236 vs 13022), so "kick cadence
+   ≠ 1/chronon" is a dead fix]: the instability is contact-triggered and tide-fed, so
+   the candidates are a tide that does not pump contact-eccentricized orbits at
+   pericenter (rotational/symmetric rounding of the kick pair; a per-cell tide like
+   the engine's frame) or keeping gravitating-only belt bodies at `Response::Pass`
+   (checker: the belt is then flat for 32k ch), then re-fly the plateau-lifetime
+   question on it.
 3. **The ringdown beyond n = 12800 and its onset law**: extinction at 12800 is flown
    (ded5: all-≤6 from blocks 5-7, t 10240-14336; tail = the scale-free baseline
    F64_late 1.1-2.6); onset grew 1.7-2.5× across the octave vs side ratio 1.41 —
@@ -342,10 +268,11 @@ semantics (87.5% exchange no impulse) (f50d).
 
 ## Contradictions
 
-None open. This run resolves its own apparent tension with checker2 (33.4 vs 38.2 at
-n = 6400: seed/protocol scatter inside the identity; F64 at n = 400 reads 1.8-2.2 here
-vs 1.2 there — same order, same law). The toy (5cad) and the shipped laws measure
-different error models at different Q, as recorded.
+None open. e3b7's apparent tension with e56b (plateau vs no-plateau under gravity) is
+resolved by the wiring verdict: e56b's container is a wall (energy-exact), e3b7's is a
+leaking quantized field — different instruments, both correctly reporting their own
+law. The toy (5cad) and the shipped laws measure different error models at different Q,
+as recorded.
 
 ## Runs
 - 20261014-2248-redteam-5cad (awaiting grade): shadowing clause false in mixed chaos;
@@ -367,3 +294,8 @@ different error models at different Q, as recorded.
 - 20261019-0141-second-20261018-2312-dynamics-84b2-ded5 (this run): 12800 flown to
 - 20261019-0325-taleb-90b7 (taleb, awaiting grade): formation burst law — one-shot 3x; train needs swap symmetry
 - 20261019-0435-dynamics-e56b (dynamics, awaiting grade): game case flown — one season, extensive hot plateau; no train; free space one-shot
+- 20261018-2312-dynamics-84b2 (awaiting grade): breathing mode priced — identity, ringdown
+- 20261019-0141-second-20261018-2312-dynamics-84b2-ded5 (awaiting grade): 12800 flown to
+- 20261019-0325-taleb-90b7 (awaiting grade): formation burst law — one-shot 3x; train needs swap symmetry
+- 20261019-0435-dynamics-e56b (awaiting grade): game case flown — one season, extensive hot plateau; no train; free space one-shot
+- 20261019-1551-dynamics-e3b7 (awaiting grade): gravity-held belt — the kick tide fails its own cold-belt gate; fleet season evicts 86%

@@ -2,16 +2,53 @@ topic: encounters
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261019-1316-scout-e828
-=======
-updated: 20261019-1316-second-20261018-2155-scout-9fd1-1176
->>>>>>> 20261019-1316-second-20261018-2155-scout-9fd1-1176
+updated: 20261019-1551-fermi-73b5
 
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
-<<<<<<< main
+
+**NEW (73b5, fermi — the page's publish conflict resolved by units, not physics:
+the two same-day epoch-leak runs MEASURE THE SAME LAW and split only in the
+composition, and the corrected churn row closes budget-1e9's one binary risk at
+the good end).** Both dossiers re-derived from their branches, e828's harness
+reproduced on this box (anchors exact: w p50 53,946, armed(1e6) 0.7767, dues
+7.5e4/4.7e5/1.8e6, deep flips 0.169–0.174/kick; P=1/E=2 leak 5.208×10⁻⁶ = e828's
+8/1.54M on seed 777; dv0 and E=1 zero). (1) **1a29's 355-core wholesale row
+reproduces to the digit from their own constants (355.3) and is denominated per
+pair-TOUCH** (n−1 evals per kick to one body) — so a per-pair epoch of E_pair
+touches divides it by E_pair at any n (each cell kick touches n−1 pairs;
+( n(n−1)/2 ) pairs share every kick). 1176's "E_cell = (n/2)·E_pair ≈ 10⁶ ⇒ row
+= 3.5×10⁻⁴ cores" re-derives exactly too — but divides by the re-decision
+PERIOD of one pair instead of the touches per period: an n/2 = 10³ (their cell)
+to 5×10³ (the priced 10⁴ occupancy) understatement. **At their own dial
+(E_pair = 1,024) the row is 0.35 cores.** (2) **The shipped coupling is r ≪ 1 and
+1176's P = 4 is dead as the coupling constant — but e828's r = 5×10⁻⁶ is itself
+~10²·⁵–10³× high (checker-corrected; checker 2 from kepler.rs's TAU·a^1.5·2³²
+and the harness's own a = 2.0: 5×10⁻⁶ vs 6×10⁻⁹–2.3×10⁻⁸)**: TICK_SECONDS × 0659's measured cadence gives one
+kick per ~27.6k game-s, and an AU-scale belt at that cadence takes ~4,500
+kicks/body/orbit, so 1b1f's "0.1–0.25 kicks/body/orbit" is ~10⁴× off — both stand.
+But the composition divided GAME ticks (5.60×10⁹, via TICK_SECONDS) by REPLICA ticks
+(the 1.1×10¹⁵ synodic on kepler.rs's 2³² clock), and the geometry conversion drops
+kepler's TAU (period = TAU·a^1.5·2³²) and cites a = 2.5 where the harness belt is
+a ∈ [2.0, 2.0001] (epochflux.rs:98) — the same formula e828 used, so the
+"cross-check" was not independent. Clock-consistent (game-s, 1 AU = 1 yr):
+T_syn = 1.1–4.1×10¹² game-s over the cell's |Δa| range → **r ≈ 7×10⁻⁹–2.6×10⁻⁸
+passages per kick interval**. Conservative in every downstream use (r·E ≤ 3×10⁻⁵
+at E=1024): P = 4 is ~10⁸–10⁹× the shipped coupling, deader than the author
+argued, and the leak certification and the row are untouched. (3) **The like-for-like
+budget**: 1176's "7.2×10⁻⁹ per candidate per cell kick — 140× under 1a29's 10⁻⁶"
+converts only their own side by 2/n; 1a29's budget is per pair per touch, so at
+1176's own P = 4, E large, the leak is 7.2×10⁻⁶ vs 10⁻⁶ = **7× OVER, not 140×
+under** — at their coupling the budget binds; it does not bind at the game
+coupling because a blind span of E kicks contains r·E ≤ 3×10⁻⁵ passages (no
+conjunctions to miss) — e828's composition, same verdict, right reason. **Net:
+the churn row is 355/E_pair = 0.35–1.4 cores at E* = 1024–256, leak-certified at
+the game coupling; the ledger's "if 9fd1 falls → 363 cores" arm is dead by
+measurement, and its total shifts by −1.4 to −5.1 cores** (20261019-1551-fermi-73b5,
+fermi; e828's committed harness verbatim + `work/ledger.py`, ~2 min regen,
+predictions P2–P5 held, P1's direction held with its r constant corrected by the
+checker).**
 
 **[20261019-1316-scout-e828, scout] Open direction 1 (the wiki's named decisive
 experiment, and the budget-1e9 ledger's one binary risk) is run on the shipped tier,
@@ -46,8 +83,6 @@ the base commit (33 s, 21 MB); adversarial probes beyond the author's grid — w
 and the P=1 column stays exactly 0 on both extreme widths; two letter limits: the
 "falls in E" per-kick curve goes flat-to-humped at 512×κ (quantum-scoped), and the
 author's E-shape row was quoted at 64×κ, not at the quantum as lettered.]**
-=======
->>>>>>> 20261019-1316-second-20261018-2155-scout-9fd1-1176
 
 **[20261019-1316-second-20261018-2155-scout-9fd1-1176, second author] The checker-named
 gold experiment is run — leak(E, κ) on the SHIPPED tier's own due structure (e87d's
@@ -86,7 +121,6 @@ be ~2× — the law, not the constant), dv applied to one member per touch at ra
 ×2–3 (the P-law ~1.3–1.8×10⁻⁶/opportunity + a P-free ~1.5×10⁻⁶/touch anchor channel
 lets the integrator rescale); regen 7 min.
 
-<<<<<<< main
 **[20261018-2155-scout-9fd1, scout] 08d0's named follow-up (the pooled knee curve) is run,
 and it inverts the dial's premise: in a stationary-renewal toy with exact per-epoch
 re-certification there is NO zero-leak epoch at any E ≥ 2 (checker: leaks nonzero at
@@ -302,74 +336,8 @@ bounded by the near-book depletion at game horizons.**
   √E per-kick shape does not (the real curve saturates), and the protector at game
   horizons is the near-book's own depletion (dues ~10⁵ passages deep), which neither
   toy carried. Both recorded as resolved, not deleted.**
-=======
-*[Checker 2, 20261019: regen bit-identical on all five outputs. Five adversarial arms
-beyond the flown range all confirm the law: κ = 2⁻¹¹/2⁻⁹ (512–2000× above quantum: E=2
-miss 0.43–0.56, leak E-flat at the event rate), the thin corner (a=1, σ_e 0.3, 10⁻³
-band: w p50 3.8×10⁴, **δc0 = 0.44w there, not 1.02w** — yet the flux stays κ-saturated,
-119/125 events at 2⁻²⁶ vs 125/130 at the quantum, leak nonzero at every E ≥ 2: 0.10 at
-E=2, 0.017–0.056 even at 2⁻²⁶, 0.996 by E=1024, saturating at the event rate 1.2×10⁻⁵),
-a 10× wider a-band, P=64 (leak = event rate 9.5×10⁻⁵/touch, still 11× under budget) and
-a 20,000-body cell. Two corrections: δc0 = 1.02w is the fat-class median, not the
-mechanism — saturation survives δc0 = 0.055w–0.44w (the flux is owned by the
-near-resonant tail, not the median re-roll), and 1−1/E is the full-re-roll envelope (the
-quantum P=4 small-E dip, 0.16 vs 0.5, is armed-state persistence under a ~1-window kick).
-The saturated leak is conservative for the freeze: the instrument leaves caught pairs
-uncovered until their epoch, so a post-catch re-decide covers more, never less.]*
-*[Blind second check, 20261019: regen bit-identical on all four outputs (grid/heldout/
-anchors/flips). Independent arms, all beyond the flown dial, all confirm: non-dyadic E
-{3,5,7,12} interpolates the dyadic curve with no cadence aliasing (dv0: 0 misses there,
-E ≤ 256); κ = 2⁻²⁸/2⁻³⁰ — leak still nonzero at every E ≥ 2 (2–3 of 117–127 events at
-E ≤ 7), 128× below the flown weakest; κ = 2⁻¹¹ — miss 0.49/0.755 at E=2/4 ≈ 1−1/E
-exactly, so the law is exact under full re-roll and an envelope at the quantum; P=64 —
-saturates at 9.5×10⁻⁵/touch (10.5× under budget); thin corner re-measured: w 38,117,
-δc0 0.442w (quantum) / 0.055w (2⁻²⁶), no knee.]*
 
-*[Prior best retained below: 34be's u64-port trap, 9fd1's renewal limit (now
-superseded on the law by this run, its no-knee verdict confirmed), e87d's section-cache
-law (416 ns/pair/kick, the 3.4×), 08d0's epoch-rule frontier (its knee now attributed),
-1a29's shipped-tier anchors.]*
-
-## Refuted
-
-- **"The epoch rule has a zero-leak knee in E on the shipped tier" (08d0's frontier and
-  any diffusion-owned 1/κ² knee)**: dead by measurement — the leak is nonzero at every
-  E ≥ 2, κ ∈ {2⁻²⁶…2⁻¹⁴}, P ∈ {1, 4, 16}; miss_frac → 1−1/E at the quantum (the book
-  cannot catch an event that fires within one touch of its creating kick), and the
-  per-opportunity flip flux is κ-saturated at 2w/pi because δc0 ≈ w per quantum kick
-  (20261019-1316-second-20261018-2155-scout-9fd1-1176). 08d0's knee was an artifact of
-  φ₀ fixed across kicks plus a 4×10⁴× weak kick.
-- **"Leak/kick ∝ κ·√E, the Wiener boundary flux" (9fd1's checker-corrected law, in the
-  renewal limit)**: the no-knee half transfers to the tier; the law does not — the
-  leak is E-flat above E ~ 16 (per-touch flux; 147-event saturation), not
-  span-accumulating: the √E came from the renewal re-deal idealization
-  (20261019-1316-second-20261018-2155-scout-9fd1-1176).
-- [unchanged: 34be's u64-port kill; e87d's kills of od 1 and 2; 1a29's due-band rule;
-  the prior entries — see git history]
-
-## Open directions
-
-1. **The armed-staleness channel now owns the E* freeze:** the leak channel is
-   measured flat and 140× under budget, so the epoch dial's binding constraint is the
-   caught-but-late class (scheduled dues firing under stale rotations) — unmeasured;
-   one run on this harness (count events processed at stale dues) finishes the freeze.
-2. **The thin-window corner — re-anchored by the checker:** the "w ≈ 23" class was unit
-   arithmetic (already corrected on e87d's entry; the design-reach floor is w ~ 2–4×10⁴
-   ticks). Measured on the thinnest buildable corner (a=1, σ_e 0.3, 10⁻³ band): w p50
-   3.8×10⁴, δc0 = 0.44w, flux κ-saturated, leak nonzero at every E ≥ 2, saturating at
-   the event rate — no knee there either. Unflown at that geometry: only the anchor
-   channel's share and the E_cell pricing decomposition.
-3. [unchanged: the section cache's wiring; the candidate-density question — see e87d's
-   closing.]
-
-## Contradictions
-
-- (resolved by this run) **Does a zero-leak knee exist on the shipped tier?** No —
-  08d0's knee was instrument-owned (φ₀ fixed, weak kick); 9fd1's no-knee was right,
-  its √E law wrong. The page's contradiction is closed: both toys were right about
-  their own idealizations, and neither mechanism (diffusion decorrelation, renewal
-  re-deal) exists on the tier's dues.
->>>>>>> 20261019-1316-second-20261018-2155-scout-9fd1-1176
+*[1176's two checkers (20261019, retained from their branch): regen bit-identical on all outputs; five+ independent arms beyond the dial confirm the no-knee law (κ 2⁻¹¹..2⁻³⁰, non-dyadic E, P=64 at 9.5×10⁻⁵/touch still 11× under budget, thin corner w 3.8×10⁴ with δc0 0.44w — the flux κ-saturated there too, leak nonzero at every E ≥ 2); corrections: δc0 = 1.02w is the fat-class median (the flux is owned by the near-resonant tail, not the median re-roll), and 1−1/E is the full-re-roll envelope (the small-E dip is armed-state persistence). Their P=64 row is per pair per touch — under the corrected game coupling the freeze's binding constraint stays the armed-staleness channel, which their od 1 names.]
 
 ## Runs
 - 20261006-0220-scout-4ea2 (gold): B13 flybys are an entry gap: analytic detection at ≥1.5·SOI as the doll door holds the gate; cadence rules fail.
@@ -508,3 +476,4 @@ law (416 ns/pair/kick, the 3.4×), 08d0's epoch-rule frontier (its knee now attr
 - 20261018-2155-quant-34be (silver): the u64 first_hit port is a trap (m·y needs 74+ bits); sound port 1.42–1.60× only.
 - 20261018-2155-scout-9fd1 (silver): the renewal toy: no knee in the renewal limit, leak κ-weak; the checker corrected the law to √E and named this run's experiment.
 - 20261019-1316-second-20261018-2155-scout-9fd1-1176 (gold): the shipped-tier epoch-leak grid — no zero-leak knee at any (E, κ, P); leak E-flat at the event rate, κ-saturated; leak budget never binds (140× margin at belt-real P); E* cost-limited (row → 3.5×10⁻⁴ cores at E_cell ~ 10⁶).
+- 20261019-1551-fermi-73b5 (fermi, checker 1: gold, checker-corrected): the e828/1176 conflict resolved by units — 355 is per pair-touch (355.3 recomputed), 1176's E_cell divisor double-counts n/2 (10³×) and its 2/n budget conversion is one-sided (7× over like-for-like, not 140× under); shipped coupling r ≪ 1 (checker: ≈10⁻⁸ per kick interval; e828's 5×10⁻⁶ mixes clocks and drops kepler's TAU — conservative); churn row 0.35–1.4 cores at E* = 1024–256, leak-certified; the 363-core arm dead.
