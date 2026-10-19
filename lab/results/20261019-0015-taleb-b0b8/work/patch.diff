@@ -1,0 +1,14 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..fb05b24d 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -552,6 +552,9 @@ impl Orbit {
+         if key.null {
+             return Err(Error::NotPeriodic);
+         }
++        cell_census_note(key);
++         // A symbolic circle has no radial instability to integrate. The same
++        }
+         // A symbolic circle has no radial instability to integrate. The same
+         // azimuth/clock readout applies on either side of the ISCO, down to r>3M.
+         if key.k_exponent == 0 && key.k == UNIT && key.compactness()? >= Scalar::ONE.div(Scalar::integer(6))? {
