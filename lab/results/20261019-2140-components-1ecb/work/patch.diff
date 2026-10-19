@@ -1,0 +1,417 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e80c99b0 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,31 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    // Linux: VmRSS and VmHWM from /proc (the macOS rusage flavor does not exist here).
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        let kv = |p: &str| line.strip_prefix(p).map(|v| v.trim().trim_end_matches("kB").trim().parse::<u64>().ok());
++        if let Some(Some(v)) = kv("VmRSS:") {
++            now = v * 1024;
++        } else if let Some(Some(v)) = kv("VmHWM:") {
++            peak = v * 1024;
++        }
++    }
++    (now, peak)
++}
++
++#[cfg(not(target_os = "linux"))]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(not(target_os = "linux"))]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -90,6 +109,24 @@ fn main() {
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
++        // The scan channel's census (print-only, ES_SCAN_CENSUS) and the memory guard (LADDER_RSS_MB).
++        if std::env::var("ES_SCAN_CENSUS").is_ok() {
++            if f % 250 == 0 {
++                let (held, cands, bytes) = p.u.scan_channel();
++                let [slots, live, reuses, captures] = emergent_universe::encounter::scan_pool_census();
++                println!(
++                    "scan: f={f} gs={:.0} held={held} cands={cands} cand_mb={:.1} pool_slots={slots} pool_live={live} reuses={reuses} captures={captures} rss_mb={:.0}",
++                    p.u.now as f64 * TICK_SECONDS, bytes as f64 / 1e6, footprint().0 as f64 / 1e6
++                );
++            }
++        }
++        if let Some(guard) = std::env::var("LADDER_RSS_MB").ok().and_then(|v| v.parse::<u64>().ok()) {
++            if f % 15 == 0 && footprint().0 > guard * 1_000_000 {
++                println!("guard: rss over {guard} MB at frame {f} (gs {:.0})", p.u.now as f64 * TICK_SECONDS);
++                truncated = true;
++                break;
++            }
++        }
+         let rec = p.u.rec(p.player);
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+@@ -155,6 +192,10 @@ fn main() {
+     let mut over_at: Vec<usize> = late.iter().filter(|r| r.1 > budget_ms).map(|r| r.0).collect();
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
++    if std::env::var("ES_SCAN_CENSUS").is_ok() {
++        p.u.flush_scans();
++        println!("digest: {}", p.u.digest());
++    }
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..48baea38 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -13,6 +13,8 @@ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicU64, Ordering};
+ use std::sync::{Arc, Mutex, OnceLock};
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+@@ -43,6 +45,10 @@ pub trait Encounters: Send + Sync {
+ /// is given (the bodies' histories may have moved on, been pruned, or the bodies died since).
+ pub trait Held: Send + Sync {
+     fn answer(&self) -> Vec<Encounter>;
++    /// The candidates this held scan keeps, and the bytes its record holds: a print-only census.
++    fn census(&self) -> (usize, usize) {
++        (0, 0)
++    }
+ }
+ 
+ /// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
+@@ -61,6 +67,9 @@ pub trait Held: Send + Sync {
+ pub struct PlayerNeighbourhood {
+     /// The last scan taken.
+     last: Mutex<Option<Arc<Scan>>>,
++    /// The interned record's last scan and its shared pool of bindings ([`intern_on`]).
++    last_c: Mutex<Option<Arc<CompactScan>>>,
++    pool: Arc<Mutex<Intern>>,
+     /// The test's planted fault: reuse the last scan whatever the tick, the interval and the bodies.
+     sloppy: bool,
+ }
+@@ -76,6 +85,16 @@ struct Scan {
+     found: OnceLock<Vec<Encounter>>,
+ }
+ 
++impl Held for Scan {
++    fn answer(&self) -> Vec<Encounter> {
++        self.found.get_or_init(|| self.compute()).clone()
++    }
++    fn census(&self) -> (usize, usize) {
++        let b = std::mem::size_of::<(usize, Binding, Scalar)>();
++        (self.candidates.len(), self.candidates.len() * b)
++    }
++}
++
+ impl Scan {
+     fn same_inputs(&self, body: usize, t: Tick, interval: Tick, me: &Binding, candidates: &[(usize, Binding, Scalar)]) -> bool {
+         self.body == body
+@@ -102,7 +121,7 @@ fn same(a: &Binding, b: &Binding) -> bool {
+ 
+ impl Default for PlayerNeighbourhood {
+     fn default() -> Self {
+-        Self { last: Mutex::new(None), sloppy: false }
++        Self { last: Mutex::new(None), last_c: Mutex::new(None), pool: Arc::new(Mutex::new(Intern::new())), sloppy: false }
+     }
+ }
+ 
+@@ -115,16 +134,189 @@ impl PlayerNeighbourhood {
+     }
+ }
+ 
+-fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+-    Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
++/// The interned record: the candidates of every held scan share one pool of distinct bindings
++/// (`ES_SCAN_INTERN`), so a binding is stored once per distinct generation any held scan reads,
++/// not once per candidate per scan. The answers are the same: the predicate reads the same
++/// values by slot ([`eq_binding`] compares every part).
++fn intern_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_SCAN_INTERN").is_ok());
++    *ON
+ }
+ 
+-impl Held for Scan {
++/// The pool census, print-only: slots ever allocated, slots still referenced by a held scan,
++/// reuses of the last scan, distinct captures.
++static POOL_SLOTS: AtomicU64 = AtomicU64::new(0);
++static POOL_LIVE: AtomicU64 = AtomicU64::new(0);
++static POOL_REUSES: AtomicU64 = AtomicU64::new(0);
++static POOL_CAPTURES: AtomicU64 = AtomicU64::new(0);
++
++/// (slots ever, slots live, reuses, captures).
++pub fn scan_pool_census() -> [u64; 4] {
++    [POOL_SLOTS.load(Ordering::Relaxed), POOL_LIVE.load(Ordering::Relaxed), POOL_REUSES.load(Ordering::Relaxed), POOL_CAPTURES.load(Ordering::Relaxed)]
++}
++
++/// The same binding in every part, the entry by identity (it is immutable): two candidates whose
++/// bindings compare equal here are one value to every reader, not only the predicate.
++fn eq_binding(a: &Binding, b: &Binding) -> bool {
++    Arc::ptr_eq(&a.entry, &b.entry)
++        && a.doll == b.doll
++        && a.tube == b.tube
++        && a.residual == b.residual
++        && a.turn == b.turn
++        && a.units == b.units
++        && a.clock_exp == b.clock_exp
++        && a.event_time == b.event_time
++        && a.kick == b.kick
++        && a.impact == b.impact
++}
++
++/// One held candidate in the interned record: the body and the slots of its binding and reach.
++struct Cand {
++    body: u32,
++    bind: u32,
++    reach: u32,
++}
++
++/// The distinct bindings the held scans read, one `Arc<Binding>` each, released when the last
++/// held scan that reads one is answered; the reach values pool the same way (they are few).
++struct Intern {
++    slots: Vec<Option<Arc<Binding>>>,
++    rc: Vec<u32>,
++    free: Vec<u32>,
++    by_entry: HashMap<usize, Vec<u32>>,
++    reaches: Vec<Scalar>,
++    reach_ix: HashMap<Scalar, u32>,
++}
++
++impl Intern {
++    fn new() -> Self {
++        Self { slots: Vec::new(), rc: Vec::new(), free: Vec::new(), by_entry: HashMap::new(), reaches: Vec::new(), reach_ix: HashMap::new() }
++    }
++
++    fn put(&mut self, b: &Binding) -> u32 {
++        let key = Arc::as_ptr(&b.entry) as usize;
++        if let Some(list) = self.by_entry.get(&key) {
++            for &s in list {
++                if let Some(a) = &self.slots[s as usize] {
++                    if eq_binding(a, b) {
++                        self.rc[s as usize] += 1;
++                        return s;
++                    }
++                }
++            }
++        }
++        let s = match self.free.pop() {
++            Some(s) => s,
++            None => {
++                self.slots.push(None);
++                self.rc.push(0);
++                (self.slots.len() - 1) as u32
++            }
++        };
++        self.slots[s as usize] = Some(Arc::new(b.clone()));
++        self.rc[s as usize] = 1;
++        self.by_entry.entry(key).or_default().push(s);
++        POOL_LIVE.fetch_add(1, Ordering::Relaxed);
++        POOL_SLOTS.fetch_max(self.slots.len() as u64, Ordering::Relaxed);
++        s
++    }
++
++    fn release(&mut self, s: u32) {
++        let i = s as usize;
++        if self.rc[i] > 1 {
++            self.rc[i] -= 1;
++            return;
++        }
++        self.rc[i] = 0;
++        if let Some(a) = self.slots[i].take() {
++            let key = Arc::as_ptr(&a.entry) as usize;
++            if let Some(list) = self.by_entry.get_mut(&key) {
++                list.retain(|&x| x != s);
++            }
++            self.free.push(s);
++            POOL_LIVE.fetch_sub(1, Ordering::Relaxed);
++        }
++    }
++
++    fn reach(&mut self, r: Scalar) -> u32 {
++        if let Some(&i) = self.reach_ix.get(&r) {
++            return i;
++        }
++        self.reaches.push(r);
++        let i = (self.reaches.len() - 1) as u32;
++        self.reach_ix.insert(r, i);
++        i
++    }
++
++    fn binding(&self, s: u32) -> &Binding {
++        self.slots[s as usize].as_ref().expect("a held scan's binding")
++    }
++}
++
++/// A held scan over the interned record: the same inputs, the same answer.
++struct CompactScan {
++    body: usize,
++    t: Tick,
++    interval: Tick,
++    me: Binding,
++    candidates: Vec<Cand>,
++    pool: Arc<Mutex<Intern>>,
++    found: OnceLock<Vec<Encounter>>,
++}
++
++impl Drop for CompactScan {
++    fn drop(&mut self) {
++        let mut pool = self.pool.lock().expect("the scan pool");
++        for c in &self.candidates {
++            pool.release(c.bind);
++        }
++    }
++}
++
++impl Held for CompactScan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+     }
++    fn census(&self) -> (usize, usize) {
++        (self.candidates.len(), self.candidates.len() * std::mem::size_of::<Cand>())
++    }
+ }
+ 
++impl CompactScan {
++    /// The expensive half, reading the pool: the shipped predicate over the same values.
++    fn compute(&self) -> Vec<Encounter> {
++        let mut out = Vec::new();
++        let (t, body) = (self.t, self.body);
++        let Ok((x, v)) = self.me.cartesian(t) else { return out };
++        let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
++        let pool = self.pool.lock().expect("the scan pool");
++        for c in &self.candidates {
++            let found = (|| -> Res<Option<bool>> {
++                let (xj, vj) = pool.binding(c.bind).cartesian(t)?;
++                let d = sub2(xj, x)?;
++                let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
++                let reach = pool.reaches[c.reach as usize];
++                let q_exp = reach.exponent() as i32 - 20;
++                let (di, wi) = (integers(d, q_exp)?, integers(w, q_exp)?);
++                let near = reach.scale(ENCOUNTER_LOG2)?.fixed(-q_exp)?;
++                if !hit(di, wi, near) {
++                    return Ok(None);
++                }
++                Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
++            })();
++            if let Ok(Some(contact)) = found {
++                out.push(Encounter { a: body, b: c.body as usize, t, contact });
++            }
++        }
++        out
++    }
++}
++
++fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
++    Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
++}
++
++
+ impl Scan {
+     /// The expensive half: read the player and each candidate at `t` and apply the predicate.
+     fn compute(&self) -> Vec<Encounter> {
+@@ -160,6 +352,9 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        if intern_on() {
++            return self.capture_compact(ctx, body, t, interval);
++        }
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+@@ -197,3 +392,58 @@ impl Encounters for PlayerNeighbourhood {
+         Some(scan)
+     }
+ }
++
++impl PlayerNeighbourhood {
++    /// The interned record's capture: the same cheap tests, the candidates as 12-byte slots.
++    fn capture_compact(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let me = ctx.bodies.binding_at(body, t)?;
++        let near = (|| -> Option<Vec<usize>> {
++            let (x, v) = me.cartesian(t).ok()?;
++            let h = time_of(interval, me.clock_exp).ok()?;
++            let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
++            let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
++            ctx.radial.candidates(me.doll, &w)
++        })();
++        let mut pool = self.pool.lock().expect("the scan pool");
++        let mut candidates = Vec::new();
++        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++            if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
++                continue;
++            }
++            let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++            if other.doll != me.doll {
++                continue;
++            }
++            let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
++            if reach.is_zero() {
++                continue;
++            }
++            let cand = Cand { body: u32::try_from(j).expect("a body the scan reads"), bind: pool.put(&other), reach: pool.reach(reach) };
++            candidates.push(cand);
++        }
++        let reusable = |l: &CompactScan| {
++            l.body == body
++                && l.t == t
++                && l.interval == interval
++                && same(&l.me, &me)
++                && l.candidates.len() == candidates.len()
++                && l.candidates.iter().zip(&candidates).all(|(a, b)| {
++                    a.body == b.body
++                        && pool.reaches[a.reach as usize] == pool.reaches[b.reach as usize]
++                        && eq_binding(pool.binding(a.bind), pool.binding(b.bind))
++                })
++        };
++        let mut last_c = self.last_c.lock().expect("the last compact scan");
++        if let Some(l) = last_c.as_ref().filter(|l| reusable(l)) {
++            for c in &candidates {
++                pool.release(c.bind);
++            }
++            POOL_REUSES.fetch_add(1, Ordering::Relaxed);
++            return Some(l.clone() as Arc<dyn Held>);
++        }
++        POOL_CAPTURES.fetch_add(1, Ordering::Relaxed);
++        let scan = Arc::new(CompactScan { body, t, interval, me, candidates, pool: self.pool.clone(), found: OnceLock::new() });
++        *last_c = Some(scan.clone());
++        Some(scan)
++    }
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..9e1fdf67 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -299,6 +299,18 @@ impl Universe {
+     pub fn held_scans(&self) -> usize {
+         self.scans.len()
+     }
++    /// The held scans' channel (a print-only census): how many scans are held, the candidates
++    /// they keep, and the bytes their records hold. The interned record's pool bytes are counted
++    /// by [`crate::encounter::scan_pool_census`].
++    pub fn scan_channel(&self) -> (usize, u64, u64) {
++        let (mut cands, mut bytes) = (0u64, 0u64);
++        for held in &self.scans {
++            let (c, b) = held.census();
++            cands += c as u64;
++            bytes += b as u64;
++        }
++        (self.scans.len(), cands, bytes)
++    }
+     /// Answer every held scan now (what the count, the log and the hash read once nothing is held; `settle` does it too).
+     pub fn flush_scans(&mut self) {
+         self.drain_scans(None);
