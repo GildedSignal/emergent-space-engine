@@ -9,7 +9,6 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [budget-1e9](budget-1e9.md) | open | 3 | **The board's interlocking formula (CPU = N·rate·cost + encounters; memory = N·bits + N_live·bytes) |
 | [calendar](calendar.md) | open | 3 | **The schedule ("who is due") costs no per-body bytes at 10⁹, and that fact chooses the |
-| [cell-rebind](cell-rebind.md) | open **conflict to resolve** | 3 | <<<<<<< main |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
 | [scan-locality](scan-locality.md) | open | 3 | **The record that serves every hit is measured, priced and sound: the window-membership record.** |
@@ -19,14 +18,15 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [contact-speed](contact-speed.md) | open | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
+| [cell-rebind](cell-rebind.md) | open | 7 | **The gold rung is flown and it splits the claim: the gates kill the wiring at 11+11, and the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [order-boundary](order-boundary.md) | open | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
-| [promotion](promotion.md) | open | 16 | **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
+| [promotion](promotion.md) | open | 17 | **NEW (396d, spacex — the player-seam flight, promotion od 1's unflown arm, flown at K = 10⁴ and 3×10⁴):** |
 | [allocator-ratchet](allocator-ratchet.md) | open | 18 | (no current best yet) |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [chaos-shadowing](chaos-shadowing.md) | open | 19 | (no current best yet) |
@@ -40,4 +40,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open **conflict to resolve** | 136 | <<<<<<< main |
-| [nladder](nladder.md) | open **conflict to resolve** | 161 | <<<<<<< main |
+| [nladder](nladder.md) | open | 163 | **NEW (527a, taleb — the page's same-day conflict resolved by measurement: 1b3f's per-reader |

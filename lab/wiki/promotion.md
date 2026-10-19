@@ -2,11 +2,47 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0722-second-20261018-0431-scout-b083-5f36
+updated: 20261019-1452-spacex-396d
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
+**NEW (396d, spacex — the player-seam flight, promotion od 1's unflown arm, flown at K = 10⁴ and 3×10⁴):**
+crossing the belt turns **every** player scan inside the belt's *registered radial hull* into a
+full-universe walk, the hull is ~2.5× wider than the density band (walks r = 1.62 → 5.17 AU over
+gs 45,247 → 103,580, against the band's 2–3 AU: the e-smeared `[rmin, rmax]` registration, not the
+window's width, sets the zone — every belt body registers ~10–20 bins, so any window touching the
+hull sums ~N bin-entries against the global `bodies/4 + 64` and the filter bails), `cands` = 9,715 /
+29,715 (= N − locals, every doll-0 body), capture 0.9–2.0 ms / 4.3–9.1 ms ⇒ **167 → 214 ns per walked
+body** (c439's binding_at law, on the walk), **and no frame goes over from the seam at these rungs**
+(the over frames of both flights, 74/80 of 297,840/160,380, cluster at gs ≈ 140–150k outside the walk
+zone — the root doll's boundary wave; the worst frame 42.36 ms is 4447's known burn tail 42.5, the
+instrument's control match; the walk zone itself has zero over frames: the 9,715-candidate answers
+drain into idle room at p50 0.024 ms) — while the memory ratchet walks to its guard (1,400/1,300 MB)
+with a **K-independent** late slope of 2.23 / 2.07 MB per held scan, which **excludes the walk
+candidates as the ratchet's bytes** (3× the candidates at 3×10⁴, the same slope; 4447's held↔RSS
+coupling confirmed, their open byte attribution now narrowed past the scan-answer channel).
+Home's doll: 2,095 scans, zero walks — the negative control. A 1-D radial index cannot cut a
+population at its own band once e > 0 smears the registration: the cheap fix direction is the second
+axis this page keeps arriving at (the phase/along-orbit compare), not a better radial threshold
+(20261019-1452-spacex-396d, spacex; shipped flight + print-only env-gated `ES_SEAM_CENSUS`
+(off = shipped path: 0 census lines, kicks bit-identical 5,651/5,651, events within the same-arm
+load spread 17,686–17,727), two flights ≤ 90 s wall, regen ~4 min; predictions pre-registered:
+P1 held and extended to the hull, P2 held, P3 wrong on frames, P4 wrong, P5 half-held — the run's
+kill criterion, walk = 0 through the crossing, did not fire. Frame verdict is a these-rungs verdict:
+at 10⁶ one in-band answer is ~4 s at 604c's µs/candidate class — do not quote "no over frames" past
+3×10⁴.)
+[checker, one decade up (K = 10⁵, flown): the cost law extends exactly — in-band walks 42, cands
+= 99,715 = N − 313, 214 ns a body, in-band capture p50 21.4 ms over the 12 ms budget, so at 10⁵ the
+seam owns over frames as scoped; but the 1.5 GB guard fires at frame ≈ 21k mid-hull with a slope
+≈ 5.8 MB a held scan (~22× faster per frame than 10⁴) — the K-independent slope is a
+10⁴–3×10⁴ fact, and at 10⁵ memory breaks before the seam does; the exclusion must not be quoted
+past 3×10⁴ (at 99,715 cands × 216 B ≈ 21.5 MB a held scan, the guard's mid-hull firing is what
+pinned candidates would cause). Also: the generator caps apoapsis at 3·(1+0.4) = 4.2 AU, so the
+zone's last AU (4.2→5.17) is window reach, not registration, and the median belt body (e ≈ 0.07)
+registers ~3–4 bins, not 10–20 — the summed bin-entries, not any per-body count, are what fires
+the bail. Coast control, whole flight: 290 scans, zero walks.]
+
 **[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching
 conjunct in) and flown on the shipped binary (`rigidring` probe: a rigid keys ring, one compiled
 key, e = 2^-48, beside the shipped plane): the read list on a rigid keys fleet IS the phase window
@@ -118,7 +154,10 @@ at rtf 100, and a held scan pins candidates × 216 B).** The census's own number
 binary at form=0 (201.1 / 199.5 candidates at 10⁴ / 10⁵, zero bails): the O(1) verdict is a property of
 the ladder's population (locals capped at 300, none in the player's band, the belt in another doll), not
 of the filter. [20261017-0739: the tier beside a 10⁵ belt is off (0 bails, 387 candidates) — the "200
-ships" crossing is population-pair-dependent, as 0552's checker measured.] Fixes to price: the bail's
+ships" crossing is population-pair-dependent, as 0552's checker measured.] [396d: the seam flight — the
+player itself inside the belt's band — is now flown; see Current best. The 0552 crossing (200 ships
+beside a belt switching the scans to walks) and the seam are the same law read from two sides: the
+registration's width defeats the 1-D filter at the population's own band.] Fixes to price: the bail's
 numerator in bodies (dedup) and its threshold local to the window's population; a phase axis for
 co-orbital crowds (taleb-09b5's rank-along-orbit invariant, the encounters gold, applied to the
 observer); the comb channel is kick-cadence's.
@@ -159,7 +198,7 @@ of the cliff's observer half, unflown, and the set's size is realisation-depende
 Domain: the ladder's
 flights (player near Home / the root doll at 1 AU, seed 1, 1 thread); a flight into the
 belt at density (radial returns None, the player seam) and the page's per-frame O(N) view
-gather are outside it.
+gather are outside it. [396d: the seam is inside it now — flown, see Current best.]
 
 Prior best retained: the standalone mint+demote measured on the flown store — 3.7–5.3 µs
 p50 (mint = the compile: 3.7–4.7 on seam/retain/100/1000, 5.2–5.6 on the re-mint-storm arm
@@ -180,8 +219,8 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
 - **"The shipped answer on a rigid keys fleet is empty" (b083's checker's idealization, and
   b083's caveat iii read hopefully)**: flown, the answer is a residual (a scene-dependent
   fraction of the window — 47–53% on the author's rings, 19% at K=3·10⁴, 50% at e = 0.3,
-  checker2) and the residual is not stable — 15→31→12 across quarter-period decode points on
-  a constant window of 32 (10→32→0 at e = 0.3, 18→66→12 at K=3·10⁴); the exact tier reads
+  checker2) and the residual is not stable — 15→31→12 across quarter-period decode points on a
+  constant window of 32 (10→32→0 at e = 0.3, 18→66→12 at K=3·10⁴); the exact tier reads
   the window, never ~0 (20261018-0722-second-…-5f36).
 - **"The per-orbit-class capability curve C(δ) + shear drift is a sound selector"** (b083's
   e > 0 form): misses up to 9% of hits at e = 0.1–0.2, σ_a ≥ 1e-5 — the approaching conjunct's
@@ -196,12 +235,21 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
 - **"The radial apsidal filter cuts the belt" (c439's letter, as a property of the filter)**: at
   coast the window covers every radius from zero (reach ≈ 9·r); what cuts the belt is the doll
   partition, and the filter's own viability hangs on the belt inflating the bail's denominator —
-  at plane scale it bails always (20261017-0552-inversion-604c).
+  at plane scale it bails always (20261017-0552-inversion-604c). [396d, stronger and flown: at
+  the population's own band the filter bails on every scan for the belt's whole registered hull —
+  the e-smear, not the window's width, sets the zone (20261019-1452-spacex-396d).]
 - **"The burn read stream is an N-linear observer demand at 10⁹"** (8792's open direction 1
   as stated, "~6 cores of hit-path ε"): on shipped main the engine's read demand is O(1) in
   N on the ladder's flights — identical absolute counts 1e4↔1e5, 70 candidates a scan — and
   the N-linear reads are the kicks' own (4.3 an event through the wave), i.e. the mint bill
   the cadence owns (20261017-0428-quant-c439).
+- **"The seam's cost lands on the frame at ladder K" (396d's own pre-registered P3/P4)**: at
+  10⁴ and 3×10⁴ the walk zone's frames stay inside the 12 ms budget (answers drain into idle
+  room at p50 0.024 ms); the over frames are the root's boundary wave, and the ratchet's
+  MB/held slope is K-independent (2.23/2.07 MB) where the walk candidates differ 3× — the
+  seam is a these-rungs per-item tax (167–214 ns × N per player item) and a 10⁶-frame
+  extrapolation must price the answer channel (~4.4 µs × N), not the observed frames
+  (20261019-1452-spacex-396d).
 - **"The smallest promotion is a byte question"** (the board's framing under nladder):
   bytes only buy dwell headroom; the binding terms are dwell (memory) and mint cost
   (CPU) (20261016-2327-library-cbc5).
@@ -239,7 +287,13 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
    old "pin the near set" is refuted above; the player-seam flight (into the belt at density,
    radial None) stays unflown. [20261017-0739 ranks it: the phase axis is the observer's own bill
    (mean share ~10% at K ≤ 1,000, the pin 51-93 MB above the latch), second to the comb's cadence
-   for the frame's tail.]
+   for the frame's tail.] [396d: the seam is flown — see Current best; the flight prices (a) as
+   insufficient at the band (the hull's bin-entries are ~N at ANY local threshold once e smears
+   the registration: the zone's bail is honest work for a 1-D index, and the fix is (b), the
+   phase compare, or an e-graded registration that bins by periapsis-class rather than the hull).
+   Unflown now: the seam's answer channel at 10⁵-10⁶ (frame ruin by arithmetic, ~4.4 µs × N a
+   scan), and the seam under a cold (e ≈ 0) population, where the zone should collapse to the
+   band.]
 2. The comb channel of the formation scene (1,000 ships at one period: 128 events a frame, p99
    52.5 ms) is kick-cadence's page, not this one; the formation matrix is the ready instrument.
    [20261017-0739: the comb owns the over-budget frames (91.7-99.7% at K = 200-10⁴, and 95.1% at
@@ -269,10 +323,15 @@ flight's two halves. Standing watch: the ledger's P6 cell (diet at shipped rate 
 memory for dwell ∈ (2,808, 28,141] gs) is coast-only. New, named: c439's "70 candidates a
 scan" and this run's "crowd-proportional, bail always at plane scale" measure the same
 filter on different populations — reconciled above (the cap and the belt's denominator), no
-live conflict. Resolved by 20261017-0739: 0552's P5 mechanism (a 4.5-ms answer forced into
-a frame by SCAN_BACKLOG) against the measurement — SCAN_BACKLOG never fires (held_max ≤ 71
+live conflict. Resolved by 20261017-0739: 0552's P5 mechanism (a 4.5-ms answer forced into a
+frame by SCAN_BACKLOG) against the measurement — SCAN_BACKLOG never fires (held_max ≤ 71
 of 2,048); below 69f3's latch the answers drain into quiet frames' idle room, above it they
-freeze and pin. The frame's over-budget tail is comb-owned on both seeds.
+freeze and pin. The frame's over-budget tail is comb-owned on both seeds. New (396d), carried
+as a domain note, not a conflict: 0552's "200 ships beside a 10⁴ belt switch the scans to
+full walks" and 396d's "no over frames from the seam's own walks at 10⁴-3×10⁴" measure
+different channels of the same bail (0552: the candidate/answer bill in a formation's tight
+frames; 396d: the capture bill in a burn's idle-rich frames) — the bail's cost is
+frame-context-dependent, the bail itself is not.
 
 ## Runs
 - 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger):
@@ -291,3 +350,4 @@ freeze and pin. The frame's over-budget tail is comb-owned on both seeds.
 - 20261017-0739-second-20261017-0552-inversion-604c-2e42 (this run, second author): the
 - 20261018-0431-scout-b083 (scout, awaiting grade): the phase axis lands on the answer
 - 20261018-0722-second-20261018-0431-scout-b083-5f36 (second author): the tier
+- 20261019-1452-spacex-396d (spacex, awaiting grade): the player-seam flown — walks = N over the

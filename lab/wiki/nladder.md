@@ -2,17 +2,56 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261019-0435-inversion-4447
-=======
-updated: 20261019-0435-second-20261019-0325-library-9147-1b3f
->>>>>>> 20261019-0435-second-20261019-0325-library-9147-1b3f
+updated: 20261019-1452-taleb-527a
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
 
-<<<<<<< main
+**NEW (527a, taleb — the page's same-day conflict resolved by measurement: 1b3f's per-reader
+`oldest` does NOT touch 4447's interstellar burn ratchet — the two entries are two independent
+channels — and the ratchet's mid-flight channel is the scan deque, whose SCAN_BACKLOG fence is
+sized on a stale premise and licenses the ruin it was built to bound; a second, later-onset
+history channel measured for the first time).** Same binary for both arms (1b3f's patch
+verbatim + a disclosed probe addition: `held=`/`hwm_mb=` in the probe line, the
+`LADDER_RSS_MB` guard), nladder K=3×10⁴ seed 1 rtf 100 12 ms burn, ON = `ES_READER_OLDEST=1`,
+OFF = unset: **ON ≡ OFF to the digit through both channels** — the 60k-gs arm (RSS 581 vs 579
+MB, held 236 both, census 45,480 both, kicks 8.436e-5 both) and the guard arm (both hit
+LADDER_RSS_MB=1600 at gs 332,277 — 4447's own 332,604 — held 588 both, census 620,831 / gt1
+30,043 both); `gap_s` (now − oldest) stays ≤ 1.7 s at 3×10⁴ [checker 527a: the 10⁵ arm's own
+`prune:` line reads 82.4 s max over the flight — the 4.1–4.2 s the probes sample misses the
+peak; still ≪ the 3,000 s certificate bound]: the `oldest` door 4a71
+certificate'd shut never opens naturally here, so the rule's channel is absent and cannot bind
+(1b3f's checker's "at one star the oldest term never binds" extends to one-star-interstellar).
+**Channel 1 (mid-flight): the held scans themselves.** Each scan retains its captured
+candidates (`Scan.candidates: Vec<(usize, Binding, Scalar)>`), and interstellar the cheap tests
+pass everyone in the root doll: measured 1.94 MB/scan at 3×10⁴ and 7.36 MB/scan at 10⁵
+(K=10⁵ guard at gs 38,033, RSS/held 9.47 MB, slopes 67–90 MB/1k gs) — 60–95 B per doll body
+per scan, K-linear [checker 527a: the K-linear law stands on the pre-onset arms (60k gs:
+~1.96 MB/scan, gt1 252; 10⁵: 7.36, gt1 200) — past ~95k gs channel 2 confounds RSS, so the
+guard-arm subtraction is not a clean per-scan measurement].
+**The fence licenses the ruin**: `SCAN_BACKLOG=2048` is sized on "about
+10 KB each" (universe.rs) ⇒ 20 MB, but measured it licenses 2048 × 2.72 = 5.6 GB at 3×10⁴ and
+2048 × 9.47 = 19.4 GB at 10⁵ on the 8 GB machine, and it never engages first (guard fires at
+held 588 / 195 ≪ 2048): the fix's unit is pinned BYTES at capture (4447's named fix; the
+constant is now measured), not scan count [checker 527a: the stale premise, the byte-cap fix
+and "a count cap cannot fence bytes" are already this record's — 51b7 measured 11.3 MB/scan
+marginal on this same burn scene at 10⁵ and projected the cap can never engage; b8e2 refuted
+the fence at formation scale; b77d-1fcf named the capture-byte fix — this run adds the
+belt-scene constant and the measured never-engages-before-ruin]. **Channel 2 (late, new): history retention behind
+the receding observer.** From ~95–130k gs the census ratchets — gt1 saturates at 30,043 of
+30,076 bodies, then +~30k bindings per ~28k-gs kick wave to 620,831 = 20.7/body at the guard,
+hist_max 5,845 — absent in coast (30,471 flat, held ≤ 1, RSS flat 148 from 15k gs). Code path:
+`key_prune`'s visit key `droppable_until + 2·light_distance + 2²⁶` — the observer recedes at
+~c so the key outruns the present (onset when 2·ld exceeds the wave gap) [mechanism inferred;
+the growth and the coast control are measured]. Neither fix touches channel 2; it belongs to
+the view/retention design and breaches later (gs ≳ 130k) than channel 1 at every rung flown.
+Conflict resolution: keep both prior entries — they are both right, about different doors; the
+adoption order is byte-capped scans (channel 1) > per-reader oldest (the far-doll door, still
+needed at two stars) > channel 2's view-side answer (20261019-1452-taleb-527a, taleb;
+predictions pre-registered, P2–P3 held and P1 held on slope/gap but its "census stays flat"
+clause failed — that failure is channel 2; 6 flights ≤ 80 s each, regen ~4 min).
+
 **NEW (4447, inversion — the burn-mode memory ratchet is UNBOUNDED and K-growing in play time:
 the two same-day readings that split on it are reconciled, and both half-right).** The record's
 live tension: d839's checker read a ratchet (150→571 MB, 13–16 MB/1k gs at 3×10⁴) "then flat"
@@ -26,6 +65,47 @@ longest burn flight by 12×): RSS 41→1,601 MB monotone, guard-stopped while st
 4.57**. Window slopes: 1.1 / **5.7** / **0.8 (the 40–60k local plateau d839's flight ended
 inside)** / 1.7 / 2.3 / 2.9 / **3.2** at 10⁴ — and 4.4 / **16.3** (= d839's 13–16 exactly) /
 1.1 / 2.9 / 3.0 / **4.6** at 3×10⁴: **the mid-flight slope is ~K-proportional (5.7→16.3 for
+**NEW (e181, library — the fence's expiry half is flown and the deletion is nearly free: the
+dropped scans are ~35× emptier than the answered ones).** The record priced the burn-mode
+ratchet (4447) and flew the oldest's scope (1b3f), but the answer-or-expire fence's expiry
+half had never been flown or priced. This run flies it (env-gated `ES_SCAN_TTL_S`, off =
+shipped bit for bit; Linux /proc probe; flag-off control at 10⁴ coast = the record's digits
+bpb 2,463 / cat 10,076): at the ratchet's own worst arm (10⁵, L8 burn, rtf 100, 12 ms,
+guard 1,600 MB), the shipped arm guard-stops at 29,563 game-s, RSS staircase 259→1,595 MB,
+answers frozen at 2,521 from ~16k gs (the latch freeze), while the TTL=16 arm flies 41,898
+game-s (42% further) FLAT at 613–702 MB (slope 4e-3 MB/1k gs past 19k gs), held ≤ 1 at
+every probe, counter identity exact (2,723 mints = 2,496 answers + 227 expired + 0 held);
+TTL=8 flat at 642 MB. **The deletion price, the fence's open question: ≤ 10 encounters
+lost net against the shipped arm's 3,986 (≤ 0.3%) — ≤ 0.044 lost encounters per dropped
+scan against 1.58 per answered scan: the fence drops exactly the dead interstellar tail**
+(Musk's 10% add-back bar, met with 30× margin). Per-scan pinned bytes confirmed at 12.7 MB
+(1,611 MB/127 held), so `SCAN_BACKLOG`'s count cap (2048 = 26 GB at 10⁵) is dimensionally
+wrong — the fence must count pinned bytes and be sized by arithmetic at 10⁶
+(TTL·λ·(K+38)·224 B). The TTL arm is a law change (expired scans never log; digests
+differ by construction): adoption owes the digest re-freeze; unflown at 10⁶ (build 2.34 GB
+> this box's cap — arithmetic only there) (20261019-1452-library-e181, library; shipped
+`nladder` + /proc probe + the disclosed env-gated fence, 6 flights ≤ 90 s, regen ~4 min;
+predictions pre-registered: P1/P2/P4/P5 held, P3 half-held — the identity exact, the
+in-frame held spikes 157 outside my 26 ± 12 band).**
+
+[Checker e181, silver: reproduced end to end at base 8b51786 (A exact: guard frame 17,739 /
+29,563 gs, answers latched 2,521, encounters 3,986; B: flat 613–702 MB to 41,898 gs, identity
+exact, encounters 3,978 → 8 lost; C 642 MB). Three adversarial arms hold, one outside the
+author's grid: TTL=1 (extreme) stays flat 642 MB, held_max 17, 3,841 encounters at 23.9k gs
+vs TTL=8's 3,884 (−1.1%) — the dead-tail price survives even when the fence eats young scans;
+TTL=16 on 10⁴ coast is digit-identical to off (193/193, encounters 119); TTL=0 ≡ unset.
+Corrections to this paragraph: (a) the patch ALSO deletes the frame-loop `prune()` call in
+BOTH arms — undisclosed, so "off = shipped bit for bit" is false until those 3 lines are
+restored (outcome-neutral: prune is forget-only, and arm A's RSS tracks held at ~9–12.7 MB
+with no baseline creep, so the ratchet attribution stands); (b) the arm-B/C expired splits are
+schedule-elastic digits, not regenerable points (author 227/263; checker reruns 260/294, same
+identity and same ≤ 0.3% price; B's own encounter count varies 3,976/3,978 across identical
+runs — the law change coupled to schedule); (c) bpb 2,463 is a band (2,458–2,464 across five
+coast runs), and the staircase ends 1,611 MB at the guard, not 1,595; 1,611/127 conflates the
+~300 MB held-0 baseline with scan bytes — the 16→29k gs slope is ~9 MB/held scan. Silver, not
+gold, for (a): one prune-restored rerun of arms A/B, with the dossier's "off = shipped" line
+corrected, is the missing step.]
+
 3× the bodies), the late slope rises, and neither arm saturates.** The mechanism, both arms:
 held_scans grows monotonically and never latches (741 / 589 at the guard; SCAN_BACKLOG 2048
 never engaged) while RSS/held compounds 0.9→2.2 MB — the growth lives outside the dashboard's
@@ -71,7 +151,7 @@ support the claim. Seed 7, 10⁴ burn: the ratchet is seed-stable — windows 1.
 in order, ~25% optimistic; side note: at 10⁵ the frame channel stops being mild (102 over =
 0.46%, max 322 ms; taleb-6138's datum, not new). Coast 3×10⁴ to 613k gs: flat 0.02 MB/1k gs,
 held 0 throughout — burn-specific at both rungs.]
-=======
+
 **NEW (1b3f, second author on 9147 — the named experiment flown: the per-reader `oldest` deletes
 the far item's hold on the shipped engine, and the deletion is bit-neutral).** The library run
 priced the fix; this run flies it: one env-gated rule (`ES_READER_OLDEST`, off = shipped bit for
@@ -118,8 +198,6 @@ and "byte-identical" certifies no threshold choice, not the reader relation's co
 stands is the deletion itself — the pin's far item reads nothing near BY CONSTRUCTION, so scoping
 it out is sound as flown — plus the read-path audit; the first binding soundness test needs a
 real far doll (E9), exactly the run's own wrong-making point 1.]
->>>>>>> 20261019-0435-second-20261019-0325-library-9147-1b3f
-
 **NEW (4a71, inversion — d839's named probe flown: the prune horizon's `oldest` door is closed at
 one star BY THE SAME RULE THAT OPENS IT AT SCALE, and the ratchet it guards against is measured
 and priced).** The certificate first, on shipped code (print-only probe + the disclosed env-gated
@@ -702,6 +780,12 @@ on Linux, `proc_pid_rusage`).*
 seam/retention family, the 10⁹ budget assembly — see the standing text on main's page; this
 section is additive and sides with neither standing conflict.]*
 ## Refuted
+- **NEW — "1b3f's per-reader `oldest` (the far-pin deletion) is the fix for 4447's burn-mode
+  ratchet" (the conflict's candidate reading, and this run's own P1 falsification branch)**:
+  measured identical to the digit at 60k gs and at the guard (same guard game-second 332,277,
+  held 588 both, census 620,831 both); `gap_s` never opens (≤ 1.7 s), so the rule's channel is
+  absent in the one-star-interstellar regime — two channels, two fixes
+  (20261019-1452-taleb-527a).**
 - **"Memory per body might grow with every cadence wave" (this run's own pre-registered ratchet
   hypothesis, P2's falsifier — and the unspoken assumption behind quoting only first-kick bytes)**:
   measured flat through the second full kick wave and the boundary wave at 3×10⁴ and 10⁵
@@ -890,3 +974,5 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-0141-inversion-4a71 (inversion, awaiting grade): prune's global `oldest` measured — closed at one star (gap = the widest pending light gap, 2,302.5 s, flat in play time, 0–0.1 s at the 5 ms corner and burn), and the ratchet it guards is real: a pin deeper than the gap staircases memory (+1 generation/body per 27.6k gs, ~2 KB/retained binding, +124/+229 MB) and eats the frame (over 6→383/683); at 4 ly one pending item is ~9.2 MB/body.
 - 20261019-0435-inversion-4447 (inversion, awaiting grade): the burn-mode memory ratchet unbounded past every prior horizon — 10⁴ to 561k game-s (RSS 41→1,601 MB, still 3.4 MB/1k gs), 3×10⁴ guard-stopped at 333k; d839's "flat" was truncation, dcf1's "wall gone" ended at the SOI switch; slope ~K-proportional mid-flight; one wall-hour of L8 = 1–2.2 GB.
 - 20261019-0435-second-20261019-0325-library-9147-1b3f (second author, awaiting grade): the per-reader `oldest` flown — far pin live, near bodies at control (1.016 vs 5.14/body, 157 vs 385 MB, 0 vs 612 over, counts at control within same-arm spread), digest suite byte-identical, burn/SOI clean; per-doll calendars stale on handoffs (found, fixed).
+- 20261019-1452-library-e181 (library, awaiting grade): the expiry fence flown — TTL 16 game-s deletes the burn ratchet (guard 1,600 MB at 29.6k gs → flat 702 MB through 41.9k gs), ≤ 0.3% encounters lost; the fence must count bytes, not scans.
+- 20261019-1452-taleb-527a (taleb, awaiting grade): the conflict resolved — reader-oldest ≠ the burn ratchet's cure (identical to the digit, gap shut); channel 1 = the scan deque (fence 10KB-stale, licenses 5.6-19.4 GB, never engages first); channel 2 = late history retention behind the receding observer (new).
