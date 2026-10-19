@@ -1,0 +1,68 @@
+{
+ "units": {
+  "root_unit_km": 1.477,
+  "root_time_s": 4.926741686076706e-06,
+  "ship_radius_m": 49.041015625,
+  "contact_reach_km": 0.09808203125,
+  "encounter_reach_km": 100.436,
+  "orbit_period_2p5AU_game_s": 124756689.45389637
+ },
+ "genesis": {
+  "samples": 20000,
+  "realizations": 8,
+  "mean_e": 0.08730950450561033,
+  "rayleigh_sigma07_mean_prediction": 0.08773198961208502,
+  "max_e": 0.3078897994083931,
+  "a_range_AU": [
+   2.0000132105673125,
+   2.9998858549404614
+  ],
+  "periapsis_range_AU": [
+   1.5173677194903752,
+   2.9584756019403997
+  ],
+  "occupied_r_AU": [
+   1.5253896262313191,
+   3.7351588744159536
+  ],
+  "lanes": 25932800000,
+  "mean_rel_speed_km_s": 22.883751947843077,
+  "dv_circular_closed_form_km_s": 24.19516718734306
+ },
+ "rates_at_1e9": {
+  "note": "pair events per game-s, shipped annulus, rate linear in reach d",
+  "conjunction_pair_events_per_game_s_per_root_reach": 84.09257970289333,
+  "encounter_pair_events_per_game_s_100km": 5718.2954197967465,
+  "contact_pair_events_per_game_s": 5.58427287089526,
+  "contact_per_body_per_game_s": 1.1168545741790521e-08,
+  "encounter_per_body_per_game_s": 1.1436590839593493e-05,
+  "enc_events_over_clock_stream": 0.32215748843925335,
+  "contact_items_over_clock_stream": 0.00031460692230395835,
+  "global_mean_crosscheck_enc_events": 2811.311252930785,
+  "filling_factor": 9.241895968268097e-12
+ },
+ "thresholds": {
+  "contact_wakeup_N_per_game_hour": 7052862.771951603,
+  "C_contact_equals_own_clock": 3178.5696025907764,
+  "C_encounter_belttemp_equals_own_clock": 3.104071877530055,
+  "fleet1e6_side_km_at_C_contact": 507151.82351613604,
+  "colane_pair_fraction_at_1e9": 3.856120434353406e-11
+ },
+ "ledger_fold": {
+  "rtf": 100.0,
+  "item_us_x86": 82.5,
+  "item_us_m1": 48.33802816901409,
+  "stream_row_addition_cores_today_cost": 0.05398654786735924,
+  "stream_row_addition_cores_6us_floor": 0.006701127445074312,
+  "census_reconciliation": {
+   "naive_uniform_expectation_at_1e4_in_1e3_gs": 355.0,
+   "note": "uniform-rate expectation (355 at 1e4) OVERPREDICTS the census: f80a measured the belt's first clock wave at gs 11k-16k (onset), so a 1e3-gs census window (10 s wall, rtf 100) sees zero belt kicks by construction; the long arms then read 8.03 bindings/body at 174k gs = 1.30 x lambda (P2)"
+  }
+ },
+ "p2_crosscheck": {
+  "bindings_per_body": 8.03,
+  "game_s": 174000,
+  "eff_rate": 4.614942528735632e-05,
+  "ratio_to_lambda": 1.2999838109114454
+ }
+}
