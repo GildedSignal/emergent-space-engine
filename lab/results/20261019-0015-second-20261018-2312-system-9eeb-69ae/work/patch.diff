@@ -1,0 +1,410 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..fcbd982c 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -419,7 +419,7 @@ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            Trajectory::Cycle(crate::orbit::served(key)?)
+         } else {
+             Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+         };
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..50c13d8a 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -605,7 +605,20 @@ impl Orbit {
+         })
+     }
+     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+-        if shape.key != ShapeKey::for_orbit(key)? {
++        Self::build_from(key, shape, false)
++    }
++    /// The cell-served form: `shape` may be the key's quantized cell's ([`MemoCode`]), so the
++    /// knot table compiles once per cell while the orbit carries the exact invariants.
++    fn from_shared(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
++        Self::build_from(key, shape, true)
++    }
++    fn build_from(key: OrbitKey, shape: Arc<OrbitShape>, cell: bool) -> Result<Self> {
++        let own = if cell {
++            ShapeKey::for_orbit(key.memo_key()?)?
++        } else {
++            ShapeKey::for_orbit(key)?
++        };
++        if shape.key != own {
+             return Err(Error::Topology);
+         }
+         let q = key.compactness()?;
+@@ -972,12 +985,14 @@ impl MemoCode {
+ pub struct QuantizedMemo {
+     shapes: HashMap<u64, Arc<OrbitShape>>,
+     pub hits: u64,
++    pub builds: u64,
+ }
+ impl QuantizedMemo {
+     pub fn with_capacity(n: usize) -> Self {
+         Self {
+             shapes: HashMap::with_capacity(n),
+             hits: 0,
++            builds: 0,
+         }
+     }
+     pub fn get(&mut self, input: OrbitKey) -> Result<Orbit> {
+@@ -988,12 +1003,32 @@ impl QuantizedMemo {
+             self.hits += 1;
+             s.clone()
+         } else {
++            self.builds += 1;
+             let s = Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?);
+             self.shapes.insert(bits, s.clone());
+             s
+         };
+         Orbit::from_shape(key, shape)
+     }
++    /// The carried form of the served rebind: the shape is the key's cell's (shared, compiled
++    /// once per cell), while the returned orbit carries the **exact** key — the state channel
++    /// never absorbs the cell's rounding (that is the write-back form the law rejected), and
++    /// the binding's residual channel carries the difference exactly at the event.
++    pub fn get_carried(&mut self, input: OrbitKey) -> Result<Orbit> {
++        let code = MemoCode::encode(input)?;
++        let key = code.decode()?;
++        let bits = code.shape_bits()?;
++        let shape = if let Some(s) = self.shapes.get(&bits) {
++            self.hits += 1;
++            s.clone()
++        } else {
++            self.builds += 1;
++            let s = Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?);
++            self.shapes.insert(bits, s.clone());
++            s
++        };
++        Orbit::from_shared(input, shape)
++    }
+     pub fn len(&self) -> usize {
+         self.shapes.len()
+     }
+@@ -1002,6 +1037,43 @@ impl QuantizedMemo {
+     }
+ }
+ 
++thread_local! {
++    static SERVED: std::cell::RefCell<QuantizedMemo> = std::cell::RefCell::new(QuantizedMemo::default());
++}
++
++/// `ES_QMEMO=1` serves cycle compiles from the law's quantized cell with the exact key carried
++/// (docs/law.md "keyed by quantized (E, L)", the carried form). Unset or `0`: `Orbit::compile`
++/// verbatim — the shipped law, bit for bit.
++pub fn served(key: OrbitKey) -> Result<Orbit> {
++    if !qmemo_enabled() {
++        return Orbit::compile(key);
++    }
++    // The symbolic circle has no radial instability to integrate: it stays exact (as does the
++    // refusal inside the ISCO, which is `compile`'s own branch).
++    if key.k_exponent == 0 && key.k == UNIT {
++        if let Ok(q) = key.compactness() {
++            if q >= Scalar::ONE.div(Scalar::integer(6))? {
++                return Orbit::compile(key);
++            }
++        }
++    }
++    SERVED.with(|m| m.borrow_mut().get_carried(key))
++}
++
++/// (hits, builds, distinct cells) of the thread's served memo, for the lab's instruments.
++pub fn qmemo_stats() -> (u64, u64, usize) {
++    SERVED.with(|m| {
++        let m = m.borrow();
++        (m.hits, m.builds, m.shapes.len())
++    })
++}
++
++fn qmemo_enabled() -> bool {
++    static V: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_QMEMO").map(|v| v == "1").unwrap_or(false));
++    *V
++}
++
+ /// An unbound geodesic over a finite radial window. Infinity has a deflection,
+ /// but no finite arrival time. No maximum passage radius is assumed by the compiler.
+ #[derive(Clone, Debug)]
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..7976cfd2 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -343,7 +343,7 @@ impl Universe {
+     fn spec_binding(&self, spec: &OrbitSpec, unit: Unit) -> Res<(Arc<Entry>, Tube, (i16, i16))> {
+         let doll = &self.dolls[spec.doll as usize];
+         let key = OrbitKey::bound(unit.to_tube(spec.periapsis)?, spec.e_q48)?;
+-        let orbit = Orbit::compile(key)?;
++        let orbit = emergent_space::orbit::served(key)?;
+         let period = unit.to_doll(orbit.period()?)?;
+         let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
+         // Periapsis `phase` of a period before tick 0.
+diff --git a/crates/universe/tests/qbelt.rs b/crates/universe/tests/qbelt.rs
+new file mode 100644
+index 00000000..ba1ca397
+--- /dev/null
++++ b/crates/universe/tests/qbelt.rs
+@@ -0,0 +1,69 @@
++//! The belt's cell census at the law's 11+11 width — the unmeasured half of the cell-served
++//! rebind's adoption decision (20261018-2312-system-9eeb's open direction 1, the checker's named
++//! gold experiment). Question: does a scattered belt (uniform a in [2, 3) AU, e Rayleigh σ 0.07,
++//! one exact orbit per body, `scenario::ladder_ship`) occupy one standing cell per body — the
++//! memory win caps at eviction — or sublinear, saturating cells? On the weak branch
++//! (`compactness ≤ 2^-18`) `MemoCode::shape_bits` drops the radius entirely, so the prediction is
++//! that the belt's cells are its gap classes alone.
++//!
++//! Instrument: the served memo itself (`orbit::qmemo_stats`), read through the shipped birth path
++//! (`Universe::add_body` → `spec_binding` → `orbit::served` under `ES_QMEMO=1`). Nothing is
++//! re-implemented; the census counts the memo's own distinct shape keys after construction, so
++//! "cells" here is exactly the standing-table size the engine would hold. Cumulative across the
++//! sequentially built universes of one process; the belt's contribution at N is the growth over
++//! the same plane built with extra = 0.
++use emergent_space::orbit;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::{Config, Order};
++
++fn census_at(extra: usize, seed: u64) -> (usize, u64, u64) {
++    // Identical plane (seed, members, order), `extra` ladder ships more. The thread-local served
++    // memo is cumulative, so the deltas between successive calls are each population's share.
++    let p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, extra).unwrap();
++    let (hits, builds, cells) = orbit::qmemo_stats();
++    let _ = p; // constructed and started inside; kept alive to here for clarity
++    (cells, hits, builds)
++}
++
++#[test]
++fn the_belts_cells_saturate_in_bodies() {
++    std::env::set_var("ES_QMEMO", "1");
++    let base = census_at(0, 1).0;
++    let n1 = 2_000;
++    let n2 = 4_000;
++    let (c1, h1, b1) = census_at(n1, 1);
++    let (c2, h2, b2) = census_at(n2, 1);
++    // The belt share of each run: cells beyond the plane's own, and builds beyond the plane's.
++    let belt1 = c1 - base;
++    let belt2 = c2 - c1;
++    let belt_bodies1 = n1 - ladder_locals(n1 as u64) as usize;
++    let belt_bodies2 = n2 - ladder_locals(n2 as u64) as usize;
++    println!(
++        "census: plane base {base} cells | +{n1} ladder ({} belt) -> {belt1} new cells, {} new builds | +{n2} ladder ({} belt) -> {belt2} more cells, {} more builds",
++        belt_bodies1,
++        b1,
++        belt_bodies2,
++        b2 - b1
++    );
++    println!(
++        "cells per belt body: {:.4} at N={}, {:.4} at N={} (cumulative belt cells {} for {} belt bodies, ratio {:.3})",
++        belt1 as f64 / belt_bodies1 as f64,
++        n1,
++        (c2 - base) as f64 / belt_bodies2 as f64,
++        n2,
++        c2 - base,
++        belt_bodies2,
++        (c2 - base) as f64 / belt_bodies2 as f64
++    );
++    // P4: sublinear and saturating — doubling the belt adds fewer cells than the first ladder
++    // held, and the per-body ratio at 4k is below half the (already sublinear) 2k ratio.
++    assert!(belt2 < belt1, "not saturating: {} then {}", belt1, belt2);
++    assert!(
++        (c2 - base) as f64 / belt_bodies2 as f64 < 0.2,
++        "cells per belt body {} at N={}",
++        (c2 - base) as f64 / belt_bodies2 as f64,
++        n2
++    );
++    // The served path really carried these births (builds grew with each ladder).
++    assert!(b2 > b1 && b1 > 0, "births did not serve: {} {} {}", b1, b2, h2);
++}
+diff --git a/crates/universe/tests/qmemo.rs b/crates/universe/tests/qmemo.rs
+new file mode 100644
+index 00000000..459000ad
+--- /dev/null
++++ b/crates/universe/tests/qmemo.rs
+@@ -0,0 +1,185 @@
++//! The rebind's cycle served from the law's quantized cell with the **exact key carried**
++//! (`ES_QMEMO=1`; `emergent_space::orbit::served`). This is the experiment `memo.rs`'s header
++//! names as owed: "the memo that pays is the quantized one … a law-level choice, behind B1,
++//! B2 and B9 re-judged on memo keys" — in the carried form, so the exact integer state and the
++//! residual channel are untouched and the write-back random walk law.md rejected cannot occur.
++//! Unset, the gate serves `Orbit::compile` verbatim and this test measures the shipped law.
++use emergent_space::{
++    binding::Trajectory,
++    orbit::{self, MemoCode, Orbit, Scalar, ShapeKey},
++};
++use emergent_universe::body::What;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::{step, Budget, Config, Kind};
++use std::collections::HashSet;
++use std::time::Instant;
++
++fn decode(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++struct Census {
++    cycles: u64,
++    kick_served: i64,
++    kick_builds: i64,
++    cells: usize,
++    exact_recurrence: f64,
++    max_period_err: f64,
++    max_advance_err: f64,
++    max_knot_delta: i64,
++    med_period_err: f64,
++    hash: u64,
++    wall: std::time::Duration,
++    fit_ns: u64,
++}
++
++fn fnv(hash: u64, bytes: &[u8]) -> u64 {
++    let mut h = hash;
++    for b in bytes {
++        h ^= *b as u64;
++        h = h.wrapping_mul(0x100000001b3);
++    }
++    h
++}
++
++/// The `memo.rs` harness verbatim (distinct kicks only), plus the served-cell census against
++/// the exact compile (the oracle `behave`'s B1/B2 statistics read on this crate), a run-to-run
++/// outcome hash, the FIT stage when `prof` is on, and the kick-only served/build counts (the
++/// birth compiles of the scene's setup are excluded by a baseline taken after construction).
++fn run_stream() -> Census {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++    let (bh, bb, _) = orbit::qmemo_stats();
++    let mut last: Vec<Option<i64>> = Vec::new();
++    let (mut cycles, mut knot_delta_max, mut fit_ns) = (0u64, 0i64, 0u64);
++    let (mut period_errs, mut advance_errs) = (Vec::new(), Vec::new());
++    let (mut exact, mut quantized) = (HashSet::new(), HashSet::new());
++    let mut hash = 0xcbf29ce484222325u64;
++    let t0 = Instant::now();
++    for _ in 0..900 {
++        last.resize(p.u.n_bodies(), None);
++        for i in 0..p.u.n_bodies() {
++            let rec = p.u.rec(i);
++            if rec.kind != Kind::Ship || !rec.alive {
++                continue;
++            }
++            let Some(item) = rec.plan.first().copied() else { continue };
++            if !matches!(item.what, What::Kick(_)) || last[i] == Some(item.t) {
++                continue;
++            }
++            last[i] = Some(item.t);
++            let upd = step::process(&p.u.ctx(), i, rec);
++            let Some(Trajectory::Cycle(c)) = upd.new_entry.as_ref().map(|e| &e.trajectory) else { continue };
++            cycles += 1;
++            let key = c.key();
++            hash = fnv(hash, &i.to_le_bytes());
++            hash = fnv(hash, &item.t.to_le_bytes());
++            hash = fnv(hash, &key.k.to_le_bytes());
++            hash = fnv(hash, &key.periapsis.significand().to_le_bytes());
++            hash = fnv(hash, &(key.periapsis.exponent() as i64).to_le_bytes());
++            hash = fnv(hash, &c.period().unwrap().significand().to_le_bytes());
++            exact.insert(ShapeKey::for_orbit(key).unwrap());
++            quantized.insert(MemoCode::encode(key).unwrap().bits());
++            // The oracle: the shipped exact compile of the same exact key.
++            let o = Orbit::compile(key).unwrap();
++            let pe = (decode(c.period().unwrap()) / decode(o.period().unwrap()) - 1.0).abs();
++            let ae = (decode(c.advance().unwrap()) / decode(o.advance().unwrap()) - 1.0).abs();
++            period_errs.push(pe);
++            advance_errs.push(ae);
++            knot_delta_max =
++                knot_delta_max.max((c.shape().knots().len() as i64) - (o.shape().knots().len() as i64));
++        }
++        let (ns, _) = emergent_universe::prof::take();
++        fit_ns += ns[emergent_universe::prof::FIT];
++        p.u.frame(1.0 / 60.0, 100.0, Budget::unlimited());
++        p.u.settle(p.u.now);
++    }
++    let wall = t0.elapsed();
++    let (hits, builds, cells) = orbit::qmemo_stats();
++    period_errs.sort_by(|a, b| a.total_cmp(b));
++    advance_errs.sort_by(|a, b| a.total_cmp(b));
++    let med = |v: &[f64]| v[v.len() / 2];
++    Census {
++        cycles,
++        kick_served: (hits + builds) as i64 - (bh + bb) as i64,
++        kick_builds: builds as i64 - bb as i64,
++        cells,
++        exact_recurrence: 1.0 - exact.len() as f64 / cycles as f64,
++        max_period_err: period_errs[period_errs.len() - 1],
++        max_advance_err: advance_errs[advance_errs.len() - 1],
++        max_knot_delta: knot_delta_max,
++        med_period_err: med(&period_errs),
++        hash,
++        wall,
++        fit_ns,
++    }
++}
++
++#[test]
++fn the_cell_serves_the_rebind_with_the_exact_key_carried() {
++    std::env::set_var("ES_QMEMO", "1");
++    let first = run_stream();
++    let second = run_stream();
++    let build_rate = first.kick_builds as f64 / first.kick_served as f64;
++    println!(
++        "arm=on cycles={} wall_ms={} fit_ms={} kick_served={} kick_builds={} build_rate={:.4} cells={} standing_test_cells_metric=distinct_quantized_cells/cycles",
++        first.cycles,
++        first.wall.as_millis(),
++        first.fit_ns / 1_000_000,
++        first.kick_served,
++        first.kick_builds,
++        build_rate,
++        first.cells
++    );
++    println!(
++        "census vs exact compile: period max {:.3e} med {:.3e} | advance max {:.3e} | knot_delta_max {} | exact_recurrence {:.3}",
++        first.max_period_err,
++        first.med_period_err,
++        first.max_advance_err,
++        first.max_knot_delta,
++        first.exact_recurrence
++    );
++    println!("outcome hash {:#018x} vs rerun {:#018x}", first.hash, second.hash);
++    assert!(first.cycles > 300, "the stream is real: {}", first.cycles);
++    assert!(first.kick_served > 200, "the served path is exercised: {}", first.kick_served);
++    // P1 (pre-registered bar): shape builds per kick rebind < 0.15.
++    assert!(build_rate < 0.15, "P1 kick build rate {:.4}", build_rate);
++    // P2 (B2's band) and P3 (B1's band), re-judged against the exact compile.
++    assert!(first.max_period_err < 1e-3, "P2 period err {:.3e}", first.max_period_err);
++    assert!(first.max_advance_err < 1e-2, "P3 advance err {:.3e}", first.max_advance_err);
++    // P4: no knot explosion.
++    assert!(first.max_knot_delta <= 2, "P4 knot delta {}", first.max_knot_delta);
++    // P6: the exact key still never recurs — the state channel stayed exact.
++    assert!(first.exact_recurrence < 0.05, "P6 exact recurrence {:.3}", first.exact_recurrence);
++    // P5: the served law is a pure function of the key — identical outcomes on a rerun.
++    assert_eq!(first.hash, second.hash, "P5 rerun diverged");
++    assert_eq!(first.cycles, second.cycles);
++    // P8: standing shapes are bounded by cells, not bodies.
++    assert!(first.cells < 400, "P8 cells {}", first.cells);
++}
++
++#[test]
++fn unset_the_law_is_verbatim() {
++    // In a shared process the on-arm test sets ES_QMEMO before the gate caches it; this arm is
++    // decisive only in a clean process (regen.sh runs it with the environment unset).
++    if std::env::var("ES_QMEMO").ok().as_deref() == Some("1") {
++        println!("skipped: ES_QMEMO=1 leaks into this process (the on-arm sets it); regen.sh runs this arm clean");
++        return;
++    }
++    // The same stream with the gate off must not touch the served memo at all.
++    let before = orbit::qmemo_stats();
++    let run = run_stream();
++    let after = orbit::qmemo_stats();
++    println!(
++        "arm=off cycles={} wall_ms={} fit_ms={} exact_recurrence {:.3} max_period_err {:.3e} (served untouched: {})",
++        run.cycles,
++        run.wall.as_millis(),
++        run.fit_ns / 1_000_000,
++        run.exact_recurrence,
++        run.max_period_err,
++        before == after
++    );
++    assert!(before == after, "the off arm touched the served memo");
++    assert!(run.max_period_err == 0.0, "the off arm is not the exact compile");
++    assert_eq!(run.kick_builds, run.kick_served, "the off arm compiles every rebind");
++}
