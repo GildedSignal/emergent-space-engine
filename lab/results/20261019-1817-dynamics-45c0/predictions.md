@@ -1,0 +1,15 @@
+# Predictions — 20261019-1817-dynamics-45c0 (written after the 300-body pilot, before the decisive 2,700-body runs)
+
+Question: is the calendar page's persistent dues tail (C50 ≈ 2.2–3.0× after ~8 fires, d520 checkers: "a persistent ~2× tail, not a decay to uniform") an attractor of the chained clock, the birth step distribution showing through, or a slow mixing transient? And does a genesis stagger (f82a's lever, "the only measured lever on the belt's wave") erase it?
+
+Arms: `ship` (shipped genesis) and `stagger` (each root-doll ship's genesis plan delayed by hash(id) mod one median step; a scene variant, drift exact until the first kick). Belt 2,700 (extra=3000, seed 1), census per generation at head + g·1.03·step_max, gens 24 (past d520's 16).
+
+Pilot facts already seen (300-body, g≤3, not tuned on): C50(dues) ≈ C50(steps) ≈ 2.8 flat from the first fire; the step distribution's own C50 = 2.76 at birth; per-fire step drift p50 ≈ 6×10⁻⁵.
+
+- **P1 (the tail is the step law's shape):** on the ship arm, C50(dues) tracks C50(steps) within ±20% at every g ≥ 1 (both measured with the dues' own span as denominator). The 58×→2.2–3.0 curve of the page is the dues span shearing from 5% to one step; the concentration it lands on is the step distribution's own half-mass concentration, visible at birth without a single fire.
+- **P2 (the stagger does not erase the tail — regrowth):** on the stagger arm, C50(dues) at g=1 reads ≈ 1.0–1.3 (the stagger flattens the wave) and then drifts back toward the same ≈ 2.5–3.0 plateau by g ≤ 12, because dues = stagger + Σ full and the g·full term's shape (C50_steps) dominates once g·σ(step) ≳ stagger span. If instead C50(dues) stays ≤ 1.5 through g = 24, P2 is killed and the tail is a genesis-correlation remnant the stagger deletes whole.
+- **P3 (no re-battalion, no clustering instability):** battalion (largest exact shared due) stays ≤ 2 on both arms at every g; load_max (per-window max/μ over 64 windows per step) decays monotonically on the ship arm from its g=1 value and never exceeds the stagger arm's same-g value by > 2× (no instability that builds load beyond shear).
+- **P4 (the calendar is birth-data + slow drift):** the per-body forecast due ≡ d0 + k·s0 holds phase to fc_p50 ≤ 0.01 of the step through g = 24 (i.e., ~25 fires) on the ship arm — the news per fire is the step drift (p50 ~6×10⁻⁵, p90 ~1.4×10⁻⁴ relative). If fc_p50 passes 0.05 by g ≤ 12, the birth-data forecast is dead and the calendar needs the live next-due word per body.
+- **P5 (mixing, not locking):** C50(dues) on the ship arm does not fall below 2.0 by g = 24 (the phase distribution has not mixed to uniform; the tail is not a decaying transient at this horizon). If it does fall below 2.0, the "persistent tail" reading dies — it is a slow transient after all.
+
+Kill criteria: P1 broken (C50(dues) ≠ C50(steps) late) → the tail carries genuine dynamics beyond the step law; P2's stagger branch kills the attractor question one way; P4 broken → the store must carry moving next-due words (calendar page's consequence line stands, strengthened).

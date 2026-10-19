@@ -1,0 +1,31 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: variable does not need to be mutable
+   --> crates/universe/examples/genesis.rs:126:13
+    |
+126 |         let mut dues: Vec<f64> = cur.iter().map(|c| c.1 as f64).collect();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `emergent-universe` (example "genesis") generated 1 warning (run `cargo fix --example "genesis"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.29s
+== SHIP seed 1 (step C50 at birth ?, dues0 span ?) ==
+  plateau-track: C50/C50_steps at g=1..7 in [0.987, 1.000]
+  first g with C50<2.0: 14; first g with C50==1.0x: None; late-g load_max max: 2.11; battalion max: 1
+  drift p50/p90: 6.19e-05/1.24e-04; forecast fc p50 at last g: 0.0221 (p90 0.0475)
+  C50 curve: 0:3.05 1:3.06 2:3.06 3:3.07 4:3.07 5:3.07 6:3.08 7:3.12 8:2.91 9:2.66 10:2.46 11:2.29 12:2.15 13:2.02 14:1.64 15:1.35 16:1.05 17:1.44 18:1.53 19:1.49 20:1.44 21:1.39 22:1.35 23:1.30 24:1.27
+  load_max curve: 0:18.9 1:11.7 2:8.1 3:7.2 4:6.1 5:5.3 6:4.8 7:4.3 8:3.8 9:3.4 10:3.4 11:3.2 12:3.0 13:2.8 14:2.7 15:2.8 16:2.4 17:2.2 18:2.2 19:2.1 20:1.9 21:2.0 22:2.1 23:1.9 24:1.9
+== STAGGER seed 1 (step C50 at birth ?, dues0 span ?) ==
+  plateau-track: C50/C50_steps at g=1..7 in [0.337, 0.346]
+  first g with C50<2.0: 0; first g with C50==1.0x: None; late-g load_max max: 1.47; battalion max: 1
+  drift p50/p90: 6.19e-05/1.37e-04; forecast fc p50 at last g: 0.0086 (p90 0.0188)
+  C50 curve: 0:1.05 1:1.06 2:1.06 3:1.07 4:1.06 5:1.06 6:1.06 7:1.06 8:1.05 9:1.03 10:1.03 11:1.04 12:1.03 13:1.04 14:1.04
+  load_max curve: 0:1.4 1:1.4 2:1.4 3:1.4 4:1.4 5:1.3 6:1.3 7:1.4 8:1.3 9:1.4 10:1.4 11:1.4 12:1.3 13:1.3 14:1.5
+== /home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261019-1817-dynamics-45c0/ship_seed2_gens14.log (step C50 at birth ?, dues0 span ?) ==
+  plateau-track: C50/C50_steps at g=1..7 in [0.987, 1.043]
+  first g with C50<2.0: 14; first g with C50==1.0x: None; late-g load_max max: 3.15; battalion max: 1
+  drift p50/p90: 5.96e-05/1.86e-04; forecast fc p50 at last g: 0.0075 (p90 0.0173)
+  C50 curve: 0:2.90 1:2.92 2:2.92 3:2.92 4:2.93 5:2.94 6:2.95 7:3.13 8:2.90 9:2.66 10:2.46 11:2.29 12:2.15 13:2.03 14:1.83
+  load_max curve: 0:19.2 1:11.8 2:9.0 3:7.1 4:5.8 5:5.2 6:4.5 7:4.1 8:3.8 9:3.2 10:3.1 11:2.8 12:2.8 13:2.4 14:2.5
