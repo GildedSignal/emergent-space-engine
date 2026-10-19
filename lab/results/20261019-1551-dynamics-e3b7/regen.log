@@ -1,0 +1,96 @@
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/lattice)
+warning: value assigned to `ke_all` is never read
+   --> crates/lattice/examples/gravitybelt.rs:159:13
+    |
+159 |     let mut ke_all: i128 = 0;
+    |             ^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-lattice` (example "gravitybelt") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.04s
+{
+ "P1_cold": {
+  "esc_max": 449,
+  "n_in_last": 309,
+  "first_quarter_mean": 5641.057291666667,
+  "last_quarter_mean": 163143.74479166666,
+  "ratio": 28.92077430815551,
+  "holds": false
+ },
+ "P2_season": {
+  "peak_window": 183685,
+  "cold_mean_window": 5641.057291666667,
+  "ratio": 32.56215820948164
+ },
+ "P3": {
+  "esc_frac_at_16384": 0.86,
+  "esc_last": 0.856875,
+  "n_in_last": 224,
+  "peak_block": 2866602,
+  "peak_index": 45,
+  "late_mean_block": 2802792.25,
+  "late_over_peak": 0.9777402827459131,
+  "branch": "grinder",
+  "rattle_frac_late": 0.0,
+  "contacts_total": 96001040
+ },
+ "P5": {
+  "G_s1_h49152": {
+   "maxk_first": 739345,
+   "maxk_last": 739345,
+   "ke_peak": 67422087339017,
+   "ke_last": 50944689672654,
+   "rise_after_peak": 0.0
+  },
+  "C_s1_h49152": {
+   "maxk_first": 95298,
+   "maxk_last": 686460,
+   "ke_peak": 4559725332533,
+   "ke_last": 2687930862665,
+   "rise_after_peak": 0.0
+  },
+  "GW_s1_h24576": {
+   "maxk_first": 739345,
+   "maxk_last": 739345,
+   "ke_peak": 67428539556046,
+   "ke_last": 10705347408885,
+   "rise_after_peak": 0.0
+  },
+  "G_s2_h16384": {
+   "maxk_first": 802191,
+   "maxk_last": 802191,
+   "ke_peak": 68306923293174,
+   "ke_last": 51732971414048,
+   "rise_after_peak": 0.0
+  },
+  "C_s2_h16384": {
+   "maxk_first": 94980,
+   "maxk_last": 680436,
+   "ke_peak": 4579853385163,
+   "ke_last": 2940270470481,
+   "rise_after_peak": 0.0
+  }
+ },
+ "P4_walls": {
+  "esc_max": 301,
+  "esc_last": 0,
+  "n_in_last": 1360,
+  "walls_total": 216719641,
+  "late_mean_window": 354781.6145833333,
+  "cold_mean_window": 5641.057291666667,
+  "ratio": 62.8927515250447
+ },
+ "G_s2": {
+  "esc_last": 0.858125,
+  "n_in_last": 215,
+  "peak_block": 1870694,
+  "last_block": 1863145
+ },
+ "timing": {
+  "esc50": 2211,
+  "esc90": null,
+  "esc50_s2": 2222
+ }
+}
