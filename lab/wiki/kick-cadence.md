@@ -7,7 +7,40 @@ updated: 20261018-0431-second-20261018-0143-components-16ec-49e9
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
-**The boundary comb is priced in information and it is a no-op machine: 99.88% of belt
+**NEW (9edc, spacex — the kick comb's own news fraction, the half the 99.88% boundary
+result never covered, measured: it is 100% news, and the duplicate-mint delete is dead).**
+Print-only census (`ES_KICK_NEWS`, off = shipped path — the off arm's counters read zero
+and its ladder digits sit in the same-arm load spread; `ES_LADDER_SEED` dial; Linux
+footprint stub) at every FIRED rebind — same `OrbitKey`+sense as the standing binding =
+duplicate mint, else orbit news — on `nladder 10⁴/3×10⁴ coast 150 1800`, seeds 1/2, ~267k
+game-s (the belt's waves inside), plus a 20-s pre-wave control: **0 identical re-fits in
+2,037,393 fired kicks** (belt/clock-band 492,362; deeper-doll tube 1,544,512; clock-near
+519), `self_ok=1` (the comparison's true branch proven reachable), and the universe-side
+catalogue has NO key lookup (`cat_inserts` = fired exactly; `cat_live` = bodies+48 at
+both rungs — a live-slot count, which the free list pins at the live-binding count
+whatever the keys are, so it cannot show key privacy; efd4's 2,044/2,036 standing
+measurement is the crossover that holds that side). Consequences: (1) the boundary comb's
+no-op machine
+does NOT extend to the kick comb even partially — 3570's "0.117% carry all the news" is
+the boundary's number; the kick's is 100%; (2) wiring the existing key-dedup catalogue
+(space/tube.rs) into the mint would hit nothing on the stirred belt's kick stream — dead
+there, and already measured dead in stock terms by efd4 (0.4% standing duplication on the
+belt; the memo line "exact keys never recur on distinct kicks" is prior too); NOT dead
+under co-orbital concentration, where efd4's flown intern hit 99.6% (formations; unflown
+here); (3) the
+mint's information bill: ~log₂(1 velocity quantum) bits of tide news buys a fresh
+Binding 192 B + Segment 208 B + Entry 288 B + table (the ladder's measured 2.1 KB/binding
+mint, all of it "new"), so the honest lever is the resolution coupling — the key's grid
+vs the kick's dv quantum, the same Δs/cadence dial `BELT_SPLIT` owns, now sized by
+information; (4) the short 20-s arm is the negative control that shows why: before the
+belt's first wave (p50 14,071 game-s) only the locals' tube stream exists (3,671 fired, 0
+same there too). Belt = the clock path (9.6 kicks/body over the flight ≈ 0659's λ); the
+408k tube kicks at 10⁴ are the ~300 locals — 82% of fired kicks on this scene, a reminder
+that the ladder's event mass is the locals' until the belt's waves land
+(20261019-1906-spacex-9edc; predictions pre-registered: P1/P3 DEAD by the kill criterion,
+P2/P4 held; 5 flights ≤ 55 s wall, regen ~5 min; coast-only, no burn arm, ≤ 3×10⁴).**
+
+Prior standing (unchanged): **The boundary comb is priced
 boundaries carry zero news.** On the shipped `nladder 10000 coast 150 1800` (10,028 bodies,
 90,342 game-s flown ≈ 3.2 intervals (nominal 270,000; checker regen 189,455 game-s ≈ 6.7
 at the same fractions), 336,767 probed events; `BOUND_PROBE` print-only census,
@@ -28,6 +61,7 @@ violations, never fewer). The surface margin is NOT safe (41.3% of boundaries at
 surface in doll units — the exact test is load-bearing; the edge side is deep: 96.9% under
 1/16 of the doll edge) (20261017-2038-components-3570, components; predictions P1/P3/P4/P5
 held, P2's surface half failed as pre-registered).**
+
 
 **The key-range test is flown, as a digest-neutral deletion of the readout (the event keeps its
 tick and anchor), and it is exact on the coasting belt — 100.0% skip at 202 ns against 4,077 ns
@@ -286,6 +320,15 @@ attribution.]
 **The budget: cadence is the largest priced wall.** Of the billion-body event budget's three walls — kick compute (29 µs today), layout (gather-4 sustains 2.7× pointer-chasing), cadence — cadence is 64 → 0.3 kicks/orbit = 213×: no layout reaches a 10⁹-body battle at 10× real time on today's 64/orbit cadence, while year-scale belts already pass 10⁹ at 10× real time even at today's 29 µs per kick (a4ed, gold; compute/layout walls → `kick-jet`). On the shipped integer plane the frontier is regime-split by a measured 8×: the resonant bulk holds at 16 kicks per perturbation period (B17), deep passages need ≥ 128 (B13), and the plane serves both with one doll-wide Δs tied to the fastest secondary — paying the passage price everywhere; cutting the bulk's cadence 8× is the named build (7f97). 3294 closes its premise on shipped code: the fire gate is inert (rate 1.000, impulses ≥ 2⁷ units), so the regime-split loses nothing at the quantum — the dial is free to move to the behaviour's own floor.
 
 ## Refuted
+- **"The kick's re-fit mostly reproduces the standing orbit (the duplicate-mint delete)":
+  measured dead on the stirred belt's kick stream — 0 identical `OrbitKey`s in 2,037,393
+  fired kicks (belt, tube and clock paths; 10⁴ and 3×10⁴; seeds 1 and 2; the 20-s
+  pre-wave control too; checker arms: seed 3, burn and 10⁵ all 0); every fired kick
+  mints a new orbit, and the universe-side catalogue (bind.rs) has no key lookup to dedup
+  with. Prior: efd4 had already measured the stock side (0.4% standing duplication on
+  the belt; memo dead); the formation half (99.6%) is not killed by this run
+  (20261019-1906-spacex-9edc).**
+
 - **"If `BELT_SPLIT` does not stretch the boundary comb, it becomes the composed stream's
   majority" (this page's open direction 1, the unclosable ~15.7-M1-core branch): dead by
   mechanism and flight — the boundary is scheduled from the kick's own `full` at its
@@ -349,14 +392,22 @@ attribution.]
 - **The sub-quantum kick regime at the flown grid (this page's "the sigma-delta carry" as a living belt mechanism, and any "accumulator absorbs the belt's kicks" adoption): measured absent — fire rate 1.000 with impulses ≥ 2⁷ units on four arms; nothing accumulates between grid kicks anywhere in the flown plane (3294). The accumulator remains law (it engages at finer Δs or weaker tides by construction), but the shipped grid never enters its regime.**
 
 ## Open directions
+1. **The resolution coupling (this run's handback):** the key's grid resolves every
+   one-quantum dv, so the mint's bill is ~0.5 KB+table per few bits of news. The dial that
+   couples them is Δs/cadence (`BELT_SPLIT`, de7b's step octaves): price the flip
+   fraction and the mint bytes as a function of the split (a split that coarsens the
+   velocity quantum should drive flips → same-key at some S, collapsing the mint the way
+   this run proves it does not collapse today) — the information arithmetic to size S,
+   never measured on the mint side. The burn arm and a 10⁵ rung are the unflown scope.
 
-1. **Decided (20261017-1149-fermi-de7b, direct flight + seeds 20261017-1240-second-…-f790):
+
+2. **Decided (20261017-1149-fermi-de7b, direct flight + seeds 20261017-1240-second-…-f790):
    the boundary comb rides any step-length lever with the kick comb** (it is the midpoint of
    the kick's own step; three octaves of `step_log2` measured per body, the `BELT_SPLIT`
    patch itself flown at lever 4 with 9,700/9,700 welded, and three seeds identical). The constraint it leaves: splits must
    coarsen Δs, never skip planned kicks. What stays open is only the split's legality at
    S ≈ 20 (B-gates; 7f97/1db4's question).
-2. **The compute-ahead certificate** (PRINCIPLES #17; the headroom is measured: 10.8× at
+3. **The compute-ahead certificate** (PRINCIPLES #17; the headroom is measured: 10.8× at
    3×10⁵, 3.2× at 10⁶, 308× short at 10⁹): pre-compute each comb during the idle
    half-interval before it is due — the due times are the metronome, known for free. The
    open question is the observer clause: what reads a body between an event's due time and
@@ -364,10 +415,10 @@ attribution.]
    early kick invisible to every ledger that must stay bit-identical. Also: the combs'
    phase stability across seeds (the mechanism says genesis-locked; f82a's train agrees)
    and the de-phased arms' crest profile, which this run did not fly.
-1. **Aim the cadence question at the per-kick cost and the flyby representation first.** On the plane the fixed-cadence search is dead and the budget is law-dominated (~43–52.8 µs/kick, one full cycle rebind per distinct kick, zero reuse, `NoBoundOrbit` tail) (c01c; 0c44) — a cadence rule cannot matter there until those move (→ `kick-jet`).
-2. **Split the plane's one doll-wide Δs by regime** (bulk vs passages, the measured 8×): ~5× fewer kick events at flat per-kick price, via a per-body or per-regime clock constant precomputed from constants only (7f97; 54d9). 3294 removes its last obstacle: the quantum-fire gate is inert (nothing can start accumulating at coarser Δs — the impulse only grows), so the split is bounded by the behaviour gates alone.
-3. **Secular deletion at scale**: h = T_sec/20..T_sec/5 certificates (5030) plus orbit-anchored discrete secular kicks, K ≥ 16 (2eb1) — 15–60× fewer kicks for weak-tide bodies; extrapolated past T_lib = 227 and never measured on shipped code. The interior path is measured: the evection harmonic at 0.3–2.9 events/moon-orbit to 0.20–0.25 R_H (13ae), and the conjunction calendar at 0.57 events/orbit with the e-vector form and a compiled-frequency guard is the away-layer replacement (0510; 53f6).
-4. **The trigger's walk mechanism, and whether any event-triggered cadence can be made decorrelating** (71b4): the impulse-quantum trigger walks without the gate's phase-lock (fires precess broadly, concentration ≈ 0.15, yet slope → 1) — the candidate is |g|-weighted (conjunction-clustered) firing, a selection bias; untested. The falsifier for any future "safe" trigger: run it in a bounded-kernel machine against a bounded clock control (the 71b4 harness), at 400+ parent orbits, before believing a 100-orbit frontier — and solve the crossing time (grid-snapped fires walk on their own). Dither is not the escape (±20% per fire still walks, slope 0.63, checker2), and the bounded control's own window ends by 1600 parent orbits (clock slope ≈ 1.05 there, checker2).
+2. **Aim the cadence question at the per-kick cost and the flyby representation first.** On the plane the fixed-cadence search is dead and the budget is law-dominated (~43–52.8 µs/kick, one full cycle rebind per distinct kick, zero reuse, `NoBoundOrbit` tail) (c01c; 0c44) — a cadence rule cannot matter there until those move (→ `kick-jet`).
+3. **Split the plane's one doll-wide Δs by regime** (bulk vs passages, the measured 8×): ~5× fewer kick events at flat per-kick price, via a per-body or per-regime clock constant precomputed from constants only (7f97; 54d9). 3294 removes its last obstacle: the quantum-fire gate is inert (nothing can start accumulating at coarser Δs — the impulse only grows), so the split is bounded by the behaviour gates alone.
+4. **Secular deletion at scale**: h = T_sec/20..T_sec/5 certificates (5030) plus orbit-anchored discrete secular kicks, K ≥ 16 (2eb1) — 15–60× fewer kicks for weak-tide bodies; extrapolated past T_lib = 227 and never measured on shipped code. The interior path is measured: the evection harmonic at 0.3–2.9 events/moon-orbit to 0.20–0.25 R_H (13ae), and the conjunction calendar at 0.57 events/orbit with the e-vector form and a compiled-frequency guard is the away-layer replacement (0510; 53f6).
+5. **The trigger's walk mechanism, and whether any event-triggered cadence can be made decorrelating** (71b4): the impulse-quantum trigger walks without the gate's phase-lock (fires precess broadly, concentration ≈ 0.15, yet slope → 1) — the candidate is |g|-weighted (conjunction-clustered) firing, a selection bias; untested. The falsifier for any future "safe" trigger: run it in a bounded-kernel machine against a bounded clock control (the 71b4 harness), at 400+ parent orbits, before believing a 100-orbit frontier — and solve the crossing time (grid-snapped fires walk on their own). Dither is not the escape (±20% per fire still walks, slope 0.63, checker2), and the bounded control's own window ends by 1600 parent orbits (clock slope ≈ 1.05 there, checker2).
 5. **Certificate-sized kick windows**: 33/132/704 evals/orbit at e = 0/0.3/0.7 (1.5–2.4× the headline), because the tail-coefficient certificate over-estimates fit error 20–130× (213e).
 6. **Price the horizon into the moon certificate**: N* is set by Hill position (4/8/16 at f = 0.2/0.3/0.45 R_H) and *walks with horizon* (N = 8 apsidal deviation 4.4% → 9.7% from horizon 12 → 27), so a horizon-free local rule is not derivable from these gates; the mixed-scene validation never ran (7d0d).
 7. **The dense belt's corruption is not a cadence problem**: sub-resolution conjunctions corrupt at every cadence (cd52; f2e3) — the fix belongs to the conjunction-window/encounter representation (→ `encounters`).
@@ -438,3 +489,4 @@ attribution.]
 - 20261017-2038-components-3570 (components, silver): the boundary comb census — 99.88% no-op, 27.8% of belt resolver CPU for 0 bits; key-range design priced; checker: no-op holds at N=3×10⁴ (99.96%) and on the burn arm (99.91%), news class = Passage bodies (~25 fixed, 269/275), coverage headline corrected; gold awaits the kick-time key-range test flown.
 - 20261018-0143-components-16ec (components, gold): the key-range test flown as a
 - 20261018-0431-second-20261018-0143-components-16ec-49e9 (second author): the burn question closed — pinned-decision harness (`schedule` at a canonical tick) proves the fast path digest-neutral on thrusting populations (1198b23e ×4, 100% skip, 338 passages read), the divergence mechanism measured both sides (equal tick → equal digest; unequal → unequal), the slow_cycle refusal branch flight-proven (5,126 refused, digest identical), and the decomposition regenerates (clock_share 0.166–0.187 from one command).
+- 20261019-1906-spacex-9edc (spacex, awaiting grade): the kick comb is 100% news — 0/2.04M

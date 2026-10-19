@@ -2,11 +2,37 @@ topic: budget-1e9
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1817-fermi-d4ff
+updated: 20261019-1906-second-20261019-1817-fermi-d4ff-f876
 
 # The assembled 10⁹ ledger: the board's interlocking budget, composed on measured laws
 
 ## Current best
+
+**NEW (f876, second author on d4ff — the conjunction constant is now MEASURED at the ladder's
+checkable decade, checker-extended flat to 2×10⁵ root, and the checker's anchor table falls with it).** Exact Kepler propagation
+of the shipped genesis (M = 10⁵ bodies, per-pair debounced threshold crossings, burn-in excluded,
+1,182 events, four configs; checker: 596 more events at 10⁵ read 6.27, 2,264 at 2×10⁵ read 5.96) measures the belt's pair-event rate at **Γ = 6.21 per root of reach per
+game-s (band 5.4–7.0), FLAT in reach across d = 10⁴–10⁵ root (falling ~5% by 2×10⁵)** — the kinetic flux regime, reached six
+mean-spacings down and carried to the instrument reaches by its own flatness (no physics scale between
+10⁴ root and the ship radius) — the carry below 10⁴ is theory plus bookends, not a measurement. At the priced reaches: **TP bar ≈ 422 pair-events/game-s at 100 km**
+(selectivity 8×10⁻¹⁶ of 5×10¹⁷ pairs), **contacts 0.41/game-s → +0.0040 cores today-cost = ≤ 0.03% of
+every composed total**, wake-up N = 2.6×10⁷, C_contact = 4.3×10⁴ (10⁶-fleet box ≥ 142,000 km),
+belt-temperature C = 42. The author's 84.09/root is REPRODUCED as an artifact (the kinetic theorem on
+shell-random pairs — θ-mixed — gives 83.3: their construction, their number), and the checker's
+corrected constants all stand to ~30% (their 4.9 vs measured 6.21). But the checker's three-reach
+anchor table (27.75/40.3/48.8 per root at d = 10⁵/10⁶/2×10⁶) is **itself 4–8× high as a pair-event
+rate**: a second, independent instrument (steady-state pair MC: conjunctions at |Δn|/2π, miss = impact
+parameter at the angular crossing) reads 6.1–6.8 at 10⁵ and 4.6/3.9 falling at 10⁶/2×10⁶ — their
+rising-with-reach signature is presence-flavoured counting (their occupancy 1.3–5.3 at the upper
+reaches), not pair events. The MC's own straight-line miss overcounts the slow tail (|Δv| ≲ Ω|Δr|:
+orbital shear closes the window before the radial offset does) — +10% at 10⁵ root, dominant below 10⁴
+(full/safe at 68 root: 13.8/10.8, bookends only, OUTSIDE the adopted band 5.4–7.0 — the priced-reach
+constant carries that one-sided risk, unmeasured below 10⁴; every ledger conclusion survives a 2× rise);
+the propagation anchors the flat law instead (checker's independent KDTree counter: 5.65 at 3×10⁴).
+(20261019-1906-second-20261019-1817-fermi-d4ff-f876; `regen.sh` ~11 min: parallel propagation + pair MC + kinetic theorem + ledger; predictions
+pre-registered: P1 flatness, P3 artifact-reproduction, P4 speeds, P5 downstream, P6 all held; P2's
+shear-safe-cut plan failed at 68 root — kill criterion fired, adopted constant is the
+propagation-anchored flat law. Bound unchanged: no mutual ship gravity wired.)
 
 **NEW (d4ff, fermi — the stream row closed against the belt's own physics; checker-corrected: the conjunction
 law's constant was an order of magnitude high, and every conclusion survives a fortiori).** Derived on shipped
@@ -96,10 +122,17 @@ All anchors x86→M1 page-cited; orders of magnitude
   first clock wave (f80a: saturation at gs 11k–16k), and the long arms measure the belt
   at 8.03 bindings/body per 174k gs = 1.30×λ — λ is the belt's own steady rate
   (20261019-1817-fermi-d4ff). The census *digits* stand; the inference does not.
-- **"The 10⁹ conjunction rate is unknown" (the stream row's open hole)**: bounded by the checker's
-  exact-Kepler counts at 27.75/40.3/48.8 per root of reach at d = 1e5/1e6/2e6 root (instrument-reach
-  asymptote ~4.9/root → ~3×10²/game-s at 100 km); the dossier's 84/root fed the strip formula a
-  θ-mixed annular dispersion (20261019-1817-fermi-d4ff). Not yet measured by a live instrument.
+- **"The 10⁹ conjunction rate is unknown" (the stream row's open hole)**: now MEASURED flat at
+  Γ = 6.21/root/game-s (band 5.4–7.0) by exact propagation at d = 10⁴–10⁵ root and carried to the
+  instrument reaches (TP bar ≈ 422/game-s at 100 km; f876). The dossier's 84/root was a θ-mixed
+  shell-pair artifact (reproduced at 83.3; d4ff).
+- **The checker's three-reach anchor table (27.75/40.3/48.8 per root) as a pair-event rate**
+  (d4ff's check.md): two independent instruments — exact propagation (6.19 at 10⁵) and the
+  steady-state pair MC (6.83 at 10⁵, falling per root above) — both sit 4–8× below it; the table's
+  rising-with-reach shape matches presence counting, not debounced pair events. Checker f876-review
+  confirms by rerun and by a third, differently-structured counter (596 events at 10⁵ → 6.27;
+  2,264 events at 2×10⁵ → 5.96, falling; KDTree counter 5.65 at 3×10⁴). The checker's
+  downstream constants survive (~30%) because their asymptote and bands absorbed it (f876).
 - **"Closure needs 14.6 µs/event — a 1.3–2.1× gap, not a physics gap" (cd3b's letter,
   carried by 097e's ledger) as the stream's closure bar**: the bar itself is
   rate-bound — at the 6 µs arithmetic floor the shipped cadence alone is 24 cores
@@ -125,12 +158,14 @@ All anchors x86→M1 page-cited; orders of magnitude
    half is closed (λ cross-checked 1.30× from f80a's long arms; the census's "inert" was a
    window artifact), but the **conjunction constant is not**: d4ff's derivation was θ-mixed
    (checker-corrected to ~3×10²/game-s at the instrument reach, from exact-Kepler counts).
-   Add to the same flight a **conjunction counter** at the tier's screening reach: it would
-   pin the law's constant on a live instrument and price the encounters tier's TP bar.
+   Add to the same flight a **conjunction counter** at the tier's screening reach: the constant is now pinned off-engine
+   (Γ = 6.21 flat, f876 — propagation at 10⁴–10⁵ root + kinetic flatness to 68 root); the flight
+   instrument remains to confirm it inside the shipped loop (the propagation is the belt's own
+   law, not the engine's scan).
 4. **The concentration tail is now the stream's named risk** (d4ff): contacts = own clock
-   stream at C ≈ 5×10⁴ (checker-corrected from the dossier's 3.2×10³; the 10⁶-fleet box
-   tightens to ~130 km), belt-temperature mixing encounter-critical at C ≈ 50 — the same
-   law as the work tier's co-orbital ruin (both inherit the ~10–20× correction). The plane's battle
+   stream at C ≈ 4.3×10⁴ (measured Γ = 6.21; f876; checker 5×10⁴; dossier 3.2×10³; 10⁶-fleet
+   box ~142,000 km), belt-temperature mixing encounter-critical at C ≈ 42 (f876; checker 50) — the
+   same law as the work tier's co-orbital ruin. The plane's battle
    scenes (c749) already fire allocator asserts at milliard-free scales; when fleets are
    wired at 10⁶+, the ledger needs a concentration allowance row.
 5. ~~9fd1's grade decides the churn row~~ **Closed by 73b5: 0.35–1.4 cores at E* =
@@ -157,3 +192,4 @@ All anchors x86→M1 page-cited; orders of magnitude
 - 20261019-1551-fermi-73b5 (fermi, checker 1: gold): churn row 0.35–1.4 cores at E* = 1024–256, leak-certified; the 363-core arm dead.
 - 20261019-1656-components-3aec (components, silver): post-73b5 re-composition — the stream dominates and is rate-bound at its floor (24 cores at the 6 µs floor, shipped cadence; closure = cadence cut AND ≤ 4.9 µs/event); kick item measured 82.5 µs x86 N-flat (player stream; checker: the belt's own items 44.7 µs, total 5.6–6.3×).
 - 20261019-1817-fermi-d4ff (fermi, silver): the belt's own stream bounded — closure survives with contacts ≤ +0.006 cores at 10⁹ (checker-corrected; author's +0.054); conjunction law checker-cut to ~3×10²/game-s at the instrument reach (author's 84/root θ-mixed, 10–20× high); wake-up N≈3×10⁷; C≈5×10⁴ contact tail; "inert belt" census reading refuted (window artifact, λ cross-checked 1.30× — stands).
+- 20261019-1906-second-20261019-1817-fermi-d4ff-f876 (second, on d4ff): the conjunction constant measured where it is paid — Γ = 6.21/root/game-s flat (propagation, 1,182 events, d = 10⁴–10⁵), TP bar 422/game-s, contacts 0.41/s, +0.0040 cores; author's 84.09 reproduced as θ-mixing (83.3); checker's anchor table 4–8× high as pair events, their downstream constants stand to ~30%.

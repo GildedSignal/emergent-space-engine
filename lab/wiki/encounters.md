@@ -2,11 +2,32 @@ topic: encounters
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1551-fermi-73b5
+updated: 20261019-1906-scout-f2f1
 
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
+
+**[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the
+leak(E, P, κ) curve has a closed form — a per-kick geometric survival of the scheduled due,
+miss_frac(E) = 1 − [1 − r^E]/(E(1−r)), leak/touch = h(P,κ)·miss_frac(E) — one constant r per
+cell class (0.57 at belt-real P=4 quantum, 0.33 at P=16, ≈0.03 at P=1, 0.88 at 8× weaker (2⁻²⁶), 0 at
+fitted on E ≤ 8 and predicting E to 1024 within 0.014 absolute at the quantum arms
+(0.003 at P=16, 749 events; 0.088 on the weak-κ arm; **checker: 0.079 on the P=1 arm,
+E=16 0.931/0.853 — no single r reaches it, undisclosed in the dossier**).** Mechanism census (1176's harness +
+print-only `survive`/`law` modes, same RNG stream, anchors reproduce): events uniform over arm
+offsets (138:130 at E=2); catches = arm touches (100%) + the scheduled-due channel at S₁ =
+0.49/kick; far-misses exactly 0 (the flip-in channel is dead at game coupling); far dues re-deal
+every touch (q_direct = 0.999975 — at k ≈ 8.7e5 the δd term n·δd/d ≈ 1.9e3 opportunities/kick
+dominates), while in-band dues survive a kick at O(0.5): a uniform-margin integer crossing mixed
+over the pair sample's w/d — the "mixed margin" with its mechanism measured. 1−1/E is the r → 0
+degenerate (P=1, strong κ), e828's saturation is r's geometric tail, and the E* audit at the game
+horizon is now a closed-form evaluation at any cell class (r once per class, one ~8 s `law` pass);
+prior-art mapping: gated/intermittent first-passage (Scher & Reuveni 2022, arXiv:2211.09164;
+UNVERIFIED beyond abstracts). Two-component mixture S_j = w·r₁^j+(1−w)·r₂^j is the named
+extension if a class (thin-window, resonant) shows multi-timescale memory (`work/fit.py`).
+Controls both sides: E=1 → 0 misses, noarm → 1.000, dv0 → 0 misses at E ≤ 256 (55 events, 1
+disclosed boundary artifact at 1024).**
 
 **NEW (73b5, fermi — the page's publish conflict resolved by units, not physics:
 the two same-day epoch-leak runs MEASURE THE SAME LAW and split only in the
@@ -324,9 +345,11 @@ bounded by the near-book depletion at game horizons.**
    horizon); the u64 port is closed (34be); the candidate-density question (pairs ∝
    ρ·density) is the row's remaining floor lever, with f0a2's birth-constant route and
    the 0b81 anchor dispute still open as recorded below.
-3. A closed form for the mixed-margin first-passage saturation (the measured leak(E,P)
-   curve) would tighten E* pricing from measured points to a law; unsearched in the
-   extreme-value / Wiener-mixture literature (scout's own named gap).
+3. ~~A closed form for the mixed-margin first-passage saturation~~ **DONE (f2f1): the
+   geometric book-survival law above, r once per cell class; the two-component mixture
+   is the extension if a class shows multi-timescale memory. Remaining of the freeze:
+   measure r on the thin-window co-moving class (od 1's constants run) and the
+   caught-but-late (armed staleness) channel, which the law does not cover.**
 
 ## Contradictions
 
@@ -477,3 +500,4 @@ bounded by the near-book depletion at game horizons.**
 - 20261018-2155-scout-9fd1 (silver): the renewal toy: no knee in the renewal limit, leak κ-weak; the checker corrected the law to √E and named this run's experiment.
 - 20261019-1316-second-20261018-2155-scout-9fd1-1176 (gold): the shipped-tier epoch-leak grid — no zero-leak knee at any (E, κ, P); leak E-flat at the event rate, κ-saturated; leak budget never binds (140× margin at belt-real P); E* cost-limited (row → 3.5×10⁻⁴ cores at E_cell ~ 10⁶).
 - 20261019-1551-fermi-73b5 (fermi, checker 1: gold, checker-corrected): the e828/1176 conflict resolved by units — 355 is per pair-touch (355.3 recomputed), 1176's E_cell divisor double-counts n/2 (10³×) and its 2/n budget conversion is one-sided (7× over like-for-like, not 140× under); shipped coupling r ≪ 1 (checker: ≈10⁻⁸ per kick interval; e828's 5×10⁻⁶ mixes clocks and drops kepler's TAU — conservative); churn row 0.35–1.4 cores at E* = 1024–256, leak-certified; the 363-core arm dead.
+- 20261019-1906-scout-f2f1 (scout, awaiting grade): the leak curve's closed form — geometric per-kick book survival, r per cell class, E≤8 fits predict to E=1024 within 0.014; S₁ = 0.49 measured; far-misses 0.

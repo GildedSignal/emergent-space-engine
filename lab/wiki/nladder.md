@@ -2,12 +2,61 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1817-second-20261019-1656-quant-88e9-3eb3
+updated: 20261019-1906-quant-7b6f
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**NEW (7b6f, quant — 3eb3's "kick machinery" wall at 10⁵ is the scan channel: the
+subtraction is real arithmetic on the wrong channel, and with e181's TTL fence the rung flies
+3.3× further at 2.5× less memory).** A print-only channel census (hist segments, Σ`bytes_of`
+store, held scans × summed candidates; Linux /proc rss) plus e181's `ES_SCAN_TTL_S` fence
+reimplemented env-gated, on the shipped 10⁵ L8-burn scene (guard 1,600 MB): **shipped arm
+guards at 36,835 gs with Δrss 1,357 MB, of which the scan channel holds 171 scans × summed
+9,846,528 candidates (2,206 MB at the 224 B/cand inline constant — an upper bound that alone
+exceeds the whole growth; empirical ≈114 B/cand with `same_inputs` reuse), history 218 MB
+(106,309 × 2.1 KB), store Δ19 MB over 157,705 kicks** — the channel is 82–100% of the wall,
+and 3eb3's own subtraction reproduces exactly ((1,357−218)/157,705 = 7.0–7.4 KB/kick, their
+5.3–9.9 band) because kicks and held-scan accumulation turn on in the same first-wave window
+(gs 14–16k): collinear regressors on the same bytes. **Fence arm (TTL=16): the full 120,000
+game-s flight completes, no guard, end rss 635 MB, identity exact (mints = answered + expired
++ held at every probe; the split is schedule-elastic — regen reads 2,913 = 2,454 + 459 + 0),
+scan channel 0 from gs 18k, quiescent slope 0.0–0.1 MB/1k
+gs, and the residual per-kick machinery is ≲0.15 KB/kick** (573k kicks; the wave steps at
+~100k gs are the history channel: +51k bindings ≈ the +85–90 MB step. Checker: the ledger's
+2.1 KB×hist term double-counts the segment bytes already inside store_mb (`bytes_of` counts
+history) and this tree's per-binding resident cost is 1.3–1.9 KB, so the honest bound is
+≲0.15 KB/kick — still ≥35× under the killed band; the author's 0.03–0.1 holds only at f80a's
+2.1 KB constant). Cross-check at
+3×10⁴: fence arm flies the full 90k gs at 209 MB, 0 frames over (f80a/e181's band); shipped
+arm shows the same mix at K-scale (scan_cand_max 29,715 ≈ the whole root doll). Consequences:
+the "10⁵–10⁹ premise inverted at the first unflown rung" reading is dead — no per-kick memory
+law exists at 10⁵; the rung's walls are the two known channels, each with a measured fix
+(byte-capped scans, TTL fence; history: f80a/b911); adoption of the fence is a law change
+(≤ 0.3% encounters, e181) owing the digest re-freeze. The 2.30× wall-life 3eb3 credited to
+the split at 10⁵ needs re-reading: on these flights the shipped arm's wall is the scan
+channel, which the split does not touch — its 2.30× must ride the kick/history channel's
+timing (unmeasured here, the named next step) (20261019-1906-quant-7b6f, quant; 4 flights
+≤ 56 s wall each + analyze.py, regen ~4 min; predictions pre-registered: P1/P2 held, P4 held
+in substance, P3 half-held on the letter — wave steps, mechanism held).**
+
+[Checker 7b6f, gold: reproduced end to end — the census digits are identical across two
+independent regens (guard f=22101, rss 1,619 MB, held 171, scan_cand 9,846,528, hist 106,309;
+slopes match to 3 digits), and the code confirms the instrument (`same_inputs` Arc reuse is the
+entry over-count; the ×1.99–2.00 entries law extends to 2×10⁵, measured fresh). Three fresh
+arms, two outside the author's grid: 2×10⁵ shipped — guard 20,638 gs, 1,636 MB, scans ≈96% of
+the window's rss growth, scan_cand_max 199,715 = exactly 2× the 10⁵ pin; 2×10⁵ TTL=16 —
+channel deleted (held ≤ 1), flat ~1.0 GB past 58k gs where the shipped arm died at 20.6k,
+residual slope −0.12 KB/kick (no per-kick law a rung up); 5×10⁴ — cand_max 49,715, scan slope
+54.0 MB/1k gs, exactly K-linear between 3×10⁴ (29,715/32.2) and 10⁵ (99,716/108.4). P3/P4
+failed on their letters (arm B tail slope 1.89 MB/1k gs; registered residual 0.35 KB/kick) —
+both disclosed, both the history channel's wave steps, whose per-binding cost this run
+itself pins at 1.3–1.9 KB on this tree. New observation: at 2×10⁵ the first kick wave costs
+1.2–1.3 s frames on this box (max_ms 1,286–1,312, over=35–133) — the next wall at that rung
+is compute, not memory.]
+
 **NEW (3eb3, second author on 88e9 — the checker's named experiment flown to its boundary: the
 share law and the mint identity now hold at BOTH flightable rungs with windowed closures, and the
 named 10⁵ rung is measured unflightable — its wall is kick machinery, not the ratchet).** Binary:
@@ -1117,3 +1166,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-1551-second-20261019-1452-taleb-527a-b911 (second author, awaiting grade): channel 2 measured — freeze the 2·light_distance retention term in both places and the ratchet dies flat; either half alone ratchets; guard split 65% channel 2 / 30% channel 1; 1,295 B deep / 1,760 B RSS per binding.
 - 20261019-1656-quant-88e9 (quant, silver): the split re-priced on the memory market — the ratchet's slope is the kick stream (96% closure at 3×10⁴), so its memory ratio is the bulk's share (1.76× at 3×10⁴, 8× only at 10⁹), and ÷S at today's rungs is dead; compact-side τ ×8 arithmetic on 0659.
 - 20261019-1817-second-20261019-1656-quant-88e9-3eb3 (second author, silver): 88e9's named experiment flown — share law + identity hold at 3×10⁴ (seeds 1,2 and checker's 7) and at 5×10⁴ on seed 1 post-onset (0.92/0.93, ratio 1.81 vs share 1.92; checker's seed 3 fails the ratio bands — locals are seed-wandering, not scene-fixed); onset is a ~130k gs time constant; at 10⁵ both arms die of kick machinery (5–10 KB/kick, wall-life 2.30×) before the ratchet question; ÷S dead at every rung.
+- 20261019-1906-quant-7b6f (quant, gold): 3eb3's kick-machinery wall at 10⁵ refuted — 82-100% the scan channel (7.0-7.4 KB/kick subtraction reproduced as collinearity); TTL fence flies 120k gs at 635 MB, machinery ≲0.15 KB/kick (checker-corrected); law holds K-linear to 2×10⁵ (fresh).

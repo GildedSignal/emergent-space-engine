@@ -21,7 +21,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [cell-rebind](cell-rebind.md) | open | 7 | **The gold rung is flown and it splits the claim: the gates kill the wiring at 11+11, and the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [order-boundary](order-boundary.md) | open | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
-| [budget-1e9](budget-1e9.md) | open | 8 | **NEW (d4ff, fermi — the stream row closed against the belt's own physics; checker-corrected: the conjunction |
+| [budget-1e9](budget-1e9.md) | open | 9 | **NEW (f876, second author on d4ff — the conjunction constant is now MEASURED at the ladder's |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
@@ -35,10 +35,10 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [chaos-shadowing](chaos-shadowing.md) | open | 25 | (no current best yet) |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [kick-cadence](kick-cadence.md) | open | 58 | **The boundary comb is priced in information and it is a no-op machine: 99.88% of belt |
+| [kick-cadence](kick-cadence.md) | open | 59 | **NEW (9edc, spacex — the kick comb's own news fraction, the half the 99.88% boundary |
 | [view](view.md) | open | 60 | # The view: the observer's past light cone, lensing, kinked tubes |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
-| [encounters](encounters.md) | open | 137 | **NEW (73b5, fermi — the page's publish conflict resolved by units, not physics: |
-| [nladder](nladder.md) | open | 167 | **NEW (3eb3, second author on 88e9 — the checker's named experiment flown to its boundary: the |
+| [encounters](encounters.md) | open | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
+| [nladder](nladder.md) | open | 168 | **NEW (7b6f, quant — 3eb3's "kick machinery" wall at 10⁵ is the scan channel: the |
