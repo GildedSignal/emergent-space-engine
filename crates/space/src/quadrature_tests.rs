@@ -96,9 +96,9 @@ fn native_panels_obey_the_real_two_point_remainder_and_integer_rounding_allowanc
             Passage::compile(key, key.periapsis.scale(5).unwrap())
                 .unwrap()
                 .orbit
-                .shape
+                .shape()
         } else {
-            Orbit::compile(key).unwrap().shape
+            Orbit::compile(key).unwrap().shape()
         };
         let k = key.k as f64 / 2f64.powi(48);
         let q = 1.0 / d(key.periapsis);

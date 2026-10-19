@@ -39,6 +39,7 @@ fn pct(sorted: &[f64], p: f64) -> f64 {
 
 fn main() {
     let t_start = Instant::now();
+    let memory_probe = std::env::var_os("ES_MEMORY_PROBE").is_some();
     let args: Vec<String> = std::env::args().collect();
     let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
     let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
@@ -86,6 +87,10 @@ fn main() {
                 stage_calls[k] += calls[k];
             }
         }
+        if memory_probe && f % 600 == 0 {
+            let (current, peak) = footprint();
+            println!("memory_progress: frame={f} game_s={:.6} current={current} peak={peak} kicks={} wall_s={:.3}", p.u.now as f64 * TICK_SECONDS, p.u.stats.kicks, t_start.elapsed().as_secs_f64());
+        }
         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
         held_max = held_max.max(p.u.held_scans());
         last_stats = p.u.stats;
@@ -114,16 +119,32 @@ fn main() {
     let per = |x: u64| if game_s > 0.0 { x as f64 / bodies as f64 / game_s } else { 0.0 };
     // refusals: the engine's count (a body refused an item) and what the bodies hold; the dead.
     let (mut refusals, mut dead) = (0u64, 0usize);
-    for i in 0..bodies {
+    let (mut history, mut changed, mut pending) = (0usize, 0usize, 0usize);
+    let (mut oldest, mut youngest) = (0i64, i64::MAX);
+    let final_bodies = p.u.n_bodies();
+    let youngest_born = p.u.info.iter().map(|r| r.born).max().unwrap_or(0);
+    for i in 0..final_bodies {
         let r = p.u.rec(i);
         refusals += r.refusals;
         dead += (!r.alive) as usize;
+        if memory_probe {
+            history += p.u.bodies().history_len(i);
+            changed += (r.b.event_time > 0) as usize;
+            pending += p.u.bodies().next_time(i).is_some() as usize;
+            let age = p.u.now - r.b.event_time;
+            oldest = oldest.max(age);
+            youngest = youngest.min(age);
+        }
+    }
+    if memory_probe {
+        println!("shape_cache: {:?}", emergent_space::orbit::shape_cache_stats());
+        println!("memory: n={n} build_peak={rss1} end_peak={rss2} end_current={now2} initial_records={bodies} records={final_bodies} alive={} pending={pending} changed={changed} history={history} resident_game_s={:.6} min_record_residency_gs={:.6} tube_age_min_gs={:.6} tube_age_max_gs={:.6}", final_bodies - dead, p.u.now as f64 * TICK_SECONDS, (p.u.now - youngest_born) as f64 * TICK_SECONDS, youngest as f64 * TICK_SECONDS, oldest as f64 * TICK_SECONDS);
     }
     // the view: one gather from a cold cache and one from the warm one, wall (skipped when the run is near its 60 s).
     let mut cache = ViewCache::default();
     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
     // (a cold gather costs about 30 us a body: it runs only when it fits in the run's 60 s)
-    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < 55.0 {
+    if !memory_probe && t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < 55.0 {
         let tv = Instant::now();
         seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
         cold = tv.elapsed().as_secs_f64() * 1e3;

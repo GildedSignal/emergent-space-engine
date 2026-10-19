@@ -1,0 +1,15 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-19 08:41:21 | load averages: 4.51 15.57 18.34 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['artifacts/runs/memory/bin/nladder-before', '1000', 'burn', '20']
+rung N=1000 (1028 bodies), burn, rtf 100, 20 s of wall time, engine budget 12 ms; build 0.03 s, peak footprint 4 MB (now 4 MB)
+memory_progress: frame=0 game_s=1.666663 current=4293440 peak=4293440 kicks=0 wall_s=0.032
+memory_progress: frame=600 game_s=1001.626763 current=21709696 peak=21709696 kicks=2563 wall_s=0.794
+memory: n=1000 build_peak=4277056 end_peak=33801088 end_current=33801088 records=1028 alive=1028 pending=1028 changed=216 history=575 resident_game_s=1999.957899 tube_age_min_gs=16.693287 tube_age_max_gs=1999.957899
+frames after 1 s: 1140  engine ms p50 0.460 p90 3.227 p99 9.810 max 11.640; over 12 ms: 0; frames behind: 1, worst lag 0.038 s; events/frame p50 4 p99 152 max 328; scans held max 21
+game 1900.0 s after the first second: kicks 4860 (2.488e-3/body/game-s), events 16212 (8.300e-3/body/game-s), stats {opens 334, boundaries 3908, handoffs 1, lost 22, refused 0, slices 7109}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 4 MB at the build's end, 34 MB at the flight's end (now 34 MB); 3277 B a body from the build; dashboard bytes/body 1514; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 1076 entries
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2), (947, 0)]
+worst frames (frame, ms, events, lag s): (61, 11.64, 117, 0.038) (77, 10.81, 50, 0.000) (619, 10.81, 101, 0.000) (645, 10.72, 34, 0.000) (644, 10.66, 140, 0.000)
+ladder: n=1000 bodies=1028 flight=burn rtf=100 frames=1200 build_s=0.03 foot_build_mb=4 foot_end_mb=34 b_per_body=3277 p50_ms=0.460 p99_ms=9.810 max_ms=11.640 over=0 lag_s=0.038 kicks_per_body_gs=2.488e-3 events_per_body_gs=8.300e-3 refusals=0 dead=0 held_max=21 view_ms=-1.0 truncated=false wall_s=1.4
+runner: exit=0 wall_s=1.488

@@ -189,7 +189,7 @@ impl BodyStore for PlainBodies {
     fn bytes_of(&self, i: usize) -> usize {
         let r = &self.recs[i];
         let shape = match &r.b.entry.trajectory {
-            emergent_space::binding::Trajectory::Cycle(o) => o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>() + o.shape().crossings().len() * size_of::<usize>(),
+            emergent_space::binding::Trajectory::Cycle(o) => o.retained_shape_bytes(),
             emergent_space::binding::Trajectory::Passage(_) => 4096,
             emergent_space::binding::Trajectory::Plunge(p) => p.retained_bytes(),
         };

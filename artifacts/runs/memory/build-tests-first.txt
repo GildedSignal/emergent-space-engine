@@ -1,0 +1,43 @@
+   Compiling emergent-space v0.1.0 (/Users/julien_laurent/Research/emergent-wt/memory/crates/space)
+   Compiling emergent-universe v0.1.0 (/Users/julien_laurent/Research/emergent-wt/memory/crates/universe)
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "tail") generated 1 warning
+error[E0609]: no field `knots` on type `Option<Arc<OrbitShape>>`
+   --> crates/space/src/quadrature_tests.rs:115:24
+    |
+115 |         for w in shape.knots.windows(2) {
+    |                        ^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+115 |         for w in shape.unwrap().knots.windows(2) {
+    |                        +++++++++
+
+error[E0599]: no method named `quad` found for enum `Option` in the current scope
+   --> crates/space/src/quadrature_tests.rs:135:29
+    |
+135 |             let got = shape.quad(w[0].psi as i128, w[1].psi as i128).unwrap();
+    |                             ^^^^ method not found in `Option<Arc<OrbitShape>>`
+    |
+note: the method `quad` exists on the type `Arc<OrbitShape>`
+   --> crates/space/src/orbit.rs:350:5
+    |
+350 |     fn quad(&self, lo: i128, hi: i128) -> Result<Integral> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `Arc<OrbitShape>` value, panicking if the value is an `Option::None`
+    |
+135 |             let got = shape.expect("REASON").quad(w[0].psi as i128, w[1].psi as i128).unwrap();
+    |                            +++++++++++++++++
+
+Some errors have detailed explanations: E0599, E0609.
+For more information about an error, try `rustc --explain E0599`.
+error: could not compile `emergent-space` (lib test) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...

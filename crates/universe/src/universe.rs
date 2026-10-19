@@ -343,7 +343,8 @@ impl Universe {
     fn spec_binding(&self, spec: &OrbitSpec, unit: Unit) -> Res<(Arc<Entry>, Tube, (i16, i16))> {
         let doll = &self.dolls[spec.doll as usize];
         let key = OrbitKey::bound(unit.to_tube(spec.periapsis)?, spec.e_q48)?;
-        let orbit = Orbit::compile(key)?;
+        let mut orbit = Orbit::compile(key)?;
+        orbit.make_evictable();
         let period = unit.to_doll(orbit.period()?)?;
         let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
         // Periapsis `phase` of a period before tick 0.

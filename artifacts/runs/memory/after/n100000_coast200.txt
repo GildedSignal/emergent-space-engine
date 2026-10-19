@@ -1,0 +1,34 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-19 08:43:23 | load averages: 4.80 12.06 16.59 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/examples/nladder', '100000', 'coast', '200']
+rung N=100000 (100028 bodies), coast, rtf 100, 200 s of wall time, engine budget 12 ms; build 4.04 s, peak footprint 152 MB (now 152 MB)
+memory_progress: frame=0 game_s=1.666663 current=152126720 peak=152126720 kicks=0 wall_s=4.042
+memory_progress: frame=600 game_s=1001.626758 current=163497216 peak=163497216 kicks=2063 wall_s=4.358
+memory_progress: frame=1200 game_s=2001.624557 current=163906816 peak=163906816 kicks=3767 wall_s=4.578
+memory_progress: frame=1800 game_s=3001.622357 current=164103424 peak=164103424 kicks=5374 wall_s=4.761
+memory_progress: frame=2400 game_s=4001.620156 current=164349184 peak=164349184 kicks=6967 wall_s=4.946
+memory_progress: frame=3000 game_s=5001.617956 current=164431104 peak=164431104 kicks=8542 wall_s=5.092
+memory_progress: frame=3600 game_s=6001.615755 current=164660480 peak=164660480 kicks=10130 wall_s=5.245
+memory_progress: frame=4200 game_s=7001.613555 current=164709632 peak=164709632 kicks=11647 wall_s=5.391
+memory_progress: frame=4800 game_s=8001.611354 current=164758784 peak=164758784 kicks=13188 wall_s=5.539
+memory_progress: frame=5400 game_s=9001.609154 current=164873536 peak=164873536 kicks=14703 wall_s=5.677
+memory_progress: frame=6000 game_s=10001.606954 current=164889920 peak=164889920 kicks=16264 wall_s=5.821
+memory_progress: frame=6600 game_s=11001.604753 current=164906304 peak=164906304 kicks=17748 wall_s=5.963
+memory_progress: frame=7200 game_s=12001.602553 current=164939072 peak=164939072 kicks=19272 wall_s=6.104
+memory_progress: frame=7800 game_s=13001.600352 current=164955456 peak=164955456 kicks=20814 wall_s=6.241
+memory_progress: frame=8400 game_s=14001.598152 current=207324544 peak=207324544 kicks=54707 wall_s=7.883
+memory_progress: frame=9000 game_s=15001.595951 current=296420928 peak=296420928 kicks=123614 wall_s=11.227
+memory_progress: frame=9600 game_s=16001.593751 current=296535616 peak=296535616 kicks=125222 wall_s=11.392
+memory_progress: frame=10200 game_s=17001.591550 current=296584768 peak=296584768 kicks=126803 wall_s=11.574
+memory_progress: frame=10800 game_s=18001.589350 current=296633920 peak=296633920 kicks=128414 wall_s=11.766
+memory_progress: frame=11400 game_s=19001.587149 current=296666688 peak=296666688 kicks=129964 wall_s=11.923
+shape_cache: (4096, 4232608, 9395451, 203981, 430992)
+memory: n=100000 build_peak=152110336 end_peak=296699456 end_current=296699456 initial_records=100028 records=100076 alive=100048 pending=100048 changed=100073 history=100476 resident_game_s=19999.918286 min_record_residency_gs=18016.653673 tube_age_min_gs=2.000109 tube_age_max_gs=19999.918286
+frames after 1 s: 11940  engine ms p50 0.006 p90 1.577 p99 11.929 max 11.955; over 12 ms: 0; frames behind: 1, worst lag 0.038 s; events/frame p50 0 p99 255 max 334; scans held max 52
+game 19899.9 s after the first second: kicks 131394 (6.601e-5/body/game-s), events 166671 (8.373e-5/body/game-s), stats {opens 128, boundaries 31194, handoffs 0, lost 25, refused 0, slices 3955}; refusals held 0, dead 28, alive(player) true
+memory: peak footprint 152 MB at the build's end, 297 MB at the flight's end (now 297 MB); 1511 B a body from the build; dashboard bytes/body 737; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 100076 entries
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (8575, 11.96, 254, 0.000) (8385, 11.95, 268, 0.000) (8403, 11.95, 244, 0.000) (8507, 11.95, 253, 0.000) (8498, 11.95, 243, 0.000)
+ladder: n=100000 bodies=100028 flight=coast rtf=100 frames=12000 build_s=4.04 foot_build_mb=152 foot_end_mb=297 b_per_body=1511 p50_ms=0.006 p99_ms=11.929 max_ms=11.955 over=0 lag_s=0.038 kicks_per_body_gs=6.601e-5 events_per_body_gs=8.373e-5 refusals=0 dead=28 held_max=52 view_ms=-1.0 truncated=false wall_s=12.1
+runner: exit=0 wall_s=12.200

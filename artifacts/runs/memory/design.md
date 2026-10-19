@@ -1,0 +1,29 @@
+# Memory builder: exact generators, temporary working records
+
+The target is **all retained state**, including history, indexes, scheduler and working set: 6 B/body at 10^9. A table is not new information. This prototype removes its ownership by a body, not its exact computation.
+
+## Floor (conditional on a specified generator, not a universal byte constant)
+
+Let G be the shared generator and X the distinctions that can change a future outcome or a still-readable past. An injective fixed-width encoding needs ceil(log2 |X(G)|) bits in the worst case; a distribution-specific variable encoding averages at least H(X|G). Storage saved by replay has a read/replay cost. Determinism does not make arbitrary histories cheap to query.
+
+- **Birth belt:** given the exact birth program, population count and ordinal, no individual residual is needed (zero marginal bits at birth). An ordinal is implicit in position. The program enumerates every real body; no statistical representative replaces any member. The plane's `ladder_ship(seed,id,N,home)` is a different generator from shipmem's belt: preserve the former, including N-dependent local/belt membership, to preserve the ladder.
+- **Evolved belt:** encode exact differences from a shared evolution program plus the required clock/carries and readable history. For k scarred bodies among N, identification alone costs log2 binomial(N,k) bits unless their positions are otherwise derivable; add their conditional payloads. The wiki's 21–40 bits/body is measured on particular phase-locked/coarse tube populations, **not a lower bound or a codec for this plane's exact live records**. Its driven 126-bit arm already exceeds 48 bits.
+- **Home ships and moons:** the birth programs likewise suffice initially; independent impulses, handoffs, clocks and carries then need exact local residuals. Small count permits individual storage; it does not establish a universal 12–16 B exact floor. Four independent 64-bit Cartesian coordinates alone have a 256-bit full-domain floor at fixed units; shared dynamics can reduce their conditional information, not erase arbitrary choices.
+- **Fleets/formations:** one reference motion, shared order/formation program, implicit member slots and exact per-member deviations. Death/split membership and individual decisions are distinctions too. The same lossless block/scar mechanism applies; no averaged member, shared velocity forced onto a deviating member, or independent-body information discarded.
+- **Player/neighbourhood:** decision log, exact local working records and causally readable snapshots. Being visible does not change canonical storage requirements; it changes access demand and hence cache residency. A cold body remains real and encounter-addressable.
+
+**Design:** shared exact generators → lossless blocks and sparse scars → bounded temporary working records. A certificate break/event, an unresolved close interaction, or a read opens a lease; resolving/encoding its exact state closes that lease immediately. A pending future event is a compact clock/key, not permission to retain a compiled orbit. Source/formation changes update shared programs only with an exact reconstruction proof; otherwise they produce individual scars. Retain exact past binding recipes for light-cone/partial-step readers; tables are a cache. Charge scheduler, spatial certificates, scar identity, history, cache and transient leases separately. Lossless compaction can happen after *every* kick even when no kick can be skipped.
+
+## What remains live, and what cannot be inferred away
+
+The shipped BodyStore has no demotion: every BodyRec is resident from birth to process end (even dead slots are retained). This prototype changes table residency only. The current 200 nominal s at RTF 100 is 20,000 game s; no fraction-of-live-bodies claim follows from cache eviction.
+
+For a future compact store, average additional bytes/body = lambda * D * B, where lambda is promotions/body/game-s, D is mean residency in game-s, B is the *measured incremental* resident cost. Also bound instantaneous bursts; the mean does not protect a synchronized wave. At B=1300 B and lambda=1/27400 game-s, a 5 B base leaves D <=21.1 game-s; a 2.625 B base leaves <=71.1 game-s, before indexes/history/cache. These are conditional ceilings, not measured lifetimes. Immediate encode-and-return can satisfy the residency term but still owes the measured kick CPU cost.
+
+Two supplied premises have newer contrary evidence: `lab/wiki/calendar.md` shows the belt uses a chained position-dependent clock (not the id-derived aligned grid); `budget-1e9.md` shows all measured belt clock kicks change the state. “99.88% zero news” is not permission to skip those kicks. The id-derived calendar and sleeping across kicks cannot be claimed for this law.
+
+## Prototype boundary
+
+Weak bound cycles alone can release their compiled table. The exact ShapeKey (all k bits, exponent, null/compactness branch) is regenerated from the orbit's existing exact key. FIFO cache: at most 4096 tables and 8 MiB of table allocation capacity per reading thread, plus bounded map/deque metadata and transient Arc leases. Current and historical orbits both hold recipes. Strong cycles, symbolic strong circles, passages and plunges keep existing ownership. No new tolerance, interpolation, event time, state quantization, kick suppression or history deletion.
+
+An exact cache does **not** eliminate unique-key compilation; its risk is recompilation on access and eviction of hot shapes by a wave. It must face N1 and the wave. A quantized shared shape function changes readouts even while exact state/residuals are carried: that is a law change for Opus, not this prototype. Certificate-triggered kicks and a new clock law are also law changes. Wiring an exact compact record/event codec is representation work, but claiming 48 bits first requires a census of *all* fields of the shipped law at its actual quanta.

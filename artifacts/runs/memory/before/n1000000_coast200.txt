@@ -1,0 +1,29 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-19 08:37:07 | load averages: 16.14 30.33 23.13 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['artifacts/runs/memory/bin/nladder-before', '1000000', 'coast', '200']
+rung N=1000000 (1000028 bodies), coast, rtf 100, 200 s of wall time, engine budget 12 ms; build 34.87 s, peak footprint 2430 MB (now 2430 MB)
+memory_progress: frame=0 game_s=1.291331 current=2430048128 peak=2430048128 kicks=0 wall_s=34.878
+memory_progress: frame=600 game_s=999.960046 current=2416957376 peak=2430195584 kicks=2063 wall_s=35.205
+memory_progress: frame=1200 game_s=1999.957845 current=2417088448 peak=2430195584 kicks=3767 wall_s=35.419
+memory_progress: frame=1800 game_s=2999.955645 current=2417153984 peak=2430195584 kicks=5374 wall_s=35.603
+memory_progress: frame=2400 game_s=3999.953444 current=2417252288 peak=2430195584 kicks=6967 wall_s=35.785
+memory_progress: frame=3000 game_s=4999.951244 current=2417285056 peak=2430195584 kicks=8542 wall_s=35.922
+memory_progress: frame=3600 game_s=5999.949043 current=2417514432 peak=2430195584 kicks=10129 wall_s=36.061
+memory_progress: frame=4200 game_s=6999.946843 current=2417661888 peak=2430195584 kicks=11647 wall_s=36.193
+memory_progress: frame=4800 game_s=7999.944642 current=2417694656 peak=2430195584 kicks=13188 wall_s=36.330
+memory_progress: frame=5400 game_s=8999.942442 current=2417711040 peak=2430195584 kicks=14703 wall_s=36.458
+memory_progress: frame=6000 game_s=9999.940241 current=2417727424 peak=2430195584 kicks=16264 wall_s=36.589
+memory_progress: frame=6600 game_s=10999.197562 current=2417760192 peak=2430195584 kicks=17747 wall_s=36.728
+memory_progress: frame=7200 game_s=11999.195362 current=2417792960 peak=2430195584 kicks=19272 wall_s=36.866
+memory_progress: frame=7800 game_s=12999.193161 current=2417809344 peak=2430195584 kicks=20814 wall_s=37.005
+memory_progress: frame=8400 game_s=13999.190961 current=2635077952 peak=2635077952 kicks=90374 wall_s=42.151
+memory_progress: frame=9000 game_s=14865.296638 current=2927975232 peak=2927975232 kicks=196564 wall_s=49.275
+memory: n=1000000 build_peak=2430031744 end_peak=3160759488 end_current=3160759488 records=1000028 alive=1000028 pending=1000028 changed=264186 history=266764 resident_game_s=14991.621630 tube_age_min_gs=3.512501 tube_age_max_gs=14991.621630
+frames after 1 s: 9426  engine ms p50 0.007 p90 11.870 p99 11.945 max 28.234; over 12 ms: 19; frames behind: 589, worst lag 1.589 s; events/frame p50 0 p99 238 max 334; scans held max 144
+game 14892.4 s after the first second: kicks 287596 (1.931e-5/body/game-s), events 315091 (2.116e-5/body/game-s), stats {opens 57, boundaries 23483, handoffs 0, lost 25, refused 0, slices 3955}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 2430 MB at the build's end, 3161 MB at the flight's end (now 3161 MB); 2429 B a body from the build; dashboard bytes/body 1255; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 1000076 entries
+frames over the budget (first 12): [6347, 8077, 8290, 8311, 8433, 8434, 8502, 8560, 8638, 8712, 8804, 8815]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (8434, 28.23, 0, 0.000) (6347, 15.37, 313, 0.740) (8077, 12.88, 191, 0.000) (9332, 12.78, 209, 1.382) (8804, 12.64, 219, 0.000)
+ladder: n=1000000 bodies=1000028 flight=coast rtf=100 frames=9486 build_s=34.87 foot_build_mb=2430 foot_end_mb=3161 b_per_body=2429 p50_ms=0.007 p99_ms=11.945 max_ms=28.234 over=19 lag_s=1.589 kicks_per_body_gs=1.931e-5 events_per_body_gs=2.116e-5 refusals=0 dead=0 held_max=144 view_ms=-1.0 truncated=true wall_s=55.6
+runner: exit=0 wall_s=58.209

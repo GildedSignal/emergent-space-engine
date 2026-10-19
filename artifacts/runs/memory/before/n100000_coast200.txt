@@ -1,0 +1,33 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-19 08:35:43 | load averages: 36.41 36.79 24.43 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/examples/nladder', '100000', 'coast', '200']
+rung N=100000 (100028 bodies), coast, rtf 100, 200 s of wall time, engine budget 12 ms; build 2.93 s, peak footprint 254 MB (now 254 MB)
+memory_progress: frame=0 game_s=1.666663 current=254199296 peak=254199296 kicks=0 wall_s=2.930
+memory_progress: frame=600 game_s=1001.664463 current=263800320 peak=263800320 kicks=2063 wall_s=3.184
+memory_progress: frame=1200 game_s=2001.662262 current=263882240 peak=263882240 kicks=3767 wall_s=3.361
+memory_progress: frame=1800 game_s=3001.660062 current=263931392 peak=263931392 kicks=5374 wall_s=3.513
+memory_progress: frame=2400 game_s=4001.657861 current=263947776 peak=263947776 kicks=6967 wall_s=3.660
+memory_progress: frame=3000 game_s=5001.655661 current=263964160 peak=263964160 kicks=8542 wall_s=3.774
+memory_progress: frame=3600 game_s=6001.653460 current=264177152 peak=264177152 kicks=10130 wall_s=3.890
+memory_progress: frame=4200 game_s=7001.651260 current=264177152 peak=264177152 kicks=11647 wall_s=4.000
+memory_progress: frame=4800 game_s=8001.649059 current=264193536 peak=264193536 kicks=13188 wall_s=4.112
+memory_progress: frame=5400 game_s=9001.646859 current=264193536 peak=264193536 kicks=14703 wall_s=4.220
+memory_progress: frame=6000 game_s=10001.644658 current=264193536 peak=264193536 kicks=16264 wall_s=4.334
+memory_progress: frame=6600 game_s=11001.642458 current=264193536 peak=264193536 kicks=17748 wall_s=4.444
+memory_progress: frame=7200 game_s=12001.640257 current=264193536 peak=264193536 kicks=19272 wall_s=4.557
+memory_progress: frame=7800 game_s=13001.638057 current=264193536 peak=264193536 kicks=20814 wall_s=4.667
+memory_progress: frame=8400 game_s=14001.635856 current=352700096 peak=352700096 kicks=57357 wall_s=6.034
+memory_progress: frame=9000 game_s=15001.633656 current=517916672 peak=517916672 kicks=123614 wall_s=8.407
+memory_progress: frame=9600 game_s=16001.631455 current=518031360 peak=518031360 kicks=125222 wall_s=8.540
+memory_progress: frame=10200 game_s=17001.629255 current=518080512 peak=518080512 kicks=126803 wall_s=8.683
+memory_progress: frame=10800 game_s=18001.627054 current=518096896 peak=518096896 kicks=128414 wall_s=8.832
+memory_progress: frame=11400 game_s=19001.624854 current=518113280 peak=518113280 kicks=129964 wall_s=8.953
+memory: n=100000 build_peak=254182912 end_peak=518113280 end_current=518113280 records=100028 alive=100028 pending=100028 changed=100025 history=100434 resident_game_s=19999.955990 tube_age_min_gs=2.037814 tube_age_max_gs=19999.955990
+frames after 1 s: 11940  engine ms p50 0.005 p90 1.277 p99 11.920 max 12.082; over 12 ms: 1; frames behind: 0, worst lag 0.000 s; events/frame p50 0 p99 330 max 411; scans held max 15
+game 19900.0 s after the first second: kicks 131394 (6.601e-5/body/game-s), events 166667 (8.373e-5/body/game-s), stats {opens 128, boundaries 31194, handoffs 0, lost 25, refused 0, slices 3951}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 254 MB at the build's end, 518 MB at the flight's end (now 518 MB); 2532 B a body from the build; dashboard bytes/body 1410; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 100076 entries
+frames over the budget (first 12): [8392]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (8392, 12.08, 245, 0.000) (8496, 11.96, 309, 0.000) (8438, 11.95, 341, 0.000) (8418, 11.95, 346, 0.000) (8441, 11.95, 341, 0.000)
+ladder: n=100000 bodies=100028 flight=coast rtf=100 frames=12000 build_s=2.93 foot_build_mb=254 foot_end_mb=518 b_per_body=2532 p50_ms=0.005 p99_ms=11.920 max_ms=12.082 over=1 lag_s=0.000 kicks_per_body_gs=6.601e-5 events_per_body_gs=8.373e-5 refusals=0 dead=0 held_max=15 view_ms=-1.0 truncated=false wall_s=9.1
+runner: exit=0 wall_s=9.277

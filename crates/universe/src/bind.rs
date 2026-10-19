@@ -261,11 +261,12 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
     let input = in_tube_units(exact, unit)?;
     let time = unit.to_tube(time_of(t, clock_exp)?)?;
     let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
-    let fit = if let Some(surface) = surface {
+    let mut fit = if let Some(surface) = surface {
         Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
     } else { Rebinding::from_state(input, time, edge)? };
     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
     let tube = Tube::new(0, fit.periapsis_angle, peri);
+    if let Trajectory::Cycle(orbit) = &mut fit.trajectory { orbit.make_evictable(); }
     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
     if let Trajectory::Plunge(p) = &entry.trajectory {
         let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;

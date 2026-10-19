@@ -5,7 +5,7 @@ use crate::{
     num::{ONE, cos},
     tables::{EDGE, PI, W, X},
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::Arc};
 
 const HALF: u64 = 1 << 47;
 const UNIT: u64 = 1 << 48;
@@ -225,6 +225,11 @@ pub struct OrbitShape {
     clock_factor: [Scalar; 2],
 }
 impl OrbitShape {
+    fn retained_bytes(&self) -> usize {
+        std::mem::size_of::<Self>() + 2 * std::mem::size_of::<usize>()
+            + self.knots.capacity() * std::mem::size_of::<Knot>()
+            + self.crossings.capacity() * std::mem::size_of::<usize>()
+    }
     pub fn key(&self) -> ShapeKey {
         self.key
     }
@@ -511,11 +516,46 @@ impl OrbitShape {
     }
 }
 
+/// Exact weak-bound table cache. These limits bound retained table bytes and metadata,
+/// independently of the number of bodies and historical bindings. FIFO affects cost only.
+const SHAPE_CACHE_BYTES: usize = 8 * 1024 * 1024;
+const SHAPE_CACHE_ENTRIES: usize = 4096;
+#[derive(Default)]
+struct ShapeCache {
+    shapes: HashMap<ShapeKey, Arc<OrbitShape>>,
+    order: VecDeque<ShapeKey>,
+    bytes: usize,
+    hits: u64,
+    misses: u64,
+    evictions: u64,
+}
+impl ShapeCache {
+    fn insert(&mut self, shape: Arc<OrbitShape>) {
+        if self.shapes.contains_key(&shape.key) { return; }
+        let bytes = shape.retained_bytes();
+        if bytes > SHAPE_CACHE_BYTES { return; }
+        while self.bytes + bytes > SHAPE_CACHE_BYTES || self.shapes.len() >= SHAPE_CACHE_ENTRIES {
+            let key = self.order.pop_front().unwrap();
+            self.bytes -= self.shapes.remove(&key).unwrap().retained_bytes();
+            self.evictions += 1;
+        }
+        self.bytes += bytes;
+        self.order.push_back(shape.key);
+        self.shapes.insert(shape.key, shape);
+    }
+}
+thread_local! { static SHAPE_CACHE: RefCell<ShapeCache> = RefCell::new(ShapeCache::default()); }
+/// This thread's (tables, retained table bytes, hits, cold rebuilds, evictions).
+/// Hash-map/deque capacity and transient read leases are additional; no per-body cache index.
+pub fn shape_cache_stats() -> (usize, usize, u64, u64, u64) {
+    SHAPE_CACHE.with(|c| { let c = c.borrow(); (c.shapes.len(), c.bytes, c.hits, c.misses, c.evictions) })
+}
+
 /// A shared shape plus a binding's scale. The catalogue pays this storage once per key.
 #[derive(Clone, Debug)]
 pub struct Orbit {
     key: OrbitKey,
-    shape: Arc<OrbitShape>,
+    shape: Option<Arc<OrbitShape>>,
     time_scale: Scalar,
     q: Scalar,
     speed_scale: Scalar,
@@ -545,8 +585,42 @@ impl Orbit {
     pub fn key(&self) -> OrbitKey {
         self.key
     }
-    pub fn shape(&self) -> &OrbitShape {
-        &self.shape
+    /// A read leases the exact table; a cached orbit and its history never pin it.
+    pub fn shape(&self) -> Arc<OrbitShape> {
+        if let Some(shape) = &self.shape {
+            return shape.clone();
+        }
+        // Only make_evictable can remove a table, after validating this recipe.
+        let key = ShapeKey { k: self.key.k, k_exponent: self.key.k_exponent,
+            compactness: Scalar::ZERO, null: false };
+        SHAPE_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if let Some(shape) = cache.shapes.get(&key).cloned() {
+                cache.hits += 1;
+                return shape;
+            }
+            cache.misses += 1;
+            let shape = Arc::new(OrbitShape::bound(key).expect("previously compiled exact bound shape"));
+            cache.insert(shape.clone());
+            shape
+        })
+    }
+    /// Allow the plane's weak bound tables to be evicted and regenerated from their exact key.
+    /// No quantization, no changed quadrature, no change to state or history. Strong cycles,
+    /// passages and noncanonical shapes remain pinned. The cache is per reading thread.
+    pub fn make_evictable(&mut self) {
+        let Some(shape) = &self.shape else { return };
+        if !self.key.periodic() || shape.key.null || !shape.key.compactness.is_zero()
+            || ShapeKey::for_orbit(self.key).ok() != Some(shape.key)
+            || shape.retained_bytes() > SHAPE_CACHE_BYTES {
+            return;
+        }
+        SHAPE_CACHE.with(|cache| cache.borrow_mut().insert(shape.clone()));
+        self.shape = None;
+    }
+    /// Owned table storage only. Cached tables are charged once by shape_cache_stats.
+    pub fn retained_shape_bytes(&self) -> usize {
+        self.shape.as_ref().map_or(0, |s| s.retained_bytes())
     }
     pub fn compile(key: OrbitKey) -> Result<Self> {
         if key.null {
@@ -596,7 +670,7 @@ impl Orbit {
             .scale(1)?;
         Ok(Self {
             key,
-            shape,
+            shape: Some(shape.clone()),
             time_scale,
             q: Scalar::ZERO,
             speed_scale: key.compactness()?.div(k)?.sqrt()?,
@@ -637,7 +711,7 @@ impl Orbit {
         };
         let mut orbit = Self {
             key,
-            shape,
+            shape: Some(shape.clone()),
             time_scale: if key.null {
                 key.periapsis
             } else {
@@ -653,9 +727,9 @@ impl Orbit {
             if !gap.is_positive() {
                 return Err(Error::NoBoundOrbit);
             }
-            orbit.clock = Some([gap.div(k)?.sqrt()?, q.mul(orbit.shape.weak_tau_term)?]);
+            orbit.clock = Some([gap.div(k)?.sqrt()?, q.mul(shape.weak_tau_term)?]);
         }
-        let half = orbit.shape.knots.last().unwrap().sum;
+        let half = shape.knots.last().unwrap().sum;
         orbit.increments = [
             q.mul(half.0[0])?.scale(1)?,
             orbit.time(half)?.mul(orbit.time_scale)?.scale(1)?,
@@ -683,7 +757,7 @@ impl Orbit {
         Ok(self.increments[0])
     }
     pub fn crossing_time(&self, index: usize) -> Result<Scalar> {
-        self.time(self.shape.knots.get(index).ok_or(Error::Range)?.sum)?
+        self.time(self.shape().knots.get(index).ok_or(Error::Range)?.sum)?
             .mul(self.time_scale)
     }
     /// A specified radial cycle and time within that cycle; no total elapsed clock needed.
@@ -711,7 +785,7 @@ impl Orbit {
                 psi: phi,
             });
         }
-        let half = self.time(self.shape.knots.last().unwrap().sum)?;
+        let half = self.time(self.shape().knots.last().unwrap().sum)?;
         let full = half.scale(1)?;
         if normalized_time > full {
             return Err(Error::Range);
@@ -730,7 +804,7 @@ impl Orbit {
             return Err(Error::Range);
         }
         let normalized = elapsed.div(self.time_scale)?;
-        let period = self.time(self.shape.knots.last().unwrap().sum)?.scale(1)?;
+        let period = self.time(self.shape().knots.last().unwrap().sum)?.scale(1)?;
         let cycles = u64::try_from(normalized.div(period)?.fixed(0)?).map_err(|_| Error::Range)?;
         let rem = normalized.sub(period.mul(Scalar::raw(cycles as i128, 0)?)?)?;
         self.at_phase(cycles, rem)
@@ -751,22 +825,22 @@ impl Orbit {
             return Ok((Scalar::ZERO, self.at_phase(0, Scalar::ZERO)?));
         }
         let x = self.key.periapsis.div(radius)?.fixed(62)?;
-        let low = self.shape.x(self.shape.knots.last().unwrap().psi as i128);
+        let shape = self.shape();
+        let low = shape.x(shape.knots.last().unwrap().psi as i128);
         if x < low - 64 || x > ONE + 64 {
             return Err(Error::Range);
         }
         let psi = if self.key.k_exponent == 0 && self.key.k == UNIT {
             0
         } else {
-            self.shape.cut(x.clamp(low, ONE))
+            shape.cut(x.clamp(low, ONE))
         };
-        let i = self
-            .shape
+        let i = shape
             .knots
             .partition_point(|k| k.psi as i128 <= psi)
             .saturating_sub(1);
-        let base = &self.shape.knots[i];
-        let sum = base.sum.add(self.shape.quad(base.psi as i128, psi)?)?;
+        let base = &shape.knots[i];
+        let sum = base.sum.add(shape.quad(base.psi as i128, psi)?)?;
         Ok((
             self.time(sum)?.mul(self.time_scale)?,
             self.read(0, psi, true, sum)?,
@@ -774,11 +848,12 @@ impl Orbit {
     }
     /// Direct table read, including velocity; no quadrature or root solve.
     pub fn crossing_state(&self, index: usize, cycles: u64, outbound: bool) -> Result<OrbitState> {
-        let k = self.shape.knots.get(index).ok_or(Error::Range)?;
+        let shape = self.shape();
+        let k = shape.knots.get(index).ok_or(Error::Range)?;
         self.read(cycles, k.psi as i128, outbound, k.sum)
     }
     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
-        let s = &self.shape;
+        let s = self.shape();
         let mut lo_i = 0;
         let mut hi_i = s.knots.len();
         while lo_i < hi_i {
@@ -842,7 +917,7 @@ impl Orbit {
         Err(Error::Range)
     }
     fn read(&self, cycles: u64, psi: i128, outbound: bool, sum: Integral) -> Result<OrbitState> {
-        let s = &self.shape;
+        let s = self.shape();
         let x = f(s.x(psi))?;
         let q = self.q;
         let qx = q.mul(x)?;
@@ -1053,7 +1128,7 @@ impl Passage {
             tail: vec![],
         };
         if endpoint < join {
-            let sum = passage.orbit.shape.knots.last().unwrap().sum;
+            let sum = passage.orbit.shape().knots.last().unwrap().sum;
             passage.tail.push((join, sum));
             let mut x = join;
             // Each radial panel shrinks x by 15/16: work follows its binary exponent.
@@ -1109,7 +1184,7 @@ impl Passage {
         let t = elapsed.abs().div(self.orbit.time_scale)?;
         let inner_end = self
             .orbit
-            .time(self.orbit.shape.knots.last().unwrap().sum)?;
+            .time(self.orbit.shape().knots.last().unwrap().sum)?;
         let end = if let Some((_, sum)) = self.tail.last() {
             self.orbit.time(*sum)?
         } else {
@@ -1156,7 +1231,7 @@ impl Passage {
         Ok(state)
     }
     fn tail_node(&self, x: Scalar) -> Result<Integral> {
-        let s = &self.orbit.shape;
+        let s = self.orbit.shape();
         let k = f(s.k)?;
         let ua = k.scale(1)?.sub(Scalar::ONE)?;
         let slope = Scalar::ONE.sub(x)?.mul(x.sub(ua)?)?.sqrt()?;
@@ -1200,7 +1275,7 @@ impl Passage {
         Ok(sum)
     }
     fn tail_read(&self, x: Scalar, sum: Integral) -> Result<OrbitState> {
-        let s = &self.orbit.shape;
+        let s = self.orbit.shape();
         let psi = s.cut(x.fixed(62)?);
         let k = f(s.k)?;
         let a = k.scale(2)?.add(x.scale(1)?)?;
@@ -1238,7 +1313,7 @@ impl Passage {
     }
     /// The asymptotic total bend, evaluated without any clock integrand at infinity.
     pub fn deflection(&self) -> Result<Scalar> {
-        let s = &self.orbit.shape;
+        let s = self.orbit.shape();
         if s.key.null && self.orbit.q <= Scalar::power_of_two(WEAK_EXPONENT) {
             // In q=M/R: 4q + (15π/4 - 4)q². Rationalized weak-field
             // expansion avoids subtracting two half-turns below the phase quantum.

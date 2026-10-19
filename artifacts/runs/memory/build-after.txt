@@ -1,0 +1,106 @@
+   Compiling emergent-space v0.1.0 (/Users/julien_laurent/Research/emergent-wt/memory/crates/space)
+error[E0609]: no field `k` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1235:21
+     |
+1235 |         let k = f(s.k)?;
+     |                     ^ unknown field
+
+error[E0609]: no field `key` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1239:38
+     |
+1239 |         let root = Scalar::ONE.sub(s.key.compactness.mul(a)?)?.sqrt()?;
+     |                                      ^^^ unknown field
+
+error[E0609]: no field `t_numerator` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1244:14
+     |
+1244 |             .t_numerator
+     |              ^^^^^^^^^^^ unknown field
+
+error[E0609]: no field `tau_numerator` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1248:21
+     |
+1248 |         let tau = s.tau_numerator.mul(g)?.mul(inv)?;
+     |                     ^^^^^^^^^^^^^ unknown field
+
+error[E0609]: no field `key` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1250:15
+     |
+1250 |         if !s.key.null && s.key.compactness.is_zero() {
+     |               ^^^ unknown field
+
+error[E0609]: no field `key` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1250:29
+     |
+1250 |         if !s.key.null && s.key.compactness.is_zero() {
+     |                             ^^^ unknown field
+
+error[E0609]: no field `t_numerator` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1251:24
+     |
+1251 |             let dt = s.t_numerator.mul(Scalar::integer(3))?.div(x)?.div(slope)?;
+     |                        ^^^^^^^^^^^ unknown field
+
+error[E0609]: no field `weak_tau_term` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1252:51
+     |
+1252 |             let dtau = tau.mul(a.scale(-1)?.sub(s.weak_tau_term)?)?;
+     |                                                   ^^^^^^^^^^^^^ unknown field
+
+error[E0599]: no method named `cut` found for reference `&Option<Arc<OrbitShape>>` in the current scope
+    --> crates/space/src/orbit.rs:1279:21
+     |
+1279 |         let psi = s.cut(x.fixed(62)?);
+     |                     ^^^ method not found in `&Option<Arc<OrbitShape>>`
+
+error[E0609]: no field `k` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1280:21
+     |
+1280 |         let k = f(s.k)?;
+     |                     ^ unknown field
+
+error[E0609]: no field `key` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1282:22
+     |
+1282 |         let g = if s.key.compactness.is_zero() {
+     |                      ^^^ unknown field
+
+error[E0609]: no field `key` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1317:14
+     |
+1317 |         if s.key.null && self.orbit.q <= Scalar::power_of_two(WEAK_EXPONENT) {
+     |              ^^^ unknown field
+
+error[E0599]: no method named `cut` found for reference `&Option<Arc<OrbitShape>>` in the current scope
+    --> crates/space/src/orbit.rs:1327:21
+     |
+1327 |         let end = s.cut(0);
+     |                     ^^^ method not found in `&Option<Arc<OrbitShape>>`
+
+error[E0609]: no field `knots` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1331:38
+     |
+1331 |         let mut edges: Vec<i128> = s.knots.iter().skip(1).map(|k| k.psi as i128).collect();
+     |                                      ^^^^^ unknown field
+
+error[E0609]: no field `k` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1342:35
+     |
+1342 |                     let a = 6 * s.k + 2 * product(ONE - s.k, cos(psi));
+     |                                   ^ unknown field
+
+error[E0609]: no field `k` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1342:59
+     |
+1342 |                     let a = 6 * s.k + 2 * product(ONE - s.k, cos(psi));
+     |                                                           ^ unknown field
+
+error[E0609]: no field `q` on type `&Option<Arc<OrbitShape>>`
+    --> crates/space/src/orbit.rs:1343:60
+     |
+1343 |                     let root = square_root(ONE - product(s.q, a))?;
+     |                                                            ^ unknown field
+
+Some errors have detailed explanations: E0599, E0609.
+For more information about an error, try `rustc --explain E0599`.
+error: could not compile `emergent-space` (lib) due to 17 previous errors

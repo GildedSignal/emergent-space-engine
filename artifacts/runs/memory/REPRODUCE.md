@@ -1,0 +1,15 @@
+Base: `362b040f` on `wt/memory`. `before/` used the shipped physics plus print-only nladder instrumentation; `after/` used this branch's exact table-cache prototype. Every run is serial, release, one simulation thread. Builds used `-j 2`.
+
+`run.py <new-phase> <unique-name> <command...>` records machine state, enables the nladder memory instrument, skips its optional view gather (outside the engine flight), and kills a child at the 59 s total probe budget. Existing logs cannot be overwritten. The original before/after logs used the initial runner, with a 59 s child limit; all recorded children plus setup still stayed under 60 s. Some 19 October sandboxed machine-state reads were denied; those denials are retained. The resumed 20 October runs have full state.
+
+Build: `CARGO_BUILD_JOBS=2 cargo build --release -j 2 -p emergent-universe --example nladder --example skew --example frame_digest --example ladder_digest`.
+For each N in `0 100 1000 10000 100000 1000000`, run nladder `N coast 20` and `N burn 20` as separate capped probes.
+For each N in `0 100000 1000000`, run nladder `N coast 200` as separate capped probes. A truncated run fails completeness regardless of exit code.
+Run `skew 100000 200`; it measures anchoring age/future coverage, not working-record demotion.
+Run `sh artifacts/runs/frame/digests.sh artifacts/runs/nladder/digests_before.txt`; require **8** IDENTICAL flights and **0** schedule disagreements (the shell script's exit code alone is insufficient).
+Run ladder_digest with `coast through the wave` and `belt crossing` separately; compare the two N=1000/3000 case lines to before after stripping only elapsed wall time.
+Build tests (the first full build found two test-only private-field accesses; build-tests-first.txt retains that failure, fixed by using the accessor without changing assertions): `CARGO_BUILD_JOBS=2 cargo test --release --tests --no-run -j 2 -p emergent-space -p emergent-universe`. `test_binaries.py` runs every listed test individually, serially and capped; it records ignored tests separately. Its original test phase is immutable; choose a new phase/name to repeat a test.
+
+`summarize.py` computes `(end_peak(N)-end_peak(0))/N` from exact physical-footprint bytes, using the same flight and nominal duration. The first diagnostic sampled only the initial N+28 records; the final instrument also counts the 48 bodies later handed out by the fleet (including dead slots). This corrects reporting only. Thus before's `dead=0` did not census those fleet bodies; do not infer changed mortality. Physical footprint always includes them. `skew` independently counts N+76 in both versions.
+
+The binaries retained locally in `bin/` are measured baseline executables, excluded from git; their hashes are in provenance.json. A source copy of the initial instrument reconstructed from the final diagnostic is in `before/nladder.rs` to reproduce the baseline diagnostic; it is explicitly reconstructed, not a contemporaneously hashed snapshot. The shipped engine source comes from the base commit. Copy/restore only within a specialist worktree; do not build in the archive or alter main.
