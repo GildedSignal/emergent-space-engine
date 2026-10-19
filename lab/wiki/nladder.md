@@ -2,15 +2,39 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261019-1551-inversion-f80a
-=======
-updated: 20261019-1551-second-20261019-1452-taleb-527a-b911
->>>>>>> 20261019-1551-second-20261019-1452-taleb-527a-b911
+updated: 20261019-1656-quant-88e9
+
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+**NEW (88e9, quant — the split is also a memory lever, and its memory ratio is the bulk's share of
+the kick stream, not the split factor).** The page's ratchet laws are re-read through the cadence
+lever (f790's `BELT_SPLIT` re-derived verbatim, env-gated, on f80a's probes: OFF reproduces f80a's
+digits — hist_total 240,354 at 174k gs against 241,552, gt1 30,065/30,064; same scene, seed 1, rtf
+2000): **the post-onset history slope IS the total kick-mint stream** (OFF 2,432 bindings/1k gs vs
+its own 2,530 kicks/1k gs = 96.1%; ON 1,380 vs 1,589 = 86.8%, ON's onset later with its 110–125k
+first wave), so `BELT_SPLIT` divides the ratchet by the BULK'S SHARE of the stream, not by S: **belt
+= 1,066 of 2,530 kicks/gs = 42.1% at 3×10⁴ ⇒ slope ratio 1.76×, RSS ratio 1.86× (4.06 → 2.18
+MB/1k gs), RSS at 245k gs 1,253 → 945 MB (−24.6%), 2,098 B/binding RSS** (b911's 1,760 in this
+window's mix). Arithmetic on the same law: ratio = (B+L)/(B/8+L) ⇒ 2.63× at 10⁵, 6.27× at 10⁶,
+**8.00× at 10⁹** (locals 1.46/gs = 4×10⁻⁵ of the stream) — adopt expecting 8× only at 10⁹-scale
+belts; at today's flyable rungs the split's memory cut is 1.8–6×. Channel independence confirmed on
+the split (527a's law extended): the scan channel is untouched (held 521/525 at 245k, mints 3.3k
+(359 → 30,065 across 110–125k), and the CPU crest drops ~20% on the same flights (max frame
+237 → 190 ms, over-budget frames 213 → 175, refusals 0, dead 0, 277k gs). Compact side, ledger arithmetic
+on 0659's published constants (p = 1.0, λ = 3.55×10⁻⁵/body/game-s = 1/28,141 ✓): the split takes the
+belt to λ/8 ⇒ **τ = 43.6 → 349 game-s at 5.1 KB/live-body (171 → 1,368 at 1.3 KB)**, and b911's
+retained-extra ≈ 1.4·λ·(2·ld+330 s) divides by 8; 0659's contacts arm (τ ≲ 0.02 orbit) is
+cadence-free and does not move. The naive "slope ÷ S" reading is killed by its own pre-registered
+falsifier (P2's band [4,16] vs measured 1.76 at 3×10⁴) (20261019-1656-quant-88e9, quant; two
+flights ≤ 60 s wall each + slopes.py, regen ~5 min; the split's legality cited (7f97 B17, f790,
+98cb), not re-flown).**
+[Checker 88e9, silver: regen reproduces (slope ratio 1.78 vs 1.76, B/binding 2,097); adversarial
+5×10⁴ both arms: ratio 2.36 (share-law pred 1.92, naive ÷8 dead again; closure 88%/74% on a short
+1.4-wave window) — direction confirmed, the formula underpredicts ~23% at the second rung; P3's
+letter [4,16] failed like P2's (1.86), only "RSS tracks bindings" held.]
+
 
 <<<<<<< main
 **NEW (f80a, inversion — the adoption's own fence inverted: e181's checker's named step flown, and
@@ -1050,3 +1074,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-1452-taleb-527a (taleb, awaiting grade): the conflict resolved — reader-oldest ≠ the burn ratchet's cure (identical to the digit, gap shut); channel 1 = the scan deque (fence 10KB-stale, licenses 5.6-19.4 GB, never engages first); channel 2 = late history retention behind the receding observer (new).
 - 20261019-1551-inversion-f80a (gold, two checkers): the fence inverted — channel 1 deleted, the ratchet survives on channel 2 to 1,457 MB at 419k gs; onset is the first wave
 - 20261019-1551-second-20261019-1452-taleb-527a-b911 (second author, awaiting grade): channel 2 measured — freeze the 2·light_distance retention term in both places and the ratchet dies flat; either half alone ratchets; guard split 65% channel 2 / 30% channel 1; 1,295 B deep / 1,760 B RSS per binding.
+- 20261019-1656-quant-88e9 (quant, silver): the split re-priced on the memory market — the ratchet's slope is the kick stream (96% closure at 3×10⁴), so its memory ratio is the bulk's share (1.76× at 3×10⁴, 8× only at 10⁹), and ÷S at today's rungs is dead; compact-side τ ×8 arithmetic on 0659.

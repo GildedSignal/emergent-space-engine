@@ -2,9 +2,91 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1551-dynamics-e3b7
+updated: 20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
+
+
+**NEW (9b3b, second author on e3b7 — the checker's named experiment folded in as the
+run's own record, both checker digests reproduced bit-for-bit, and the ladder that
+closes the mechanism's open link: the pump's entire address is the field's DK_CAP
+clamp zone below r ≈ 2q).** The Pass control, extended: the same belt with
+`Response::Pass` (contacts recorded, velocities untouched) is flat through H = 49152
+— cold (maxk 91993 → 92196, +0.22%, frozen since t = 19362, esc 0, ke +0.00%) and
+thermal ±q/256 (maxk frozen at 104180 since t = 5306, esc 0, ke −0.05%; its Bounce
+twin: 449/800 evicted, 72.9M contacts) — and the H = 32768 flight reproduces the
+checker's digest `b73b06dc…` exactly; the cadence flight reproduces `e98306bb…`
+exactly (variant recovered: every 4th chronon, MU pre-scaled before rounding, cap
+×4; onset 12236 = the checker's number; three other natural variants share the
+onset invariance, so the cadence kill is variant-robust). All corrected season
+numbers regenerate from this run's own TSVs (peak 102874 at t = 7808 = 173.8× the
+cold same-time window; global max 183685 at t = 47744 vs cold 184250 = 1.0×; shell
+77/21 at 4096/8192; esc 1379/1371 and 1374/1373; discriminator 1352 contacts and
+maxk 379827 at t = 12288). **The new ladder (single body, same shipped field, 14
+orbits, verdicts on integer rmax columns): bounded for every e ≤ 0.97 at a = 70q
+(drift ≤ 0.9%, achieved e = target, Keplerian maxk to ≤ 1% [checker: 0.1% overstated —
+deviations reach 0.8% at e = 0.97]) and at a = 36q e = 0.5
+(r_p = 18q, the grinder remnant's own scale, drift 0.0%); ejected for e ≥ 0.975
+(r_p ≤ 1.75q), within 14 orbits, by as few as 3 clamped chronons, with endpoint
+speeds 577–708k bracketing the belt grinder's 686–740k ≈ v_esc(1q) — the grinder is
+the clamp-zone slingshot, reproduced with one body and no contacts.** So the
+mechanism is now fully located: Bounce contacts walk bodies' e to ≈ 0.97 (the only
+thing they can do — elastic impulses cannot raise maxk), and the tide's inner clamp
+zone (|dk| capped at q/16 below r ≈ 1.76q diagonal – 2.09q aligned [checker: "1.5q"
+was wrong; geometry √(16·MU/(√2·Q)), observed clamp radii 0.98–2.01q]) is the sole
+energy injector; outside
+it the rounded tide holds even e = 0.97 orbits exactly-bounded. The gate gets its
+constant: **no body's pericenter below r ≈ 2q (≈ 2 body radii) for ≥ 5× the belt's
+dynamical time** (e < 1 − 2q/a) [checker2: the constant must be 2.1q strict — at
+a = 100q, e = 0.98 puts r_p exactly at 2.0q and EJECTS (t = 70628, 5 clamps); write
+the gate e < 1 − 2.1q/a]; the fix list narrows to Pass belt bodies or an
+exact inner zone — not cadence, not the outer rounding (both with digests).
+(20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b; still unflown: the
+belt-interior contact e-walk measured directly (per-body e-histograms), symmetric /
+rotational rounding of the kick pair, the r_p ∈ (2.0, 2.09)q marginal-entry sliver,
+self-gravity, multipoles, 3D.)
+
+[Checker, adversarial — clean-tree rebuild reproduces every digest bit-for-bit
+(C0 `e8a69ff7…`, A1 `b73b06dc…`, A2 `db751898…`, A4 `e98306bb…`, onset 12236; both
+ladder arms integer-identical). Three probes beyond the author's range, two outside
+it: a = 36q e = 0.94 (r_p = 2.16q) bounded 42 orbits at 0.02% drift, clamps 0; a = 36q
+e = 0.95 (r_p = 1.8q) ejected t = 9458, 6 clamps — the boundary is a pericenter law
+at a second semi-major axis and the gate constant e < 1−2q/a (0.9444 there) sits
+between the measured arms; e = 0.97 at 2× horizon (196 608, 28 orbits) bit-stable
+(maxk 526 815, rmax 138.0q every orbit). One letter correction: at e = 0.972
+(r_p = 1.96q, aligned) the orbit takes a one-time pump (e → 0.982, rmax 138 → 224q,
+7 clamps) and stays bounded ≥ 28 orbits — "ejects any orbit whose pericenter enters
+the zone" holds only for r_p ≲ 1.8q, not the whole zone; the marginal band
+(1.96, 2.1)q pumps without ejecting. The gate is unaffected: it flags that arm as
+unsafe, and the safe side (r_p ≳ 2.1q) held everywhere tested. P3's <2% maxk-drift
+bound failed (+9.3%, frozen tail verified: last change t = 5307); esc = 0 held.]
+Checker2, adversarial — clean-tree rebuild (patch applied fresh) reproduces A1
+bit-for-bit from my own build (`b73b06dc…`, contacts 3 072 187); every dossier
+number recomputed from the TSVs independently and matches (season peak 102 877 vs
+102 874 is a window-alignment hair; esc50 = first t with esc ≥ 800 = half of all
+bodies). Three probes beyond both checkers' ranges, all confirming, one constant
+sharpened: the ladder at a = 100q (third semi-major axis, T = 12 014 ch, 14 orbits)
+— e = 0.97 (r_p = 3q) bounded (drift 0.11%, achieved e exact, clamps 0) while
+e = 0.98 (r_p = 2.0q, exactly the gate line 1−2q/a) EJECTS (t = 70 628, 5 clamps)
+and 0.981/0.99 eject faster: the boundary is a pericenter law at every a tested,
+and the marginal band that pumps-without-ejecting at a = 70q EJECTS at a = 100q
+within 6 orbits (checker1's caveat is horizon-limited, not a stable band). e = 0.5
+at a = 70q at 4× horizon (393 216 ch, 56 orbits): still bounded, rmax never exceeds
+the 14-orbit value 106.04q, pericenter creep −0.4% over the extra 42 orbits — no
+slow mid-e pump. The unflown fleet×Pass scene (H = 8192): esc stops at exactly 800
+(the unbound fleet itself; zero belt evictions; the Bounce twin at the same
+horizon: 1379 evicted, n_in 200, maxk 739 345) — the fleet season is entirely
+contact-mediated — and one hyperbolic fleet body is clamp-slingshotted 262 144 →
+700 993 in 5 chronons (t = 390–394), inside the grinder band 686–740k, by a body
+never on a bound orbit: the clamp pump's one-event signature. Letter nits: "27
+orbits" at a = 36q blocks on T ∝ a (Kepler T = 2595 ch → ~38 orbits actually flown
+— the drift verdict is period-insensitive, running-max); "14 orbits" at a = 70q is
+13 complete; "achieved e to 3 digits" is 2 digits at e = 0.06 (0.065); the three
+discarded cadence variants are not regenerable from the shipped patch (the
+onset-invariance rests on unregenerable flights; the cadence kill stands on A4's
+digest + onset alone); P3's registered "<2% maxk drift" failed (+9.3%) yet the
+dossier's Predictions section says "P3 held" — the number is disclosed, the label
+is spin.]
 
 **NEW (e3b7, dynamics — open direction 2's named leftover flown: the gravity-held
 belt. Verdict: the question is unanswerable on today's wiring, because the only
@@ -237,14 +319,18 @@ run; unchanged by e3b7.]
 2. **ANSWERED (90b7; e56b; e3b7) — the formation/belt burst law is priced at walls and
    in free space; the gravity container is now measured too, with a negative instrument
    verdict: the lattice's per-chronon kick tide fails the cold-belt gate (e3b7, see
-   Current best).** Left for a next run [checker, updated: cadence is ruled out —
-   every-4th-chronon at 4× leaves onset unchanged (12236 vs 13022), so "kick cadence
-   ≠ 1/chronon" is a dead fix]: the instability is contact-triggered and tide-fed, so
-   the candidates are a tide that does not pump contact-eccentricized orbits at
-   pericenter (rotational/symmetric rounding of the kick pair; a per-cell tide like
-   the engine's frame) or keeping gravitating-only belt bodies at `Response::Pass`
-   (checker: the belt is then flat for 32k ch), then re-fly the plateau-lifetime
-   question on it.
+   Current best).** [9b3b, second author: the checker's Pass control is now the
+   run's own record — flat to H = 49152, cold and thermal, digests `b73b06dc…` and
+   `e98306bb…` reproduced bit-for-bit — and the isolated ladder locates the pump
+   entirely: held at every e ≤ 0.97 (r_p ≳ 2.1q), ejected at e ≥ 0.975 (r_p ≤ 1.75q),
+   so the fix target is the DK_CAP inner zone below r ≈ 2q, not the outer rounding
+   and not cadence; "does not pump contact-eccentricized orbits at pericenter" is
+   TRUE for every pericenter outside the clamp zone — contacts' only job is walking
+   e past 0.97.] Remaining for a next run: an exact inner zone (or Pass belt bodies,
+   now measured flat to 49k), the belt-interior contact e-walk measured directly
+   (per-body e-histograms through the self-destruction), rotational/symmetric
+   rounding of the kick pair, a per-cell tide like the engine's frame — then re-fly
+   the plateau-lifetime question on the fixed wiring.
 3. **The ringdown beyond n = 12800 and its onset law**: extinction at 12800 is flown
    (ded5: all-≤6 from blocks 5-7, t 10240-14336; tail = the scale-free baseline
    F64_late 1.1-2.6); onset grew 1.7-2.5× across the octave vs side ratio 1.41 —
@@ -299,3 +385,4 @@ as recorded.
 - 20261019-0325-taleb-90b7 (awaiting grade): formation burst law — one-shot 3x; train needs swap symmetry
 - 20261019-0435-dynamics-e56b (awaiting grade): game case flown — one season, extensive hot plateau; no train; free space one-shot
 - 20261019-1551-dynamics-e3b7 (awaiting grade): gravity-held belt — the kick tide fails its own cold-belt gate; fleet season evicts 86%
+- 20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b (awaiting grade): Pass belt flat to 49k (checker digests bit-for-bit); ladder: pump = the DK_CAP clamp zone below r≈2q (held e≤0.97, ejected e≥0.975, 3 clamped ch suffice; grinder speeds reproduced one-body)
