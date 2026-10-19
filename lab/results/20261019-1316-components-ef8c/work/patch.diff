@@ -1,0 +1,168 @@
+diff --git a/crates/universe/examples/belt_cells.rs b/crates/universe/examples/belt_cells.rs
+new file mode 100644
+index 00000000..fdc8c272
+--- /dev/null
++++ b/crates/universe/examples/belt_cells.rs
+@@ -0,0 +1,118 @@
++//! The belt's cell census at the shipped 11+11 memo width (cell-rebind's open measurement):
++//! distinct shapes a ladder population stands on, the sharing per cell, and the error of serving
++//! a member's compiled shape from its cell (the carried form: exact key, shared shape).
++//!
++//! cargo run --release -p emergent-universe --example belt_cells [-- <seed> <extra>]
++use emergent_space::orbit::{MemoCode, Orbit, OrbitKey, Scalar, ShapeKey};
++use emergent_universe::scenario::{ladder_locals, ladder_ship};
++use std::collections::HashMap;
++
++/// (p, P, advance, tau, knots) of the shape a cell serves, compiled once at the cell's decoded key.
++struct Rep {
++    p: Scalar,
++    period: Scalar,
++    advance: Scalar,
++    tau: Scalar,
++    knots: usize,
++}
++
++fn f64v(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let seed: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let extra: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let locals = ladder_locals(extra);
++    let weak = Scalar::power_of_two(-18);
++    let mut cells: HashMap<u64, (u64, Rep)> = HashMap::new();
++    let mut exact_shapes: HashMap<(u64, i16, i64), u64> = HashMap::new();
++    let mut weak_n = 0u64;
++    let (mut sum_dp, mut sum_da, mut sum_dt) = (0f64, 0f64, 0f64);
++    let mut n_dp = 0u64;
++    let mut knot_mismatch = 0u64;
++    let mut knots_body_bytes: u128 = 0; // shipped standing bill: per-body knots table bytes
++    let mut max_dp = Scalar::ZERO;
++    let mut max_da = Scalar::ZERO;
++    let mut max_dt = Scalar::ZERO;
++    let mut worst: Option<(u64, f64, f64, f64, usize, usize)> = None;
++    for k in 0..extra {
++        let (spec, _radius) = ladder_ship(seed, k, extra, 1).expect("ship");
++        let key = OrbitKey::bound(spec.periapsis, spec.e_q48).expect("key");
++        let q = key.compactness().expect("q");
++        let is_weak = q <= weak;
++        if is_weak { weak_n += 1; }
++        let shape = ShapeKey::for_orbit(key).expect("shape key");
++        *exact_shapes.entry((shape.k, shape.k_exponent, shape.compactness.significand())).or_default() += 1;
++        let code = MemoCode::encode(key).expect("code");
++        // the shipped weak-branch shape id drops radius: (1<<44) | low 17 bits (gap 11 + exponent 6)
++        let id = if is_weak { (1u64 << 44) | (code.bits() & ((1 << 17) - 1)) } else { code.bits() };
++        let orbit = Orbit::compile(key).expect("orbit");
++        knots_body_bytes += orbit.shape().knots().len() as u128 * 88;
++        let entry = cells.entry(id).or_insert_with(|| {
++            let rk = MemoCode::decode(code).expect("decode");
++            let ro = Orbit::compile(rk).expect("rep orbit");
++            (0, Rep {
++                p: rk.periapsis,
++                period: ro.period().expect("P"),
++                advance: ro.advance().expect("A"),
++                tau: ro.proper_period().expect("T"),
++                knots: ro.shape().knots().len(),
++            })
++        });
++        entry.0 += 1;
++        let rep = &entry.1;
++        if orbit.shape().knots().len() != rep.knots {
++            knot_mismatch += 1;
++        }
++        // served: the rep's dimensionless sums scaled by this member's exact key
++        let ratio = key.periapsis.div(rep.p).expect("p ratio");
++        let scale = ratio.mul(ratio.sqrt().expect("sqrt")).expect("scale"); // (p/pr)^(3/2)
++        let ps = rep.period.mul(scale).expect("ps");
++        let as_ = rep.advance.mul(rep.p.div(key.periapsis).expect("a scale")).expect("as");
++        let ts = rep.tau.mul(scale).expect("ts");
++        let (pm, am, tm) = (orbit.period().expect("P"), orbit.advance().expect("A"), orbit.proper_period().expect("T"));
++        let dp = ps.sub(pm).expect("d").abs().div(pm).expect("rel");
++        let da = as_.sub(am).expect("d").abs().div(am).expect("rel");
++        let dt = ts.sub(tm).expect("d").abs().div(tm).expect("rel");
++        if dp > max_dp { max_dp = dp; worst = Some((k, f64v(dp), f64v(pm), f64v(ps), orbit.shape().knots().len(), rep.knots)); }
++        if da > max_da { max_da = da; }
++        if dt > max_dt { max_dt = dt; }
++        sum_dp += f64v(dp);
++        sum_da += f64v(da);
++        sum_dt += f64v(dt);
++        n_dp += 1;
++    }
++    let mut counts: Vec<u64> = cells.values().map(|(n, _)| *n).collect();
++    counts.sort_unstable();
++    let n = counts.len() as u64;
++    let total: u64 = counts.iter().sum();
++    let p50 = counts[(n as usize) / 2];
++    let knots_cell_bytes: u128 = cells.values().map(|(_, r)| r.knots as u128 * 88).sum();
++    println!(
++        "belt_cells: seed={seed} extra={extra} weak={weak_n} \
++         cells={n} exact_shapes={} p50_share={p50} max_share={} mean_share={:.1} \
++         knots_body_bytes={} knots_cell_bytes={} share_delete={:.1}x \
++         knot_mismatch={} max_dp={:.3e} max_da={:.3e} max_dt={:.3e} mean_dp={:.3e} mean_da={:.3e} mean_dt={:.3e} worst={:?}",
++        exact_shapes.len(),
++        counts.last().unwrap_or(&0),
++        total as f64 / n as f64,
++        knots_body_bytes,
++        knots_cell_bytes,
++        knots_body_bytes as f64 / knots_cell_bytes as f64,
++        knot_mismatch,
++        f64v(max_dp), f64v(max_da), f64v(max_dt),
++        sum_dp / n_dp as f64, sum_da / n_dp as f64, sum_dt / n_dp as f64,
++        worst,
++    );
++    let m = total as f64 / n as f64;
++    let mut c = counts.clone();
++    c.reverse();
++    println!(
++        "belt_cells_tail: cells_over_2mean={} cells_over_10mean={} biggest_ten={:?}",
++        counts.iter().filter(|x| **x as f64 > 2.0 * m).count(),
++        counts.iter().filter(|x| **x as f64 > 10.0 * m).count(),
++        c.iter().take(10).collect::<Vec<_>>(),
++    );
++}
+diff --git a/crates/universe/examples/belt_dbg.rs b/crates/universe/examples/belt_dbg.rs
+new file mode 100644
+index 00000000..be3e339f
+--- /dev/null
++++ b/crates/universe/examples/belt_dbg.rs
+@@ -0,0 +1,38 @@
++//! One belt body: exact vs served-from-cell components (debug for the census).
++use emergent_space::orbit::{MemoCode, Orbit, OrbitKey, Scalar};
++use emergent_universe::scenario::{ladder_locals, ladder_ship};
++
++fn main() {
++    let seed = 1u64;
++    let extra = 10_000u64;
++    let locals = ladder_locals(extra);
++    for k in [locals, locals + 1, locals + 500, locals + 5000] {
++        let (spec, _) = ladder_ship(seed, k, extra, 1).expect("ship");
++        let key = OrbitKey::bound(spec.periapsis, spec.e_q48).expect("key");
++        let code = MemoCode::encode(key).expect("code");
++        let rk = MemoCode::decode(code).expect("decode");
++        let om = Orbit::compile(key).expect("o");
++        let or = Orbit::compile(rk).expect("or");
++        let pm = key.periapsis;
++        let pr = rk.periapsis;
++        let p48 = |x: Scalar| (x.significand() as f64) * 2f64.powi(x.exponent() as i32 - 62);
++        println!(
++            "k={k} e_q48=0x{:x} p_m={:e} p_r={:e} km=0x{:x} kr=0x{:x} P_m={:e} P_r={:e} A_m={:e} A_r={:e} knots {}/{} weak_ids {:x} {:x}",
++            spec.e_q48,
++            p48(pm), p48(pr),
++            key.k, rk.k,
++            p48(om.period().unwrap()), p48(or.period().unwrap()),
++            p48(om.advance().unwrap()), p48(or.advance().unwrap()),
++            om.shape().knots().len(), or.shape().knots().len(),
++            code.bits() & 0x1ffff, MemoCode::encode(rk).unwrap().bits() & 0x1ffff,
++        );
++        let ratio = pm.div(pr).unwrap();
++        let scale = ratio.mul(ratio.sqrt().unwrap()).unwrap();
++        let ps = or.period().unwrap().mul(scale).unwrap();
++        println!(
++            "  served P={:e} rel_dp={:e}",
++            p48(ps),
++            p48(ps.sub(om.period().unwrap()).unwrap().abs().div(om.period().unwrap()).unwrap())
++        );
++    }
++}
