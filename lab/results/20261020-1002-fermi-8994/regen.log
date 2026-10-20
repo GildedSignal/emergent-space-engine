@@ -1,0 +1,26 @@
+patch already applied; continuing
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.86s
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.95s
+shipped kicks: kicks 12321 kicks 12321 kicks 12321 
+instrumented:  kicks=12321 kicks=12321 kicks=12321 
+arm   game_s    kicks  ship/pl items  item KB/kick  % naive  base KB/gs
+D1     57319   108308      42411/136         11.35    91.3%        2.04
+D2     56332   105944    179575/1808         15.19    71.2%       11.54
+D3     52030   140231      93189/136          9.13    91.8%        2.19
+
+D1 anatomy: ship 156.5 MB / 42411 items = 3.69 KB per ship item (~1.63 KB/kick); player 1073.2 MB / 136 items = 7.89 MB per player item = 787 B per body of the doll
+D1 player realloc 855.2 MB = 80% of player term; player share of item traffic 87%
+D2 player realloc 1184.4 MB; chains: 3,670,016 B = one ~366 B entry per body
+
+wave clusters (frame lo-hi, n, item MB, item x ebb, base x ebb, item KB/kick):
+ D1: ebb item 664 KB/f base 78 KB/f ebb item/kick 13.0 KB -> [354,424] n59 88MB item 2.2x base 0.8x 10.4KB/kick; [781,826] n32 32MB item 1.5x base 1.2x 4.7KB/kick; [1205,1260] n51 63MB item 1.9x base 1.9x 9.0KB/kick; [1629,1689] n41 39MB item 1.4x base 1.2x 5.6KB/kick
+ D2: ebb item 227 KB/f base 257 KB/f ebb item/kick 19.6 KB -> [402,432] n26 46MB item 7.8x base 0.5x 7.3KB/kick; [809,868] n39 103MB item 11.7x base 1.8x 13.3KB/kick; [1243,1295] n44 74MB item 7.4x base 3.0x 10.8KB/kick; [1652,1723] n47 14MB item 1.3x base 5.2x 1.8KB/kick
+ D3: ebb item 708 KB/f base 68 KB/f ebb item/kick 11.7 KB -> [858,908] n40 36MB item 1.3x base 1.0x 2.2KB/kick
+
+10^9 composition (rtf 100, 60 GB/s):
+ lambda 4e-05: ship-stream marginal 1.63 KB/kick -> 6.5 GB/s = 11% | mixture 11.35 KB/kick -> 45.4 GB/s = 76%
+ lambda 8.4e-05: ship-stream marginal 1.63 KB/kick -> 13.7 GB/s = 23% | mixture 11.35 KB/kick -> 95.3 GB/s = 159%
+ player item at 10^9: 490 B/body x 1e9 = 490 GB allocated per player item (cc9d's row, priced)
+size censuses (chain means) live in the arm logs; copies checked in lab/results/20261020-1002-fermi-8994/data/

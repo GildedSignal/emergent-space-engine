@@ -1,0 +1,45 @@
+alloc_scope: N=10000 bodies=10028 burn rtf=2000 frames=1800 build_s=0.43 game_s=56297 kicks=105911 events=211983 items=[0, 3, 152113, 3200, 1646] peak_item_frame=(9381984, 1317)
+per fired kick: item-scope 15.19 KB alloc'd, base 11.53 KB/game-s; per fired item (any class): item-scope 10.25 KB
+scope   base(frame) (0): allocs 166014, bytes 649115584 (649115.6 KB), frees 481046, freed 864241.92 KB, reallocs 1595
+scope   base(frame) (0): realloc bytes 224704 (224.7 KB)
+scope          moon (2): allocs 20, bytes 4368 (4.4 KB), frees 11, freed 2.304 KB, reallocs 6
+scope          moon (2): realloc bytes 2240 (2.2 KB)
+scope          ship (3): allocs 757198, bytes 162213496 (162213.5 KB), frees 493357, freed 118489.276 KB, reallocs 231551
+scope          ship (3): realloc bytes 143701984 (143702.0 KB)
+scope        player (4): allocs 391054, bytes 91160436 (91160.4 KB), frees 240661, freed 324847.688 KB, reallocs 156037
+scope        player (4): realloc bytes 1211948304 (1211948.3 KB)
+scope fleet/handout (5): allocs 131, bytes 33808 (33.8 KB), frees 147, freed 90.472 KB, reallocs 38
+scope fleet/handout (5): realloc bytes 37344 (37.3 KB)
+size census (bucket, class): count, bytes, mean B — only buckets with bytes
+    2048 B   base(frame):    12853 calls,   37834432 bytes, mean     2944 B
+    4096 B   base(frame):    12329 calls,   72975728 bytes, mean     5919 B
+    8192 B   base(frame):    12611 calls,  147280320 bytes, mean    11679 B
+   16384 B   base(frame):     9714 calls,  219208576 bytes, mean    22566 B
+   32768 B   base(frame):     3605 calls,  138674244 bytes, mean    38467 B
+   65536 B   base(frame):       29 calls,    2553728 bytes, mean    88060 B
+  131072 B   base(frame):       28 calls,    4993816 bytes, mean   178351 B
+  262144 B   base(frame):        5 calls,    1753088 bytes, mean   350618 B
+  524288 B   base(frame):        4 calls,    2719744 bytes, mean   679936 B
+  1048576 B   base(frame):        2 calls,    3080192 bytes, mean  1540096 B
+  2097152 B   base(frame):        1 calls,    3801088 bytes, mean  3801088 B
+  4194304 B   base(frame):        1 calls,    7602176 bytes, mean  7602176 B
+    2048 B          ship:     3509 calls,    9031168 bytes, mean     2574 B
+    4096 B          ship:     2014 calls,   11426816 bytes, mean     5674 B
+    8192 B          ship:     1767 calls,   20113680 bytes, mean    11383 B
+   16384 B          ship:     1450 calls,   32940032 bytes, mean    22717 B
+    2048 B        player:     7569 calls,   22361312 bytes, mean     2954 B
+    4096 B        player:     5372 calls,   34866304 bytes, mean     6490 B
+    8192 B        player:     4683 calls,   60867136 bytes, mean    12997 B
+   16384 B        player:     3368 calls,   85936128 bytes, mean    25515 B
+   32768 B        player:      380 calls,   21610496 bytes, mean    56870 B
+   65536 B        player:      168 calls,   19259392 bytes, mean   114639 B
+  131072 B        player:      158 calls,   36225024 bytes, mean   229272 B
+  262144 B        player:      137 calls,   62849024 bytes, mean   458752 B
+  524288 B        player:      129 calls,  118358016 bytes, mean   917504 B
+  1048576 B        player:      129 calls,  236716032 bytes, mean  1835008 B
+  2097152 B        player:      129 calls,  473432064 bytes, mean  3670016 B
+    2048 B fleet/handout:      158 calls,     420456 bytes, mean     2661 B
+    4096 B fleet/handout:       74 calls,     415616 bytes, mean     5616 B
+    8192 B fleet/handout:       61 calls,     687632 bytes, mean    11273 B
+   16384 B fleet/handout:       51 calls,    1143312 bytes, mean    22418 B
+  262144 B fleet/handout:        1 calls,     320896 bytes, mean   320896 B
