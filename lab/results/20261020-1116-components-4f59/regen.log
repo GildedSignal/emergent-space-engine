@@ -1,0 +1,23 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.16s
+state: 2026-10-20 11:38:02 | load average: 2.54, 1.74, 1.17 | swap  |  | ./artifacts/runs/frame/state.sh: 3: pmset: not found  | 
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/seamscan 10000 1000000`
+built N=10000 in 0.4 s
+doll-0 ships with a range: 9712 of 10028 bodies
+engine: N=10028 doll0=9715 scanner r=256941220.255 v=0.00006 h=5688717894 | shipped tier BAIL(None -> reads every body) (1.2 µs), walk binding_at 567.8 µs (57 ns/body, sink 10028)
+engine: window rho=683043 doll units, 0.0066 of r; omega=0.00322 rad, 0.0005 of 2pi
+engine: exact T=1 (0.000×N), phase F=470 (0.047×N, |F|/|T| 470.00), misses T-outside-F=0; e of kept: p50 0.116 p90 0.183 max 0.264; exact pass 39 ms
+offline-belt-resident: M=1000000 e=belt v_scan=0.00006c rho=0.0080 AU | T=22 (0.000022xM), F=113731 (0.11373xM, F/T 5169.6), e-graded F=226977 (0.22698xM); theta-index 0.19 us vs brute 2973 us (15899x), index reads 20978160
+offline-cold-resident: M=1000000 e=cold v_scan=0.00006c rho=0.0082 AU | T=22 (0.000022xM), F=1085 (0.00109xM, F/T 49.3), e-graded F=193110 (0.19311xM); theta-index 0.19 us vs brute 2972 us (15726x), index reads 20960400
+offline-belt-crosser: M=1000000 e=belt v_scan=0.03000c rho=1.6652 AU | T=216759 (0.216759xM), F=356903 (0.35690xM, F/T 1.6), e-graded F=470106 (0.47011xM); theta-index 0.18 us vs brute 2977 us (16567x), index reads 29239880
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/seamscan 100000 1000000`
+built N=100000 in 4.4 s
+doll-0 ships with a range: 99712 of 100028 bodies
+engine: N=100028 doll0=99715 scanner r=265737080.905 v=0.00006 h=5769493284 | shipped tier BAIL(None -> reads every body) (1.2 µs), walk binding_at 8953.2 µs (90 ns/body, sink 100028)
+engine: window rho=674040 doll units, 0.0063 of r; omega=0.00318 rad, 0.0005 of 2pi
+engine: exact T=1 (0.000×N), phase F=4209 (0.042×N, |F|/|T| 4209.00), misses T-outside-F=0; e of kept: p50 0.112 p90 0.177 max 0.315; exact pass 403 ms
+offline-belt-resident: M=1000000 e=belt v_scan=0.00006c rho=0.0078 AU | T=20 (0.000020xM), F=113701 (0.11370xM, F/T 5685.1), e-graded F=226955 (0.22695xM); theta-index 0.19 us vs brute 3019 us (15783x), index reads 20977080
+offline-cold-resident: M=1000000 e=cold v_scan=0.00006c rho=0.0080 AU | T=22 (0.000022xM), F=1067 (0.00107xM, F/T 48.5), e-graded F=193081 (0.19308xM); theta-index 0.17 us vs brute 3004 us (17910x), index reads 20959560
+offline-belt-crosser: M=1000000 e=belt v_scan=0.03000c rho=1.6329 AU | T=212070 (0.212070xM), F=351922 (0.35192xM, F/T 1.7), e-graded F=465096 (0.46510xM); theta-index 0.17 us vs brute 2987 us (17117x), index reads 29073080

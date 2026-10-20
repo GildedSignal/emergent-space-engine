@@ -1,0 +1,220 @@
+diff --git a/crates/universe/examples/seamscan.rs b/crates/universe/examples/seamscan.rs
+new file mode 100644
+index 00000000..0cbb435b
+--- /dev/null
++++ b/crates/universe/examples/seamscan.rs
+@@ -0,0 +1,214 @@
++//! The scan's candidate tier at the belt seam (promotion od 1(b)'s unflown arm): what the shipped
++//! apsidal filter returns for an in-band scan, what the window really contains (exact readouts),
++//! and what a phase/along-orbit second axis would read. Print-only: no engine path is changed.
++//!
++//! cargo run --release -p emergent-universe --example seamscan -- [N] [offline_M]
++use emergent_space::orbit::Scalar;
++use emergent_universe::encounter::ENCOUNTER_LOG2;
++use emergent_universe::fleet::Order;
++use emergent_universe::radial::{range_of, Window};
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::{Config, Universe};
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++fn f(x: Scalar) -> f64 {
++    emergent_universe::num::to_f64(x)
++}
++
++/// The equation-of-centre bound (phase.rs:39-41): a true longitude differs from its mean by at
++/// most e + 2·asin(e/(1+sqrt(1-e²))).
++fn centre(e: f64) -> f64 {
++    e + 2.0 * (e / (1.0 + (1.0 - e * e).sqrt())).asin()
++}
++
++fn wrap(a: f64) -> f64 {
++    let m = a.rem_euclid(TAU);
++    if m > TAU / 2.0 { m - TAU } else { m }
++}
++
++/// One scan measured on the shipped universe: the tier's answer, the exact truth T, the phase
++/// filter F over the same bodies, and the per-body walk prices.
++fn scan(u: &Universe, label: &str) -> (f64, f64, f64) {
++    let ctx = u.ctx();
++    let n = ctx.bodies.len();
++    // a mid-belt ship of the root doll: the median periapsis of the doll-0 ships (the belt is
++    // most of N at every rung, so the median is mid-belt; scale-free in the doll's units)
++    let t = u.now;
++    let mut los: Vec<(f64, usize)> = Vec::new();
++    for i in 0..n {
++        let Some(b) = ctx.bodies.binding_at(i, t) else { continue };
++        if ctx.info[i].kind != emergent_universe::body::Kind::Ship || b.doll != 0 {
++            continue;
++        }
++        if let Some((lo, _, _)) = range_of(&b) {
++            los.push((lo, i));
++        }
++    }
++    los.sort_by(|a, b| a.0.total_cmp(&b.0));
++    println!("doll-0 ships with a range: {} of {n} bodies", los.len());
++    let s = los[los.len() / 2].1;
++    let rec = u.rec(s);
++    let me = ctx.bodies.binding_at(s, t).unwrap();
++    let (xs, vs) = me.cartesian(t).unwrap();
++    let (rx, ry) = (f(xs[0]), f(xs[1]));
++    let (vx, vy) = (f(vs[0]), f(vs[1]));
++    let (r_s, v_s) = (rx.hypot(ry), vx.hypot(vy));
++    let h = rec.step.max(2) as f64;
++    let w = Window { r: r_s, v: v_s, reach_p: f(ctx.info[s].radius), near_log2: ENCOUNTER_LOG2, h };
++
++    // 1. the shipped tier
++    let t0 = Instant::now();
++    let shipped = ctx.radial.candidates(0, &w);
++    let tier_us = t0.elapsed().as_secs_f64() * 1e6;
++    // 2. the shipped fallback's answer channel: one binding_at a body
++    let t0 = Instant::now();
++    let mut sink = 0u64;
++    for j in 0..n {
++        sink += ctx.bodies.binding_at(j, t).map_or(0, |_| 1);
++    }
++    let walk_us = t0.elapsed().as_secs_f64() * 1e6;
++
++    // 3. exact truth T and the phase filter F (one exact readout a body, once, offline)
++    let t0 = Instant::now();
++    let (mut truth, mut phase, mut both_doll) = (0usize, 0usize, 0usize);
++    let mut rho_s = 0.0f64;
++    let theta_s = ry.atan2(rx);
++    let (lo_s, _, _) = range_of(&me).unwrap();
++    let mut misses = 0usize;
++    let mut kept: Vec<f64> = Vec::new();
++    for j in 0..n {
++        let Some(b) = ctx.bodies.binding_at(j, t) else { continue };
++        if b.doll != 0 { continue; }
++        both_doll += 1;
++        let Some((lo_j, hi_j, _)) = range_of(&b) else { continue };
++        let key = b.entry.trajectory.key().unwrap();
++        let k = key.k as f64;
++        let e_j = ((1u64 << 48) as f64 / k - 1.0).max(0.0);
++        let near_j = (w.reach_p + f(ctx.info[j].radius)) * 2f64.powi(ENCOUNTER_LOG2);
++        let (xj, vj) = b.cartesian(t).unwrap();
++        let (xj, vj) = ([f(xj[0]), f(xj[1])], [f(vj[0]), f(vj[1])]);
++        let d = (xj[0] - rx).hypot(xj[1] - ry);
++        let rho = near_j + (v_s + vj[0].hypot(vj[1])) * h;
++        if j == s {
++            rho_s = rho;
++        }
++        let in_t = d <= rho;
++        truth += in_t as usize;
++        // the phase cut: angular separation at t bounded by 2·asin(rho/(2·min periapsis)), widened
++        // by the equation of centre at both ends of the anchor (the standing index's law)
++        let lo_min = lo_s.min(lo_j);
++        let omega = 2.0 * (rho / (2.0 * lo_min)).min(1.0).asin();
++        let th = xj[1].atan2(xj[0]);
++        let in_f = wrap(th - theta_s).abs() <= omega + 2.0 * centre(e_j) && hi_j >= w.r - rho && lo_j <= w.r + rho;
++        phase += in_f as usize;
++        misses += (in_t && !in_f) as usize;
++        if in_f {
++            kept.push(e_j);
++        }
++    }
++    let exact_ms = t0.elapsed().as_secs_f64() * 1e3;
++    let omega_s = 2.0 * (rho_s / (2.0 * lo_s)).min(1.0).asin();
++    kept.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    println!(
++        "{label}: N={n} doll0={both_doll} scanner r={r_s:.3} v={v_s:.5} h={h:.0} | shipped tier {} ({tier_us:.1} µs), walk binding_at {walk_us:.1} µs ({:.0} ns/body, sink {sink})",
++        match &shipped { None => "BAIL(None -> reads every body)".to_string(), Some(v) => format!("{} candidates", v.len()) },
++        walk_us * 1e3 / n.max(1) as f64,
++    );
++    println!(
++        "{label}: window rho={rho_s:.0} doll units, {:.4} of r; omega={:.5} rad, {:.4} of 2pi",
++        rho_s * 2.5 / r_s, omega_s, omega_s / TAU,
++    );
++    println!(
++        "{label}: exact T={truth} ({:.3}×N), phase F={phase} ({:.3}×N, |F|/|T| {:.2}), misses T-outside-F={misses}; e of kept: p50 {:.3} p90 {:.3} max {:.3}; exact pass {exact_ms:.0} ms",
++        truth as f64 / n as f64, phase as f64 / n as f64, phase as f64 / truth.max(1) as f64,
++        kept.get(kept.len() / 2).copied().unwrap_or(0.0), kept.get(kept.len() * 9 / 10).copied().unwrap_or(0.0), kept.last().copied().unwrap_or(0.0),
++    );
++    (v_s, h, r_s)
++}
++
++/// The offline arms: synthetic belts of M bodies, a ∈ [2,3) AU, θ uniform, every body at its
++/// periapsis phase (an exact Kepler family), the scanner mid-belt. Units: AU, c = 1 (1 AU of
++/// length = 499 s of light time = au_lt light-ticks), calibrated to the engine arm's measured
++/// window (v = 6e-5 c at 2.5 AU, h = the scanner's step in ticks). The same filter laws.
++fn offline(m: usize, e_mode: &str, label: &str, v_scan: f64, h_ticks: f64, au_lt: f64) {
++    let mut seed = 0x9E37_79B9_7F4A_7C15u64;
++    let mut rnd = move || {
++        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        ((seed >> 11) as f64) / (1u64 << 53) as f64
++    };
++    let mut bodies: Vec<(f64, f64, f64)> = Vec::with_capacity(m); // (a, e, theta)
++    for _ in 0..m {
++        let a = 2.0 + rnd();
++        let e = match e_mode {
++            "cold" => 0.0,
++            _ => {
++                let mut x = (-2.0 * rnd().ln()).sqrt() * 0.07; // Rayleigh scale 0.07, re-drawn above 0.4
++                while x > 0.4 {
++                    x = (-2.0 * rnd().ln()).sqrt() * 0.07;
++                }
++                x
++            }
++        };
++        bodies.push((a, e, rnd() * TAU));
++    }
++    let (a_s, e_s, th_s) = bodies[m / 2];
++    let r_s = a_s * (1.0 - e_s);
++    let v_circ = |a: f64| 6.3e-5 * (2.5 / a).sqrt(); // c = 1: calibrated to the engine arm's 6e-5 at 2.5 AU
++    let near_au = 1.4e-3; // (reach_p + radius)·2^10: two ship radii ~100 m, widened by 1024
++    let rho = near_au + (v_scan + v_circ(a_s)) * h_ticks / au_lt;
++    let (mut truth, mut phase, mut split) = (0usize, 0usize, 0usize);
++    let mut thetas: Vec<f64> = Vec::with_capacity(m); // every body: what the index holds
++    for &(a, e, th) in &bodies {
++        let r = a * (1.0 - e);
++        let d = (r * r + r_s * r_s - 2.0 * r * r_s * (th - th_s).cos()).sqrt();
++        let in_t = d <= rho;
++        let rho_j = near_au + (v_scan + v_circ(a)) * h_ticks / au_lt;
++        let omega = 2.0 * (rho_j / (2.0 * r.min(r_s))).min(1.0).asin();
++        let in_f = wrap(th - th_s).abs() <= omega + 2.0 * centre(e);
++        // the e-graded registration: two classes queried with their own caps
++        let cap = if e < 0.15 { centre(0.15) } else { centre(0.4) };
++        split += (wrap(th - th_s).abs() <= omega + 2.0 * cap) as usize;
++        truth += in_t as usize;
++        phase += in_f as usize;
++        thetas.push(th);
++    }
++    // the index: θ-sorted at the anchor tick, the window served by two partition_points
++    thetas.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let omega_q = 2.0 * (rho / (2.0 * r_s)).min(1.0).asin() + 2.0 * centre(0.4); // the widest kept e
++    let t0 = Instant::now();
++    let mut hits = 0usize;
++    for _ in 0..20 {
++        let (lo, hi) = ((th_s - omega_q).rem_euclid(TAU), (th_s + omega_q).rem_euclid(TAU));
++        let range = if lo <= hi {
++            thetas.partition_point(|&x| x < hi) - thetas.partition_point(|&x| x < lo)
++        } else {
++            thetas.partition_point(|&x| x < hi) + (thetas.len() - thetas.partition_point(|&x| x < lo))
++        };
++        hits += range;
++    }
++    let idx_us = t0.elapsed().as_secs_f64() * 1e6 / 20.0;
++    let t0 = Instant::now();
++    for _ in 0..20 {
++        hits += thetas.iter().filter(|&&x| wrap(x - th_s).abs() <= omega_q).count();
++    }
++    let brute_us = t0.elapsed().as_secs_f64() * 1e6 / 20.0;
++    println!(
++        "{label}: M={m} e={e_mode} v_scan={v_scan:.5}c rho={rho:.4} AU | T={truth} ({:.6}xM), F={phase} ({:.5}xM, F/T {:.1}), e-graded F={split} ({:.5}xM); theta-index {idx_us:.2} us vs brute {brute_us:.0} us ({:.0}x), index reads {hits}",
++        truth as f64 / m as f64, phase as f64 / m as f64, phase as f64 / truth.max(1) as f64, split as f64 / m as f64, brute_us / idx_us.max(1e-9),
++    );
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let m: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1_000_000);
++    let t0 = Instant::now();
++    let p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    println!("built N={n} in {:.1} s", t0.elapsed().as_secs_f64());
++    let (v_s, h, r_units) = scan(&p.u, "engine");
++    let au_lt = r_units / 2.5; // light-ticks per AU, from the scanner's own radius
++    offline(m, "belt", "offline-belt-resident", v_s, h, au_lt);
++    offline(m, "cold", "offline-cold-resident", v_s, h, au_lt);
++    offline(m, "belt", "offline-belt-crosser", 0.03, h, au_lt); // 396d's player: ~3.55 AU / 58,340 game-s
++}

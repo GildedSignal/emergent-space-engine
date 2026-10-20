@@ -1,0 +1,6 @@
+Working...
+Fixed and verified. Root cause: the run folder sits **3** levels below the repo root (`lab-2/`), but `regen.sh` did `cd ../../../..` — landing one level above it, where no `Cargo.toml` exists. The fix walks up from the script's own location to the first ancestor holding `Cargo.toml` (robust to any checkout nesting or invocation directory), and the script now applies `work/patch.diff` itself when the probe is absent — idempotent when the runner pre-applies it, with a trap that removes it after, leaving the tree clean.
+
+Verification: full `regen.sh` run from an unpatched tree, exit 0 in ~16 s; every dossier number reproduces exactly (T=1 with F=470 and F=4,209 at zero misses at N=10⁴/10⁵; offline arms 113,731 / 1,085 / 212,070 / 351,922, matching `raw-10k.txt`/`raw-100k.txt`), only wall-clock timings moved within noise; `git status` shows the tree restored afterwards.
+
+**Claim:** the regen failure was one `..` too many in the script's root lookup (plus a hidden dependency on the runner pre-applying the patch); both are fixed in `regen.sh`, which now self-locates the workspace, self-applies the probe, and regenerates every dossier number from a clean tree in under 20 seconds.
