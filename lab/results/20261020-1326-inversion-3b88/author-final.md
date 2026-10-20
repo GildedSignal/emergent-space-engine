@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place: `predictions.md` (pre-registered), `dossier.md`, `regen.sh` (~9 min, gates + diagnostics + three-octave scan), evidence files, `wiki/kick-cadence.md` with the result folded in, and the two print-only tests in the tree for `run.sh` to save as `work/patch.diff`.
+
+**Claim:** B13's step-9 `inf` — the anomaly the cadence gold left unattributed — is not a cadence effect but the plane's i64 tick wall on near-escape orbits (a flyby leaves the ship barely bound to the star, its fitted period 3.195e19 ticks exceeds i64::MAX, `next_periapsis` refuses and the ship is lost), a hazard measured at 1/229 draws at 256/orbit, 2/229 at 512, 0/229 at 1024 — so the gate's 8-vs-9 verdict flip is only which wall-hit its first-64 window samples, and the cure is a law-side "beyond the horizon" answer, not a cadence choice.

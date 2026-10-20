@@ -1,0 +1,2 @@
+regen.sh isregen.sh now survives the expected `behave` exit 1 on B13's step-9 FAIL (the run's own subject, which `set -euo pipefail` turned into a false abort) and applies `work/patch.diff` idempotently when absent — verified by a full run: exit 0 in ~4 minutes, reproducing every dossier number exactly (gates PASS 5.30e-3 / FAIL 63/64 inf with `lost=1 kicks=926` / PASS 3.32e-4; draw 27 `Refused("periapsis")` at period 3.195e19 ticks; scans 1/229, 2/229, 0/229).
+ 1/229, 2/229, 0/229).
