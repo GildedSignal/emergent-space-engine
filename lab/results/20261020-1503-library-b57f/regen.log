@@ -1,0 +1,57 @@
+patch empty (read-only run)
+fetched 770 books, 4590 highlights
+
+== quotes ==
+PASS q1 [Sherlock Holmes | Conan Doyle] fragment 236 chars, books matched: 1
+PASS q2 [The Third Door | Banayan] fragment 223 chars, books matched: 1
+PASS q3 [The Art of Learning | Waitzkin] fragment 222 chars, books matched: 1
+PASS q4 [The Caves of Steel | Asimov] fragment 305 chars, books matched: 1
+PASS q5 [The Great Mental Models | Parrish] fragment 144 chars, books matched: 1
+5/5 byte-identical
+
+== composition ==
+== P2: the walk at 1e9 (kill bar [50,75]) ==
+  N=1e+05: one answer = 0.42-0.44 s
+  N=2e+05: one answer = 0.84-0.88 s
+  N=3e+05: one answer = 1.26-1.32 s
+  N=1e+09: one answer = 4200-4400 s = 60.22-63.08x the 69.75 s era budget
+  cross-check N=1e+05: law 420-440 ms vs measured 442.9 ms -> ratio 1.05-1.01
+  cross-check N=2e+05: law 840-880 ms vs measured 847.8 ms -> ratio 1.01-0.96
+  cross-check N=3e+05: law 1260-1320 ms vs measured 1273.5 ms -> ratio 1.01-0.96
+== P3: discard asymmetry (walked population-proportional, kept scene-local) ==
+  plane (N=0)          walked       72.7  kept/answered    32.5  discard      2.237
+  10^3 burn            walked       1070  kept/answered     344  discard       3.11
+  seam N=3000/bail     walked       1841  kept/answered     333  discard      5.529
+  3e5 answer (en)      walked      3e+05  kept/answered     178  discard       1685
+  walked spans 4127x across scenes; kept spans 10.58x
+  1e9 discard with kept=178 (en=178 class): 5.62e+06
+  1e9 discard with kept=333 (seam's 333 kept): 3e+06
+== the two exits, priced ==
+  (a) incremental answering: maintenance rides per-body events; the belt's kick comb at
+      1e9 is 658x the era budget [a31c], and f102 measured NO
+      change-signal below the candidate set certifies an unchanged answer (0 hits at every
+      grain) -> the maintenance signal does not exist; per-body maintenance is the 658x wall.
+  (b) the tier: ask cost O(k), k<=4 [0346]; the seam is wired (universe.rs:469);
+      scheduling is exact integer arithmetic (crates/encounters, dioph).
+  be73's law generalized to the freeze channel: the form (walk vs compare/rank), not the
+      policy (TTL, stagger, cadence), carries the cost: 0.34% vs 124.93% at 10^6 on the pin.
+== the regime partition (dimensionless, radial.rs's own sentence) ==
+  out-of-band dolls: window misses the doll's registered range -> apsidal filter already O(few)
+  in-band (player inside the belt): 'the caller reads every body as before' -> the tier's k-window
+  the partition number: window-vs-registration coverage, already computed by ctx.radial.candidates
+
+== anchors ==
+== P4: anchors ==
+175:        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+469:    /// Replace the encounter finder (the seam): the Binet cone later.
+4://! envelope: a U-interval plus a disk in (V, W). Two orbits meet only if their Binet separation is
+17://! the belt), the caller reads every body as before: the filter costs nothing it does not save.
+80:    fn same_inputs(&self, body: usize, t: Tick, interval: Tick, me: &Binding, candidates: &[(usize, Binding, Scalar)]) -> bool {
+== P5: no maintenance signal below the candidate set in the answer path ==
+P5 PASS: none found (same_inputs compares the full candidate list)
+== P6: the hull is a body's bindings, not a doll's bodies; no per-doll gate fronts the scan ==
+14://! registration is the hull of their radial ranges, only widened by an event and recomputed when the history is pruned), in the bins of
+16://! registered as *unbounded* in the doll: always a candidate. When the window covers most of what is registered (the player is inside
+P6 PASS: no per-doll aggregate gate found
+
+REGEN OK
