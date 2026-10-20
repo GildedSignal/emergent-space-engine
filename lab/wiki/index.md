@@ -38,7 +38,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [representation-premises](representation-premises.md) | open | 26 | (no current best yet) |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [view](view.md) | open | 60 | # The view: the observer's past light cone, lensing, kinked tubes |
-| [kick-cadence](kick-cadence.md) | open | 62 | **[20261020-0036-scout-7076, scout] The cadence ladder is flown end-to-end on the frozen |
+| [kick-cadence](kick-cadence.md) | open | 63 | **NEW (3b88, inversion — the gold's step-9 anomaly is attributed, and it is not |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |

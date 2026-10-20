@@ -1,11 +1,45 @@
 topic: kick-cadence
 status: open
 closed-by:
-updated: 20261020-0036-scout-7076
+updated: 20261020-1326-inversion-3b88
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+
+**NEW (3b88, inversion — the gold's step-9 anomaly is attributed, and it is not
+cadence: the i64 tick wall on near-escape orbits, striking at the coarse bracket
+too).** Print-only walk (`b13_escape_refusal`, `b13_draw_scan`, the run's patch) plus
+the gate: B13's `inf` is the judge's code for a lost ship (`assist.rs:125`), and
+step 9's lost ship (draw 27: q 4.06 R_p, v∞ 16.1 km/s, reference closest 2.08 R_p —
+no graze) dies AFTER the flyby, in the star's doll, on a barely-bound cycle whose
+period **3.195e19 doll-s = ticks (clock_exp 0) exceeds i64::MAX (9.22e18)**:
+`next_periapsis`'s tick conversion overflows (`step.rs:275` → `Refused("periapsis")`),
+the kick is dropped, and past its periapsis a boundary that cannot plan ends the body.
+[checker: the recorded end is fault-tagged `Kick(0)` with one refusal and one fault, so
+the body actually ends at the refused kick's own replan (`step.rs:851-855`, the
+clock branch whose `plan_clock` also refuses), not at a later `What::Boundary` item
+(`:845-849`); the wall and the loss are unchanged.]
+The swing is octave-independent (min kick E −1.17e-9 doll-units at steps 8/9/10); the
+full-stream scan reads **1/229 at 256/orbit (draw 104, the same fault, outside the
+gate's first-64 window → PASS 64/64), 2/229 at 512 (draw 27 inside → FAIL), 0/229 at
+1024** — the 8-vs-9 verdict flip is which wall-hit the gate's window samples. Wall
+threshold: |E| < ~5.7e-13 doll-units ⇒ T > 2^63 ticks. Consequences: (1) 7076's
+[checker: threshold arithmetic corrected — T = 2π(1/2|E|)^(3/2) crosses 2^63 at
+|E| ≈ 3.9e-13 doll-units (μ=1), not 5.7e-13 (which gives T = 5.2e18 < 2^63); the
+measured fault bindings sit at E ≈ −1.5e-13 (T = 3.2e19) and draw 104 at T = 1.5e20,
+inside the wall either way. Checker reproduction: scans bit-for-bit (2/229, 1/229,
+0/229) plus an unflown octave, step 7: 0/229 — the lottery misses there too; and
+draw 104's walk at step 8 shows the identical refusal, period 1.525e20 ticks.]
+"step 9 bracketed by passes" holds for draw 27, but the anomaly is a population
+hazard present at the coarse bracket; a single-octave B13 verdict samples it, never
+certifies absence; (2) the cure is law-side — read "next periapsis beyond any
+representable tick" as no-periapsis-within-horizon (saturate / `Ok(None)` / Passage
+fallback), deleting the lost-ship class; no cadence choice can; (3) the belt is deeply
+bound (unaffected), but near-escape populations (assists, ejections, scattering) hit
+the wall at every cadence — HANDOFF's "orbits with no tube" risk now has a measured
+mechanism (20261020-1326-inversion-3b88; P1/P4 held, P2/P3 refuted as pre-registered;
+regen ~9 min).**
 
 **[20261020-0036-scout-7076, scout] The cadence ladder is flown end-to-end on the frozen
 certificates (`behave --law plane --plane-step N`, shipped code, the dial as the only
@@ -585,3 +619,4 @@ attribution.]
 - 20261019-1906-spacex-9edc (spacex, silver): the kick comb is 100% news — 0/2.04M identical
 - 20261019-2017-second-20261019-1906-spacex-9edc-225d (second author): the named experiment run
 - 20261020-0036-scout-7076 (scout, awaiting grade): the cadence ladder flown on the frozen certificates — tide class legal to split8 with margin (B17 cliff at 16×: libration 0.981→0.023), encounter class legal only at 256/orbit (B13 64/64 at step 8; the standing red is cadence-curable; collapse 42/15/3/1 coarser); Carlson's 4.9 µs bar stays the only closure path.
+- 20261020-1326-inversion-3b88 (inversion, awaiting grade): B13's step-9 inf = the i64 tick wall on near-escape orbits (period 3.2e19 > 2^63 ticks; 1-2 of 229 draws per octave, the gate-window lottery decides the verdict); the cure is law-side, not cadence.
