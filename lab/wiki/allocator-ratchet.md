@@ -2,10 +2,40 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0143-taleb-da23
+updated: 20261020-0440-taleb-f1ca
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
+**NEW (f1ca, taleb — 541d's named next experiment built: the disarm channel as an
+exactly-safe publish floor, v4).** Under `stride_gate`, the frontier advance publishes up
+to `floor0 = min(oldest kept snapshot, oldest kept truth start)` instead of being removed
+(v3) or unbounded (shipped): no rollback can restore below floor0 (every restore reads a
+kept snapshot or kept truth start, both ≥ floor0; floor0 monotone), so publication there
+cannot fire the assert. **On the battle protocol (8 quiet paired draws): shipped fires
+3/8 (s11/s21/s23, exit 101) — a SECOND unsafe publisher besides 541d's frontier pin: the
+shipped light-cone coalesce itself, every fire signed `fin_hi > s0 = front` (1072>1024,
+v4 0/8, present 71-94% of shipped (median 93% on clean pairs, the author's window; the
+checker's regen window gave 51-100%, median 74% — wall-clock-owned, both windows above the
+pre-registered ≥0.5-every-seed / ≥0.7-median thresholds), equality law intact
+(136 RB, all m ≤ 0, out= shut).**
+But the channel is **min-coupled**:
+under 4- and 12-way crush a region that never accepts pins frontier=0 and floor0=0 (its
+truths at start 0 stay live and readable by itself; HAZ f=0 F=0 all draw vs shipped's
+f=0 F=368→512 — shipped "survives" the laggard only through the coalesce, the exact
+publisher that fires), and the gate starves (s11: 43 vs shipped 529; s19/s21/s23 hold
+44-100%). The close's shape is now: a **per-region floor** (deepest restorable tick among
+truths that can still touch this lineage, with merge-capping) or a scheduler that refuses
+to let one region pin the engine's finality; the global floor is exact but
+load-min-coupled (20261020-0440-taleb-f1ca).**
+  [Checker f1ca: reproduced — 0 fires on every gated draw incl. the checker's fresh seeds
+  37/39/41, where shipped fired 3/8 in one window with the exact signature
+  (fin_hi > s0 = front: 1136>1104, 960>912, 784>768) and v4 ran clean on all three at
+  1280-1536 present; equality law 77 further RB, all m ≤ 0, out= shut; 12-way crush
+  v4≡v3 (43/341/153/119) with the pin line f=0 F=0 S=0 vs shipped f=80 F=368 S=0 armed
+  A=80. Adversarial beyond the author's range: 2× scale (galaxy 17408/48) v4 82% of
+  shipped, 0 fires; 9 s horizon 83%, floor lag does not compound; the 2-way load boundary
+  is clean (96%). The churn class (gas) stays unflown: no splits occur in a 4.5 s window
+  on this machine, both arms identical.]
 
 **NEW (da23, taleb — direction 1's first measured candidate: the stride gate built and
 flown).** `Config::stride_gate` (off by default, one build both arms) gates finality in
@@ -212,6 +242,10 @@ targets (off the window grid) are a separate, deterministic crash channel (7/11 
 as a complete rule by the churn class above).
 
 ## Refuted
+- **"The light-cone coalesce is a safe publisher" (the surviving half of the shipped
+  design after 541d pinned the frontier advance)**: fired 3/8 in one quiet window, every
+  fire signed fin_hi > s0 = front (1072>1024, 544>512, 672>512) — the coalesce publishes
+  above live truth starts exactly as the frontier advance does (20261020-0440-taleb-f1ca).
 
 - **"Publication rides the boundary as an attractor — every realized non-fatal clash
   restores at exactly fin_hi == s0" (fd35/e517) as a law of the shipped allocator**:
@@ -269,6 +303,14 @@ as a complete rule by the churn class above).
    pair it with the disarm channel (truth pruning) or it starves publication.
    Until it lands, `min_region` is the named exposure knob (it deletes splits, a
    capability, not the defect).
+   **[f1ca, 20261020: the disarm channel now exists — v4, five lines in `finalize()`,
+   exact (publish up to the deepest restorable tick floor0), fires 3/8→0/8 at 51-100% of
+   shipped present in quiet windows; NOT yet the close: under crush the global floor is
+   min-coupled (a never-accepting region pins frontier=0=floor0 and the gate starves
+   while shipped hides the laggard behind the unsafe coalesce). Next: the per-region
+   floor with merge-capping, or the scheduler refusing to let one region pin finality;
+   541d's second unsafe publisher (the coalesce, fin_hi > s0 = front) is now measured
+   too — both shipped publishers are dead.]**
 2. Window/stride granularity as the race margin (01e7's lead): window 32 survived
    rb 79–114 at 9/9 pooled draws across three windows where window 16 crashed at
    rb ≥ 57; the margin `fin_hi − s0` scales with the grid. More draws per arm before
@@ -339,3 +381,4 @@ as a complete rule by the churn class above).
 - 20261018-0035-inversion-bf83 (this run, awaiting grade): the game shapes separated by fire — fleets fire unsabotaged (1/14, margin 0.5), belt shapes clean, churn without slack inert; margin 0 is its own ruin.
 - 20261018-0932-dynamics-c749 (dynamics, awaiting grade): the fire's state on the game's
 - 20261020-0143-taleb-da23 (taleb, awaiting grade): the stride gate built: fires 7/8 → 1/10 on the battle protocol, ~15-40% present cost, equality law held; one survivor fire names the last hole.
+- 20261020-0440-taleb-f1ca (taleb, awaiting grade): the disarm channel built (v4, publish

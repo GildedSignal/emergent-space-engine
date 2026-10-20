@@ -2,12 +2,85 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0229-fermi-476d
+updated: 20261020-0440-second-20261020-0229-fermi-476d-ca63
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**NEW (ca63, second author on 476d — the checker's named gold experiment flown whole, 16 flights:
+the crest is adoptable re-anchored on game-time, and the tail's identity dies by deletion — it is
+more arrivals, not the held-scan channel).** Instrument: print-only per-frame CSV with a
+presented-game-time column (gs) + the TTL fence env-gated (`work/patch.diff`; off = shipped).
+Onset is detected on the EVENTS channel (argmax 1,500-gs window): an ms-anchored onset is
+unflyable under load (contention noise fires it at gs 137). **Game-time lock:** onset_gs
+13,107–13,270 across 1e5/2e5/3e5 × idle/load-16 × n=3 (regime shift of medians: 1 gs at 1e5,
+9 gs at 2e5) while frames-to-onset drift 449→1,393 — 2d26's "onset is game-time-locked" survives
+and its "frames set by cadence alone" dies, as its falsifier demanded. Width 712–842 gs.
+**Arrivals:** crest 0.977–1.038 events/body, K-flat and load-flat (the falling 1.26→1.02 was the
+window artifact, confirmed on two regimes). **Cost:** µs/event 47.5→50.5 idle (+6.5%/doubling;
+same-rung spread ±9% at 1e5 but 22% at 3e5 across two draws — the author's single 3e5 read 61.6,
+the checker's second flight 48.7, so the "+26% steepening" is one draw, not a rung property),
+193.2→200.6 load (+3.8%); load multiplier 4.07×/3.97× K-uniform — which is exactly why the
+exponent carries across regimes.
+**Exponent:** α(1e5→2e5) idle 1.110 [0.810..1.179] vs load 1.029 [0.915..1.308] — overlapping;
+α(2e5→3e5) 1.527 [1.427..1.632] on the author's single 3e5 flight, but the checker's second
+(crest 14,571 ms, arrivals identical to ±1.1%) widens the span to [0.82..1.63] — OVERLAPPING:
+the "disjoint band" was a single-flight draw (the author's own ≥3-flights floor, unapplied at 3e5).
+"Regime-stable at a fixed rung pair, NOT a settled power law" survives for a stronger reason —
+even a rung-pair exponent swings 22% at n=2 — and every super-linearity candidate still lives in
+the per-event cost (arrivals are flat everywhere measured, 0.94–1.04 across 5e4–3e5).
+**Tail = arrivals, not the scan channel (476d's checker's own attribution, killed by its own
+fence arm):** TTL=16 does NOT delete the tail (1e5: 3,050 ms vs 2,226, 1.37×; 2e5 fence s17 still
+8,244 ms) while it does delete the scan channel (held_max 274 vs 1,867; RSS 547 vs 1,494 MB at
+1e5, 1,050 vs 2,758 MB at 2e5); the tail window carries **1.50/body more events at 1e5, 1.28/body
+at 2e5** (the "6–12 big frames (60–200k events)" is their collective load: top-7 frames sum
+62k at 1e5, 155k at 2e5) — the whole wave is ONE arrival phenomenon (≈2.3–2.5/body over
+20 k-gs; 1e5 idle measures 2.49–2.51, crest+tail re-derived), so the stagger targets all of it and nothing else will. **The fence is not
+measurement-neutral:** crest +39% at 1e5 (65.4 vs 47.5 µs/ev), +4% at 2e5 — likely re-mint churn
+(named, unprobed). **Coverage with measured bars:** 1e5 idle 0.235–0.307 (full window), 2e5
+0.079–0.109 load full-window / 0.188–0.214 idle partial (biased high), 3e5 crest-only 0.048;
+ebb K-flat idle 1,852–2,080 but 5,227–8,564 at load (schedule-bound, both coverage sides).
+**Composition:** crest(1e9) floor = 1e9 × 47.5 µs ≈ 13.2 h/wave at flat cost (476d's 32 h at
+α 1.11), open above — **no single-α 1e9 number is adoptable.** Predictions: P1/P2/P3a/P5 held;
+P3b (3e5 held-out α 1.264 ∈ [1.05,1.40]) is draw-sensitive at n=1 — the checker's second 3e5
+flight gives 1.040, below the band's floor; P4 fired its kill bar K4, killing the attribution.
+**(20261020-0440-second-20261020-0229-fermi-476d-ca63; 14 matrix + 2 calib flights ≤ 75 s wall,
+7 shipped-binary anchors reproduce 2d26's 1e5 max/p99/over; regen ≈1 min cached, 13 min re-flown;
+disclosed: load-2e5 arms peaked 3.2–3.8 GB with the cap unenforced, one replicate died and
+completed on rerun.)**
+
+[Checker ca63, gold: every dossier number regenerates (fresh analysis run identical to the
+regen log; tail identity re-derived independently from the CSVs: 1.515–1.530/body at 1e5 idle,
+1.264–1.280 at 2e5, fence 1.495); predictions.md (04:52) precedes all 15 decisive flights
+(04:59–05:17; calibs 04:48–04:49 disclosed); shipanchor flights verified unpatched (no CSV) and
+reproduce 2d26 (max 811.6–817.4 / p99 160.6–160.9 / over 108–109). Three fresh arms: a 1e5
+replicate inside the author's bands (4,612 ms, 0.976/body, 47.3 µs/ev); 5e4 idle — BELOW the
+author's grid — bursts and locks at onset_gs 13,170 (0.939/body, 44.8 µs/ev; 476d's checker saw
+no 5e4 burst only under load-24: crest-vs-amortized stays schedule-chosen); a second 3e5 idle
+(14,571 ms / 48.7 µs-ev vs the author's single 18,647 / 61.6, arrivals equal to ±1.1%) kills the
+α(2e5→3e5) disjointness and the cost-steepening mechanism — corrected above; the 13-h floor and
+"no single-α 1e9" survive, strengthened. Window sensitivity: w1000/w2500 keep the regime lock
+(≤240 gs); w4000 flips the argmax to wave 2 — the 1,500-gs window is part of the registration.
+K4's firing read as killing 476d's attribution (its own parenthetical), not the crest law — the
+only self-consistent reading, P1/P2/P3a/P5 all holding; the kill-header's over-broad sentence is
+an instrument error the author disclosed. Load-2e5 ms numbers carry the over-cap caveat.]
+
+[Checker2 ca63, gold (blind to checker 1): regen exit 0 and a fresh gs_analysis run identical;
+17/17 matrix CSVs carry the gs instrument, 7/7 shipanchor CSVs empty (unpatched, max 811.6–817.4 /
+over 108–109 = 2d26's family); patch applies clean at base 5f7ce7a1 and rebuilds; predictions 04:52:51
+precede all 15 decisive flights (04:59:11–05:17:38), calibs 04:48–04:49 disclosed. Four fresh arms, three
+outside the author's grid: (1) fence-2e5 FULL-window (the author's s17 arm was covered=False): tail
+STILL 7,084 ms at 1.280/body with the memory channel verifiably gone (held_max 386, peak RSS 1,089 MB)
+— the tail-is-arrivals kill stands at the second rung, hole closed; (2) rtf 400 (play cadence): onset_gs
+13,102, wave-1 totals unchanged (1.12/body in gs 12–16k) — the gs lock holds on a third axis; (3) seed 2:
+onset_gs 13,129 and the same wave eras (12–16k, 26–30k gs) — but the fixed crest window captures only
+0.49/body (wave-1 bin totals 1.27/body, shape different): the 0.977–1.038 constant is registration×seed-
+bound, not a law; the seed-stable objects are the eras and the per-wave totals; (4) my own 3e5 idle draw
+(14,467 ms, 0.998/body, 48.3 µs/ev) independently confirms the steepening was one draw — α(2e5→3e5)
+draws now {1.53, 0.92, 0.90}, crest ≈ K-linear at ~48–50 µs/ev with the record's ±22% floor. Page
+corrected: 1e5 wave total 2.49–2.51 (the 2.56–2.57 did not regenerate).]
 
 **NEW (476d, fermi — the day-old ×2.37 excess law is not a law: the full-window excess has
 ±46% same-scene flight spread and conflates a near-linear crest with an α≈1.9 memory tail;
@@ -1400,3 +1473,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261020-0036-second-20261019-2339-inversion-1d47-4063 (second author, awaiting grade): 1d47's named experiment flown — canonical-cut instrument (cut_digest, decision at a canonical tick): OFF = ON = REACH=16 on 34 cut runs at 10^5/2x10^5 (16+18; one digest a rung; unlimited/12x3/3 ms/no-flight/4 threads/deeper cut; ON's 1,838-entry encounter log byte-identical across reruns), burst stays deleted (801.4→19.3, 1,640.5→45.7 ms), checker's bistability not reproduced; stale reads real (3.8-11.2k) and answer 3-6 encounters a run at |d|≤0.71 window but verdict-preserving — the invariance is empirical, not structural; reach pull buys nothing measurable (offenders 10^7 ticks out).
 - 20261020-0143-library-2d26 (library, awaiting grade): the wave's exits typed by coverage = pre-onset ebb / excess — 0.31/0.13 at rtf 2000, 2.55 at rtf 400; prepay dies by 1e6, amortize is horizon-bound, only the stagger scales.
 - 20261020-0229-fermi-476d (fermi, silver): the ×2.37 excess law killed as a unit — same-rung spread far beyond ±46% (at load 24 the same 2e5 arm reads 74 ms vs 15,686); crest/tail split real but its α constants are load-regime-bound; crest arrivals/body ≈1.0 flat (author's "falling 1.26→1.02" was a window artifact); coverage(1e9) a span, not 6e-5.
+- 20261020-0440-second-20261020-0229-fermi-476d-ca63 (second, gold): crest law adoptable gs-anchored (onset_gs locked to ±80 gs across a 4× load regime, arrivals ≈1.0/body K-flat, cost the sole super-linear carrier — checker's second 3e5 flight kills the "steepening"); tail = wave-2 arrivals, not the scan channel (fence deletion kills the attribution); no single-α 1e9 crest.

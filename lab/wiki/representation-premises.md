@@ -2,10 +2,50 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261019-2339-redteam-7bcf
+updated: 20261020-0440-redteam-9c08
 
 # The premises of docs/representation.md: a census against the record
 
+**NEW (9c08, premise red-team): the one-sample aggregate is dead on its THIRD channel — the
+observer's own γ, with a perfectly cold sky (zero velocity dispersion, exactly where 1885's and
+7bcf's channels read zero): one shift per sky cell errs the forward (headlight) sky's k⁴
+brightness by E(γ·θ_f) alone — measured 1.09%/p99 7.2% at γ 50, 18.3%/27.2% at γ 125 (the
+plane's own playability red measured a burn at γ≈120), 48% at γ 250, saturating at 68.8% (mean
+k), 141% (seen-weighted, 2.4× over-bright) and 91% (any colour-true single k) once the whole
+sky compresses into one cell; the cell's k-span halves at exactly γ·θ_f = 1 (125.00 stock,
+1000.0 fine, solved); 100.0% of the error sits inside θ′ < 2/γ on cells carrying 97–100% of
+the seen flux; colour drifts to 0.86 octaves (a ⅛-octave sprite table fully blown) — one
+number cannot serve brightness and colour. The fine floor reproduces the stock curve shifted
+×8 to machine noise (18.3122% vs 18.3132% at γθ_f = 1): the law is the product alone. The view
+record's own domain (e6c9/959a flown to β 0.65 = γ 1.3) reads 0.0025% p99 — control passes;
+the engine's own gates fly γ to 10⁶ (C1) — the letter's readout is licensed nowhere in
+between. The cure is one already-computed quantity: a running sum Σ(lum·k⁴) per cell at the
+due events the record already pays (the shipped per-body path computes k per event,
+`view.rs` L308–319) — one extra FMA, exact brightness; colour from the letter's own type ×
+log k table (L58), B = 4–64 equal-ln-k bins at γθ_f = 1…8000 (B ≈ 4·log₂(γθ_f), O(1) per
+cell). This also deletes the adaptive-cell cure (narrowing as 1/γ, ~γ² cells). No rung sees
+it (r6 per-emitter cost/presence; r11 occlusion; r12 formation flux); freeze-ready arm
+r13-sky-shift in the dossier (one-shift negative fails bright p99 0.18–0.69, colour 0.10–0.86
+oct; γ 1 and 1.33 controls must read 0). Cold-sky numbers are a floor: 1885/7bcf's
+dispersion channels add on top. (20261020-0440-redteam-9c08; predictions 4/7 held, three
+misses all on one side — the small-angle constant was 4× aggressive — each sharpening the
+law: the γθ_f collapse, halving at γθ_f = 1, B ≈ 4 log₂(γθ_f).)**
+
+**Checker (independent; regen exact, every number reproduced; the saturation row verified
+against the closed-form full-sky moments ⟨k⁴⟩/⟨k⟩⁴ = 3.2 → 68.75%, Σk⁵/Σk⁴ → 141.07%,
+e^{⟨ln k⟩} → 90.86%): the law extends beyond the author's sweep — the E(γθ_f) collapse
+holds at a third, coarser floor (3.2e-2: 18.33% at γθ_f = 1, 48.14% at 2, saturation),
+γ = 10⁷ and 10⁸ sit exactly at the saturated values, and fresh seeds move 18.3122% by
+≤0.03pp. ONE CORRECTION, the lens's own blind spot: the falsifier samples a 3D isotropic
+sky, but the plane's sky is a CIRCLE (the record's 786 cells = 2π/θ_f) with members
+uniform in θ_s, not in cosθ_s. In 2D (exact quadrature) the law and the kill stand with
+shifted constants: 16.76% (not 18.31%) at γθ_f = 1, 44.67% at 2, saturation 77.14%
+(analytic (4.375−1)/4.375 — WORSE than 3D's 68.8%), colour-true k 98.6%, p99 5%
+crossing at γ ≈ 42; the γθ_f collapse holds in 2D too (16.7599% vs 16.7608% at the two
+floors). Quote 2D numbers for the game. Nit: P1's "oracle errs brightness" clause was
+unachievable as written — the brightness-oracle k̄ = ⟨k⁴⟩^{1/4} errs brightness ≡ 0 by
+construction (the script proves it); the binding bracket is R4 + the gap, as the dossier
+table correctly reports.**
 **NEW (7bcf, premise red-team): the dispersion channel's rung exists, frozen (r12-seen-flux,
 sha256 a6335a29…89ce) and executed PASS, and the channel's location is found — the γ²
 amplification in 1885's CV law belongs to OBSERVER-frame dispersion (a swarm), not to a
@@ -177,7 +217,15 @@ clause: r11 as frozen passes uniform pixels that err 20% on cored fleets, and th
 game's formations are not uniform discs — the v2 re-freeze's one sentence.**
 
 ## Current best
-**Prior standing record, unchanged (compiled from the runs below), plus 7bcf's flux half:**
+**Prior standing record, unchanged (compiled from the runs below), plus 9c08's observer-γ
+half:**
+
+9c08 — the one-sample aggregate is dead on the observer's-γ channel with a cold sky:
+brightness error E(γ·θ_f) alone (18.3% at γθ_f = 1, saturating 69–141%), k-halving at
+γ·θ_f = 1 exactly, 100% of the error on the forward cells that carry the flux; the view
+record's license needs the γ clause (flown to γ 1.3 = 0.0025%; the gates fly to 10⁶);
+cure = Σ(lum·k⁴) running sum (1 FMA/event, exact) + the letter's own log-k table
+(B = 4–64 bins); deletes the 1/γ adaptive-cell branch. No rung sees it (r13 freeze-ready).
 
 915d — the additive-attitude premise is dead at the game's own speeds: the frame rotates
 by exactly (γ−1)·ψ per constant-γ turn through ψ (SO(2,1) non-commutativity; 12–74° nose
@@ -188,7 +236,8 @@ CV(k⁴)=√(e^{16s²}−1) with s = γ²σ_β; 40% median sprite error at β 0.
 members carrying 37% of seen flux at β 0.99; boundary σ_β* = 0.005/γ². (c78d's occlusion
 channel is the orthogonal half.) [7bcf refines the constant's domain: the law is the
 small-s limit of the OBSERVER-frame convention; exact CV there is 4.05 at its own
-headline point; under the comoving formation convention CV = 4σ, γ-free.]
+headline point; under the comoving formation convention CV = 4σ, γ-free. 9c08 adds the
+geometric half: dispersion σ = 0 still errs E(γθ_f) from the cell's own angular width.]
 
 e59e — opacity is missing from §2's observable list: 16.7% of the sky fabricated at a
 2-radii planet approach, 25.0% inside the shadow arc at r_o = 6 M.
@@ -201,16 +250,22 @@ fast path.
 
 Census, ranked by player visibility (standing): 1. kicks/derivatives REFUTED (12db; no
 kick-cost rung). 2. view at the past light cone — letter dead, guarded in cost/presence
-by r6 (13c6); the aggregate readout is now guarded on BOTH channels: occlusion (r11,
-executed PASS) and seen flux (r12, executed PASS — 7bcf; the one-sample negative fails
-1.109 > 0.05, the moment/formation readout licensed at readout error ≤ 3.8×10⁻⁴,
-constant ops in N). 3. Binet cells replaced by the Darwin (r1v2 executed; band-constant
+by r6 (13c6); the aggregate readout is now dead on ALL THREE channels: occlusion (r11,
+executed PASS), formation seen-flux (r12, executed PASS — 7bcf) and the observer's own γ
+across a sky cell (9c08, no rung yet); the shipped per-body gather is the exact control
+(view.rs L308–319). 3. Binet cells replaced by the Darwin (r1v2 executed; band-constant
 rule settled). 4. two-body doll 1PN SURVIVES (r3 v3; licensed p̄ ≳ 65M at ν ≤ 0.25; below
 12M wants NR-calibrated EOB). 5. dense ≡ sparse SURVIVES, guarded by r5 + r5-starve on
 Linux (68e7, 506c; GPU arm M1-side). 6. undisturbed ≈ 0 SURVIVES by rate, not cost
 (a4ed; fire rate 1.000).
 
 ## Refuted
+- **"Aggregates are one sample each" on the observer's-γ channel too (9c08): with a cold
+  sky (zero dispersion — where 1885's and 7bcf's channels read zero) one shift per sky
+  cell errs the forward sky's brightness by E(γ·θ_f) alone — 18% at γ 125 stock (the
+  plane's own burn red is at γ≈120), saturating 69–141%; k-halving at γ·θ_f = 1 exactly;
+  colour to 0.86 octaves; cure = Σ(lum·k⁴) running sum (1 FMA/event) + log-k table
+  (4–64 bins); the record's license needs the γ clause (flown only to γ 1.3).**
 - **"Aggregates are one sample each" on the flux channel too (7bcf, r12 executed): p99
   one-sample error 0.21–1.11 across comoving formations at β 0.5–0.99, worst at player
   speed with σ 0.10; dead in every convention; the cure (moments/formation quadrature,
@@ -233,7 +288,10 @@ Linux (68e7, 506c; GPU arm M1-side). 6. undisturbed ≈ 0 SURVIVES by rate, not 
 1. [standing] The integrator's one-pass amendment of representation.md — now also strike
    L59's first clause ("aggregates are one sample each") and keep the second (the pixel
    cap) with c78d's numbers, or replace both with the derivable-overlap law; 7bcf adds
-   the flux half's replacement sentence (moments/formation quadrature, 7bcf's numbers).
+   the flux half's replacement sentence (moments/formation quadrature, 7bcf's numbers);
+   9c08 adds the sky-cell sentence: per-cell seen-flux running sum (Σ lum·k⁴, exact, one
+   FMA per due event) + type × log k table for colour; the single-shift aggregate is
+   licensed nowhere above γ ≈ 0.6/θ_f at the 5% bar (p99 bar: γ ≈ 44 stock).
 2. [executed aggregate half, 4ff1] The eclipse-parity rung's aggregate arm is r11:
    frozen (hash in the run), executed, PASS, on the corrected bars — 5% p99 vs exact
    Σk⁴ at player β both orientations; fmin within 5% of the arm's exact minimum;
@@ -251,7 +309,13 @@ Linux (68e7, 506c; GPU arm M1-side). 6. undisturbed ≈ 0 SURVIVES by rate, not 
    (NR oracle) still standing. The moment representation now has both halves measured:
    spatial (c78d/4ff1: support radius + density profile) and velocity (7bcf: squads +
    formation shape; the γ² channel is the observer-frame swarm's).
-4. [standing tails] Occluder+observer comoving; extended occluders (fleet dolls);
+4. [sky-cell half, 9c08] Freeze r13-sky-shift (criterion in the run's dossier: one-shift
+   negative vs seen-flux-sum candidate at γθ_f ∈ {1, 4, 8000}; γ 1 and 1.33 controls must
+   read 0). Named arms beyond it: the record's own cell struct on its branch (read once:
+   confirm the stored shift is not already a seen-flux sum — then only the colour channel
+   stands); the cold-sky floor plus real dispersion (additive in quadrature with
+   1885/7bcf); clustered skies (more members in the worst cells).
+5. [standing tails] Occluder+observer comoving; extended occluders (fleet dolls);
    strong-field occlusion near the photon sphere (e59e's rim domain) — unmeasured.
 
 ## Contradictions
@@ -260,7 +324,8 @@ None. c78d's transit-plane occluded fraction (46% at β 0.5) and its sky-plane o
 are two orientations of one cone geometry, not a conflict — the rung judges both. 7bcf's
 CV=4σ (comoving) and 1885's CV law (observer-frame) are two conventions of one channel,
 bracketed by the rung's frozen comoving cases and the observer-frame diagnostic — the
-v2-freeze sentence names both.
+v2-freeze sentence names both. 9c08's geometric channel composes with both dispersion
+channels (it is the σ = 0 floor; real dispersion adds on top).
 
 ## Runs
 - 20261016-1207-redteam-12db (silver): premise census; kick cost 34.8 µs vs the doc's
@@ -284,3 +349,7 @@ v2-freeze sentence names both.
 - 20261019-0141-redteam-c78d (silver; gold blocked on the rung freeze, done by 4ff1): aggregate readout refuted on occlusion — 89–99% fleet blinks; cure priced
 - 20261019-0325-second-20261019-0141-redteam-c78d-4ff1 (this run): r11 aggregate arm frozen + executed — PASS; one-sample negative fails 3 bars; cure licensed at 29–113 samples; c78d's β-arm doppler typo corrected (~1pp, conclusions stand)
 - 20261019-2339-redteam-7bcf (this run): r12 seen-flux frozen + executed — PASS; one-sample dead on flux (0.21–1.11 p99, worst at player speed); moment/formation readout licensed (≤3.8e-4 vs 1e6 truth, constant ops); the γ² channel located: observer-frame swarms (exact CV 4.05 vs the linear law's 0.70 at its own headline point), comoving formations CV = 4σ
+- 20261019-0141-redteam-c78d (awaiting grade): aggregate readout refuted on
+- 20261019-0325-second-20261019-0141-redteam-c78d-4ff1 (awaiting grade): r11 aggregate arm frozen + executed — PASS; one-sample negative fails 3 bars; cure licensed at 29–113 samples; c78d's β-arm doppler typo corrected (~1pp, conclusions stand)
+- 20261019-2339-redteam-7bcf (awaiting grade): r12 seen-flux frozen + executed — PASS; one-sample dead on flux (0.21–1.11 p99, worst at player speed); moment/formation readout licensed (≤3.8e-4 vs 1e6 truth, constant ops); the γ² channel located: observer-frame swarms (exact CV 4.05 vs the linear law's 0.70 at its own headline point), comoving formations CV = 4σ
+- 20261020-0440-redteam-9c08 (this run): one-sample dead on the observer's own γ (cold sky): E(γθ_f) alone, 18% at γ 125 stock, halving at γθ_f = 1 exact, saturates 69–141%; cure = seen-flux running sum (1 FMA) + log-k table; record's license needs the γ clause; no rung sees it
