@@ -1,0 +1,31 @@
+Grade: gold
+
+**Abstract.** Claim: the fleet doll's interior Newtonian tide (frame.rs L14–19) is wrong at the game's own speeds — radial Fermi coefficient ×γ²(2+β²)/2 at transverse closest approach, along-motion exactly 1×. Reproduced bit-identically; I re-derived all four closed forms independently (radial, along-motion, radial-infall, out-of-plane) and confirmed the identity with E9's frozen w(3γ²−1). At the shipped c/4 cap the letter errs 30%/115% per orbit where its budget line says 6.25%; B15's 0.9c stream has no legal doll (ORBIT_SPEED_DIV=4). Cure: same kick, closed-form contraction, licensed to β≤0.9. Adoption: one coefficient set plus the freeze-ready E9 hyperbolic arm. My five adversarial arms (mixed launch, β0.7, β0.9999, r=12M, negative offset) all confirm.
+
+## Reasons
+
+**1. Reproduction.** `python3 falsifier.py` in a clean /tmp tree: stdout and `results.json` bit-identical to the author's (7.2 s); the runner's `regen.sh` ALL PASS.
+
+**2. Predictions.** `predictions.md` (10:15) predates the final `falsifier.py` (10:47) and dossier (10:48) by ~31 min; the original run's stdout was overwritten by the runner's regen, so log order is not directly auditable — but the predictions contain guesses the results then *refuted* (P3's along-track γ², P4's magnitude, P7's γ²), which no post-hoc author writes about their own headline. 3/7 held, and the decisive pre-registered number — P2, the cap coefficient, closed 1.1000 — held exactly (1.0988), as did the P1 control and P6's conservation/linearity. Every miss is reported, diagnosed, and converted into a verified exact result: the along-motion cancellation (exactly Newtonian at any β; radial infall 0.9995) came from the author's own held-out α=0 arm refuting their own prediction. That is pre-registration working; no failed prediction undercuts any claim in the final dossier.
+
+**3. Independent verification of the physics (my own derivation, no shared code).** From the static orthonormal Schwarzschild Riemann (signs checked against Ricci-flatness and K=48M²/r⁶): for a transverse boost, E(u)ᵣᵣ = −γ²(2+β²)w ⇒ ratio to Newtonian −2w is γ²(2+β²)/2; along-motion E'₂₂ = γ⁴w(1−β²)² = w exactly at any β (the four-minus-ones cancellation); radial infall: both channels exactly Newtonian (E(u)ᵣᵣ = −2γ²w with the boosted axis cancelling back to −2w); out-of-plane γ²(1+2β²)w (the R_φθφθ term the naive contraction drops). At circular: γ²(2+β²) = (2r−3M)/(r−3M) = 3γ²−1 — identical to E9's frozen eigenvalue (docs/engine-judge.md L57, L75), as the dossier claims. All four closed forms are exact algebra, not fits.
+
+**4. Attack (5 adversarial arms; two outside the author's tested space).**
+- **Mixed-direction launch** (br=0.3, bth=0.6, r=50M — a case type the author never ran; exercises the full contraction matrix incl. the t–r cross term): truth-vs-law matrix relerr letter 1.176, cure 0.186 — the letter is wrong >100% there too; cure 6× better.
+- **β=0.70 transverse** (unswept point): |ratio| 2.489 vs closed 2.441, consistent with the probe's growing over-read (0.6% at β0.5, 13% at β0.9).
+- **r=12M β0.5** (stronger field than any tested): 1.508 vs closed 1.497, cure relerr 0.014 — the closed form is r-independent in local β, as it must be.
+- **Negative offset** (β0.9 flyby): letter exit 0.0927 vs 0.0901 positive — linear antisymmetry holds.
+- **β=0.9999** (next decade) with the author's suggested fatter instrument (ξ=1e-5, window/8): the probe still reads 1.3×10⁵ vs closed 7.5×10³ — the instrument limit at extreme β is real and the disclosure honest; the closed form stands on the exact algebra above. Nothing I ran falsifies any claim; the domain boundaries stated (cure licensed to β≤0.9 *on this instrument*) are the honest ones.
+
+**5. Novelty.** No HISTORY.md entry and no wiki page covers the doll interior at speed (new topic `fleet-doll-speed`). The gap is real and undocumented: law.md L50 promises "E is the Schwarzschild tidal tensor projected along the tube" while frame.rs L14–19 ships the Newtonian tensor and defers Schwarzschild to an unwritten phase 2. B15 (law.md L76) verified: flies the 0.9c stream "each fleet a free-fall doll" but judges CPU cost only. ORBIT_SPEED_DIV=4 (frame.rs L133, rule L83–85) verified: the 0.9c scene is outside the shipped doll's legal domain by construction. The γ≈120 red-line citation grounds in crates/universe/tests/clock.rs:57.
+
+**6. Goal fit.** Kills a premise of the dense order's law inside its own legal domain (the cap, where the letter's own budget line claims 6.25% and the truth is 30%/115% per orbit), and closes phase 2 with a closed form. PRINCIPLES #2 ("It's a game … error type over error size" — wrong law, not coarse arithmetic), #7 ("gravity is compiled into geometry" — the contracted E(u) is what L50 already promises), #33 (the cancellation keeps the along-motion coefficients untouched — the cheapest exact law is half Newtonian). Adoptable in one step: same kick structure, corrected coefficients, freeze-ready criterion written.
+
+**7. Page.** Faithful line by line against results.json, except one overstatement I corrected in place: the Refuted bullet called the β≥0.9 closed-form values "measured" (at 0.9 the probe is biased ≥6.3 vs 7.35; above 0.99 it is polluted) — now states measured-vs-closed honestly.
+
+## What the author missed
+
+- **The mixed-velocity regime** (no scene with both velocity components nonzero): my A1 shows the cure wins there (6× better) but its matrix relerr (0.186) is looser than every pure scene — probe bias vs a real second-order term is unseparated, and a mixed/3D arm belongs in the freeze.
+- **The fatter instrument does not rescue β≥0.99** (my A3): above 0.99 the freeze criterion should judge the coefficient identity (closed form vs contraction — both exact) rather than any FD probe; FD there can only corroborate, never decide.
+- The float proxy's "letter" (aberrated r̂ projected on the Fermi plane) is the author's model of the shipped integer law, not read from frame.rs; at the cap and flyby scenes e_r is already a Fermi axis, so the headline is unaffected — the page could say so.
+- E9's standing "fails 10/21 for phase-1 units" was not re-run here (secondary; the frozen-eigenvalue citation is verified in engine-judge.md).

@@ -1,0 +1,48 @@
+== Member separation over the window: relative error of the law vs truth ==
+
+scene                       beta0        T   |xi|end  exit letter  exit cure  max letter  max cure     cons
+control circ r=1000M [r]   0.0317 1.98e+05     18.95     0.004505  0.0005044    0.004511  0.004303  2.2e-16
+control circ r=1000M [th]  0.0317 1.98e+05    0.9909      0.01359   0.009458     0.02909    0.0106  2.2e-16
+cap circ r=18M (c/4) [r]   0.2500      438    0.4684       0.2975   0.002327      0.2975  0.005284  3.3e-16
+cap circ r=18M (c/4) [th]  0.2500      438   0.02113        1.149    0.01138       1.149   0.01138  1.1e-15
+flyby r=100M b=0.5 [r]     0.5000      440    0.1116      0.04285   0.005803     0.04285  0.005803  9.9e-14
+flyby r=100M b=0.5 [th]    0.5000      440    0.1137     0.006595   0.005191    0.006595  0.005191  2.6e-14
+flyby r=100M b=0.9 [r]     0.9000      244    0.1104      0.09007    0.02084     0.09007   0.02084  1.7e-11
+flyby r=100M b=0.9 [th]    0.9000      244    0.2296      0.01231    0.05526     0.01231   0.05526  4.4e-12
+flyby r=100M b=0.99 [r]    0.9900      222    0.1314       0.2476     0.1557      0.2476    0.1557  2.3e-09
+flyby r=100M b=0.99 [th]   0.9900      222    0.7143      0.01916      2.018     0.01916     2.018  6.0e-10
+flyby r=100M b=0.999 [r]   0.9990      220    0.2871       0.7987      1.411      0.7987     1.411  1.9e-08
+flyby r=100M b=0.999 [th]  0.9990      220     2.291      0.02999      95.29     0.02999     95.29  6.0e-08
+radial infall b=0.5 [r]    0.5000      120     0.121    2.348e-05  2.348e-05   2.348e-05 2.348e-05  6.7e-16
+radial infall b=0.5 [th]   0.5000      120   0.09766    0.0008899  0.0008899   0.0008899 0.0008899  2.7e-14
+strong r=20M b=0.9 [r]     0.9000     48.9   0.03137       0.3449    0.05297      0.3449   0.05297  1.3e-11
+strong r=20M b=0.9 [th]    0.9000     48.9   0.04596      0.07177     0.2876     0.07177    0.2876  3.7e-12
+
+== The truth's tide matrix A (a = A x, Richardson FD) vs both laws ==
+
+scene                        beta@      r@  |A|/|N|   closed cure relerr letter relerr
+control circ r=1000M        0.0317 1000.00  -0.9994   1.0015   0.9995   0.00185  0.000685
+cap circ r=18M (c/4)        0.2500   18.00  -1.0988   1.1000   1.0789   0.00177    0.0876
+flyby r=100M b=0.5          0.4998  101.05  -1.5052   1.4963   1.3859    0.0356     0.433
+flyby r=100M b=0.9          0.9000  101.08  -8.3238   7.3482   6.3259     0.199      5.57
+flyby r=100M b=0.99         0.9900  101.09-325.2410  74.3400  66.3483     0.751      66.3
+flyby r=100M b=0.999        0.9990  101.091983.5302 744.43371645.9479      1.08  1.65e+03
+radial infall b=0.5         0.5027   85.11  -0.9995   1.3381   0.9997    0.0167    0.0167
+strong r=20M b=0.9          0.8999   20.19  -8.2817   7.3498   6.4779     0.136      5.66
+
+== Closed forms at exact closest approach (transverse beta) ==
+beta  0.250: radial eigenvalue x     1.100 (along-track is exactly 1x:
+          the (1,1,1,1) cancellation E'_22 = w at any beta, transverse launch)
+beta  0.500: radial eigenvalue x     1.500 (along-track is exactly 1x:
+          the (1,1,1,1) cancellation E'_22 = w at any beta, transverse launch)
+beta  0.900: radial eigenvalue x     7.395 (along-track is exactly 1x:
+          the (1,1,1,1) cancellation E'_22 = w at any beta, transverse launch)
+beta  0.990: radial eigenvalue x    74.877 (along-track is exactly 1x:
+          the (1,1,1,1) cancellation E'_22 = w at any beta, transverse launch)
+beta  0.999: radial eigenvalue x   749.875 (along-track is exactly 1x:
+          the (1,1,1,1) cancellation E'_22 = w at any beta, transverse launch)
+
+linearity (flyby b=0.9 radial): xi=1e-4 err 0.09072 vs xi=1e-3 err 0.09007
+formation stretch at exit (b=0.9, radial offset, xi=1e-4 arm): truth x1.105 vs letter x1.005
+
+wrote results.json
