@@ -1,0 +1,43 @@
+== sizes, exact calendar bytes, heap-op CPU (shipped Calendar, counting allocator)
+scalar_size 16
+slot_size 24
+pos_row_size 16
+calendar_new n=10000 allocs=2 bytes=280000 bytes_per_slot=28.0000
+calendar_new n=100000 allocs=2 bytes=2800000 bytes_per_slot=28.0000
+calendar_new n=1000000 allocs=2 bytes=28000000 bytes_per_slot=28.0000
+apparatus n=1000000 | body_cap: 156 B/body = 0.2 GB | live(L=1744): 0.2721 B/body = 0.000 GB
+apparatus n=1000000000 | body_cap: 156 B/body = 156.0 GB | live(L=1744000): 0.2721 B/body = 0.272 GB
+heap_ops n=1000000 fill=33.5ns/slot update=38.4ns/slot drain=368.0ns/pop pops=1000000
+== occupancy census, shipped flight path (plane_extra, frame_to, 12 ms budget)
+census n=10000 bodies=10028 build_s=0.43 | queue=6 ship_ticks=10023 child_ticks=311 waiting=10023 prunable=0 pos=10028 | frac_of_bodies 0.001 1.000 0.031 1.000 0.000
+census f=0 gs=17 kicks+=2 | queue=6 ship_ticks=10025 child_ticks=313 waiting=10025 prunable=0 pos=10030 | frac 0.001 1.000 0.031 1.000 0.000
+census f=120 gs=1966 kicks+=3730 | queue=6 ship_ticks=10045 child_ticks=333 waiting=10045 prunable=108 pos=10071 | frac 0.001 1.002 0.033 1.002 0.011
+census f=240 gs=1983 kicks+=3173 | queue=5 ship_ticks=10044 child_ticks=332 waiting=10044 prunable=107 pos=10076 | frac 0.000 1.002 0.033 1.002 0.011
+census f=360 gs=1983 kicks+=3127 | queue=5 ship_ticks=10044 child_ticks=332 waiting=10044 prunable=106 pos=10076 | frac 0.000 1.002 0.033 1.002 0.011
+census f=480 gs=1984 kicks+=3037 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=105 pos=10076 | frac 0.000 1.001 0.033 1.001 0.010
+census f=600 gs=1983 kicks+=3032 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=105 pos=10076 | frac 0.000 1.001 0.033 1.001 0.010
+census f=720 gs=1983 kicks+=3005 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=105 pos=10076 | frac 0.000 1.001 0.033 1.001 0.010
+census f=840 gs=1983 kicks+=4510 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=105 pos=10076 | frac 0.000 1.001 0.033 1.001 0.010
+census f=960 gs=1983 kicks+=11325 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=106 pos=10076 | frac 0.000 1.001 0.033 1.001 0.011
+census f=1080 gs=1983 kicks+=3211 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=106 pos=10076 | frac 0.000 1.001 0.033 1.001 0.011
+census f=1200 gs=1983 kicks+=3094 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=106 pos=10076 | frac 0.000 1.001 0.033 1.001 0.011
+census f=1320 gs=1983 kicks+=3036 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=107 pos=10076 | frac 0.000 1.001 0.033 1.001 0.011
+census f=1440 gs=1983 kicks+=3089 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=107 pos=10076 | frac 0.000 1.001 0.033 1.001 0.011
+census f=1499 gs=972 kicks+=1579 | queue=5 ship_ticks=10043 child_ticks=331 waiting=10043 prunable=107 pos=10076 | frac 0.000 1.001 0.033 1.001 0.011
+census n=30000 bodies=30028 build_s=1.31 | queue=6 ship_ticks=30023 child_ticks=311 waiting=30023 prunable=0 pos=30028 | frac_of_bodies 0.000 1.000 0.010 1.000 0.000
+census f=0 gs=17 kicks+=2 | queue=6 ship_ticks=30025 child_ticks=313 waiting=30025 prunable=0 pos=30030 | frac 0.000 1.000 0.010 1.000 0.000
+census f=120 gs=1966 kicks+=3730 | queue=6 ship_ticks=30045 child_ticks=333 waiting=30045 prunable=108 pos=30071 | frac 0.000 1.001 0.011 1.001 0.004
+census f=240 gs=1983 kicks+=3173 | queue=5 ship_ticks=30044 child_ticks=332 waiting=30044 prunable=107 pos=30076 | frac 0.000 1.001 0.011 1.001 0.004
+census f=360 gs=1983 kicks+=3127 | queue=5 ship_ticks=30044 child_ticks=332 waiting=30044 prunable=106 pos=30076 | frac 0.000 1.001 0.011 1.001 0.004
+census f=480 gs=1984 kicks+=3037 | queue=5 ship_ticks=30043 child_ticks=331 waiting=30043 prunable=105 pos=30076 | frac 0.000 1.000 0.011 1.000 0.003
+census f=600 gs=1983 kicks+=3032 | queue=5 ship_ticks=30043 child_ticks=331 waiting=30043 prunable=105 pos=30076 | frac 0.000 1.000 0.011 1.000 0.003
+census f=719 gs=1967 kicks+=3004 | queue=5 ship_ticks=30043 child_ticks=331 waiting=30043 prunable=105 pos=30076 | frac 0.000 1.000 0.011 1.000 0.003
+load:
+ 00:49:10 up 53 days, 15:51,  0 user,  load average: 2.43, 1.93, 1.54
+== composition arithmetic (measured slot bytes x sizing policies)
+n=     10,000 body_cap=    0.00 GB  live_content=    0.00 GB  live_sized(L=17)= 0.000 GB  machine_frac(cap@1e9)=0.0x
+n=     30,000 body_cap=    0.00 GB  live_content=    0.00 GB  live_sized(L=52)= 0.000 GB  machine_frac(cap@1e9)=0.0x
+n=  1,000,000 body_cap=    0.16 GB  live_content=    0.07 GB  live_sized(L=1,744)= 0.000 GB  machine_frac(cap@1e9)=0.0x
+n=1,000,000,000 body_cap=  156.00 GB  live_content=   72.11 GB  live_sized(L=1,744,000)= 0.272 GB  machine_frac(cap@1e9)=19.5x
+flip body_cap/live_sized at 1e9: 573x
+== done

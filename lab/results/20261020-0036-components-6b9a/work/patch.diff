@@ -1,0 +1,204 @@
+diff --git a/crates/space/examples/schedbytes.rs b/crates/space/examples/schedbytes.rs
+new file mode 100644
+index 00000000..3235038f
+--- /dev/null
++++ b/crates/space/examples/schedbytes.rs
+@@ -0,0 +1,118 @@
++//! Components lens, run 20261020-0036: the scheduler apparatus's own bytes and CPU,
++//! measured on the shipped `Calendar` (crates/space/src/events/calendar.rs) and the
++//! shipped `Scalar` key. No engine code is changed; this file is the instrument.
++//!
++//! Arms:
++//!  1. sizes: `size_of` of the key and the heap slot;
++//!  2. bytes: a counting allocator around `Calendar::new(n)` (n = 1e4, 1e5, 1e6) —
++//!     the exact bytes the shipped allocation takes, per slot;
++//!  3. apparatus: five calendars + the deadline `pos` cache at body-cap sizing
++//!     (universe.rs:481-490,479) vs live-population sizing (L = rate x dwell x N);
++//!  4. cpu: fill (set) + drain (pop) and update (set an existing slot later) at
++//!     n = 1e6 — the neighbour axis: is the apparatus ever CPU-bound?
++use emergent_space::events::Calendar;
++use emergent_space::orbit::Scalar;
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::time::Instant;
++
++static ALLOCS: AtomicU64 = AtomicU64::new(0);
++static BYTES: AtomicU64 = AtomicU64::new(0);
++
++struct Counting;
++
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        ALLOCS.fetch_add(1, Ordering::Relaxed);
++        BYTES.fetch_add(l.size() as u64, Ordering::Relaxed);
++        System.alloc(l)
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        System.dealloc(p, l)
++    }
++}
++
++#[global_allocator]
++static A: Counting = Counting;
++
++/// xorshift64* shuffle-friendly rng, deterministic.
++fn rng(state: &mut u64) -> u64 {
++    let mut x = *state;
++    x ^= x >> 12;
++    x ^= x << 25;
++    x ^= x >> 27;
++    *state = x;
++    x.wrapping_mul(0x2545F4914F6CDD1D)
++}
++
++fn bytes_of_calendar(n: usize) -> (u64, u64) {
++    let a0 = ALLOCS.load(Ordering::Relaxed);
++    let b0 = BYTES.load(Ordering::Relaxed);
++    let c = Calendar::new(n);
++    let a = ALLOCS.load(Ordering::Relaxed) - a0;
++    let b = BYTES.load(Ordering::Relaxed) - b0;
++    std::mem::forget(c); // keep the count simple; one process, few arms
++    (a, b)
++}
++
++fn main() {
++    println!("scalar_size {}", std::mem::size_of::<Scalar>());
++    println!("slot_size {}", std::mem::size_of::<(Scalar, u32)>());
++    println!("pos_row_size {}", std::mem::size_of::<[f64; 2]>());
++
++    for n in [10_000usize, 100_000, 1_000_000] {
++        let (a, b) = bytes_of_calendar(n);
++        println!("calendar_new n={} allocs={} bytes={} bytes_per_slot={:.4}", n, a, b, b as f64 / n as f64);
++    }
++
++    let slot_meas = bytes_of_calendar(1000).1 as f64 / 1000.0;
++    let per_slot = if slot_meas > 0.0 { slot_meas } else { 28.0 };
++    for n in [1_000_000usize, 1_000_000_000] {
++        let per_body = per_slot * 5.0 + 16.0; // five calendars + the pos row
++        let live = 4.0e-5 * 43.6 * n as f64; // lambda (0659) x dwell tau (0659)
++        let live_per_body = per_slot * 5.0 * (live / n as f64) + 16.0 * (live / n as f64);
++        println!(
++            "apparatus n={} | body_cap: {:.0} B/body = {:.1} GB | live(L={}): {:.4} B/body = {:.3} GB",
++            n,
++            per_body,
++            per_body * n as f64 / 1e9,
++            live as u64,
++            live_per_body,
++            live_per_body * n as f64 / 1e9
++        );
++    }
++
++    // CPU neighbour: the shipped heap's own ops at n = 1e6.
++    let n = 1_000_000usize;
++    let mut cal = Calendar::new(n);
++    let mut st: u64 = 0x1234_5678_9abc_def0;
++    let t0 = Instant::now();
++    for i in 0..n {
++        let k = (rng(&mut st) >> 10) as i64; // spread keys
++        let _ = cal.set(i, Some(Scalar::integer(k)));
++    }
++    let t_fill = t0.elapsed();
++    let t1 = Instant::now();
++    let mut updates = 0usize;
++    for i in 0..n {
++        let k = (rng(&mut st) >> 10) as i64;
++        if cal.set(i % n, Some(Scalar::integer(k))).is_ok() {
++            updates += 1;
++        }
++    }
++    let t_upd = t1.elapsed();
++    let t2 = Instant::now();
++    let mut pops = 0usize;
++    while cal.pop().is_some() {
++        pops += 1;
++    }
++    let t_drain = t2.elapsed();
++    println!(
++        "heap_ops n={} fill={:.1}ns/slot update={:.1}ns/slot drain={:.1}ns/pop pops={}",
++        n,
++        t_fill.as_nanos() as f64 / n as f64,
++        t_upd.as_nanos() as f64 / updates.max(1) as f64,
++        t_drain.as_nanos() as f64 / pops.max(1) as f64,
++        pops
++    );
++}
+diff --git a/crates/universe/examples/schedcensus.rs b/crates/universe/examples/schedcensus.rs
+new file mode 100644
+index 00000000..4bc24953
+--- /dev/null
++++ b/crates/universe/examples/schedcensus.rs
+@@ -0,0 +1,51 @@
++//! Run 20261020-0036-components-6b9a: occupancy census of the scheduling apparatus on
++//! the shipped flight path (nladder's own driver: plane_extra, frame_to, 12 ms budget).
++//! Print-only; no engine behaviour change (the patch adds the sched_census getter).
++//!
++//! cargo run --release -p emergent-universe --example schedcensus -- <N> <rtf> <wall seconds>
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use emergent_universe::fleet::Order;
++use std::time::{Duration, Instant};
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1000.0);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(30.0);
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    let [q, st, ct, w, pr, pos] = p.u.sched_census();
++    println!(
++        "census n={} bodies={} build_s={:.2} | queue={} ship_ticks={} child_ticks={} waiting={} prunable={} pos={} | frac_of_bodies {:.3} {:.3} {:.3} {:.3} {:.3}",
++        n, bodies, t_start.elapsed().as_secs_f64(), q, st, ct, w, pr, pos,
++        q as f64 / bodies as f64, st as f64 / bodies as f64, ct as f64 / bodies as f64,
++        w as f64 / bodies as f64, pr as f64 / bodies as f64
++    );
++    let mut last_kicks = p.u.stats.kicks;
++    let mut t0 = p.u.now;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) {
++            println!("truncated at frame {f}");
++            break;
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros(12_000)) }, i64::MAX);
++        if f % 120 == 0 || f == frames - 1 {
++            let [q, st, ct, w, pr, pos] = p.u.sched_census();
++            let gs = (p.u.now - t0) as f64 * TICK_SECONDS;
++            let dk = p.u.stats.kicks.saturating_sub(last_kicks);
++            println!(
++                "census f={f} gs={gs:.0} kicks+={dk} | queue={} ship_ticks={} child_ticks={} waiting={} prunable={} pos={} | frac {:.3} {:.3} {:.3} {:.3} {:.3}",
++                q, st, ct, w, pr, pos,
++                q as f64 / bodies as f64, st as f64 / bodies as f64, ct as f64 / bodies as f64,
++                w as f64 / bodies as f64, pr as f64 / bodies as f64
++            );
++            last_kicks = p.u.stats.kicks;
++            t0 = p.u.now;
++        }
++    }
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..4518d6d0 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1372,4 +1372,18 @@ impl Universe {
+     pub fn horizon_of(&self, i: usize) -> Option<Tick> {
+         self.key_of(i).map(|k| k.0)
+     }
++
++    /// Print-only census of the scheduling apparatus (run 20261020-0036-components-6b9a):
++    /// the five calendars' live lengths and the deadline position cache's row count.
++    /// A getter; no behaviour change.
++    pub fn sched_census(&self) -> [usize; 6] {
++        [
++            self.queue.as_ref().map_or(0, |q| q.len()),
++            self.ship_ticks.len(),
++            self.child_ticks.len(),
++            self.waiting.len(),
++            self.prunable.len(),
++            self.pos.len(),
++        ]
++    }
+ }
