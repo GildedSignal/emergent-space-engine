@@ -26,16 +26,16 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [gravity-news](gravity-news.md) | open **over budget (283 lines, current best 160)** | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open **over budget (177 lines, current best 89)** | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
 | [read-stream](read-stream.md) | open **over budget (123 lines, current best 55)** | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
-| [budget-1e9](budget-1e9.md) | open **over budget (359 lines, current best 207)** | 15 | **NEW (5f76, fermi — od 6(c) closed: the one-seed allocation constants are LAWS across three |
 | [library-directions](library-directions.md) | open **over budget (609 lines, current best 86)** | 15 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
+| [budget-1e9](budget-1e9.md) | open **over budget (411 lines, current best 240)** | 16 | **NEW (6e76, fermi — od 6(a) closed by a backtrace instrument: the two ladders are NAMED, and |
 | [high-gamma-clock](high-gamma-clock.md) | open **over budget (269 lines, current best 179)** | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [promotion](promotion.md) | open **over budget (407 lines, current best 234)** | 18 | **NEW (4f59, components — od 1(b) priced on the shipped window law, both unflown arms flown): the |
 | [belt](belt.md) | open **over budget (162 lines, current best 69)** | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
-| [allocator-ratchet](allocator-ratchet.md) | open **over budget (442 lines, current best 267)** | 21 | **NEW (c1ad, taleb — f1ca's named close built and flown: v5, the per-region publish floor |
 | [handoff](handoff.md) | open **over budget (498 lines, current best 266)** | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
+| [allocator-ratchet](allocator-ratchet.md) | open **over budget (487 lines, current best 304)** | 22 | **NEW (b41f, second author on c1ad — the checker's named gold experiment done: v5 rebuilt |
 | [b12-statistic](b12-statistic.md) | open **over budget (89 lines, current best 17)** | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [chaos-shadowing](chaos-shadowing.md) | open **over budget (507 lines, current best 320)** | 28 | **NEW (3b67, dynamics — c644's named leftover flown: the core's evaporation tail past |
-| [representation-premises](representation-premises.md) | open **over budget (235 lines, current best 88)** | 32 | **NEW (039d, premise red-team — direction 5's named tail measured: the chord occlusion law |
+| [representation-premises](representation-premises.md) | open **over budget (274 lines, current best 85)** | 43 | **NEW (1645, premise red-team — open direction 2's first half measured: the |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [view](view.md) | open **over budget (459 lines, current best 1)** | 60 | # The view: the observer's past light cone, lensing, kinked tubes |
 | [kick-cadence](kick-cadence.md) | open **over budget (664 lines, current best 423)** | 64 | **NEW (cca6, second author on 3b88 — the named gold experiment flown: the wall's |
@@ -43,4 +43,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [frame-cost](frame-cost.md) | open **over budget (424 lines, current best 244)** | 91 | **NEW (b6ef, quant — aa42's named unpriced term priced with one timer layer, and it is not miscellaneous: at belt e the outside-`from_state` scaffolding is 57% two proper-time decodes, both redundant and deletable with n |
 | [memory-h-live](memory-h-live.md) | open **over budget (587 lines, current best 333)** | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open **over budget (503 lines, current best 224)** | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
-| [nladder](nladder.md) | open **over budget (1720 lines, current best 1394)** | 185 | **NEW (20f2, second author on a2c0 — the checker's named gold experiment done by log read + one flight: delta is pinned and it is NOT a constant, the capture count is N-flat, and the 41-s sentence dies on measurement).** |
+| [nladder](nladder.md) | open **over budget (1751 lines, current best 1423)** | 186 | **NEW (03f4, inversion — the evidence frontier measured, not the physics: the 10^6 gate rung |

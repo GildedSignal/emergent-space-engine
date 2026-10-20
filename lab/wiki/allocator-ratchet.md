@@ -2,11 +2,49 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261020-2004-taleb-c1ad
+updated: 20261020-2102-second-20261020-2004-taleb-c1ad-b41f
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
 ## Current best
+
+**NEW (b41f, second author on c1ad — the checker's named gold experiment done: v5 rebuilt
+as v6, the heterogeneous family un-stalled at v4's exact present, 0 fires).** v6 = v5 with
+(1) the base term dropped to `verified` alone — `history[0]` was a restore-point term, not
+a clash-s0 term, and it DEADLOCKED IGNITION: prune pins history[0] at the sync floor
+(stride_max·window = 256), so inside the first sync grid every floor was 0, nothing
+published, the present stalled at the observer's own cluster and the goal cap kept the
+frontier below the grid forever (clumps/mixed at present 0, 1080/1080 deadline misses —
+the checker's stall, mechanism found); (2) both window-keyed terms (suffix-min `sm`,
+scanner-min `lscan`) replaced by ONE geometric pair scan mirroring certify's clash
+predicate: region r scans a live truth keyed at w ≥ w(r.verified) only from
+s ≥ boundary(w−stride_max), the pair pins both lineages at min(s, t.start) iff the truth
+touches r's hull grown to the truth's DEATH horizon (boundary(w+1)+sync()−verified+
+stride_max·window — a scan can happen at any start until the truth is pruned; the
+earliest-scan hull missed a pair a later scan fired on: the pre-fix build's s13 fire,
+victim = the truth's own writer, fin_hi 768 vs s0 640 — also a hole in v5's lscan, whose
+0-fires were incidence, not closure); (3) cap_final coverage-aware: retain can drop a whole
+parent's lineage (`a view holds every body once` panicked 5891/8704) — rebuild from the
+deepest complete history entry ≤ cap (CAPGAP last resort, 0 occurrences). **Measured
+(one binary, env arms v4/v5/v6; family rate 600 seeds 11+13): clumps 2695/2695/0/2695,
+mixed 2698/2698/0/2698, streams 2698/2577-819/1024-819/2698 (shipped/v4/v5/v6 — v6 at v4's
+exact values, above v4 on streams; v5's kill reproduces); battle seeds 11-21: shipped 1/6
+(s21), v4 0/6, v6 0/6 present 1440-1792; crush 12-way: v6 0/12 median 529.5 vs v4 272.5
+(~1.9×), 0 CAPGAP; equality law 97+44 RB all m ≤ 0, out=[].** Open before close: the
+death-horizon growth recouples toward v4's global floor under a frontier-stalling laggard
+(window-owned, not flown here); O(regions×truths-in-range) per finalize unmeasured at 10⁶;
+the descendants-closure derivation (20261020-2102-second-20261020-2004-taleb-c1ad-b41f).**
+  [Checker b41f: the liveness half reproduced bit-exactly (same commands, ~30 min later:
+  family clumps 2695/2695/0/2695, mixed 2698/2698/0/2698, streams 2698/2624-819/1024-819/2698,
+  quiet 2698 all; crush v6 0/12 median 532 vs v4 205, ~2.6×, 0 CAPGAP). The safety half did
+  NOT: the regen window fired v6 once on battle s19 — the finality assert itself ("rollback
+  of region 53 from 816 would revise its published tick 896"), RB m=80 > 0 (P1 and P4 break
+  as window-free claims; shipped 3/6 there vs 1/6 in the author's window). Four immediate
+  s19 re-runs clean, v4 clean ×2, fresh seed 41 clean, 2× scale 17408/48 s11/s13 clean — a
+  rare interleaving, not a deterministic kill. The regen's non-fired battle margins sit at
+  zero slack (44 of 57 RB exactly m=0), so "0 fires / exactly safe" is window-owned, not
+  closed; suspect paths unexamined: the rollback re-cap covers only restored.last() and runs
+  after the assert, and a truth born after the publisher's floor computation. Silver.]
 
 **NEW (c1ad, taleb — f1ca's named close built and flown: v5, the per-region publish floor
 with merge-capping, on both publishers).** For region r the binding s0 of any future clash
@@ -367,6 +405,12 @@ as a complete rule by the churn class above).
    where v4 runs clean (see Current best); the next candidate must bound the self-pin
    (a region's own genesis truths stay scannable by its own strides) before the family
    re-flies.]
+   **[b41f, 20261020: the re-fly is done and passes — v6 (geometric pair-scan floors,
+   death-horizon touch, verified-only base, coverage-aware cap) matches v4's 2695/2698/2698
+   on the family (above v4 on streams) with 0 fires on 44 draws incl. crush; the stall was
+   two mechanisms — the history[0] ignition deadlock and the window-keyed coupling — plus a
+   latent v5 cap bug (view coverage). Remaining: the stalled-laggard recoupling window, the
+   10⁶-region cost, the closure derivation.]**
 2. Window/stride granularity as the race margin (01e7's lead): window 32 survived
    rb 79–114 at 9/9 pooled draws across three windows where window 16 crashed at
    rb ≥ 57; the margin `fin_hi − s0` scales with the grid. More draws per arm before
@@ -440,3 +484,4 @@ as a complete rule by the churn class above).
 - 20261020-0143-taleb-da23 (taleb, awaiting grade): the stride gate built: fires 7/8 → 1/10 on the battle protocol, ~15-40% present cost, equality law held; one survivor fire names the last hole.
 - 20261020-0440-taleb-f1ca (taleb, awaiting grade): the disarm channel built (v4, publish
 - 20261020-2004-taleb-c1ad (taleb, awaiting grade): v5 built and flown — per-region publish floors + merge-capping: 0 fires on 20 draws (shipped 1/8 same window), crush present 92% of shipped vs v4's 66%.
+- 20261020-2102-second-20261020-2004-taleb-c1ad-b41f (second author, awaiting grade): v6 rebuilt — family at v4's present, 0 fires on 44 draws; v5's stall was ignition deadlock + window coupling.
