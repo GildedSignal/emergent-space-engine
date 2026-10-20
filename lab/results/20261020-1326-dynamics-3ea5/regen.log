@@ -1,0 +1,44 @@
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/lattice)
+warning: unused variable: `r_in`
+   --> crates/lattice/examples/coretail.rs:117:9
+    |
+117 |     let r_in: i128 = 140 * Q as i128;
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_r_in`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: variable `wa` is assigned to, but never used
+   --> crates/lattice/examples/coretail.rs:148:25
+    |
+148 |         let (mut c, mut wa) = (0u64, 0u64);
+    |                         ^^
+    |
+    = note: consider using `_wa` instead
+
+warning: `emergent-lattice` (example "coretail") generated 2 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.17s
+== MAIN_cold_s1: # contacts=550463165 walls=0 digest=4760731c044e40c74e8f06a93ec6dea0319e1ea4928e917aee456738d47868df
+  dead=534 final_live=349 n_sub=114 n_zone=153
+  lam_mid_med=1.38e-06 lam_late_med=3.45e-07 lam_late_max=1.38e-06
+  TAIL f_pair_med=1.822 zone_share_min=0.991 n_sub[105,115] slope49k=9.1
+  tail_deaths=7 never_clamped=7 subrecent=0
+  live: n=266 ever_sub=147 subres(half)=98 zone_res=129 ever_clamped=152 min_r_min=0.000q
+== CTRL_pass_s1: # contacts=16973365 walls=0 digest=dd0bc720e841626ff800f2ff16d93c75e55c4ad0b79cbd07e31feee74ce9706b
+  dead=0 final_live=800 n_sub=0 n_zone=0
+  lam_mid_med=0.00e+00 lam_late_med=0.00e+00 lam_late_max=0.00e+00
+  TAIL f_pair_med=0.000 zone_share_min=0.000 n_sub[0,0] slope49k=0.0
+  live: n=800 ever_sub=0 subres(half)=0 zone_res=0 ever_clamped=0 min_r_min=35.332q
+== SEED_th_s2: # contacts=267106591 walls=0 digest=6483a3b285c5907851f96884e790aa419ccc96db2670f7c517253331e6be0f1a
+  dead=516 final_live=375 n_sub=93 n_zone=116
+  lam_mid_med=9.84e-07 lam_late_med=nan lam_late_max=nan
+  live: n=284 ever_sub=114 subres(half)=81 zone_res=113 ever_clamped=124 min_r_min=0.000q
+CTRL_pass_s1.head:# contacts=16973365 walls=0 digest=dd0bc720e841626ff800f2ff16d93c75e55c4ad0b79cbd07e31feee74ce9706b
+CTRL_pass_s1.head:# ck49152 contacts=5305394 walls=0 digest=a49c6a064cd3b7f709c770fa98d78cc201008b6997c34dcb444a68524cc3a2e8
+CTRL_pass_s1.head:# ck98304 contacts=11271447 walls=0 digest=34ae2c8c19f341abe689e69739e12be5cfffc2dfa0420eab2445cbd54a2fdad6
+MAIN_cold_s1.head:# contacts=550463165 walls=0 digest=4760731c044e40c74e8f06a93ec6dea0319e1ea4928e917aee456738d47868df
+MAIN_cold_s1.head:# ck49152 contacts=63461214 walls=0 digest=434f69bff538cb39dad6fd0a816d622b18e609bf6617c456dd9dfe506bd131fe
+MAIN_cold_s1.head:# ck98304 contacts=288352399 walls=0 digest=ed2783d6e79e4334f0724169d1aa03a425af994f563a71e048e43f38869eac3a
+SEED_th_s2.head:# contacts=267106591 walls=0 digest=6483a3b285c5907851f96884e790aa419ccc96db2670f7c517253331e6be0f1a
+SEED_th_s2.head:# ck49152 contacts=88881906 walls=0 digest=0845a045c1b68a0908b72ec031336f1454dff357f944397ec5151c3053c066df
+SEED_th_s2.head:# ck98304 contacts=267106591 walls=0 digest=6483a3b285c5907851f96884e790aa419ccc96db2670f7c517253331e6be0f1a
+SMOKE.head:# contacts=18 walls=0 digest=d9f7b68851fa37e11eebf919c25485dcfaf441a34aeebe70057d5008de3ff1ff
