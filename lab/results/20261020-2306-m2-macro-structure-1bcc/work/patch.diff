@@ -1,0 +1,177 @@
+diff --git a/crates/universe/examples/fibers.rs b/crates/universe/examples/fibers.rs
+new file mode 100644
+index 00000000..9a7ff9c0
+--- /dev/null
++++ b/crates/universe/examples/fibers.rs
+@@ -0,0 +1,171 @@
++//! The fibration census: how many orbit-key cells the shipped belt actually occupies, at the law's
++//! own 11+11-bit memo grid and at coarser widths, and whether that base survives flight. The belt is
++//! N real bodies on distinct exact orbits; the question is the size F of a coarse base over which
++//! one kick stream per cell could be shared (the fibration), and the shape of the belt's pending
++//! event ticks (the lattice wheel). Print-only: no engine behaviour is changed.
++//!
++//! cargo run --release -p emergent-universe --example fibers -- draw <N>
++//! cargo run --release -p emergent-universe --example fibers -- flight <N> <wall s> <rtf>
++use emergent_space::orbit::{MemoCode, OrbitKey};
++use emergent_universe::scenario::{ladder_locals, ladder_ship, plane_extra};
++use emergent_universe::{Budget, Config};
++use emergent_universe::fleet::Order;
++use std::collections::{HashMap, HashSet};
++use std::time::{Duration, Instant};
++
++const HOME_DOLL: u16 = 2; // star=0, Cinder=1, Home=2 (scenario::plane_with_extra)
++const MAX_DROP: usize = 6;
++
++/// The memo code with its two 11-bit fraction fields coarsened by `drop` bits (a dyadic coarsening:
++/// relative cell width 2^(-11+drop) on both axes, exponents kept).
++fn cell_of(code: MemoCode, drop: u32) -> u64 {
++    let bits = code.bits();
++    let gap = bits & 2047;
++    let peri = (bits >> 17) & 2047;
++    (bits & !(2047u64 | (2047u64 << 17))) | (gap >> drop) | ((peri >> drop) << 17)
++}
++
++struct Census {
++    n: u64,
++    errors: u64,
++    exact: HashSet<(i64, i16, u64, i16)>,
++    cells: Vec<HashSet<u64>>,
++    occ0: HashMap<u64, u32>,
++    occ4: HashMap<u64, u32>,
++    /// flight-only facts
++    ticks: HashMap<i64, u32>,
++    steps: HashSet<i64>,
++    step_anchor: HashSet<(i64, i64)>,
++    events: u64,
++    live_catalogue: usize,
++    now: i64,
++}
++
++fn census_belt(n_belt: u64, keys: impl Iterator<Item = Option<OrbitKey>>, live: usize, now: i64) -> Census {
++    let mut c = Census {
++        n: n_belt,
++        errors: 0,
++        exact: HashSet::with_capacity(262_144),
++        cells: (0..=MAX_DROP).map(|_| HashSet::with_capacity(262_144)).collect(),
++        occ0: HashMap::with_capacity(262_144),
++        occ4: HashMap::with_capacity(262_144),
++        ticks: HashMap::new(),
++        steps: HashSet::new(),
++        step_anchor: HashSet::new(),
++        events: 0,
++        live_catalogue: live,
++        now,
++    };
++    for key in keys {
++        let Some(key) = key else { c.errors += 1; continue };
++        c.exact.insert((key.periapsis.significand(), key.periapsis.exponent(), key.k, key.k_exponent));
++        match MemoCode::encode(key) {
++            Ok(code) => {
++                *c.occ0.entry(cell_of(code, 0)).or_default() += 1;
++                *c.occ4.entry(cell_of(code, 4)).or_default() += 1;
++                for (d, set) in c.cells.iter_mut().enumerate() {
++                    set.insert(cell_of(code, d as u32));
++                }
++            }
++            Err(_) => c.errors += 1,
++        }
++    }
++    c
++}
++
++fn occ_stats(occ: &HashMap<u64, u32>) -> (u32, u32, u32, f64) {
++    let mut v: Vec<u32> = occ.values().copied().collect();
++    if v.is_empty() { return (0, 0, 0, 0.0); }
++    v.sort_unstable();
++    let n = v.len();
++    (v[n / 2], v[(n * 9) / 10], v[n - 1], v.iter().map(|x| *x as f64 * *x as f64).sum::<f64>() / n as f64)
++}
++
++fn report(c: &Census, tag: &str) {
++    println!("census {tag} n_belt={} now={} errors={} catalogue_live={}", c.n, c.now, c.errors, c.live_catalogue);
++    println!("  exact_keys={} (distinct orbits: {:.4} of bodies)", c.exact.len(), c.exact.len() as f64 / c.n as f64);
++    for d in 0..=MAX_DROP {
++        let f = c.cells[d].len();
++        println!("  drop={} cells F={} N/F={:.1} sharing={:.4}", d, f, c.n as f64 / f as f64, f as f64 / c.n as f64);
++    }
++    let (m0, p0, x0, q0) = occ_stats(&c.occ0);
++    println!("  occ@11+11: cells={} median={} p90={} max={} css/mss={:.3}", c.occ0.len(), m0, p0, x0, q0);
++    let (m4, p4, x4, q4) = occ_stats(&c.occ4);
++    println!("  occ@7+7:  cells={} median={} p90={} max={} css/mss={:.3}", c.occ4.len(), m4, p4, x4, q4);
++    if !c.ticks.is_empty() {
++        let mut v: Vec<u32> = c.ticks.values().copied().collect();
++        v.sort_unstable();
++        let n = v.len();
++        let divs: Vec<usize> = (0..=41).map(|k| c.ticks.keys().filter(|t| t.rem_euclid(1 << k) == 0).count()).collect();
++        println!("  ticks: distinct={} median_bodies={} p90={} max={} | divisibility (k:ticks divisible by 2^k) {}",
++            n, v[n / 2], v[(n * 9) / 10], v[n - 1],
++            divs.iter().enumerate().filter(|(_, c)| **c > 0).map(|(k, c)| format!("{k}:{c}")).collect::<Vec<_>>().join(" "));
++        println!("  steps: distinct={} distinct (step,anchor)={}", c.steps.len(), c.step_anchor.len());
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).cloned().unwrap_or_else(|| "draw".into());
++    let t0 = Instant::now();
++    match mode.as_str() {
++        "draw" => {
++            let n: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1_000_000);
++            let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
++            // The base plane only for doll 0's unit (the belt is drawn, not built).
++            let p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, 0).expect("base plane");
++            let unit0 = p.u.dolls[0].unit;
++            let locals = ladder_locals(n);
++            let keys = (locals..n).filter_map(|k| {
++                let (spec, _) = ladder_ship(seed, k, n, HOME_DOLL).ok()?;
++                if spec.doll != 0 { return None; } // belt only (a control: locals are excluded)
++                Some(OrbitKey::bound(unit0.to_tube(spec.periapsis).ok()?, spec.e_q48).ok())
++            });
++            let c = census_belt(n - locals, keys, 0, 0);
++            report(&c, &format!("draw N={n} seed={seed}"));
++            println!("draw wall {:.2} s", t0.elapsed().as_secs_f64());
++        }
++        "flight" => {
++            let n: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++            let secs: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++            let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100_000.0);
++            let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).expect("plane");
++            let locals = ladder_locals(n as u64) as usize;
++            let total = p.ships.len();
++            let belt: Vec<usize> = p.ships[total - n + locals..].to_vec();
++            println!("flight N={n} belt={} (ships total {total}, locals {locals}) rtf={rtf} {secs} s; build {:.2} s",
++                belt.len(), t0.elapsed().as_secs_f64());
++            let snapshot = |u: &emergent_universe::Universe, tag: &str| {
++                let store = u.bodies();
++                let keys = belt.iter().map(|i| store.rec(*i).b.entry.trajectory.key());
++                let mut c = census_belt(belt.len() as u64, keys, u.catalogue_live(), u.now);
++                let mut ev = 0u64;
++                for i in &belt {
++                    let r = store.rec(*i);
++                    *c.ticks.entry(store.next_time(*i).unwrap_or(-1)).or_default() += 1;
++                    c.steps.insert(r.step);
++                    c.step_anchor.insert((r.step, r.anchor));
++                    ev += r.events;
++                }
++                c.events = ev;
++                report(&c, tag);
++            };
++            snapshot(&p.u, "t0");
++            let frames = (secs * 60.0) as usize;
++            let mut events = 0u64;
++            for f in 0..frames {
++                if t0.elapsed() > Duration::from_secs(120) { println!("truncated at frame {f}"); break; }
++                let start = Instant::now();
++                let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, i64::MAX);
++                events += frame.events;
++                if (f + 1) % 240 == 0 {
++                    println!("frame {} now={} events_total={} presented={}", f + 1, p.u.now, events, frame.presented);
++                    snapshot(&p.u, "mid");
++                }
++            }
++            snapshot(&p.u, "tend");
++            println!("flight wall {:.2} s events_total={events}", t0.elapsed().as_secs_f64());
++        }
++        _ => eprintln!("modes: draw <N> [<seed>] | flight <N> <wall s> <rtf>"),
++    }
++}
