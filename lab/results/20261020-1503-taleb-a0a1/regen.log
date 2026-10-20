@@ -1,0 +1,47 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.14s
+== a1_3e5_s1 ==
+frames after 1 s: 1909  engine ms p50 3.981 p90 11.947 p99 260.039 max 2650.355; over 12 ms: 165; frames behind: 78, worst lag 19.972 s; events/frame p50 63 p99 5073 max 52840; scans held max 1471
+frames over the budget (first 12): [81, 143, 155, 157, 667, 671, 675, 678, 682, 686, 690, 694]; the player's doll (frame, doll): [(0, 2), (180, 0)]
+ladder: n=300000 bodies=300028 flight=burn rtf=1300 frames=1969 build_s=13.39 foot_build_mb=705 foot_end_mb=5101 b_per_body=2340 p50_ms=3.981 p99_ms=260.039 max_ms=2650.355 over=165 lag_s=19.972 kicks
+-- captures: ALL walks (count, top ns, total ms) and idx walks
+ALL: n=125 top_ns=91730516 total_ms=9682.34
+idx: n=2927 total_ms=346.94
+ALL cand=299715
+-- answers: top by ns (t ns read_ns cand tests skip_dom enc), per-body µs, read share, skip share
+3086726335 11217837 10920927 2612 2612 2607 3
+2851845311 4802394 4648182 1109 1109 1106 3
+2885399743 4678857 4544765 1109 1109 1106 3
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+sort: top answer: 4.29 us/body, read 97.4%, skip 99.8% (2607/2612), enc 3
+write failed: 'standard output': Broken pipe
+sort: write error
+-- biggest scan ever answered (cand) vs biggest captured:
+2612
+299717
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+== b1_1e5_s1 ==
+frames after 1 s: 2640  engine ms p50 3.969 p90 11.941 p99 87.222 max 840.181; over 12 ms: 163; frames behind: 79, worst lag 21.505 s; events/frame p50 64 p99 2708 max 16392; scans held max 1375
+frames over the budget (first 12): [85, 124, 152, 679, 683, 687, 691, 695, 699, 702, 706, 710]; the player's doll (frame, doll): [(0, 2), (181, 0)]
+ladder: n=100000 bodies=100028 flight=burn rtf=1300 frames=2700 build_s=4.43 foot_build_mb=237 foot_end_mb=1957 b_per_body=2348 p50_ms=3.969 p99_ms=87.222 max_ms=840.181 over=163 lag_s=21.505 kicks_pe
+-- captures: ALL walks (count, top ns, total ms) and idx walks
+ALL: n=126 top_ns=28895433 total_ms=2852.21
+idx: n=2993 total_ms=187.593
+ALL cand=99715
+-- answers: top by ns (t ns read_ns cand tests skip_dom enc), per-body µs, read share, skip share
+3292082331 8104167 7879710 1804 1804 1801 3
+3124310171 4466462 4313167 892 892 889 2
+3090755739 4038254 3927472 892 892 889 2
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+top answer: 4.49 us/body, read 97.2%, skip 99.8% (1801/1804), enc 3
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+-- biggest scan ever answered (cand) vs biggest captured:
+1804
+99717
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+regen done

@@ -1,0 +1,232 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..c6688bc4 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,24 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+-}
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    // This lab run's Linux stand-in (the shipped probe reads macOS's proc_pid_rusage): resident now
++    // and its high-water mark from /proc/self/status.
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches(" kB").split_whitespace().next().and_then(|n| n.parse::<u64>().ok()).unwrap_or(0) * 1024;
++            }
++            if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches(" kB").split_whitespace().next().and_then(|n| n.parse::<u64>().ok()).unwrap_or(0) * 1024;
++            }
++        }
+     }
+-    (buf[9], buf[30])
++    (now, peak)
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -47,9 +51,10 @@ fn main() {
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
++    let seed: u64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(1);
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..b3e1a09a 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -128,12 +128,17 @@ impl Held for Scan {
+ impl Scan {
+     /// The expensive half: read the player and each candidate at `t` and apply the predicate.
+     fn compute(&self) -> Vec<Encounter> {
++        // Print-only instrument (this lab run): the anatomy of one answer, and the uncarrried
++        // bound's skip ceiling on it (the fresh read standing in for the best remembered one).
++        let anat = std::env::var("ES_ANSWER_ANATOMY").is_ok();
++        let (t_ans, mut read_ns, mut n_test, mut skip_dom) = (std::time::Instant::now(), 0u128, 0usize, 0usize);
+         let mut out = Vec::new();
+         let (t, body) = (self.t, self.body);
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+         let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
+         for (j, other, reach) in &self.candidates {
+             let found = (|| -> Res<Option<bool>> {
++                let tr = std::time::Instant::now();
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
+                 let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
+@@ -141,6 +146,18 @@ impl Scan {
+                 let q_exp = reach.exponent() as i32 - 20;
+                 let (di, wi) = (integers(d, q_exp)?, integers(w, q_exp)?);
+                 let near = reach.scale(ENCOUNTER_LOG2)?.fixed(-q_exp)?;
++                if anat {
++                    read_ns += tr.elapsed().as_nanos();
++                    n_test += 1;
++                    let (dd, ww, nn) = (
++                        (di[0] as f64).hypot(di[1] as f64),
++                        (wi[0] as f64).hypot(wi[1] as f64),
++                        near as f64,
++                    );
++                    if dd - ww > nn * 1.01 + 4.0 {
++                        skip_dom += 1;
++                    }
++                }
+                 if !hit(di, wi, near) {
+                     return Ok(None);
+                 }
+@@ -150,6 +167,17 @@ impl Scan {
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
++        if anat {
++            eprintln!(
++                "ANS t={t} ns={} read_ns={} cand={} tests={} skip_dom={} enc={}",
++                t_ans.elapsed().as_nanos(),
++                read_ns,
++                self.candidates.len(),
++                n_test,
++                skip_dom,
++                out.len()
++            );
++        }
+         out
+     }
+ }
+@@ -160,6 +188,8 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let anat = std::env::var("ES_ANSWER_ANATOMY").is_ok();
++        let t_cap = std::time::Instant::now();
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+@@ -171,6 +201,10 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let radial = match &near {
++            Some(ids) => format!("idx:{}", ids.len()),
++            None => format!("ALL:{}", ctx.bodies.len()),
++        };
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+@@ -187,6 +221,9 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if anat {
++            eprintln!("CAP t={t} ns={} radial={radial} cand={}", t_cap.elapsed().as_nanos(), candidates.len());
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..ab7cd8c9 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -207,6 +207,8 @@ pub struct Universe {
+     /// ([`Universe::drain_scans`]); the log, the count and the hash below are as if each had been answered at once once
+     /// this is empty, and [`Universe::digest`] answers what is held.
+     scans: VecDeque<Arc<dyn Held>>,
++    /// Wall-clock capture times of `scans`, in step (this lab run's memory fence: `ES_SCAN_TTL_S`).
++    scans_wall: VecDeque<Instant>,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+     /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+@@ -269,6 +271,7 @@ impl Universe {
+             target: 0,
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
++            scans_wall: VecDeque::new(),
+             scan_ns: 0,
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+@@ -1016,6 +1019,7 @@ impl Universe {
+             // presented time lags (as it did before scans were held), instead of the frame overrunning.
+             if self.scans.len() >= SCAN_BACKLOG {
+                 self.answer_front();
++                self.scans_wall.pop_front();
+                 continue;
+             }
+             let t_item = Instant::now();
+@@ -1162,7 +1166,10 @@ impl Universe {
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            Some(held) => {
++                self.scans.push_back(held);
++                self.scans_wall.push_back(Instant::now());
++            }
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1180,10 +1187,17 @@ impl Universe {
+             self.enc_log.push(e);
+         }
+     }
+-
+-    /// Answer the held scans, oldest first, while `until` allows (all of them if `None`): scans are idle-time work as far
+-    /// as the frame's budget goes, and they keep their order.
+     fn drain_scans(&mut self, until: Option<Instant>) {
++        // This lab run's memory fence (off unless ES_SCAN_TTL_S is set): a scan held longer than
++        // the TTL is dropped unanswered. A law change, disclosed: it exists to keep the belt
++        // rungs inside the runner's memory cap, not as a proposal.
++        if let Ok(ttl) = std::env::var("ES_SCAN_TTL_S") {
++            let ttl = std::time::Duration::from_secs_f64(ttl.parse().unwrap_or(16.0));
++            while self.scans.len() > 1 && self.scans_wall.front().is_some_and(|w| w.elapsed() > ttl) {
++                self.scans.pop_front();
++                self.scans_wall.pop_front();
++            }
++        }
+         while !self.scans.is_empty() {
+             if let Some(u) = until {
+                 let room = u.checked_duration_since(Instant::now()).map_or(0, |d| d.as_nanos() as u64);
+@@ -1192,9 +1206,16 @@ impl Universe {
+                 }
+             }
+             self.answer_front();
++            self.scans_wall.pop_front();
+         }
+     }
+ 
++    // ---- observation ----------------------------------------------------------------------------
++
++    pub fn rec(&self, i: usize) -> BodyRec {
++        self.bodies.rec(i)
++    }
++
+     /// Answer the oldest held scan: into the count, the log and the hash.
+     fn answer_front(&mut self) {
+         let (t0, t_scan) = (Instant::now(), crate::prof::t());
+@@ -1209,12 +1230,6 @@ impl Universe {
+         }
+     }
+ 
+-    // ---- observation ----------------------------------------------------------------------------
+-
+-    pub fn rec(&self, i: usize) -> BodyRec {
+-        self.bodies.rec(i)
+-    }
+-
+     /// Key body `i` in `prunable` at the earliest tick its oldest retired binding could be forgotten (never before `after`), or take it
+     /// out when it holds one or none.
+     fn key_prune(&mut self, i: usize, after: Tick) {
