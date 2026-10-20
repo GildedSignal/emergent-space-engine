@@ -1,0 +1,145 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..3ab1ecea 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,20 +14,39 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+-}
++#[cfg(target_os = "macos")]
++ extern "C" {
++     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++ }
++
++ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
++ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
++ fn footprint() -> (u64, u64) {
++     let mut buf = [0u64; 64];
++     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++     let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++     if ok != 0 {
++         return (0, 0);
++     }
++     (buf[9], buf[30])
++ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// Linux stand-in (the lab's machines): the resident set and its high-water mark, disclosed wherever used.
++#[cfg(target_os = "linux")]
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
+-    }
+-    (buf[9], buf[30])
++    let read = |f: &str| -> u64 {
++        std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|s| {
++                s.lines()
++                    .find(|l| l.starts_with(f))
++                    .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++            })
++            .unwrap_or(0)
++            .saturating_mul(1024)
++    };
++    (read("VmRSS:"), read("VmHWM:"))
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -45,11 +64,13 @@ fn main() {
+     let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let seed: u64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let csv = std::env::var_os("ES_FRAME_CSV").is_some(); // print-only per-frame trace with class deltas; off = shipped output
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -87,6 +108,23 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if csv {
++            // Print-only per-frame trace (off = shipped output): wall, events, kicks, presented game-s, lag, held scans,
++            // resident MB, and the frame's Stats deltas — items and wall-ns by class (planet, moon, ship, player, fleet).
++            let d = &p.u.stats;
++            let dt = |a: u64, b: u64| a.saturating_sub(b);
++            let cn = |k: usize| dt(d.cost_ns[k], last_stats.cost_ns[k]) as f64 / 1e6;
++            println!(
++                "escsv f={} ms={:.3} ev={} k={} gs={:.1} lag={:.1} held={} rss={:.0} op={} bo={} sl={} it={},{},{},{},{} cn={:.2},{:.2},{:.2},{:.2},{:.2} en={}",
++                f, took.as_secs_f64() * 1e3, frame.events, dt(d.kicks, last_stats.kicks),
++                p.u.now as f64 * TICK_SECONDS, (frame.target - frame.presented) as f64 * TICK_SECONDS,
++                p.u.held_scans(), footprint().0 as f64 / 1e6,
++                dt(d.opens, last_stats.opens), dt(d.boundaries, last_stats.boundaries), dt(d.slices, last_stats.slices),
++                dt(d.items[0], last_stats.items[0]), dt(d.items[1], last_stats.items[1]), dt(d.items[2], last_stats.items[2]),
++                dt(d.items[3], last_stats.items[3]), dt(d.items[4], last_stats.items[4]),
++                cn(0), cn(1), cn(2), cn(3), cn(4), dt(d.encounters, last_stats.encounters)
++            );
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..522e1de3 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -104,6 +104,27 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+ /// multiple of its own length, a body of a longer step has its boundaries on those of a shorter one's, and every pair
+ /// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
+ /// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
++
++/// Lab probe (env-gated, off = shipped bits): `ES_STAGGER_GS` spreads the birth phase of the root
++/// doll's clock-stepped ships — each ship's first clock interval is stretched by a deterministic
++/// offset of its id, uniform over the given game-seconds. The belt's clocks are otherwise born in
++/// phase (the standing comb); this tests whether phase spread alone deletes the comb and the cost
++/// concentration riding it. Zero (and no stretching at all) when the variable is unset.
++pub fn birth_stagger_ticks(i: usize) -> i64 {
++    static SPREAD_GS: std::sync::LazyLock<f64> =
++        std::sync::LazyLock::new(|| std::env::var("ES_STAGGER_GS").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0));
++    let gs = *SPREAD_GS;
++    if gs <= 0.0 {
++        return 0;
++    }
++    let mut x = (i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
++    x ^= x >> 33;
++    x = x.wrapping_mul(0xFF51_AFD7_ED55_8CCD);
++    x ^= x >> 33;
++    let frac = (x >> 11) as f64 / (1u64 << 53) as f64;
++    (frac * gs / crate::view::TICK_SECONDS) as i64
++}
++
+ pub fn aligned(step: i64, t: Tick) -> i64 {
+     let off = t.rem_euclid(step);
+     if off == 0 {
+@@ -625,6 +646,7 @@ impl Work<'_, '_> {
+     /// is planned at the middle of the first step.
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
++        let first = self.rec.ext.is_none();
+         if self.rec.ext.is_none() {
+             let st = self.rec.b.readout(t)?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+@@ -642,6 +664,9 @@ impl Work<'_, '_> {
+         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+             half = half.min((self.thrust_step(t)? / 2).max(1));
+         }
++        // The lab's birth stagger (see `birth_stagger_ticks`; zero, and no stretching, when off): only a
++        // SHIP's first synchronisation stretches, so the player and every re-synchronisation are shipped.
++        let half = half + if first && self.rec.kind == Kind::Ship { birth_stagger_ticks(self.i) } else { 0 };
+         self.rec.ext = Some(ext);
+         self.rec.plan.clear();
+         self.rec.anchor = t;
