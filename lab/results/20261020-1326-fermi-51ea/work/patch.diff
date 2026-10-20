@@ -1,0 +1,197 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..760323b0 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,21 +14,38 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
+-extern "C" {
+-    fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++#[cfg(target_os = "macos")]
++mod rusage {
++    extern "C" {
++        pub fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++    }
++    /// (physical footprint now, peak) on macOS.
++    pub fn footprint() -> (u64, u64) {
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
+ }
+ 
+-/// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+-fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++#[cfg(target_os = "linux")]
++mod rusage {
++    /// (resident now, peak) from /proc/self/status (the macOS footprint probe's stand-in; VmHWM is the
++    /// lifetime-high resident peak, the closest Linux analogue of the physical footprint's peak).
++    pub fn footprint() -> (u64, u64) {
++        let field = |name: &str| -> u64 {
++            std::fs::read_to_string("/proc/self/status").ok().and_then(|s| {
++                s.lines().find(|l| l.starts_with(name)).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
++            }).unwrap_or(0) * 1024
++        };
++        (field("VmRSS:"), field("VmHWM:"))
+     }
+-    (buf[9], buf[30])
+ }
++use rusage::footprint;
++
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..bc628c8f 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -13,7 +13,7 @@ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+-use std::sync::{Arc, Mutex, OnceLock};
++use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+@@ -115,26 +115,38 @@ impl PlayerNeighbourhood {
+     }
+ }
+ 
++/// Print-only scan trace (51ea): one line per capture and per first answer, stderr, env-gated.
++pub(crate) fn trace_enabled() -> bool {
++    static ON: LazyLock<bool> = LazyLock::new(|| std::env::var("ES_SCAN_TRACE").is_ok());
++    *ON
++}
+ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+     Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
+ }
+-
+ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+     }
+ }
+ 
++
+ impl Scan {
+     /// The expensive half: read the player and each candidate at `t` and apply the predicate.
+     fn compute(&self) -> Vec<Encounter> {
++        let trace = trace_enabled();
++        let t0 = std::time::Instant::now();
+         let mut out = Vec::new();
+         let (t, body) = (self.t, self.body);
++        let mut cart_ns = 0u128;
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+         let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
+         for (j, other, reach) in &self.candidates {
+             let found = (|| -> Res<Option<bool>> {
++                let tc = std::time::Instant::now();
+                 let (xj, vj) = other.cartesian(t)?;
++                if trace {
++                    cart_ns += tc.elapsed().as_nanos();
++                }
+                 let d = sub2(xj, x)?;
+                 let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
+                 // Integers in units of reach/2^20: the lattice predicate is exact on i128 (until it wraps: see above).
+@@ -150,6 +162,20 @@ impl Scan {
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
++        if trace {
++            let us = t0.elapsed().as_secs_f64() * 1e6;
++            let epoch_us = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_micros()).unwrap_or(0);
++            eprintln!(
++                "scan: ans t={} cands={} en={} us={:.1} cart_us={:.1} cand_us={:.3} e={}",
++                t,
++                self.candidates.len(),
++                out.len(),
++                us,
++                cart_ns as f64 / 1e3,
++                if self.candidates.is_empty() { 0.0 } else { us / self.candidates.len() as f64 },
++                epoch_us
++            );
++        }
+         out
+     }
+ }
+@@ -160,18 +186,28 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let trace = trace_enabled();
++        let t0 = std::time::Instant::now();
++        let n_bodies = ctx.bodies.len();
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+         // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
+-        let near = (|| -> Option<Vec<usize>> {
++        let near: Option<Vec<usize>> = (|| {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+             let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        if trace {
++            eprintln!("scan: idx doll={} near={}", me.doll, near.as_ref().map_or(-1, |v| v.len() as i64));
++        }
+         let mut candidates = Vec::new();
++        let (walked, near_len, is_walk) = match &near {
++            Some(ids) => (ids.len(), ids.len(), false),
++            None => (n_bodies, 0, true),
++        };
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+@@ -187,9 +223,20 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if trace {
++            eprintln!(
++                "scan: cap t={} n={} walk={} near={} cands={} us={:.1} walk_us={:.4}",
++                t, n_bodies, is_walk as u8, near_len, candidates.len(),
++                t0.elapsed().as_secs_f64() * 1e6,
++                t0.elapsed().as_secs_f64() * 1e6 / walked.max(1) as f64
++            );
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
++            if trace {
++                eprintln!("scan: reuse 1");
++            }
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+         let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..355cc3ad 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -251,8 +251,11 @@ impl Radial {
+             return None;
+         }
+         let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
+-        if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
+-            return None;
++        if hi - lo > 4096 || hit + idx.unbounded.len() > self.bodies / 4 + 64 {
++            if crate::encounter::trace_enabled() {
++                let why = if hi - lo > 4096 { "bins" } else { "occ" };
++                eprintln!("scan: radialbail doll={d} why={why} bins={} hit={} unbounded={} bodies={}", hi - lo, hit, idx.unbounded.len(), self.bodies);
++            }
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+         for b in lo..=hi {

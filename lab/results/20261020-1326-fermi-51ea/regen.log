@@ -1,0 +1,36 @@
+error: patch failed: crates/universe/examples/nladder.rs:14
+error: crates/universe/examples/nladder.rs: patch does not apply
+error: patch failed: crates/universe/src/encounter.rs:13
+error: crates/universe/src/encounter.rs: patch does not apply
+error: patch failed: crates/universe/src/radial.rs:251
+error: crates/universe/src/radial.rs: patch does not apply
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.74s
+== 1e5 burn (n=100028): caps=2595 bails=0 reuses=989 (28% of captures) distinct answers=1603 f_d=0.62
+   capture: us p50=24.4 p99=151.0 max=567.5 | per-candidate 0.660 us (indexed path)
+   root doll (with the belt): caps=432 cands p50=6 p90=174 max=1804 (max/n=1.8e-02)
+   doll 2 (locals, fixed ~200): cands p50=90 max=194 (N-flat)
+   answer: p50=437 us max=7570 us | cand_us p50=4.88 p99=8.91 | cart share=0.938 | en p50=1 max=7
+== 1e5 coast (n=100028): caps=1506 bails=0 reuses=561 (27% of captures) distinct answers=887 f_d=0.61
+   capture: us p50=102.1 p99=165.4 max=222.5 | per-candidate 0.527 us (indexed path)
+   doll 2 (locals, fixed ~200): cands p50=179 max=194 (N-flat)
+   answer: p50=775 us max=1076 us | cand_us p50=4.30 p99=5.21 | cart share=0.949 | en p50=0 max=1
+== 3e4 burn (n=30028): caps=2595 bails=0 reuses=989 (28% of captures) distinct answers=1606 f_d=0.62
+   capture: us p50=24.0 p99=129.7 max=291.9 | per-candidate 0.741 us (indexed path)
+   root doll (with the belt): caps=432 cands p50=5 p90=55 max=547 (max/n=1.8e-02)
+   doll 2 (locals, fixed ~200): cands p50=90 max=194 (N-flat)
+   answer: p50=437 us max=2448 us | cand_us p50=4.91 p99=8.72 | cart share=0.937 | en p50=1 max=7
+== 1e5 burn (2nd draw) (n=100028): caps=2667 bails=37 reuses=1025 (28% of captures) distinct answers=1603 f_d=0.61
+   capture: us p50=27.0 p99=7868.4 max=79003.5 | per-candidate 0.896 us (indexed path)
+   root doll (with the belt): caps=504 cands p50=6 p90=6487 max=54733 (max/n=5.5e-01)
+   doll 2 (locals, fixed ~200): cands p50=90 max=194 (N-flat)
+   answer: p50=450 us max=8080 us | cand_us p50=4.97 p99=9.16 | cart share=0.938 | en p50=1 max=7
+
+== 1e9 composition (fixed density, window fractions measured at 1e5; cand_us 4.96, cap-cand 0.64)
+   p50 window: cands=7.00e+04 -> answer=0.347 s, capture=0.0448 s
+   max window (measured tail): cands=1.80e+07 -> answer=89.5 s, capture=11.5 s
+   mid-tail (9ed1 bite windows ~500/1e5): cands=5.00e+06 -> answer=24.8 s, capture=3.2 s
+   drain bite: 2048 backlog x f_d 0.62 x per-answer(p50-window) = 441 s
+              2048 x 0.62 x mid-tail = 31481 s
+   9ed1 bite reconciliation: 442.9 ms / en=178 = 2488 us/answer = cands 502 (mid-tail); 1273.5/178 = 7154 us/answer = cands 1442
+   amortized at play (rtf 100): capture 0.748 s/s-wall, answers 3.61 s/s-wall
