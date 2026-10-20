@@ -1,0 +1,8 @@
+Working...
+Both paths verified. Tree clean, probe removed, nothing outside my run folder touched. Final state of the fix:
+
+- **Root cause:** `work/patch.diff` was empty (0 bytes) — the run-window snapshot missed the untracked probe file, so the restored tree had no `crates/space/tests/kerr_view_probe.rs`, `cargo test --test kerr_view_probe` failed with stderr discarded, `grep` matched nothing, and `set -e` exited 1.
+- **Fix:** recovered the original run's 42-line patch verbatim from `origin/claude/lab-20261020-2102-redteam-1645` (applies cleanly at my base `9bf31c7`; its `significand()`/`exponent()` accessors still exist, scaled.rs:49/52), stored a byte-identical probe copy `kerr_view_probe.rs` in the run folder, and made `regen.sh` materialize the probe itself (idempotent, trap-cleaned) so regeneration no longer depends on patch-application mechanics; cargo stderr now goes to `cargo-stderr.log` instead of `/dev/null`, an empty `shipped-defl.txt` fails loudly, and the residual block now truly asserts the dossier's shipped-comparison claim (worst 1.0e-9 ≤ 2e-9 over 48 rows, captures 20/20, zero flag disagreements).
+- **Verified end-to-end both ways:** without the patch (the failing state) and with the patch pre-applied — `sh regen.sh` exits 0 in ~12 s with every dossier number asserted (ALL PASS), leaving the tree clean.
+
+**The claim:** the record now regenerates end-to-end from the restored tree — regen.sh self-materializes the probe its empty patch.diff dropped (recovered verbatim from the original run's branch), asserts every dossier number including the shipped-vs-oracle residual (1.0e-9) and the 20/20 capture agreement, and exits 0 in ~12 s on both the patched and unpatched runner paths.

@@ -1,0 +1,23 @@
+# Predictions — written before the decisive run (no instrument code executed yet)
+
+Second author on 20261020-2102-redteam-1645. The checker's named experiment:
+replace the author's edge map (α = asin(b·√(1−2M/r_o)/r_o), Schwarzschild's
+static formula with Kerr b_c substituted) with the exact static-observer
+tetrad in Kerr equatorial BL, where g_tφ ≠ 0:
+
+  sin α = (b + 2aM/(r_o(1−2M/r_o)))·√(1−2M/r_o)/√G,  G = g_φφ − g_tφ²/g_tt,
+- **P2 (checker's printed values confirm).** Prograde 3.2M edge errors −17.8°/−34.9°/−43.9°; retrograde 6M −7.9°/−13.7°/−15.1°; retrograde 3.2M +4.3°/+15.9°/+18.5° (sign flipped: under-cover); exact 3.2M retro edges −79.6°/−68.0°/−65.4°; centre max at (0.998, 6M) ≈ **−19.8°** (my first hand pass gave −20.4°, an asin-table slip; recomputed −19.8°, agreeing with the checker); centre at 3.2M −6.8°/−9.5°/−12.7° (the checker's range endpoint read −13.2°; I predict −12.7°); edge-arc (α⁺−α⁻ convention) at 3.2M: 40.5/32.5/29.3%.
+table) and from my own derivation. Tolerance claimed: ±0.15° unless stated.
+Held-out means: not printed in the checker's letter.
+
+- **P1 (instrument validation).** (a) The b-form, the Q-form (√G·Q/r_o²·√(1−2M/r_o), Q = (b−a)+aP/Δ) and the radial null identity sin²α = 1 − R(r_o)(1−2M/r_o)/(r_o²Δ) agree to ≤ 1e−13 at every grid point. (b) At a=0 the exact map equals the author's map to ≤ 1e−15. (c) sin α = ±1 exactly at the two real b-roots of R(r_o)=0 (the tangential launches). (d) A from-observer fate classification (launch at bearing ψ, integrate Carter's system via R's root structure: escape vs plunge, no approximation beyond root-finding) bisected at each shadow edge reproduces the formula's edge angles to ≤ 0.3°.
+- **P2 (checker's printed values confirm).** Prograde 3.2M edge errors −17.8°/−34.9°/−43.9°; retrograde 6M −7.9°/−13.7°/−15.1°; retrograde 3.2M +4.3°/+15.9°/+18.5° (sign flipped: under-cover); exact 3.2M retro edges −79.6°/−68.0°/−65.4°; centre at 3.2M −6.8°/−9.5°/−13.2°; centre max at (0.998, 6M) — the checker printed −19.8°; my hand derivation gives **−20.4°**; I predict the code gives −20.4 ± 0.1 (the checker's own value off by ~0.6°). Edge-arc (α⁺−α⁻ convention) at 3.2M: 40.5/32.5/29.3%.
+- **P3 (held-out, decisive: the sky census).** At r_o = 3.2M every grid spin has r_ph⁺ < r_o < r_ph⁻ (observer inside the retrograde photon ring): outward-launched photons with b beyond b_c⁻ turn on the barrier above and fall back through r_o into the hole — the retrograde cap (sin ψ < sin α⁻, both hemispheres) is DARK. The true dark fraction is (180° + α⁺ − |α⁻|)/360, NOT (α⁺ − α⁻)/360: predicted **46.2% / 44.7% / 43.0%** (χ = 0.5/0.9/0.998) against the checker-quoted 40.5/32.5/29.3% and the χ-blind 46.6%. At 20M and 6M (outside the ring) census = (α⁺−α⁻)/360 exactly. a=0 controls: census at r_o = 3.0M = exactly 50.0%; at 2.9M ≈ 51.9% (grows past half toward the horizon); the lit set at 2.9M is the outward cone |ψ| < 86.55°.
+- **P4 (held-out rows).** χ=0.3: 20M edges [+12.6, −15.8]°, errors −1.7/−1.5 (matches the checker's print), centre −1.6°; 6M edges [+39.8, −49.8], errors −5.2/−4.8; 3.2M edges [+73.3, −86.0], errors pro −10.7, retro **−2.0 (NOT flipped at χ=0.3 — the flip to +sign happens between χ=0.3 and 0.5)**. χ=0.9999: b_c = +2.021/−7.000; 20M edges [+5.8, −19.0], errors −8.5/−4.8; 10M [+11.6, −36.9], errors −16.0/−9.2; 6M [+19.6, −60.1], errors −25.4/−15.1, centre −20.2°; 3.2M [+39.0, −65.4], errors −45.1/+18.6, census ≈ 42.6%. r_o=10M held-out for all frozen χ: χ=0.5 edges [+22.1, −32.5], errors −5.6/−4.8; χ=0.9 [+15.8, −36.0], errors −11.8/−8.3, centre −10.1°; χ=0.998 [+12.1, −36.9], errors −15.6/−9.2.
+- **P5 (weak-χ floor, held-out).** Max edge error → 0 continuously as χ→0 (law.md L32's χ=0-is-Schwarzschild bit for bit). At 20M: ≈1.5–1.7° at χ=0.3, crossing 1° near χ ≈ 0.19, 2.5° near χ ≈ 0.45. At 6M: ≈4.8–5.2° at χ=0.3, crossing 1° near χ ≈ 0.06, 2.5° near χ ≈ 0.15. So the r15 negative bar "≥2.5°" is a frozen-grid fact (χ ≥ 0.5 at 20M; χ ≥ 0.15-ish at 6M), not a law of the effect.
+- **P6 (tangentiality, half held-out).** max|sin α_retro| over r_o ∈ (r_+ + 1e−3, 20] = 1 − O(1e−9), attained exactly at r_o = r_ph⁻(χ) (3.33M at χ=0.3 → 4.00M at χ→1), never past; same statement prograde at r_o = r_ph⁺ (edge exactly +90°) — the prograde half is NOT in the checker's letter.
+- **P7 (unchanged halves).** The oracle battery, the shipped `kerr::deflection` comparison (residual exactly the oracle's 2b/r_max tail |b|·1e−5) and the sense-split rim wall (A = 2.583 pro / 0.784 retro at χ=0.9) reproduce unchanged from the original instrument.
+
+If P3's census disagrees with the cap formula, the checker's α⁺−α⁻ convention
+was right at the rim rows and my prediction fails — the census decides, not
+the convention.

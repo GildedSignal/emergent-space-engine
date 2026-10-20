@@ -1,0 +1,19 @@
+== shipped vs oracle residual (expect exactly |b|e-5 = 2b/r_max tail) ==
+max |residual - tail| = 1.00e-09 over 48 rows; captures 20 agree 20/20
+== dossier numbers asserted against the regenerated record ==
+PASS all 21 table rows parsed
+PASS 3.2M retro edges -79.62/-68.02/-65.43
+PASS 3.2M census 46.2/44.8/43.0 (the cap; NOT the alpha+-alpha- 40.5/32.5/29.3)
+PASS pro 3.2M chi-blind errors -17.8/-34.9/-43.9
+PASS retro 3.2M chi-blind errors +4.3/+15.9/+18.5 (sign flip)
+PASS centre max -19.8 at (0.998,6M)
+PASS weak-chi crossings 0.183/0.435 (20M), 0.060/0.148 (6M)
+PASS a=0 inside controls: 50.00% at 3.0M, 51.92% at 2.9M
+PASS retro tangentiality: |sin| = 1 exactly at r_ph, all 5 spins
+PASS pro tangential point unreachable at chi>=0.9 (inside ergosphere)
+PASS edge bisection max |d sin| = 5.5e-15
+PASS cap formula == census at chi=0.5 (46.24 vs 46.25)
+PASS cap formula == census at chi=0.9 (44.74 vs 44.75)
+PASS cap formula == census at chi=0.998 (42.95 vs 42.97)
+ALL PASS
+OK

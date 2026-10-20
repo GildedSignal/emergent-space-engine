@@ -1,0 +1,218 @@
+== instrument validation ==
+formula triple agreement over grid: max|b-form - Q-form| = 4.44e-16, max|b-form - identity| = 2.31e-14  (P1a: <= 1e-13)
+a=0: max |exact map - author map| = 0.00e+00  (P1b: <= 1e-15)
+tangential consistency: max |R(r_o)|/|b| at sin(psi)=+-1 = 4.16e-12  (P1c: ~0)
+roots a=0.5 b=-6.20: cardano ['3.248561', '3.878004'] vs scan 4.44e-15 | fate(inward@20)=ESCAPE vs bend-to-200 ESCAPE
+roots a=0.9 b=-6.90: cardano ['3.582247', '4.306058'] vs scan 6.22e-15 | fate(inward@20)=ESCAPE vs bend-to-200 ESCAPE
+roots a=0.998 b=+3.50: cardano ['1.314165', '2.498662'] vs scan 2.66e-15 | fate(inward@20)=ESCAPE vs bend-to-200 ESCAPE
+roots a=0.3 b=+4.70: cardano ['2.349609', '3.051246'] vs scan 3.55e-15 | fate(inward@20)=ESCAPE vs bend-to-200 ESCAPE
+roots a=0.0 b=+5.50: cardano ['2.544795', '3.766751'] vs scan 2.66e-15 | fate(inward@20)=ESCAPE vs bend-to-200 ESCAPE
+census trap check: any TRAPPED on probed skies = False
+
+== controls (a=0; original battery, unchanged) ==
+bend a=0 b=  100.0: 0.040222540 vs 4/b+15pi/4b^2 0.041178097 rel=-2.32e-02
+bend a=0 b=   50.0: 0.084583450 vs 4/b+15pi/4b^2 0.084712389 rel=-1.52e-03
+bend a=0 b=   20.0: 0.235935995 vs 4/b+15pi/4b^2 0.229452431 rel=+2.83e-02
+a=0 b_c=+-5.196152 (=3sqrt3 5.196152)
+a=0 r_o=20.0: edges +-14.2690 census 7.94% (039d: 7.9/25.0/46.6 at 20/6/3.2M)
+a=0 r_o=6.0: edges +-45.0000 census 25.00% (039d: 7.9/25.0/46.6 at 20/6/3.2M)
+a=0 r_o=3.2: edges +-83.9167 census 46.61% (039d: 7.9/25.0/46.6 at 20/6/3.2M)
+spiral a=0.0 pro: r_ph=3.0000 b_c=+5.19615 bend at b_c*(1+1e-6) = 13.42 rad (2.1 turns)
+spiral a=0.0 retro: r_ph=3.0000 b_c=-5.19615 bend at b_c*(1+1e-6) = 13.42 rad (2.1 turns)
+spiral a=0.9 pro: r_ph=1.5579 b_c=+2.84442 bend at b_c*(1+1e-6) = 34.02 rad (5.4 turns)
+spiral a=0.9 retro: r_ph=3.9103 b_c=-6.83232 bend at b_c*(1+1e-6) = 10.47 rad (1.7 turns)
+a=0 INSIDE r_o=3.0: census 50.00% (predicted 50.00 at 3.0, ~51.9 at 2.9; lit cone half-angle 90.00 deg)
+a=0 INSIDE r_o=2.9: census 51.92% (predicted 50.00 at 3.0, ~51.9 at 2.9; lit cone half-angle 86.54 deg)
+
+== THE CORRECTED TABLE (exact static tetrad; edges deg; census = dark fraction by fate) ==
+chi    r_o   b_c+     b_c-    | exact edges [a-,a+] | chi-blind | err pro/retro | centre | arc(a+-a-) census | cap
+0.5000  20.0  +4.096  -6.138 | [ -16.76, +11.35] |   +-14.27   |  -2.92/ -2.49 |  -2.70 |     7.8%     7.8%  
+0.5000  10.0  +4.096  -6.138 | [ -32.48, +22.15] |   +-27.69   |  -5.55/ -4.78 |  -5.17 |    15.2%    15.2%  
+0.5000   6.0  +4.096  -6.138 | [ -52.86, +36.04] |   +-45.00   |  -8.96/ -7.86 |  -8.41 |    24.7%    24.7%  
+0.5000   3.2  +4.096  -6.138 | [ -79.62, +66.07] |   +-83.92   | -17.84/ +4.29 |  -6.78 |    40.5%    46.2%  CAP
+0.9000  20.0  +2.844  -6.832 | [ -18.60,  +8.02] |   +-14.27   |  -6.25/ -4.33 |  -5.29 |     7.4%     7.4%  
+0.9000  10.0  +2.844  -6.832 | [ -36.02, +15.85] |   +-27.69   | -11.84/ -8.32 | -10.08 |    14.4%    14.4%  
+0.9000   6.0  +2.844  -6.832 | [ -58.67, +26.16] |   +-45.00   | -18.84/-13.67 | -16.26 |    23.6%    23.6%  
+0.9000   3.2  +2.844  -6.832 | [ -68.02, +49.07] |   +-83.92   | -34.85/+15.90 |  -9.47 |    32.5%    44.8%  CAP
+0.9980  20.0  +2.111  -6.997 | [ -19.04,  +6.04] |   +-14.27   |  -8.23/ -4.77 |  -6.50 |     7.0%     6.9%  
+0.9980  10.0  +2.111  -6.997 | [ -36.85, +12.11] |   +-27.69   | -15.58/ -9.16 | -12.37 |    13.6%    13.6%  
+0.9980   6.0  +2.111  -6.997 | [ -60.05, +20.37] |   +-45.00   | -24.63/-15.05 | -19.84 |    22.3%    22.3%  
+0.9980   3.2  +2.111  -6.997 | [ -65.43, +40.06] |   +-83.92   | -43.86/+18.49 | -12.69 |    29.3%    43.0%  CAP
+0.3000  20.0  +4.565  -5.774 | [ -15.80, +12.60] |   +-14.27   |  -1.67/ -1.53 |  -1.60 |     7.9%     7.9%  
+0.3000  10.0  +4.565  -5.774 | [ -30.62, +24.51] |   +-27.69   |  -3.19/ -2.93 |  -3.06 |    15.3%    15.3%  
+0.3000   6.0  +4.565  -5.774 | [ -49.80, +39.83] |   +-45.00   |  -5.17/ -4.80 |  -4.99 |    24.9%    24.9%  
+0.3000   3.2  +4.565  -5.774 | [ -85.99, +73.36] |   +-83.92   | -10.55/ -2.08 |  -6.31 |    44.3%    46.5%  CAP
+0.9999  20.0  +2.025  -7.000 | [ -19.04,  +5.81] |   +-14.27   |  -8.46/ -4.78 |  -6.62 |     6.9%     6.9%  
+0.9999  10.0  +2.025  -7.000 | [ -36.87, +11.66] |   +-27.69   | -16.03/ -9.17 | -12.60 |    13.5%    13.5%  
+0.9999   6.0  +2.025  -7.000 | [ -60.07, +19.67] |   +-45.00   | -25.33/-15.07 | -20.20 |    22.2%    22.2%  
+0.9999   3.2  +2.025  -7.000 | [ -65.38, +38.99] |   +-83.92   | -44.93/+18.53 | -13.20 |    29.0%    42.7%  CAP
+0.1000   3.2  +4.993  -5.393 | [ -87.34, +80.44] |   +-83.92   |  -3.47/ -3.42 |  -3.45 |    46.6%    46.6%  
+author-map bias (author - exact, deg), for the checker's quoted ranges:
+  chi=0.5 r_o=20.0: bias pro  -0.15, retro  -0.16  
+  chi=0.5 r_o=6.0: bias pro  -2.16, retro  -3.79  
+  chi=0.5 r_o=3.2: bias pro -14.46, retro -10.38 *(wrap forced to +-90)
+  chi=0.9 r_o=20.0: bias pro  -0.27, retro  -0.31  
+  chi=0.9 r_o=6.0: bias pro  -3.39, retro  -9.72  
+  chi=0.9 r_o=3.2: bias pro -16.09, retro -21.98 *(wrap forced to +-90)
+  chi=0.998 r_o=20.0: bias pro  -0.29, retro  -0.35  
+  chi=0.998 r_o=6.0: bias pro  -3.67, retro -12.15  
+  chi=0.998 r_o=3.2: bias pro -16.24, retro -24.57 *(wrap forced to +-90)
+
+== fate-bisected sky edges vs the tetrad formula (P1d) ==
+(the physical flip nearest a formula edge sits at bearing psi or its mirror 180-psi;
+ both share sin(psi); the flip is bisected from the fate classifier alone)
+  a=0.5 r_o=20.0 pro: formula edge +11.354 deg, flip at bearing +168.646 deg, |sin(flip)-sin(formula)| = 1.11e-16
+  a=0.5 r_o=20.0 retro: formula edge -16.764 deg, flip at bearing +196.764 deg, |sin(flip)-sin(formula)| = 3.33e-16
+  a=0.5 r_o=6.0 pro: formula edge +36.043 deg, flip at bearing +143.957 deg, |sin(flip)-sin(formula)| = 7.77e-16
+  a=0.5 r_o=6.0 retro: formula edge -52.857 deg, flip at bearing +232.857 deg, |sin(flip)-sin(formula)| = 3.33e-16
+  a=0.5 r_o=3.2 pro: formula edge +66.075 deg, flip at bearing +113.925 deg, |sin(flip)-sin(formula)| = 6.66e-16
+  a=0.5 r_o=3.2 retro: formula edge -79.625 deg, flip at bearing  -79.625 deg, |sin(flip)-sin(formula)| = 5.55e-16
+  a=0.9 r_o=20.0 pro: formula edge  +8.019 deg, flip at bearing +171.981 deg, |sin(flip)-sin(formula)| = 1.39e-16
+  a=0.9 r_o=20.0 retro: formula edge -18.601 deg, flip at bearing +198.601 deg, |sin(flip)-sin(formula)| = 4.44e-16
+  a=0.9 r_o=6.0 pro: formula edge +26.164 deg, flip at bearing +153.836 deg, |sin(flip)-sin(formula)| = 2.78e-16
+  a=0.9 r_o=6.0 retro: formula edge -58.675 deg, flip at bearing +238.675 deg, |sin(flip)-sin(formula)| = 1.11e-16
+  a=0.9 r_o=3.2 pro: formula edge +49.069 deg, flip at bearing +130.931 deg, |sin(flip)-sin(formula)| = 7.77e-16
+  a=0.9 r_o=3.2 retro: formula edge -68.018 deg, flip at bearing  -68.018 deg, |sin(flip)-sin(formula)| = 0.00e+00
+  a=0.998 r_o=20.0 pro: formula edge  +6.041 deg, flip at bearing +173.959 deg, |sin(flip)-sin(formula)| = 3.05e-16
+  a=0.998 r_o=20.0 retro: formula edge -19.036 deg, flip at bearing +199.036 deg, |sin(flip)-sin(formula)| = 1.11e-16
+  a=0.998 r_o=6.0 pro: formula edge +20.366 deg, flip at bearing +159.634 deg, |sin(flip)-sin(formula)| = 2.22e-16
+  a=0.998 r_o=6.0 retro: formula edge -60.046 deg, flip at bearing +240.046 deg, |sin(flip)-sin(formula)| = 2.22e-16
+  a=0.998 r_o=3.2 pro: formula edge +40.061 deg, flip at bearing +139.939 deg, |sin(flip)-sin(formula)| = 3.33e-16
+  a=0.998 r_o=3.2 retro: formula edge -65.432 deg, flip at bearing  -65.432 deg, |sin(flip)-sin(formula)| = 1.11e-16
+  a=0.3 r_o=20.0 pro: formula edge +12.597 deg, flip at bearing +167.403 deg, |sin(flip)-sin(formula)| = 4.44e-16
+  a=0.3 r_o=20.0 retro: formula edge -15.798 deg, flip at bearing +195.798 deg, |sin(flip)-sin(formula)| = 6.11e-16
+  a=0.3 r_o=6.0 pro: formula edge +39.826 deg, flip at bearing +140.174 deg, |sin(flip)-sin(formula)| = 8.88e-16
+  a=0.3 r_o=6.0 retro: formula edge -49.804 deg, flip at bearing +229.804 deg, |sin(flip)-sin(formula)| = 7.77e-16
+  a=0.3 r_o=3.2 pro: formula edge +73.365 deg, flip at bearing +106.635 deg, |sin(flip)-sin(formula)| = 9.99e-16
+  a=0.3 r_o=3.2 retro: formula edge -85.994 deg, flip at bearing  -85.994 deg, |sin(flip)-sin(formula)| = 1.89e-15
+  a=0.9999 r_o=20.0 pro: formula edge  +5.806 deg, flip at bearing +174.194 deg, |sin(flip)-sin(formula)| = 1.42e-15
+  a=0.9999 r_o=20.0 retro: formula edge -19.045 deg, flip at bearing +199.045 deg, |sin(flip)-sin(formula)| = 1.67e-16
+  a=0.9999 r_o=6.0 pro: formula edge +19.670 deg, flip at bearing +160.330 deg, |sin(flip)-sin(formula)| = 5.50e-15
+  a=0.9999 r_o=6.0 retro: formula edge -60.072 deg, flip at bearing +240.072 deg, |sin(flip)-sin(formula)| = 4.44e-16
+  a=0.9999 r_o=3.2 pro: formula edge +38.989 deg, flip at bearing +141.011 deg, |sin(flip)-sin(formula)| = 3.89e-15
+  a=0.9999 r_o=3.2 retro: formula edge -65.383 deg, flip at bearing  -65.383 deg, |sin(flip)-sin(formula)| = 2.22e-16
+max |sin(flip) - sin(formula edge)| = 5.50e-15  (P1d: <= 5e-3)
+
+== tangentiality (P6): |sin alpha| = 1 exactly at r_o = r_ph, never past ==
+(static observers exist only at r_o > 2M: the scan domain)
+chi=0.3000 retro: r_ph=3.328855  max|sin| over r_o scan = 0.999999996900 at r_o=3.328702 (|argmax-r_ph|=1.53e-04); |sin| at exactly r_ph = 0.999999999999998
+chi=0.3000 pro: r_ph=2.630026  max|sin| over r_o scan = 0.999999998486 at r_o=2.630112 (|argmax-r_ph|=8.58e-05); |sin| at exactly r_ph = 0.999999999999999
+chi=0.5000 retro: r_ph=3.532089  max|sin| over r_o scan = 0.999999999671 at r_o=3.532035 (|argmax-r_ph|=5.35e-05); |sin| at exactly r_ph = 1.000000000000000
+chi=0.5000 pro: r_ph=2.347296  max|sin| over r_o scan = 0.999999999784 at r_o=2.347329 (|argmax-r_ph|=3.22e-05); |sin| at exactly r_ph = 1.000000000000001
+chi=0.9000 retro: r_ph=3.910268  max|sin| over r_o scan = 0.999999997459 at r_o=3.910437 (|argmax-r_ph|=1.69e-04); |sin| at exactly r_ph = 1.000000000000000
+chi=0.9000 pro: r_ph=1.557855 INSIDE the static domain's floor (2.0002); max|sin| over the domain = 0.999969125 at its edge r_o=2.0002 (no static observer can sit at the tangential point)
+chi=0.9980 retro: r_ph=3.998222  max|sin| over r_o scan = 0.999999999488 at r_o=3.998300 (|argmax-r_ph|=7.83e-05); |sin| at exactly r_ph = 1.000000000000000
+chi=0.9980 pro: r_ph=1.073909 INSIDE the static domain's floor (2.0002); max|sin| over the domain = 0.999910716 at its edge r_o=2.0002 (no static observer can sit at the tangential point)
+chi=0.9999 retro: r_ph=3.999911  max|sin| over r_o scan = 0.999999995603 at r_o=3.999681 (|argmax-r_ph|=2.30e-04); |sin| at exactly r_ph = 1.000000000000000
+chi=0.9999 pro: r_ph=1.016374 INSIDE the static domain's floor (2.0002); max|sin| over the domain = 0.999902446 at its edge r_o=2.0002 (no static observer can sit at the tangential point)
+
+== weak-chi floor (P5): max |edge error| vs chi-blind, deg ==
+chi      20M        6M
+ 0.02    0.106    0.332
+ 0.05    0.267    0.832
+ 0.10    0.538    1.675
+ 0.15    0.813    2.529
+ 0.20    1.094    3.396
+ 0.25    1.380    4.278
+ 0.30    1.672    5.174
+ 0.40    2.276    7.021
+ 0.50    2.915    8.957
+r_o=20.0: max error crosses 1.0 deg at chi ~ 0.18328512972976047
+r_o=20.0: max error crosses 2.5 deg at chi ~ 0.4350330469819618
+r_o=6.0: max error crosses 1.0 deg at chi ~ 0.05996129966774766
+r_o=6.0: max error crosses 2.5 deg at chi ~ 0.14828314949191218
+
+== bend(b) per sense vs chi-blind Schwarzschild (star-bearing error; unchanged) ==
+a=0.9 b=  6.0: pro 1.026150 ret CAP (captured side skipped)
+a=0.9 b= 10.0: pro 0.504533 ret 0.720404 schw 0.590296 | err pro -4.914 deg ret +7.455 deg asym -12.368 deg
+a=0.9 b= 20.0: pro 0.222737 ret 0.250928 schw 0.235936 | err pro -0.756 deg ret +0.859 deg asym -1.615 deg
+a=0.998 b=  6.0: pro 0.988680 ret CAP (captured side skipped)
+a=0.998 b= 10.0: pro 0.496860 ret 0.739005 schw 0.590296 | err pro -5.353 deg ret +8.520 deg asym -13.874 deg
+a=0.998 b= 20.0: pro 0.221394 ret 0.252686 schw 0.235936 | err pro -0.833 deg ret +0.960 deg asym -1.793 deg
+
+== rim wall: log divergence per sense (unchanged) ==
+a=0.0 pro: A=1.000 bend(1e-3)=6.51 bend(1e-6)=13.42 | winding-image gap db/b = 1.86e-03 (memo key must resolve this)
+a=0.0 retro: A=1.000 bend(1e-3)=6.51 bend(1e-6)=13.42 | winding-image gap db/b = 1.86e-03 (memo key must resolve this)
+a=0.9 pro: A=2.583 bend(1e-3)=16.18 bend(1e-6)=34.02 | winding-image gap db/b = 8.78e-02 (memo key must resolve this)
+a=0.9 retro: A=0.784 bend(1e-3)=5.05 bend(1e-6)=10.47 | winding-image gap db/b = 3.31e-04 (memo key must resolve this)
+
+== oracle bends at the shipped sweep points (vs DEFL lines from cargo) ==
+ORACLE a=0.0 b=+3.0000 phi=CAPTURED
+ORACLE a=0.0 b=-3.0000 phi=CAPTURED
+ORACLE a=0.0 b=+3.2000 phi=CAPTURED
+ORACLE a=0.0 b=-3.2000 phi=CAPTURED
+ORACLE a=0.0 b=+3.5000 phi=CAPTURED
+ORACLE a=0.0 b=-3.5000 phi=CAPTURED
+ORACLE a=0.0 b=+4.0000 phi=CAPTURED
+ORACLE a=0.0 b=-4.0000 phi=CAPTURED
+ORACLE a=0.0 b=+4.5000 phi=CAPTURED
+ORACLE a=0.0 b=-4.5000 phi=CAPTURED
+ORACLE a=0.0 b=+5.0000 phi=CAPTURED
+ORACLE a=0.0 b=-5.0000 phi=CAPTURED
+ORACLE a=0.0 b=+5.5000 phi=2.552965182
+ORACLE a=0.0 b=-5.5000 phi=2.552965182
+ORACLE a=0.0 b=+6.0000 phi=1.719328310
+ORACLE a=0.0 b=-6.0000 phi=1.719328310
+ORACLE a=0.0 b=+6.5000 phi=1.351259074
+ORACLE a=0.0 b=-6.5000 phi=1.351259074
+ORACLE a=0.0 b=+8.0000 phi=0.858650018
+ORACLE a=0.0 b=-8.0000 phi=0.858650018
+ORACLE a=0.0 b=+10.0000 phi=0.590295788
+ORACLE a=0.0 b=-10.0000 phi=0.590295788
+ORACLE a=0.0 b=+20.0000 phi=0.235935995
+ORACLE a=0.0 b=-20.0000 phi=0.235935995
+ORACLE a=0.0 b=+100.0000 phi=0.040222540
+ORACLE a=0.0 b=-100.0000 phi=0.040222540
+ORACLE a=0.0 bcrit +-5.19615
+ORACLE a=0.5 b=+4.5000 phi=2.740603373
+ORACLE a=0.5 b=-4.5000 phi=CAPTURED
+ORACLE a=0.5 b=+5.0000 phi=1.885784349
+ORACLE a=0.5 b=-5.0000 phi=CAPTURED
+ORACLE a=0.5 b=+6.5000 phi=1.052337020
+ORACLE a=0.5 b=-6.5000 phi=2.157293263
+ORACLE a=0.5 b=+8.0000 phi=0.744475438
+ORACLE a=0.5 b=-8.0000 phi=1.029387085
+ORACLE a=0.5 b=+10.0000 phi=0.538877894
+ORACLE a=0.5 b=-10.0000 phi=0.654872356
+ORACLE a=0.5 b=+20.0000 phi=0.228404251
+ORACLE a=0.5 b=-20.0000 phi=0.244019594
+ORACLE a=0.5 b=+100.0000 phi=0.040006962
+ORACLE a=0.5 b=-100.0000 phi=0.040440425
+ORACLE a=0.5 bcrit +4.09627/-6.13816
+ORACLE a=0.9 b=+3.0000 phi=6.120360987
+ORACLE a=0.9 b=-3.0000 phi=CAPTURED
+ORACLE a=0.9 b=+3.2000 phi=4.290389231
+ORACLE a=0.9 b=-3.2000 phi=CAPTURED
+ORACLE a=0.9 b=+3.5000 phi=3.102609599
+ORACLE a=0.9 b=-3.5000 phi=CAPTURED
+ORACLE a=0.9 b=+4.0000 phi=2.178250449
+ORACLE a=0.9 b=-4.0000 phi=CAPTURED
+ORACLE a=0.9 b=+8.0000 phi=0.675930745
+ORACLE a=0.9 b=-8.0000 phi=1.253213866
+ORACLE a=0.9 b=+10.0000 phi=0.504532984
+ORACLE a=0.9 b=-10.0000 phi=0.720403614
+ORACLE a=0.9 b=+20.0000 phi=0.222737489
+ORACLE a=0.9 b=-20.0000 phi=0.250928295
+ORACLE a=0.9 b=+100.0000 phi=0.039836136
+ORACLE a=0.9 b=-100.0000 phi=0.040616420
+ORACLE a=0.9 bcrit +2.84442/-6.83232
+ORACLE a=0.998 b=+3.0000 phi=3.880558450
+ORACLE a=0.998 b=-3.0000 phi=CAPTURED
+ORACLE a=0.998 b=+3.2000 phi=3.242814873
+ORACLE a=0.998 b=-3.2000 phi=CAPTURED
+ORACLE a=0.998 b=+8.0000 phi=0.661321576
+ORACLE a=0.998 b=-8.0000 phi=1.331538446
+ORACLE a=0.998 b=+10.0000 phi=0.496860189
+ORACLE a=0.998 b=-10.0000 phi=0.739004522
+ORACLE a=0.998 b=+20.0000 phi=0.221394411
+ORACLE a=0.998 b=-20.0000 phi=0.252685665
+ORACLE a=0.998 b=+100.0000 phi=0.039794503
+ORACLE a=0.998 b=-100.0000 phi=0.040659770
+ORACLE a=0.998 bcrit +2.11089/-6.99667
+
+== r15 reference values (freeze-ready, exact static tetrad + fate census) ==
+chi=0.5: b_c +4.0963/-6.1382, r_ph 2.3473/3.5321; r_o=20.0: edges [-16.764,+11.354] census 7.83%; r_o=6.0: edges [-52.857,+36.043] census 24.69%; r_o=3.2: edges [-79.625,+66.075] census 46.25%
+chi=0.9: b_c +2.8444/-6.8323, r_ph 1.5579/3.9103; r_o=20.0: edges [-18.601,+8.019] census 7.39%; r_o=6.0: edges [-58.675,+26.164] census 23.58%; r_o=3.2: edges [-68.018,+49.069] census 44.75%
+chi=0.998: b_c +2.1109/-6.9967, r_ph 1.0739/3.9982; r_o=20.0: edges [-19.036,+6.041] census 6.94%; r_o=6.0: edges [-60.046,+20.366] census 22.33%; r_o=3.2: edges [-65.432,+40.061] census 42.97%
+chi-blind arcs: r_o=20.0: 7.93%; r_o=6.0: 25.00%; r_o=3.2: 46.62%
+controls: chi=0 census r_o=20.0: 7.94%; r_o=6.0: 25.00%; r_o=3.2: 46.61% (039d: 7.9/25.0/46.6)
