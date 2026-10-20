@@ -2,121 +2,42 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261020-2102-redteam-1645
+updated: 20261020-2159-second-20261020-2102-redteam-1645-f2e3
 
 # The premises of docs/representation.md: a census against the record
 
 ## Current best
 
-**NEW (1645, premise red-team — open direction 2's first half measured: the
-lopsided shadow is real, player-visible and unguarded, and the shipped law
-already carries it exactly).** Exact equatorial Kerr null geodesics (Carter
-first-order system, GL quadrature in r = r_min + u²; controls: 039d's three
-Schwarzschild arc fractions 7.9/25.0/46.6% at r_o 20/6/3.2M reproduced
-exactly, b_c = 3√3, spiral winds 2.1 turns at ε=1e-6, log-divergence A =
-1.000 = its known exact value): at a spinning hole the shadow's edges split
-by sense — b_c(χ=0.5/0.9/0.998) = +4.10/−6.14, +2.84/−6.83, +2.11/−7.00 —
-so a χ-blind gather (or any |b|-keyed deflection memo, the letter's L57
-one-sided "deflection(b)") misplaces the edges by ≈2.5°–44° on χ ∈ {0.5, 0.9,
-0.998} × r_o ∈ {20, 6, 3.2}M [checker-corrected to the exact static tetrad:
-the run's α-map is Schwarzschild's formula with Kerr b_c, biased up to 16° at
-the rim — prograde at 3.2M is worse than reported (−17.8°/−34.9°/−43.9°),
-retrograde at 6M better (−7.9°/−13.7°/−15.1°), retrograde at 3.2M flips sign
-(+4.3°/+15.9°/+18.5°)], displaces the arc centre up to −19.8° toward the
-RETROGRADE side (max at (0.998, 6M); the run's −33.1° at 3.2M was the same
-map's wrap artifact), mis-places every near-hole star's bearing
-(±5–7° at |b|=10M, χ=0.9; 12.4° sky asymmetry), and the retrograde edge is
-tangential exactly at r_o = r_ph⁻ (3.3–4.0M over χ 0.3→1) and NEVER past it
-for a static observer — the run's "wraps past tangential at r_o ≤ 3.2M" is
-dead (exact 3.2M arcs 29.0–40.5% vs χ-blind 46.6%; only 2.3 points at
-χ=0.3). The rim wall
-becomes sense-dependent: winding gap δb/b = e^(−2π/A) with A_pro = 2.583
-(8.8e-2, 47× coarser than Schwarzschild's 1.86e-3) but A_retro = 0.784
-(**3.3e-4, 5.6× finer**) — the memo key needs (sense, b) (039d's cure
-clause gains the sense; no wrap cutoff is needed for a static observer). **The shipped
-`kerr::deflection` survives the oracle**: signed b, capture exactly between
-Bardeen's b_c± (χ=0.9 retro escapes only from 8.0 vs b_c−=−6.83), bends equal
-to the float oracle below 1e-6 relative (the printed residual is exactly the
-oracle's own 2b/r_max tail, |b|·1e-5, verified by regen) — law.md L32's "the
-lopsided shadow emerges, none imposed" is true of the geodesics and seen by
-NO gate maps b± to the observer's sky (B19 item 2 gates photon capture at
-b± but no sky map; r6 Schwarzschild; r13 γ channel). r15-kerr-shadow is
-drafted in the dossier but NOT freeze-ready as written (checker: its
-reference table is the wrong α-map and its wrap clause enshrines an artifact
-— see Refuted). Predictions 2/5 held (P1, P5; P2/P3's hand b_c− had a cos
-slip and the centre-displacement sign was guessed wrong — measured
-retrograde, not prograde; P4 half: sense-dependence real, prograde coarser
-not finer).
-Unmeasured halves named: comoving observer at the Kerr rim (2fa4), χ=0.998
-rim, what the plane's view keys on today. (20261020-2102-redteam-1645.)**
-
-[Prior standing record follows, unchanged.]
-
-**Prior standing record, unchanged (compiled from the runs below), plus 9c08's observer-γ
-half:**
-
-9c08 — the one-sample aggregate is dead on the observer's-γ channel with a cold sky:
-brightness error E(γ·θ_f) alone (18.3% at γθ_f = 1, saturating 69–141%), k-halving at
-γ·θ_f = 1 exactly, 100% of the error on the forward cells that carry the flux; the view
-record's license needs the γ clause (flown to γ 1.3 = 0.0025%; the gates fly to 10⁶);
-cure = Σ(lum·k⁴) running sum (1 FMA/event, exact) + the letter's own log-k table
-(B = 4–64 bins); deletes the 1/γ adaptive-cell branch. [870b: r13 now frozen and executed —
-PASS; and the struct read shows the record already stores that sum, so the kill and the cure
-apply to the letter's one-shift readout, not the shipped record.]
-
-915d — the additive-attitude premise is dead at the game's own speeds: the frame rotates
-by exactly (γ−1)·ψ per constant-γ turn through ψ (SO(2,1) non-commutativity; 12–74° nose
-error, 0.27 c and 48% of path inside single maneuvers at β ≥ 0.866); no rung sees it.
-
-1885 — the aggregate one-sample readout is dead at high γ on the DISPERSION channel:
-CV(k⁴)=√(e^{16s²}−1) with s = γ²σ_β; 40% median sprite error at β 0.9/σ_β 0.03, top 1% of
-members carrying 37% of seen flux at β 0.99; boundary σ_β* = 0.005/γ². (c78d's occlusion
-channel is the orthogonal half.) [7bcf refines the constant's domain: the law is the
-small-s-limit of the OBSERVER-frame convention; exact CV there is 4.05 at its own
-headline point; under the comoving formation convention CV = 4σ, γ-free. 9c08 adds the
-geometric half: dispersion σ = 0 still errs E(γθ_f) from the cell's own angular width.]
-
-e59e — opacity is missing from §2's observable list: 16.7% of the sky fabricated at a
-2-radii planet approach, 25.0% inside the shadow arc at r_o = 6 M. [039d: the strong-field
-rim half now measured — see above; the 25% is the exact closed-form shadow at 6M and
-the chord law under-blocks by 16.2 points there.]
-
-22d1/9ffc — the occlusion law is the per-row worldtube test (69–79 ns/row); snapshot and
-sprite wirings are the negative controls; judged in the observer's frame at player β.
-[039d: that law is by-type wrong at every black hole — channels and cure above.]
-
-12db — the kick cost premise ("~50 ns each"): 34.8 µs median shipped (75.6 µs at gold
-grade, ~1,800× over floor; exact memo 0.0%); the multiply-add cycle update has no shipped
-fast path.
-
-Census, ranked by player visibility (standing): 1. kicks/derivatives REFUTED (12db; no
-kick-cost rung). 2. view at the past light cone — letter dead, guarded in cost/presence
-by r6 (13c6); the aggregate readout is now dead on ALL THREE channels: occlusion (r11,
-executed PASS), formation seen-flux (r12, executed PASS — 7bcf) and the observer's own γ
-across a sky cell (9c08, no rung yet); the shipped per-body gather is the exact control
-(view.rs L308–319); the OCCLUSION LAW ITSELF is now dead by type at every black hole
-(039d; no rung); and the SPINNING-HOLE view is now measured: the χ-blind/|b|-keyed
-gather is dead by type (1645; no rung — r15 freeze-ready), while the shipped signed-b
-Kerr geodesics match the oracle exactly. 3. Binet cells replaced by the Darwin (r1v2
-executed; band-constant rule settled). 4. two-body doll 1PN SURVIVES (r3 v3; licensed
-p̄ ≳ 65M at ν ≤ 0.25; below 12M wants NR-calibrated EOB). 5. dense ≡ sparse SURVIVES,
-guarded by r5 + r5-starve on Linux (68e7, 506c; GPU arm M1-side). 6. undisturbed ≈ 0
-SURVIVES by rate, not cost (a4ed; fire rate 1.000).
+**NEW (f2e3, second author on 1645 — the checker's named experiment done, plus one more convention killed at the rim).** The exact static tetrad (sin α = (b + 2aM/(r_o(1−2M/r_o)))·√(1−2M/r_o)/√G, G = g_φφ − g_tφ²/g_tt) validates three independent ways (b-form/Q-form/null identity 2.3e−14; a=0 = the author's map bit-exact; tangential launches on the R(r_o)=0 roots to 4e−12), and a fate classifier with no sky map in it (closed-form roots of R = r(r³+c₂r+c₁), allowed-interval fate) bisects the true sky edges onto the formula to 5.5e−15 in sin at all 30 grid points.
+On it the kill stands, stronger at the prograde rim: χ-blind/|b|-keyed edges off **2.5°–43.9°** on the frozen grid (pro 3.2M −17.8/−34.9/−43.9, −44.9° at χ=0.9999; retro 6M −7.9/−13.7/−15.1; retro 3.2M edge-displacement flips sign +4.3/+15.9/+18.5 — checker2: the blind edge overshoots in bearing, but retro coverage stays UNDER-cover at both depths, the rim miss being the whole retrograde cap; the rim fabrication is prograde-side, 43.9°), centre displaced up to **−19.8°** retrograde-side (max at (0.998, 6M)), star bearings ±5–7° at |b|=10M; every checker-printed value reproduces.
+**The rim correction neither the author nor the checker had: for r_ph⁺ < r_o < r_ph⁻ (all 3.2M rows) the retrograde cap — outward-launched photons with b beyond b_c⁻ that turn on the barrier above r_ph⁻ and fall back through r_o — is DARK: the dark fraction is the fate census 46.2/44.7/43.0%, not the α⁺−α⁻ convention's 29.0–40.5%.** [f2e3 checker: census confirmed by an independent hand root-structure derivation and by direct λ-integration of the radial equation — 0 fate mismatches on 2000+ random bearings incl. the cap band; the closed form (180°+α⁺−|α⁻|)/360 matches at the rim rows ONLY — it fails where α⁻ itself flips prograde-side (χ=0.9, r_o=2.1M: census 80.9% vs closed 63.2%) and outside the ring — the census, not the closed form, is the reference everywhere.]
+Controls: census = 039d's 7.9/25.0/46.6% at a=0; exactly 50.00% at r_o=3M, 51.92% at 2.9M; at χ=0.1 (r_ph⁻<3.2M) both conventions agree; the χ-blind rim ARC error is only 0.4–3.7 points (edges still 43.9°) — the arc is the weak negative arm at the rim.
+Tangentiality: the retrograde edge reaches −90° exactly at r_o = r_ph⁻ (3.3→4.0M over χ 0.3→1) and never past; the prograde tangential point exists only at χ ≤ √2/2 (beyond that r_ph⁺ < 2M, inside the ergosphere; checker confirmed the boundary exact at χ=√2/2).
+Weak-χ floor: the edge error crosses 1° at χ=0.183 (20M) / 0.060 (6M), 2.5° at 0.435/0.148, →0 continuously as χ→0 — the r15 negative bar is a frozen-grid fact.
+Rim wall sense-split (A = 2.583 pro / 0.784 retro at χ=0.9; winding gaps 8.8e−2/3.3e−4 — the memo keys (sense, b), ~12 bits retrograde-side); the shipped `kerr::deflection` matches the float oracle (residual = the oracle's own 2b/r_max tail, |b|·1e−5; captures 20/20); no gate maps b± to the observer's sky (B19 item 2 gates capture only; r6, r13).
+**r15-kerr-shadow is freeze-ready with census references** (f2e3 dossier: edges within 1% of the exact table, dark fraction within 1 point of the census, tangential clause with the prograde scoped, negative bar scoped to the grid, χ=0 controls). Predictions 6.5/7 held (miss: prograde tangentiality — the ergosphere floor).
+Standing, unchanged: 9c08 one-sample dead on observer-γ (cure = the shipped Σ lum·k⁴ running sum); 915d additive attitude dead (Thomas rotation, 12–74° at 0.27c); 1885/7bcf one-sample dead on dispersion (CV law + formation-quadrature cure); e59e opacity missing (16.7%/25.0%); 22d1 per-row worldtube occlusion (69–79 ns/row); 12db kick cost 34.8 µs shipped (~1800× floor).
+Ranked census: view — all three aggregate channels, the occlusion law and the spinning-hole gather dead by type (r6/r11/r12/r13 executed PASS; r14/r15 freeze-ready); Binet→Darwin (r1v2); doll 1PN survives; dense≡sparse survives (r5); undisturbed≈0 survives by rate. (1645, silver, checker-corrected; f2e3, this run.)
 
 ## Refuted
 
-- **The χ-blind / |b|-keyed view at every spinning hole (1645; edge numbers
-  checker-corrected to the exact static tetrad): the two shadow edges sit at
-  b_c per sense (±4.10/∓6.14 at χ=0.5 … ±2.11/∓7.00 at χ=0.998), edges
-  misplaced ≈2.5°–44° over the χ 0.5–0.998 grid (→0 continuously as χ→0:
-  −1.5° at χ=0.3, 20M), arc centre displaced up to −19.8° retrograde-side
-  (at 6M), near-hole bearings ±5–7° at |b|=10M, and the retrograde edge is
-  tangential exactly at r_o = r_ph⁻ (3.3–4.0M) and never past it for a
-  static observer (the run's "wrap at ≤3.2M" was the Schwarzschild α-map's
-  artifact); the rim wall splits by sense (δb/b = 8.8e-2 prograde vs 3.3e-4
-  retrograde at χ=0.9, against 1.86e-3 flat); cure = the shipped signed-b
-  law + (sense, b) memo key + gate r15 (re-derived on the exact map before
-  freezing) (20261020-2102-redteam-1645).**
+- **The χ-blind / |b|-keyed view at every spinning hole (1645; corrected to
+  the exact static tetrad by its checker, completed and census-corrected by
+  f2e3): the two shadow edges sit at b_c per sense (±4.10/∓6.14 at χ=0.5 …
+  ±2.11/∓7.00 at χ=0.998), edges misplaced ≈2.5°–43.9° over the χ 0.5–0.998
+  grid (→0 continuously as χ→0: crosses 2.5° at χ≈0.44/20M and χ≈0.15/6M),
+  arc centre displaced up to −19.8° retrograde-side (at 6M), near-hole
+  bearings ±5–7° at |b|=10M; the retrograde edge is tangential exactly at
+  r_o = r_ph⁻ (3.3–4.0M) and never past for a static observer (prograde
+  tangentiality only exists at χ ≤ √2/2 — beyond that the ring is inside the
+  ergosphere); inside the retrograde ring the true dark fraction carries the
+  dark retrograde cap (fate census 46.2/44.7/43.0% at 3.2M, not the
+  α⁺−α⁻ 29.0–40.5% — the χ-blind arc error at the rim is only 0.4–3.7
+  points while its edge errors reach 43.9°); the rim wall splits by sense
+  (δb/b = 8.8e-2 prograde vs 3.3e-4 retrograde at χ=0.9, against 1.86e-3
+  flat); cure = the shipped signed-b law + (sense, b) memo key + gate r15
+  (freeze-ready, census references) (20261020-2102-redteam-1645;
+  20261020-2159-second-20261020-2102-redteam-1645-f2e3).**
 
 [standing refuted entries follow, unchanged]
 
@@ -158,21 +79,18 @@ SURVIVES by rate, not cost (a4ed; fire rate 1.000).
 
 ## Open directions
 
-1. [1645] r15-kerr-shadow is NOT freeze-ready as drafted [checker: the
-   dossier's reference table is the Schwarzschild α-map (biased up to 16° at
-   the rim) and its "retrograde wrap at 3.2M" does not exist for a static
-   observer (tangential exactly at r_o = r_ph⁻, 3.3–4.0M; never past)].
-   Re-derive on the exact static tetrad (one line; the checker's reference
-   implementation and numbers are in the run's check.md), keeping: edges
-   within 1% on χ ∈ {0.5, 0.9, 0.998} × r_o ∈ {20, 6, 3.2}M; the χ-blind
-   negative must fail by ≥ 2.5° on that grid (χ→0 goes to 0: scope the bar
-   to the grid); a tangential-at-r_ph⁻ clause replacing the wrap clause; the
-   memo key resolves the retrograde winding gap 3.3e-4; χ=0 controls
-   reproduce 039d's fractions. Then amend the letter's L57 sentence:
-   deflection is a two-branch function of signed b at every spinning doll;
-   the memo keys (sense, b). Then the named unmeasured halves:
-   the comoving observer at the Kerr rim (2fa4's instruments + this
-   geometry), the χ=0.998 rim (checker's case), and a read of what the
+1. [f2e3] r15-kerr-shadow is freeze-ready (census references in f2e3's
+   dossier: edges within 1% of the exact tetrad table; dark fraction within
+   1 point of the fate census — the census, not α⁺−α⁻, at r_o = 3.2M; the
+   tangential-at-r_ph⁻ clause with the prograde scoped to χ ≤ √2/2; the
+   negative bar scoped to the frozen grid (crosses 2.5° at χ≈0.44/20M,
+   0.15/6M); the memo key resolves the retrograde winding gap 3.3e-4; χ=0
+   controls reproduce 039d and exactly 50% at r_o = 3M). Commit it, then
+   amend the letter's L57 sentence: deflection is a two-branch function of
+   signed b at every spinning doll; the memo keys (sense, b). Then the named
+   unmeasured halves: the comoving observer at the Kerr rim (2fa4's
+   instruments + this geometry), the off-equatorial shadow curve
+   (inclination ≠ 0 — the census here is equatorial), and a read of what the
    plane's view path keys on today.
 2. [standing] The integrator's one-pass amendment of representation.md — now also strike
    L59's first clause ("aggregates are one sample each") and keep the second (the pixel
@@ -186,7 +104,7 @@ SURVIVES by rate, not cost (a4ed; fire rate 1.000).
    negative), and amend the letter's occlusion sentence: the horizon occludes nothing the
    gather serves (shadow = emergent absence); occluders are tested along the deflected
    path; the deflection memo carries its wrap cutoff with the b-resolution it implies.
-   Then the unmeasured halves: Kerr dolls (1645 took the static half; the comoving
+   Then the unmeasured halves: Kerr dolls (1645+f2e3 took the static half; the comoving
    occluder remains) and the comoving occluder (2fa4's exact moving-observer instruments
    composed with the eclipse geometry).
 4. [executed aggregate half, 4ff1] The eclipse-parity rung's aggregate arm is r11:
@@ -207,11 +125,11 @@ SURVIVES by rate, not cost (a4ed; fire rate 1.000).
    negative vs seen-flux-sum candidate at γθ_f ∈ {1, 4, 8000}; γ 1 and 1.33 controls must
    read 0). [870b: frozen and executed PASS.] Named arms beyond it: the cold-sky floor
    plus real dispersion (additive in quadrature with 1885/7bcf); clustered skies.
-7. [standing tails, narrowed by 039d and 1645] The strong-field rim is measured for a
-   static Schwarzschild doll (039d) and the static Kerr edges for a χ-blind law (1645,
-   checker-corrected to the exact static tetrad);
-   remaining: occluder+observer comoving; extended occluders (fleet dolls); the χ=0.998
-   rim; strong-field occlusion inside r < 3M skims.
+7. [standing tails, narrowed by 039d, 1645 and f2e3] The strong-field rim is measured
+   for a static Schwarzschild doll (039d) and the static Kerr edges + dark fraction for
+   a χ-blind law (1645 + f2e3, exact tetrad, fate census);
+   remaining: occluder+observer comoving; extended occluders (fleet dolls); the
+   off-equatorial Kerr shadow curve; strong-field occlusion inside r < 3M skims.
 
 ## Contradictions
 
@@ -224,9 +142,10 @@ channels (it is the σ = 0 floor; real dispersion adds on top). 039d's corrected
 misses and fabricates near-hole eclipses, and e59e's "fabricated sky" is the same wrong
 predicate seen whole — one mechanism, not a conflict. 1645's χ-blind kill composes with
 039d's (a spinning doll's occluders are tested along the deflected path of the correct
-sense; the two kills are orthogonal halves of the same gather). The retrograde-side
-centre displacement (1645, measured) against the naive prograde intuition is not a
-contradiction of the record: no prior run claimed a direction.
+sense; the two kills are orthogonal halves of the same gather). f2e3's census corrects
+1645's checker at the rim rows — the record now carries the census numbers; the
+retrograde-side centre displacement (measured) against the naive prograde intuition is
+not a contradiction of the record: no prior run claimed a direction.
 
 ## Runs
 - 20261016-1207-redteam-12db (silver): premise census; kick cost 34.8 µs vs the doc's
@@ -272,3 +191,6 @@ contradiction of the record: no prior run claimed a direction.
 - 20261020-1002-second-20261020-0440-redteam-9c08-870b: r13-sky-shift frozen and executed PASS
 - 20261020-1503-redteam-039d: the chord occlusion law dead by type at every black hole
 - 20261020-2102-redteam-1645 (this run, awaiting grade): the spinning-hole view measured — χ-blind/|b|-keyed gather dead by type (edges off 2.7°–28.3°, centre off up to 33°, retro edge wraps at r_o≤3.2M, rim wall splits by sense 8.8e-2/3.3e-4); shipped signed-b Kerr geodesics match the oracle exactly; r15-kerr-shadow freeze-ready; no rung sees it
+- 20261019-2339-redteam-7bcf: r12 seen-flux frozen and executed — PASS; one-sample dead on flux
+- 20261020-2102-redteam-1645 (silver): the spinning-hole view measured — χ-blind/|b|-keyed
+- 20261020-2159-second-20261020-2102-redteam-1645-f2e3 (this run): the checker's named
