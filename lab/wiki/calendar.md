@@ -2,15 +2,56 @@ topic: calendar
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1817-dynamics-45c0
+updated: 20261020-0036-components-6b9a
 
 # The 10⁹ schedule: the calendar is the store's own order
 
 ## Current best
 
-**NEW (45c0, dynamics — the checker-found "persistent ~2× tail" resolved: it is a mixing transient with
+**NEW (6b9a, components — the apparatus itself is measured on shipped code, and the
+record's single-queue framing undercounts it 5×: the live plane's scheduler is FIVE
+per-body calendars plus the deadline position cache, 156 B/body at the shipped
+`body_cap` sizing, two of the five holding the whole population at every census — and
+the same next-tick fact sits in both).** Instrument A (counting allocator around the
+shipped `Calendar::new`, no engine change): key `Scalar` 16 B, slot 24 B, **exactly
+28.00 B/slot, N-flat 10⁴→10⁶**, capacity reserved once at `body_cap`
+(universe.rs:481–490 for all five; `pos` 16 B/body at :479) — 156 B/body = **156 GB
+≈ 19.5× the 8 GB machine at 10⁹**, while live-population sizing (L = λ·τ·N =
+4×10⁻⁵ × 43.6 × 10⁹ ≈ 1.74×10⁶ slots, λ and τ from 0659) costs **0.272 GB ≈ 3.4% —
+a ×573 flip on a sizing policy alone, same shipped code. [Checker, 20261020: the flip
+is real at the orders measured, but not capacity policy alone — `Calendar` slots ARE
+body ids (`pos` indexed by id, `set` errs on slot ≥ len, no growth path), so live
+sizing needs dense live ids at promotion or 25ce's cursors.] Instrument B (census on
+the nladder driver, print-only `sched_census` getter): at K = 10⁴ and 3×10⁴, through
+steady kicking (≈3,000 kicks a census window), **`ship_ticks` = 1.000–1.002×N and
+`waiting` = 1.000–1.002×N at every census, with identical counts (30,043/30,043) —
+two whole-population tick-keyed containers over the same bodies; `child_ticks`
+(311–333) and `prunable` (105–108) are the locals' absolute scale, N-independent;
+`queue` = 5–6** (the always-queued few); live slot content ≈ 72 B/body. [Checker,
+20261020: extended on three arms — N = 10⁵ (identical: 100,023/100,023, locals
+311–333/105–108 absolute), horizon 2.5 belt steps at K = 10⁴ (no drain, prunable
+103–107 absolute), and a wave arm at rtf 10⁵ (1667 gs/frame): there `waiting`
+oscillates 0.04–0.98×N and `queue` swings 259→9,642 — "waiting ≈ N" is coast-regime;
+the regime-invariant facts are `ship_ticks` = 1.001×N always and queue+waiting ≈ N
+(100,046 = N+18 at every wave census), so the ≈72 B/body live content and the 156
+B/body capacity are regime-independent; `prunable` peaks at 312 (0.03×N) in waves.]
+The CPU
+neighbour is a non-issue (heap ops 31/38/333–364 ns at n = 10⁶, ≥120× under the
+fired item's 44.7–82.5 µs): the apparatus is a bytes component. **Composition
+correction:** the 10⁹ ledger's wired memory row (1.7–2.4 B/live-body, 07b4) is a
+store-only number and no row prices the scheduler (grep-checked; the record's only
+queue-byte entries are 6a0e's single-calendar 16→8 B scan and 25ce's cursor design),
+so "wired 0.2–2.0×" holds ONLY if the calendars are deleted or live-sized — unnamed
+wiring work; unresized, the scheduler alone is 20× the machine. All of it is
+schedule-only state (universe.rs's header: the queue's order never reaches an
+outcome; 9c67/d65c's digest-indifference proof for `pos`). Coast-only census, one
+scene family, rtf 1000, x86 → orders (20261020-0036-components-6b9a; `regen.sh` ~2 min
+cold; predictions pre-registered: P1/P2/P3/P6/P7 held, P4/P5 failed — child_ticks and
+prunable are locals-scale, which sharpens the two-container redundancy).
+
+**Prior standing (45c0, dynamics — the checker-found "persistent ~2× tail" resolved: it is a mixing transient with
 two regimes, not a standing tail, and the genesis stagger lands the belt at its stationary state at
-birth).** Instrument: `crates/universe/examples/genesis` (this run's patch; the d520 arm's own
+birth).** Instrument: `crates/universe/examples/genesis` (that run's patch; the d520 arm's own
 population — 2,700 belt, seed 1, shipped `plane_extra`, census at head + g·1.03·step_max; C50 over the
 dues' own span, which coincides with the page's step denominator once the span saturates, g ≳ 14), plus
 one added method (`Universe::stagger_genesis`: each root-doll ship's genesis plan delayed by hash(id)
@@ -49,29 +90,23 @@ and N = 11,700 belt (C50 trajectory identical g-for-g: 1.02/1.48/1.55/1.50/1.45 
 mixing time is N-independent, so the ~13–16-fire scale extrapolates toward 10⁹; the load excess is the
 one number that does not.]
 
-**Prior standing (d520's census, retained, with its checkers' horizon note now resolved):** the
-chained clock's step spread is draw-invariant, a quantized-period belt never combs, the mechanism is
-position (y = U_P(x) + c), the genesis train is one law-level object (C50 40–58× at birth, shearing
-2.6–3.0%/fire), and the checker's "at g = 9..16 C50 plateaus at 2.2–3.0× — a persistent ~2× tail, not
-a decay to uniform" is **superseded by (2) above: the plateau is the shoulder of the mixing transient
-at the horizon's edge** (both instruments recomputed on one flight by the checker — they coincide from
-g ≈ 12 (span ≥ 98% of the step) and the step-denominator readings are 2.00/1.63/1.35/1.05 at
-g = 13–16, so the 2.2–3.0 plateau is not reproducible on the shipped-draw arm at either seed; most
-plausibly it was read on d520's slower-σ fresh arms (classes=1: σ 3.9% mixes ~2× slower and would
-still read 2.2–3.0 there)).
-
 ## Refuted
 
-- **NEW — "The wave does not fall below 2×: a persistent ~2× tail, not a decay to uniform" (d520's
-  checker1, and the page's carry of it)**: on the same 2,700-body arm, C50 crosses 2.0 at g = 13–14,
-  reads 1.05 at g = 16 and 1.27–1.53 at g = 17–24; the tail is the shear plateau of the birth step
-  law ending in phase mixing at g ≈ 1/spread (20261019-1817-dynamics-45c0).
-- **NEW — "The stagger is only a wave lever" (the page's implied scope)**: the stagger arm sits at the
-  stationary Poisson-level load from genesis (C50 1.03–1.07 flat to g = 14, load_max 1.26–1.47) with no
-  regrowth — no attractor exists on the chained clock's dues map (20261019-1817-dynamics-45c0).
-
-- "The queue is a first-break candidate at 10⁹" (the board's focus list): the schedule closes at ≤ MB
-  of cursors inside a class-major per-body store (20261017-0005-fermi-25ce).
+- **NEW — "the event queue's byte price is the single-calendar 16→8 B question" (the
+  record's framing under 6a0e's silver and 25ce's refuted line, which priced ONE
+  queue): the shipped apparatus is five calendars at `body_cap` + the 16 B `pos`
+  cache = 156 B/body measured, two containers whole-population and mutually
+  redundant; 6a0e's 8 B scan applied to all five still leaves 56 B/body = 56 GB at
+  10⁹ — the lever is the sizing/deletion, not the container swap
+  (20261020-0036-components-6b9a).**
+- **NEW — "the wired 10⁹ memory row (0.2–2.0×) is a composition of the wired plane":
+  it is a store-only number (07b4's 1.7–2.4 B/live-body); unresized scheduler state
+  adds 156 B/body ≈ 19.5× the machine, so the closure sentence silently assumes the
+  calendar deletion no row names (20261020-0036-components-6b9a).**
+- **NEW — "the queue is a first-break candidate at 10⁹" (the board's focus list): the schedule closes at ≤ MB
+  of cursors inside a class-major per-body store (20261017-0005-fermi-25ce).** [6b9a
+  note: true of the DESIGN; the shipped code it would replace is the 156 B/body
+  apparatus this run measures.]
 - "The program classes are interchangeable on memory fit" (e7ef's composition reading): the calendar
   axis keeps any per-body who-enumeration ≥ the 3.6 GB permutation floor (20261017-0005-fermi-25ce;
   checker2 note retained).
@@ -88,21 +123,37 @@ still read 2.2–3.0 there)).
 
 ## Open directions
 
-1. The stagger's B-gate flight (kick-cadence od 8) — now with a stronger adopt statement: exact in the
+1. **The sizing flip is the cheapest 10⁹ memory lever this page owns** (6b9a): live-
+   population capacity (L = λ·τ·N) turns 156 GB into 0.27 GB with the shipped
+   `Calendar` code — a policy-class change plus dense live ids at promotion (slots are
+   body ids and the calendar never grows; checker, 20261020), not an algorithm. The
+   full deletion stays 25ce's class-major cursors (the next-due word is already
+   carried: od 4 below).
+2. **`waiting` duplicates `ship_ticks` over the whole population** (6b9a census,
+   identical counts at every instant sampled): one key-range read of `ship_ticks`
+   (pop while min ≤ target) replaces the second container; requires re-deriving
+   `rekey`'s wake walk and `pull_ships`' min under due-pop transiently absent. Named,
+   not built.
+3. The stagger's B-gate flight (kick-cadence od 8) — now with a stronger adopt statement: exact in the
    stationary measure, not merely a wave flattener. Its legality question (does any observer read a
    body between its staggered genesis and first kick) is unchanged and unflown.
-2. The residual standing excess over Poisson once mixed — **promoted from "small" by the checker's
+4. The residual standing excess over Poisson once mixed — **promoted from "small" by the checker's
    flights: it is standing, not decaying** (max/μ 1.54–1.92 flat from g = 25 through g = 40 vs floor
    1.378 ± 0.080 at μ = 42; p99/μ ≈ 1.58 vs 1.336) and it does not shrink at 4.33×N (belt 11,700:
    1.83 at g = 20 vs floor 1.185 at μ = 183 — the relative excess grows with μ, so the correlated
    clusters scale with N). Price its source (step-law discreteness vs the slow-shear neighbour pairs,
    whose number per window grows with N) before calling the mixed state Poisson for the 10⁹ ledger;
    until then the worst-frame number at 10⁹ carries this uncertainty, not 1.05×.
-3. The wide-draw arm ([1,5) AU, σ 28.5%): predicted ~3.6× faster mixing (g ≈ 4), unflown; one flight
+5. The wide-draw arm ([1,5) AU, σ 28.5%): predicted ~3.6× faster mixing (g ≈ 4), unflown; one flight
    confirms mixing ∝ 1/spread as a design dial for belt genesis at 10⁹.
-4. The store-class decision at wiring (od 3, unchanged), now with the between-fires news priced:
+6. The store-class decision at wiring (od 3, unchanged), now with the between-fires news priced:
    the next-due word moves by drift ~6×10⁻⁵ of itself per fire, so its low bits are cheap to recompute
-   and the carried word can be coarser than the due itself.
+7. (6b9a) The census's unflown corners: a burn arm — its wave shape is proxy-flown by
+   the checker at rtf 10⁵ (waiting drains to 0.04×N transiently, queue to 0.96×N;
+   ship_ticks and the ≈N partition of queue+waiting invariant; capacity unaffected),
+   a real burn arm stays unflown — a fleet-doll scene (does `child_ticks` become
+   whole-population under a 10⁶-fleet doll?), and the M1 re-measure of the heap-op
+   constants.
 
 ## Contradictions
 
@@ -111,10 +162,12 @@ C50_step = C50_span·span/step_med, plus the birth dump: 57.9×/3.0) closes the 
 question in the refutation's favour. The unexplained residue is d520 checker1's plateau attribution
 (which arm it was read on — its own log is not in this tree); treat the "persistent tail" line as
 refuted on the shipped draw (two seeds, two N, both instruments), and check slow-σ arms separately
-before quoting any late-g number for them.
+before quoting any late-g number for them. 6b9a's apparatus measurement composes with 25ce's cursor
+design (the design is the deletion; the measurement is the shipped cost it deletes) — no conflict.
 
 ## Runs
 - 20261017-0005-fermi-25ce (fermi, awaiting grade): the 10⁹ calendar priced — no per-body
 - 20261017-2038-quant-b4a8 (quant, awaiting grade): the bulk runs the chained clock, not
 - 20261017-2330-second-20261017-2038-quant-b4a8-d520 (second author, awaiting grade): the
 - 20261019-1817-dynamics-45c0 (dynamics, awaiting grade): the "persistent 2× tail" is a two-regime
+- 20261020-0036-components-6b9a (components, awaiting grade): the apparatus measured — five calendars + pos = 156 B/body at body_cap (19.5× the machine at 10⁹; ×573 flip to live sizing), ship_ticks and waiting both whole-population and redundant, the wired ledger row store-only.

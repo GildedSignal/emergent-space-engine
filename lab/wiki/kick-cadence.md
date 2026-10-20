@@ -1,12 +1,45 @@
 topic: kick-cadence
 status: open
 closed-by:
-valid-while:
-updated: 20261019-2017-second-20261019-1906-spacex-9edc-225d
+updated: 20261020-0036-scout-7076
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+
+**[20261020-0036-scout-7076, scout] The cadence ladder is flown end-to-end on the frozen
+certificates (`behave --law plane --plane-step N`, shipped code, the dial as the only
+change), and the legal floor is now measured, not cited: the tide class holds to 16
+kicks/radial period with margin (B17 PASS at steps 6/5/4 = split8: e-pump [0.99049,
+1.00282], libration 0.981; ×4/octave smooth error — the same n⁻² law ad35 measured in
+float, now on the shipped integer plane via the `jacobi` example: worst 5.1e-6 → 1.8e-5
+→ 3.2e-4), and breaks at 8/orbit by a CLIFF, not the law: libration collapses 0.981 →
+0.023 (phase aliasing; the pump's h² prediction is 0.04, measured 0.31). B17 is
+un-judgeable at the shipped 128 (its own 60-s watchdog) — the fine edge of the tide
+window is cost. The encounter class: B13's cheapest legal octave is 256/orbit
+(step 8): **PASS 64/64, worst 5.30e-3** — the standing baselined red (60/64 at the
+shipped 128, worst 2.12e-2) is cadence-curable, one octave finer; every coarser octave
+collapses (42/64 at 64, 15/64 at 32, 3/64 at split8, 1/64 at 8 — worst ΔE 8.5e-2 →
+3.4e-1 → 1.34 → 2.87e3, super-quadratic: the perijove arc's impulse sampling).
+[checker 20261020: the fine side is OPEN, not closed — 512/orbit (step 9) fails on one
+anomalous row (`inf`, unattributed), but 1024/orbit (step 10, outside the author's
+range) PASSES 64/64, worst 3.32e-4, so the window is not "exactly one octave" and
+step 9 is bracketed by passes; the coarse edge at 256 and the 2× event-rate
+consequence stand.] B14 times out at every flown step (7–3): its wall is
+the judge's scene cost, not kicks/orbit — the B14 row stays dark for cadence questions.
+Consequences: (1) the 10⁹ ledger's split8 legality is flight-backed with margins (was
+cited: 7f97/1db4), and the deeper-cut alternative is dead on main (step 3 breaks B17's
+libration and crosses B12's 1e-4 Jacobi bar at 3.2e-4) — so Carlson (or an equal-cost
+kick ≤ 4.9 µs) stays the only closure path, exactly as composed (budget-1e9/3aec);
+(2) "deep passages need ≥ 128" is corrected to **256, one octave wide**: the shipped
+default sits in no certificate's green window — too coarse for B13, too fine (slow)
+for B17's watchdog; (3) the class-split is certificate-necessary (B13 cannot follow
+the belt's cut even one octave), and the encounter cliff is the certificate case for
+the exact pair event (m-meso-motion's regime rule): no metronome cadence is both legal
+and economical for perijove arcs. Domain: the strong-tide judged class (μ = 1e-3,
+sep 5.27×10⁸ M); belt-real coupling is weaker, so the belt's floor can only be deeper
+(B18's rung is the instrument that could extend it).]
+
 **NEW (225d, second author on 9edc — the checker's named experiment run whole: the
 resolution-coupling dial is DEAD at every flyable octave, and the formation's 99.6% standing
 duplication is a BIRTH-only property that one kick per ship erases).** 9edc's census extended
@@ -351,6 +384,15 @@ attribution.]
 
 ## Refuted
 
+- **"Deep passages need ≥ 128 kicks per perturbation period" (1db4's reading of the
+  frontier, carried by the budget paragraph below) as the encounter class's floor**:
+  measured wrong in both directions — 128/orbit is the standing red itself (B13 60/64,
+  worst 2.12e-2 against the 1e-2 bar), 256/orbit PASSES (64/64, worst 5.30e-3), and
+  512/orbit fails on one anomalous row (`inf`; step 10 = 1024/orbit passes 64/64,
+  worst 3.32e-4 — checker), so the window's coarse edge is 256 and its fine edge is
+  unmeasured; the shipped default is outside it either way
+  (20261020-0036-scout-7076).**
+
 - **"The kick's re-fit mostly reproduces the standing orbit (the duplicate-mint delete)":
   measured dead on the stirred belt's kick stream — 0 identical `OrbitKey`s in 2,037,393
   fired kicks (belt, tube and clock paths; 10⁴ and 3×10⁴; seeds 1 and 2; the 20-s
@@ -428,6 +470,7 @@ attribution.]
 - **The sub-quantum kick regime at the flown grid (this page's "the sigma-delta carry" as a living belt mechanism, and any "accumulator absorbs the belt's kicks" adoption): measured absent — fire rate 1.000 with impulses ≥ 2⁷ units on four arms; nothing accumulates between grid kicks anywhere in the flown plane (3294). The accumulator remains law (it engages at finer Δs or weaker tides by construction), but the shipped grid never enters its regime.**
 
 ## Open directions
+
 1. **DECIDED (225d): the resolution coupling is dead across the flyable range.** The flip
    fraction is 1.0000 and the shadow-intern cross-hit 0 at every Δs octave flown (S = 5..9 =
    4× coarser to 4× finer, formation and belt, 1.46M further mints; at the finest, dv ≈
@@ -462,6 +505,16 @@ attribution.]
 6. **Price the horizon into the moon certificate**: N* is set by Hill position (4/8/16 at f = 0.2/0.3/0.45 R_H) and *walks with horizon* (N = 8 apsidal deviation 4.4% → 9.7% from horizon 12 → 27), so a horizon-free local rule is not derivable from these gates; the mixed-scene validation never ran (7d0d).
 7. **The dense belt's corruption is not a cadence problem**: sub-resolution conjunctions corrupt at every cadence (cd52; f2e3) — the fix belongs to the conjunction-window/encounter representation (→ `encounters`).
 8. **(f82a) The stirred belt, and the stagger's adoption gates**: the dimensionless restatement is measured (2⁻²³ of speed per belt fire; the floor extrapolation now rests on measured linearity of dv in Δs at 16×/64× plus the dimensionless size, not on word units), and the staggered genesis is measured (train flat, tail deleted at 10⁵). What stays open: a driven/stirred belt where the orbit-averaged floor does not exist (no shipped stirring mechanism — the burn is the only driver), the stagger's flight through the frozen B-gates on the M1, and near-resonant belts as the unsafe edge of both levers. The old form of this direction (3294's) is closed by f82a: the census counts velocity-word units; the impulse's SI size per doll exponent, a driven/stirred belt (where the orbit-averaged floor does not exist), and the child doll's own metronome (81% of fires from 3.5% of bodies — the wave the frame feels in-band may be the player's own doll's, not the belt's) are unmeasured. The genesis phase-lock (all clocks planned at t=0, first fires at Δs/2) is the wave's mechanism — worth one experiment at a staggered genesis to bound the tail without touching the rate.
+
+9. **The encounter class's exit from the metronome, now with its certificate case**:
+   either flyby-class tubes run at step 8 (2× the encounter-class event rate — the
+   ledger's locals row doubles) or the exact pair event takes the perijove arc (law
+   work; the B13 cliff — 60/42/15/3/1 with super-quadratic worst ΔE to 2.87e3 — is
+   the necessity argument). The integrator's call; the cadence dial alone has no green
+   octave for both classes at once (20261020-0036-scout-7076).
+10. B14's judge path, not its cadence: it times out at every flown step (7–3) — a
+   cheaper harness (or a scoped scene) is what the plane's B14 row needs before any
+   cadence claim can be made there (20261020-0036-scout-7076).
 
 ## Contradictions
 
@@ -531,3 +584,4 @@ attribution.]
 - 20261019-1906-spacex-9edc (spacex, awaiting grade): the kick comb is 100% news — 0/2.04M
 - 20261019-1906-spacex-9edc (spacex, silver): the kick comb is 100% news — 0/2.04M identical
 - 20261019-2017-second-20261019-1906-spacex-9edc-225d (second author): the named experiment run
+- 20261020-0036-scout-7076 (scout, awaiting grade): the cadence ladder flown on the frozen certificates — tide class legal to split8 with margin (B17 cliff at 16×: libration 0.981→0.023), encounter class legal only at 256/orbit (B13 64/64 at step 8; the standing red is cadence-curable; collapse 42/15/3/1 coarser); Carlson's 4.9 µs bar stays the only closure path.

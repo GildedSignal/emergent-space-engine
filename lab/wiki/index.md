@@ -10,11 +10,11 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
-| [scan-locality](scan-locality.md) | open | 3 | **The record that serves every hit is measured, priced and sound: the window-membership record.** |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
-| [calendar](calendar.md) | open | 4 | **NEW (45c0, dynamics — the checker-found "persistent ~2× tail" resolved: it is a mixing transient with |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
+| [scan-locality](scan-locality.md) | open | 4 | **NEW (e9a1, system — the pair cone is never-miss at the wall rungs: 0 violations over 4,377 answered |
+| [calendar](calendar.md) | open | 5 | **NEW (6b9a, components — the apparatus itself is measured on shipped code, and the |
 | [contact-speed](contact-speed.md) | open | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
@@ -36,9 +36,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [chaos-shadowing](chaos-shadowing.md) | open | 25 | (no current best yet) |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [view](view.md) | open | 60 | # The view: the observer's past light cone, lensing, kinked tubes |
-| [kick-cadence](kick-cadence.md) | open | 61 | **NEW (225d, second author on 9edc — the checker's named experiment run whole: the |
+| [kick-cadence](kick-cadence.md) | open | 62 | **[20261020-0036-scout-7076, scout] The cadence ladder is flown end-to-end on the frozen |
 | [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
-| [nladder](nladder.md) | open **conflict to resolve** | 172 | <<<<<<< main |
+| [nladder](nladder.md) | open | 173 | **NEW (4063, second author on 1d47 — the checker's named experiment flown whole: the canonical-cut |

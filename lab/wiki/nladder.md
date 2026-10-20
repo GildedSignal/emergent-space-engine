@@ -2,14 +2,32 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261019-2339-inversion-1d47
+updated: 20261020-0036-second-20261019-2339-inversion-1d47-4063
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
 
-<<<<<<< main
+**NEW (4063, second author on 1d47 — the checker's named experiment flown whole: the canonical-cut
+instrument rebuilt with the decision at a canonical tick (`cut_digest`), and under it BOTH gate
+forms hold the shipped digest at 10^5 and 2x10^5 — 34 cut runs, one digest a rung (581ced1a at
+10^5, a5edea1c at 2x10^5): OFF = ON (all-to-queue) = REACH (the checker's reach-gated pull,
+ES_ROOT_SHIPS_REACH=16, new) across unlimited / 12 ms x3 / 3 ms / no-flight settle / 4 threads /
+a deeper 18,000-game-s cut, kicks and encounters equal, the ON arm's 1,838-entry encounter log
+byte-identical across reruns — while the burst stays deleted (this box, sequential: 10^5 max
+801.4 -> 19.3 ms, 2x10^5 1,640.5 -> 45.7, p99 45.3/199.5 -> 15.8/22.7, rss 947 -> 536 MB,
+refusals/dead 0, lag = ON's 16.67 s). The checker's bistability did NOT reproduce. The mechanism,
+measured with the probe's new stale-encounter half: stale captures are real (3.8-11.2k a run) and
+DO answer encounters at the scene's two tightest conjunctions (3-6 answers a run, |d| <= 0.71 of
+the window, staleness 60-230 game-s, ships 22070/160822 whose deadlines sit ~0.1 AU out) — but
+every answer agreed with the fresh read: verdict-preserving, not verdict-flipping, at these rungs.
+So the reach pull does not buy the invariance (its offenders are 10^7 ticks of light distance
+beyond any pull) — the invariance is empirical (0 flips in 34 runs), not structural, and ON
+passes identically; the structural fix, if wanted, is canonical bindings in `capture` (a different
+small change), and adoption still re-freezes on the M1. The standing ee4d/1d47 conflict is kept
+below in order (ee4d, then 1d47 with its checker bracket).**
+
 **NEW (1d47, inversion -- cc9d's named fix's burst deletion is measured -- 58-111x on the worst
 frame -- but its "not a law change" half died in checking: extending the 766-770 pattern to
 root (one gated line at universe.rs:770) deletes the wave's worst frame 58-111x with all 14
@@ -54,7 +72,6 @@ experiment; adopting the gate as-is owes a digest re-freeze. P2's "constructive 
 instrument vacuity, not innocence: the author's own registered hazard ("a read the schedule,
 not the law, decides") is what happens at scale.]
 
-=======
 **NEW (ee4d, second author on cc9d — the checker's named experiment flown: a 19-line env-gated cure
 (`ES_ROOT_STREAM=1`, off = shipped bits untouched) resolves the due ships of a root-doll player as
 their own budget-gated items before its item runs, and the freeze collapses — max_ms 46/423*/815/1,875*
@@ -70,9 +87,6 @@ exactness rests on the mechanism (mint after the exact key-prefix, the disease's
 on the digest's power; a scene that exercises the pull's exactness is the named follow-up. Adoption:
 default the flag, extend the same gate to `input()`'s synchronous path (it still gulps inside a wave),
 re-freeze the digest corpus.]**
-
-<<<<<<< main
->>>>>>> 20261019-2339-second-20261019-2017-inversion-cc9d-ee4d
 **NEW (cc9d, inversion — the fence-unlocked rungs' next wall is named and it is not on the board's
 list: the player's own item in the root doll legally carries a whole belt wave past the budget,
 max_ms ≈ 8.1–9.5 µs × K (schedule-elastic), and the TTL fence trades the OOM crash for this freeze at every wave).**
@@ -1312,3 +1326,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-2017-library-0c0f (library, awaiting grade): the 2×10⁵ compute wall decomposed — a synchronized arrival burst (worst 33k events vs 90 median, p99 32× budget) on a half-idle budget (p50 5.4–6.1 of 12 ms); delete the synchrony (stagger) or spend the ebb (compute-ahead) before scheduling it; the split re-read re-ranks below.
 - 20261019-2339-inversion-1d47 (inversion, awaiting grade): the root burst is an over-strict read order; gating the root pull off is bits-clean (14/14 digests) and cuts max_ms 58-111x
 - 20261019-2339-second-20261019-2017-inversion-cc9d-ee4d (second author, awaiting grade): cc9d's named cure flown env-gated — the root-doll player's due ships become budget-gated items before its item; freeze 46/815 ms (1e4/1e5 this box; 5e4/2e5 the record's 423/1,875) → 13.9/18.1/13.8/14.4 ms, mega-frames 0, crest = ~332 ship items; canonical-cut digest bit-identical (on/off/no-flight, 1e4 and 5e4, past the wave); price 0.62–0.71× rtf in the wave era; naive no-wait control indistinguishable (scans never bite at these scenes) — exactness rests on the mechanism.
+- 20261020-0036-second-20261019-2339-inversion-1d47-4063 (second author, awaiting grade): 1d47's named experiment flown — canonical-cut instrument (cut_digest, decision at a canonical tick): OFF = ON = REACH=16 on 34 cut runs at 10^5/2x10^5 (16+18; one digest a rung; unlimited/12x3/3 ms/no-flight/4 threads/deeper cut; ON's 1,838-entry encounter log byte-identical across reruns), burst stays deleted (801.4→19.3, 1,640.5→45.7 ms), checker's bistability not reproduced; stale reads real (3.8-11.2k) and answer 3-6 encounters a run at |d|≤0.71 window but verdict-preserving — the invariance is empirical, not structural; reach pull buys nothing measurable (offenders 10^7 ticks out).
