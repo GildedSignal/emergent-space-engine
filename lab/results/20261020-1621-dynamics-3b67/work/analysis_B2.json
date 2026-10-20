@@ -1,0 +1,250 @@
+{
+ "dir": "flights/B2_cold_s1",
+ "horizon": 98304,
+ "prefix": {
+  "contacts": 63461214,
+  "contacts_ref": 63461214,
+  "dead": 492,
+  "dead_ref": 492,
+  "reproduces": true
+ },
+ "windows": [
+  {
+   "w": [
+    1,
+    8192
+   ],
+   "deaths": 0,
+   "alive_end": 800,
+   "hazard_e5": 0.0,
+   "contacts_per_ch": 0.1,
+   "n_in_end": 800
+  },
+  {
+   "w": [
+    8193,
+    16384
+   ],
+   "deaths": 27,
+   "alive_end": 774,
+   "hazard_e5": 0.419,
+   "contacts_per_ch": 15.7,
+   "n_in_end": 624
+  },
+  {
+   "w": [
+    16385,
+    24576
+   ],
+   "deaths": 349,
+   "alive_end": 437,
+   "hazard_e5": 7.036,
+   "contacts_per_ch": 931.4,
+   "n_in_end": 285
+  },
+  {
+   "w": [
+    24577,
+    32768
+   ],
+   "deaths": 62,
+   "alive_end": 375,
+   "hazard_e5": 1.864,
+   "contacts_per_ch": 1612.0,
+   "n_in_end": 303
+  },
+  {
+   "w": [
+    32769,
+    40960
+   ],
+   "deaths": 32,
+   "alive_end": 343,
+   "hazard_e5": 1.088,
+   "contacts_per_ch": 2270.4,
+   "n_in_end": 319
+  },
+  {
+   "w": [
+    40961,
+    49152
+   ],
+   "deaths": 22,
+   "alive_end": 321,
+   "hazard_e5": 0.809,
+   "contacts_per_ch": 2917.1,
+   "n_in_end": 310
+  },
+  {
+   "w": [
+    49153,
+    57344
+   ],
+   "deaths": 15,
+   "alive_end": 306,
+   "hazard_e5": 0.584,
+   "contacts_per_ch": 4017.1,
+   "n_in_end": 313
+  },
+  {
+   "w": [
+    57345,
+    65536
+   ],
+   "deaths": 4,
+   "alive_end": 302,
+   "hazard_e5": 0.161,
+   "contacts_per_ch": 4394.6,
+   "n_in_end": 316
+  },
+  {
+   "w": [
+    65537,
+    73728
+   ],
+   "deaths": 8,
+   "alive_end": 294,
+   "hazard_e5": 0.328,
+   "contacts_per_ch": 4448.9,
+   "n_in_end": 321
+  },
+  {
+   "w": [
+    73729,
+    81920
+   ],
+   "deaths": 3,
+   "alive_end": 291,
+   "hazard_e5": 0.125,
+   "contacts_per_ch": 4788.7,
+   "n_in_end": 324
+  },
+  {
+   "w": [
+    81921,
+    90112
+   ],
+   "deaths": 1,
+   "alive_end": 290,
+   "hazard_e5": 0.042,
+   "contacts_per_ch": 4732.3,
+   "n_in_end": 329
+  },
+  {
+   "w": [
+    90113,
+    98304
+   ],
+   "deaths": 4,
+   "alive_end": 286,
+   "hazard_e5": 0.17,
+   "contacts_per_ch": 5071.0,
+   "n_in_end": 333
+  }
+ ],
+ "tail_fit": {
+  "lam_e5": 0.208,
+  "r2": 0.9241,
+  "deaths_tail": 35,
+  "halflife_ch": 333192
+ },
+ "structure": {
+  "49152": {
+   "t": 49152,
+   "alive": 308,
+   "zones": {
+    "lt2.1q": 138,
+    "lt10q": 223,
+    "lt30q": 260,
+    "lt140q": 292
+   },
+   "rms_core_lt30q": 6.91,
+   "median_r_live": 3.59
+  },
+  "73728": {
+   "t": 73728,
+   "alive": 281,
+   "zones": {
+    "lt2.1q": 147,
+    "lt10q": 225,
+    "lt30q": 264,
+    "lt140q": 278
+   },
+   "rms_core_lt30q": 6.75,
+   "median_r_live": 1.96
+  },
+  "98304": {
+   "t": 98304,
+   "alive": 273,
+   "zones": {
+    "lt2.1q": 151,
+    "lt10q": 219,
+    "lt30q": 262,
+    "lt140q": 271
+   },
+   "rms_core_lt30q": 6.7,
+   "median_r_live": 1.51
+  }
+ },
+ "late_ct_per_body_ch": {
+  "median": 0.0,
+  "p90": 85.531,
+  "max": 88.125
+ },
+ "late_deaths": {
+  "n": 35,
+  "median_med_r_q": 113.99,
+  "frac_core_lt30q": 0.029,
+  "frac_core_lt10q": 0.0,
+  "rings": {
+   "36": 1,
+   "54": 1,
+   "60": 3,
+   "66": 7,
+   "72": 4,
+   "78": 3,
+   "84": 5,
+   "90": 4,
+   "96": 5,
+   "102": 2
+  }
+ },
+ "ke_in": {
+  "at49k": 1112572089287,
+  "at_end": 1150560331523,
+  "ratio": 1.0341
+ },
+ "ring_flux": {
+  "early": {
+   "36": 17,
+   "42": 18,
+   "48": 20,
+   "54": 30,
+   "60": 26,
+   "66": 31,
+   "72": 39,
+   "78": 52,
+   "84": 61,
+   "90": 55,
+   "96": 66,
+   "102": 77
+  },
+  "tail": {
+   "36": 1,
+   "54": 1,
+   "60": 3,
+   "66": 7,
+   "72": 4,
+   "78": 3,
+   "84": 5,
+   "90": 4,
+   "96": 5,
+   "102": 2
+  }
+ },
+ "standing": {
+  "contacts_tail_total": 224891185,
+  "tail_ch": 49152,
+  "mean_ct_ch_last8k": 5071.0
+ }
+}
