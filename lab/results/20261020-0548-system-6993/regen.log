@@ -1,0 +1,25 @@
+binary: /home/glmlab/lab-target-3/release/examples/belt_floor
+floor: S=7 seed=1 n=10000 game_s=267000 build=0.4s fly=47.4s kicks=499095 handoffs=18 lost=30 refused=0 alive=9700/9700 drift_a_units_p50=1.153e-6 p99=6.262e-6 max=8.215e-6 a_p50=2.3338e8 locals_alive=300/300 locals_drift_p50=1.132e-1 p99=2.207e-1
+floor: S=5 seed=1 n=10000 game_s=267000 build=0.4s fly=17.7s kicks=121794 handoffs=18 lost=30 refused=0 alive=9700/9700 drift_a_units_p50=1.153e-6 p99=6.262e-6 max=8.215e-6 a_p50=2.3338e8 locals_alive=300/300 locals_drift_p50=1.132e-1 p99=2.207e-1
+floor: S=3 seed=1 n=10000 game_s=267000 build=0.4s fly=4.6s kicks=35846 handoffs=18 lost=30 refused=0 alive=9700/9700 drift_a_units_p50=1.153e-6 p99=6.262e-6 max=8.216e-6 a_p50=2.3338e8 locals_alive=300/300 locals_drift_p50=1.132e-1 p99=2.207e-1
+floor: S=1 seed=1 n=10000 game_s=267000 build=0.4s fly=1.2s kicks=7471 handoffs=18 lost=30 refused=0 alive=9700/9700 drift_a_units_p50=1.153e-6 p99=6.262e-6 max=8.216e-6 a_p50=2.3338e8 locals_alive=300/300 locals_drift_p50=1.124e-1 p99=2.211e-1
+floor: S=3 seed=1 n=10000 game_s=267000 build=0.4s fly=4.5s kicks=35846 handoffs=18 lost=30 refused=0 alive=9700/9700 drift_a_units_p50=1.153e-6 p99=6.262e-6 max=8.216e-6 a_p50=2.3338e8 locals_alive=300/300 locals_drift_p50=1.132e-1 p99=2.207e-1
+floor: S=7 seed=7 n=10000 game_s=267000 build=0.4s fly=47.1s kicks=494691 handoffs=11 lost=30 refused=0 alive=9700/9700 drift_a_units_p50=1.165e-6 p99=6.202e-6 max=8.204e-6 a_p50=2.3226e8 locals_alive=300/300 locals_drift_p50=4.223e-2 p99=6.724e-2
+floor: S=1 seed=7 n=10000 game_s=267000 build=0.4s fly=2.1s kicks=7151 handoffs=11 lost=30 refused=0 alive=9700/9700 drift_a_units_p50=1.165e-6 p99=6.203e-6 max=8.204e-6 a_p50=2.3226e8 locals_alive=300/300 locals_drift_p50=4.208e-2 p99=6.728e-2
+floor: S=1 seed=1 n=10000 game_s=126000000 build=0.4s fly=521.2s kicks=3933528 handoffs=84 lost=38 refused=1 alive=9700/9700 drift_a_units_p50=1.031e-4 p99=6.759e-4 max=1.181e-3 a_p50=2.3338e8 locals_alive=292/300 locals_drift_p50=4.060e-1 p99=5.444e-2
+cross-arm vs S=7 (seed 1, 267k game-s):
+ arm   |da|/a p50          p99          max     |de| p50          p99   own drift da/a p99
+S=7     0.000e+00    0.000e+00    0.000e+00    0.000e+00    0.000e+00            1.252e-05
+S=5     9.591e-11    2.098e-10    2.487e-10    8.907e-11    1.843e-10            1.252e-05
+S=3     5.765e-10    1.732e-09    2.175e-09    5.525e-10    1.536e-09            1.252e-05
+S=1     5.765e-10    1.732e-09    2.175e-09    5.525e-10    1.536e-09            1.252e-05
+
+one full belt orbit (1.26e8 game-s) at S=1, drift vs birth: |da|/a p50 2.063e-04 p99 1.354e-03 max 2.368e-03
+one orbit |de| p99 3.717e-03 max 5.508e-03
+
+composed belt-stream cores at 10^9, rtf 100 (3aec's anchors, x86 orders):
+  shipped S=7            193/1 at 82.5 us -> 193.0 cores
+  split8 S=5             193/5 at 82.5 us ->  39.2 cores
+  this run S=1           193/67 at 82.5 us ->   2.9 cores
+  checker belt item S=1  193/67 at 44.7 us ->   1.6 cores
+  stream ratio S=7/S=1 measured here: 499095/7471 = 66.8

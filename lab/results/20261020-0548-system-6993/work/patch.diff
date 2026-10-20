@@ -1,0 +1,100 @@
+diff --git a/crates/universe/examples/belt_floor.rs b/crates/universe/examples/belt_floor.rs
+new file mode 100644
+index 00000000..ce552737
+--- /dev/null
++++ b/crates/universe/examples/belt_floor.rs
+@@ -0,0 +1,94 @@
++//! The belt's own cadence floor: the ladder's belt flown at `2^step_log2` kicks per period of the
++//! root doll's shortest secondary, with every other dial shipped, and judged by behaviour — the
++//! per-body two-body energy about the star (an invariant the tide moves only slowly) at the end
++//! of the flight, and the per-body orbital elements, printed for cross-arm comparison. The judged
++//! classes of law.md (B17's strong tide at μ = 1e-3, B13's perijove arcs) are NOT this population:
++//! the belt's coupling is orders weaker, so its legal floor can only be deeper (lab/wiki/kick-cadence).
++//!
++//! `belt_floor STEP_LOG2 GAME_SECONDS [SEED [N]]` prints one `floor:` summary line and, with
++//! `DUMP=1`, one `i a e` line per belt body (bodies keep their ordinal across arms).
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::observe::root_state;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let s: i32 = a.get(1).and_then(|x| x.parse().ok()).unwrap_or(7);
++    let game_s: f64 = a.get(2).and_then(|x| x.parse().ok()).unwrap_or(267_000.0);
++    let seed: u64 = a.get(3).and_then(|x| x.parse().ok()).unwrap_or(1);
++    let n: usize = a.get(4).and_then(|x| x.parse().ok()).unwrap_or(10_000);
++    let cfg = Config { step_log2: s, ..Config::default() };
++    let t0 = Instant::now();
++    let mut p = plane_extra(cfg, seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let base = p.player - n;
++    let locals = ladder_locals(n as u64) as usize;
++    let belt: Vec<usize> = (base + locals..base + n).collect();
++    let t_end = (game_s / TICK_SECONDS) as i64;
++
++    // (a, e, specific energy) about the star (GM = 1 in root units), read as every reader reads it.
++    let read = |p: &emergent_universe::scenario::Plane, t: i64| -> Vec<(f64, f64, f64)> {
++        let ctx = p.u.ctx();
++        belt.iter()
++            .map(|&i| {
++                let (x, v) = root_state(&ctx, i, t).unwrap_or(([f64::NAN; 2], [f64::NAN; 2]));
++                let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++                let v2 = v[0] * v[0] + v[1] * v[1];
++                let eps = 0.5 * v2 - 1.0 / r;
++                let ell = x[0] * v[1] - x[1] * v[0];
++                let aa = -1.0 / (2.0 * eps);
++                let e = (1.0 + 2.0 * eps * ell * ell).sqrt();
++                (aa, e, eps)
++            })
++            .collect()
++    };
++    let birth = read(&p, 0);
++    let t1 = Instant::now();
++    p.u.settle(t_end);
++    let fly = t1.elapsed().as_secs_f64();
++    let final_states = read(&p, t_end);
++    let alive = belt.iter().filter(|&&i| p.u.rec(i).alive).count();
++
++    // The locals (about Home and the Moon) complete many of their own orbits inside this window:
++    // their drift is the compounding test the belt's fraction-of-an-orbit window cannot give.
++    let loc: Vec<usize> = (base..base + locals).collect();
++    let loc_read = |p: &emergent_universe::scenario::Plane, t: i64| -> Vec<(f64, f64)> {
++        let ctx = p.u.ctx();
++        loc.iter()
++            .map(|&i| {
++                let (x, v) = root_state(&ctx, i, t).unwrap_or(([f64::NAN; 2], [f64::NAN; 2]));
++                let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++                (0.5 * (v[0] * v[0] + v[1] * v[1]) - 1.0 / r, r)
++            })
++            .collect()
++    };
++    let lb = loc_read(&p, 0);
++    let lf = loc_read(&p, t_end);
++    let mut ldrift: Vec<f64> = lf.iter().zip(&lb).filter(|(f, b)| f.0.is_finite() && b.0.is_finite()).map(|(f, b)| (f.0 - b.0).abs() * b.1).collect();
++    let lalive = loc.iter().filter(|&&i| p.u.rec(i).alive).count();
++    let lq = |p: f64| ldrift[((ldrift.len() - 1) as f64 * p) as usize];
++
++    // Energy drift from birth (the B5 error-type judge: bounded and step-ordered, never compounding).
++    let mut drift: Vec<f64> = final_states.iter().zip(&birth).map(|(f, b)| (f.2 - b.2).abs() * b.0.abs()).collect();
++    drift.sort_by(|x, y| x.partial_cmp(y).unwrap());
++    let q = |p: f64| drift[((drift.len() - 1) as f64 * p) as usize];
++    let mut aes: Vec<f64> = birth.iter().map(|b| b.0).collect();
++    aes.sort_by(|x, y| x.partial_cmp(y).unwrap());
++    let st = p.u.stats;
++    println!(
++        "floor: S={s} seed={seed} n={n} game_s={game_s:.0} build={build:.1}s fly={fly:.1}s kicks={} handoffs={} lost={} refused={} alive={}/{} drift_a_units_p50={:.3e} p99={:.3e} max={:.3e} a_p50={:.4e} locals_alive={}/{} locals_drift_p50={:.3e} p99={:.3e}",
++        st.kicks, st.handoffs, st.lost, st.refused, alive, belt.len(), q(0.5), q(0.99), *drift.last().unwrap_or(&0.0), aes[aes.len() / 2], lalive, loc.len(), lq(0.5), lq(0.99)
++    );
++    if std::env::var("DUMP").is_ok() {
++        let tag = std::env::var("TAG").unwrap_or_else(|_| format!("s{s}"));
++        let name = format!("belt_floor_{tag}_seed{seed}.txt");
++        let mut out = String::new();
++        for (i, (f, b)) in final_states.iter().zip(&birth).enumerate() {
++            out.push_str(&format!("{} {:.17e} {:.17e} {:.17e} {:.17e}\n", i, b.0, b.1, f.0, f.1));
++        }
++        std::fs::write(name, out).unwrap();
++    }
++}
