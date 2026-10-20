@@ -2,12 +2,40 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0036-second-20261019-2339-inversion-1d47-4063
+updated: 20261020-0143-library-2d26
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**NEW (2d26, library — the wave's three exits are typed by one measured law, prepay coverage =
+pre-onset ebb / wave excess, and the law kills the prepay route at the rungs that matter: 0c0f's
+open direction 3 is priced, not just named).** Print-only per-frame trace (ES_FRAME_TRACE, off =
+shipped bits; the macOS rss probe gets a /proc stand-in, disclosed), shipped burn scene, seed 1,
+12 ms: **rtf 2000 — 10^5: p50 5.74 / p99 160.5 / max 812.6 / over 108, onset frame 458, pre-onset
+ebb 2,046 ms, wave excess 6,619 ms, coverage 0.31; 2x10^5: 6.07 / 319.5 / 1,652.0 / 110, onset
+455, ebb 2,036 ms, excess 15,686 ms, coverage 0.13; rtf 400 at 2x10^5 (the play side): p50 0.39 /
+p99 11.94 = AT BUDGET / max 1,590.4 in ONE frame / over 13 of 2,700, onset 2,067, ebb 20,775 ms,
+excess 8,160 ms, coverage 2.55; coast control: no wave (over 0–3, excess ≤ 7 ms across the three
+regens, never "over 0" exactly — the burn gate again).**
+Laws: excess x2.37 per x2 K while the pre-onset ebb is K-flat (onset is game-time-locked at
+gs ~ 15k, so frames-before-onset is set by cadence alone); whole-flight ebb no longer repays the
+wave (excess/total-slack 1.26 -> 3.13); the lag recovers to 0.0 in every arm (bounded deferral,
+never compounding) and the rtf-2000 lag ~32 s is cadence-structural (12 ms x 60 x 2000 = 1,440 <
+2,000 game-s per wall-s). Composed crossover at play-side cadence: coverage(rtf 400) = 6.0 / 2.55 /
+1.54 / 0.34 / 6e-5 at 1e5 / 2e5 / 3e5 / 1e6 / 1e9 — prepay is a <= 1e5 patch, amortize (the
+adopted drain) covers <= ~3e5 at play cadence and its price is presented-time lag prop. to K
+(9.2 / 21.8 s at 1e5 / 2e5), only deleting the burn's mint-synchrony scales (the stagger rides the
+kick-grid shift, birth-stagger's bill, retargeted to the burn response by 0c0f's checker). The
+player-facing disease at play cadence is ONE 1.59-s freeze in 46 s with p99 at budget, so the
+burst's freeze gate is judged at play cadence, never over-count at rtf 2000. All five exits and
+the invariance question carry library lessons (checker: 5/5 found by Readwise id, but only 2/5
+verbatim — 3/5 are lightly trimmed or quote-mark-retyped, so P6's byte-identity letter failed)
+(20261020-0143-library-2d26, library; 4 flights <= 48 s wall + regen ~3 min; predictions
+pre-registered: P1/P3/P4/P5 held, P6 failed as written, P2 held at 1e5 and failed its letter at
+2e5 (3.13 vs ≤ 3 author; regens 3.4–5.1) — the stronger reading is the finding: amortization is
+horizon-bound).**
 
 **NEW (4063, second author on 1d47 — the checker's named experiment flown whole: the canonical-cut
 instrument rebuilt with the decision at a canonical tick (`cut_digest`), and under it BOTH gate
@@ -1327,3 +1355,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-2339-inversion-1d47 (inversion, awaiting grade): the root burst is an over-strict read order; gating the root pull off is bits-clean (14/14 digests) and cuts max_ms 58-111x
 - 20261019-2339-second-20261019-2017-inversion-cc9d-ee4d (second author, awaiting grade): cc9d's named cure flown env-gated — the root-doll player's due ships become budget-gated items before its item; freeze 46/815 ms (1e4/1e5 this box; 5e4/2e5 the record's 423/1,875) → 13.9/18.1/13.8/14.4 ms, mega-frames 0, crest = ~332 ship items; canonical-cut digest bit-identical (on/off/no-flight, 1e4 and 5e4, past the wave); price 0.62–0.71× rtf in the wave era; naive no-wait control indistinguishable (scans never bite at these scenes) — exactness rests on the mechanism.
 - 20261020-0036-second-20261019-2339-inversion-1d47-4063 (second author, awaiting grade): 1d47's named experiment flown — canonical-cut instrument (cut_digest, decision at a canonical tick): OFF = ON = REACH=16 on 34 cut runs at 10^5/2x10^5 (16+18; one digest a rung; unlimited/12x3/3 ms/no-flight/4 threads/deeper cut; ON's 1,838-entry encounter log byte-identical across reruns), burst stays deleted (801.4→19.3, 1,640.5→45.7 ms), checker's bistability not reproduced; stale reads real (3.8-11.2k) and answer 3-6 encounters a run at |d|≤0.71 window but verdict-preserving — the invariance is empirical, not structural; reach pull buys nothing measurable (offenders 10^7 ticks out).
+- 20261020-0143-library-2d26 (library, awaiting grade): the wave's exits typed by coverage = pre-onset ebb / excess — 0.31/0.13 at rtf 2000, 2.55 at rtf 400; prepay dies by 1e6, amortize is horizon-bound, only the stagger scales.

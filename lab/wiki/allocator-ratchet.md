@@ -2,11 +2,36 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261018-0932-dynamics-c749
+updated: 20261020-0143-taleb-da23
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
 
 
+**NEW (da23, taleb — direction 1's first measured candidate: the stride gate built and
+flown).** `Config::stride_gate` (off by default, one build both arms) gates finality in
+`alone_at`/`final_through` three ways: reach boxes grown by one stride's light travel
+(v·(stride_max+1)·window, the same hull bound e517's HAZ projects), no skip at `fin ≥ t`
+(a restored/merged giant carries final parts above its `verified` — c749's violated region;
+it now projects its live stride hull and current rmax), and every certified truth with
+`start < t` coalesced as an ids-empty pseudo-member (finality had never read the truths
+table). **On the battle fire protocol (galaxy 8704/24, margin 0.5, 8 seeds, one hot window):
+fires 7/8 shipped → 1/10 gated** (the survivor is the s19 class, D=32, a certified truth
+from 944 against fin_hi 976); clean gate draws keep the equality law (every RB m ≤ 0),
+finish (regions →1), present 1280-1536 vs 1792-2128 shipped-clean (~15-40% cost), final
+lead 64-96 (>0, no publication livelock). Gate v1 (first two parts only) fired 1/8 — its
+fire exposed the giant-skip hole, killed as a configuration (#9), not the method. The
+churn class (gas min_region 1) was NOT flown: starvation there is untested (e517's cost
+note stands). The survivor names the next experiment: pin whether truth-hull radius,
+finalize-round base staleness, or a merge path raising fin_hi without a decision (da23).
+  [Checker da23: reproduced in kind, not in magnitude — the fire counts and the 15-40% cost
+  are hot-window numbers. Regen (quieter): shipped 1/8, gate 1/11; per-seed present differs
+  ≤ ~14%, often ~0. Paired same-seed same-window blocks: regen s11 shipped FIRE D=48 / gate
+  clean; checker s25 shipped FIRE D=80 / gate clean. The survivor is deterministic — PRE
+  D=(32,44,944) → FIRE id=52 s0=944 fin_hi=976, state-identical in the author's window and
+  the regen. P4 churn flown by the checker: no starvation (present equal, 0 fires). Adverse:
+  under 8-way crush every gate draw at final lead 0 and 1/14 near-stalled (present 72 vs 529
+  shipped same seed+window, finality pinned F=32) — the disarm channel the gate needs is
+  load-coupled on the battle class too.]
 **NEW (c749, dynamics — od 5's named next step done: the fire's internal state on the
 game's own fleet battle, e517's instrument verbatim on bf83's harness).** Six fires
 pooled over two executions whose incidence moved with the wall clock (execution 1: 3/8
@@ -313,3 +338,4 @@ as a complete rule by the churn class above).
 - 20261017-1829-second-20261017-1447-dynamics-fd35-e517 (this run, awaiting grade):
 - 20261018-0035-inversion-bf83 (this run, awaiting grade): the game shapes separated by fire — fleets fire unsabotaged (1/14, margin 0.5), belt shapes clean, churn without slack inert; margin 0 is its own ruin.
 - 20261018-0932-dynamics-c749 (dynamics, awaiting grade): the fire's state on the game's
+- 20261020-0143-taleb-da23 (taleb, awaiting grade): the stride gate built: fires 7/8 → 1/10 on the battle protocol, ~15-40% present cost, equality law held; one survivor fire names the last hole.

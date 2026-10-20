@@ -6,17 +6,17 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
 | [entry](entry.md) | open | 0 | (no current best yet) |
-| [history-demand](history-demand.md) | open | 1 | **The retention law's demand side is measured for the first time, and the burn-mode ratchet's fuel |
+| [history-demand](history-demand.md) | open | 2 | **NEW (c8d5, spacex — open direction 1 flown: the one-leg keep is flight-proven complete and |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [flyable-frame](flyable-frame.md) | open | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
-| [scan-locality](scan-locality.md) | open | 4 | **NEW (e9a1, system — the pair cone is never-miss at the wall rungs: 0 violations over 4,377 answered |
 | [calendar](calendar.md) | open | 5 | **NEW (6b9a, components — the apparatus itself is measured on shipped code, and the |
 | [contact-speed](contact-speed.md) | open | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
+| [scan-locality](scan-locality.md) | open | 5 | **NEW (f3db, second author on e9a1 — the named instrumentation flown, and the run's premise correction |
 | [birth-stagger](birth-stagger.md) | open | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
 | [cell-rebind](cell-rebind.md) | open | 7 | **The gold rung is flown and it splits the claim: the gates kill the wiring at 11+11, and the |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
@@ -28,7 +28,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [promotion](promotion.md) | open | 17 | **NEW (396d, spacex — the player-seam flight, promotion od 1's unflown arm, flown at K = 10⁴ and 3×10⁴):** |
-| [allocator-ratchet](allocator-ratchet.md) | open | 18 | (no current best yet) |
+| [allocator-ratchet](allocator-ratchet.md) | open | 19 | (no current best yet) |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [representation-premises](representation-premises.md) | open | 21 | **Prior standing record, unchanged (compiled from the runs below), plus 7bcf's flux half:** |
@@ -41,4 +41,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
-| [nladder](nladder.md) | open | 173 | **NEW (4063, second author on 1d47 — the checker's named experiment flown whole: the canonical-cut |
+| [nladder](nladder.md) | open | 174 | **NEW (2d26, library — the wave's three exits are typed by one measured law, prepay coverage = |
