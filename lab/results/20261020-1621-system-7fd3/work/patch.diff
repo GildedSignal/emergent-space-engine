@@ -1,0 +1,340 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..72df77c8 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -39,6 +39,76 @@ impl IntegerState {
+     }
+ }
+ 
++pub mod census {
++    use std::cell::Cell;
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++    pub static ON: AtomicBool = AtomicBool::new(false);
++    pub static MINTS: AtomicU64 = AtomicU64::new(0);
++    pub static COMPILE_NS: AtomicU64 = AtomicU64::new(0);
++    pub static READS_STATE: AtomicU64 = AtomicU64::new(0);
++    pub static READS_RADIUS: AtomicU64 = AtomicU64::new(0);
++    pub static MINT_OWN: AtomicU64 = AtomicU64::new(0);
++
++    thread_local! {
++        pub static IN_MINT: Cell<bool> = const { Cell::new(false) };
++    }
++
++    #[inline]
++    pub fn enabled() -> bool {
++        ON.load(Ordering::Relaxed)
++    }
++
++    pub fn init() {
++        if std::env::var("ES_MINT_CENSUS").as_deref() == Ok("1") {
++            ON.store(true, Ordering::Relaxed);
++        }
++    }
++
++    /// One mint: a compile of a fresh trajectory; its reads belong to the mint, not to the world.
++    pub struct Mint;
++    impl Mint {
++        #[inline]
++        pub fn enter() -> Option<Self> {
++            enabled().then(|| {
++                MINTS.fetch_add(1, Ordering::Relaxed);
++                IN_MINT.with(|f| f.set(true));
++                Self
++            })
++        }
++    }
++    impl Drop for Mint {
++        fn drop(&mut self) {
++            IN_MINT.with(|f| f.set(false));
++        }
++    }
++
++    #[inline]
++    pub fn clock() -> Option<std::time::Instant> {
++        enabled().then(std::time::Instant::now)
++    }
++
++    #[inline]
++    pub fn compile_elapsed(clock: Option<std::time::Instant>) {
++        if let Some(c) = clock {
++            COMPILE_NS.fetch_add(c.elapsed().as_nanos() as u64, Ordering::Relaxed);
++        }
++    }
++
++    pub fn print() {
++        if enabled() {
++            println!(
++                "census[space]: mints {} compile_ms {:.1} reads_state {} reads_radius {} mint_own {}",
++                MINTS.load(Ordering::Relaxed),
++                COMPILE_NS.load(Ordering::Relaxed) as f64 / 1e6,
++                READS_STATE.load(Ordering::Relaxed),
++                READS_RADIUS.load(Ordering::Relaxed),
++                MINT_OWN.load(Ordering::Relaxed)
++            );
++        }
++    }
++}
++
+ #[derive(Clone, Debug)]
+ pub enum Trajectory {
+     Cycle(Orbit),
+@@ -55,6 +125,13 @@ impl Trajectory {
+         }
+     }
+     pub fn state(&self, time: Scalar) -> Result<OrbitState> {
++        if census::enabled() {
++            if census::IN_MINT.with(|f| f.get()) {
++                census::MINT_OWN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            } else {
++                census::READS_STATE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            }
++        }
+         match self {
+             Self::Cycle(c) => c.signed_state(time),
+             Self::Passage(p) => p.state(time),
+@@ -62,6 +139,9 @@ impl Trajectory {
+         }
+     }
+     fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
++        if census::enabled() && !census::IN_MINT.with(|f| f.get()) {
++            census::READS_RADIUS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
+         match self {
+             Self::Cycle(c) => c.at_radius(r),
+             Self::Passage(p) => p.at_radius(r),
+@@ -417,11 +497,18 @@ impl Rebinding {
+         Ok(fit)
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let _mint = census::Mint::enter();
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            let c = census::clock();
++            let orbit = Orbit::compile(key)?;
++            census::compile_elapsed(c);
++            Trajectory::Cycle(orbit)
+         } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++            let c = census::clock();
++            let passage = Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?;
++            census::compile_elapsed(c);
++            Trajectory::Passage(passage)
+         };
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+         if incoming {
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..620b39a5 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,25 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// The same two numbers where libproc does not exist (the lab's Linux machines): resident now and
++/// its high-water mark from /proc/self/status, in bytes.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let kb = |line: &str| line.split_whitespace().next().and_then(|v| v.parse::<u64>().ok()).map(|kb| kb * 1024);
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(status) = std::fs::read_to_string("/proc/self/status") {
++        for line in status.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = kb(v).unwrap_or(0);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = kb(v).unwrap_or(0);
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -39,6 +60,7 @@ fn pct(sorted: &[f64], p: f64) -> f64 {
+ 
+ fn main() {
+     let t_start = Instant::now();
++    emergent_universe::ucensus::init();
+     let args: Vec<String> = std::env::args().collect();
+     let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+     let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
+@@ -142,6 +164,8 @@ fn main() {
+         per(kicks), per(evs), last_stats.opens - s0.opens, last_stats.boundaries - s0.boundaries, last_stats.handoffs - s0.handoffs, last_stats.lost - s0.lost, last_stats.refused - s0.refused, last_stats.slices - s0.slices
+     );
+     println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end (now {:.0} MB); {:.0} B a body from the build; dashboard bytes/body {}; view gather {cold:.1} ms cold, {warm:.1} ms warm ({seen} seen); catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
++    emergent_universe::census::print();
++    emergent_universe::ucensus::print();
+     if emergent_universe::prof::ENABLED {
+         println!("stages (µs per frame, calls per frame, ns per call), over the {} frames:", late.len());
+         for k in 0..emergent_universe::prof::N {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..01421a97 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -223,7 +223,14 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>,
+ 
+ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
+     let t_fit = crate::prof::t();
+-    let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
++    let bound = if crate::ucensus::enabled() {
++        emergent_space::binding::census::IN_MINT.with(|f| f.set(true));
++        let b = bind_in(exact, t, clock_exp, edge, unit, surface);
++        emergent_space::binding::census::IN_MINT.with(|f| f.set(false));
++        b
++    } else {
++        bind_in(exact, t, clock_exp, edge, unit, surface)
++    }?;
+     crate::prof::add(crate::prof::FIT, t_fit);
+     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..594e55a4 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -154,10 +154,17 @@ impl BodyStore for PlainBodies {
+         if t >= r.b.event_time {
+             return Some(r.b.clone());
+         }
++        if crate::ucensus::enabled() {
++            crate::ucensus::HIST_Q.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
+         let h = &self.history[i];
+         // Segments are contiguous and ascending in `until`: the first with `until > t`.
+         let k = h.partition_point(|s| s.until <= t);
+-        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
++        let hit = h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone());
++        if crate::ucensus::enabled() && hit.is_some() {
++            crate::ucensus::HIST_HIT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++        hit
+     }
+     fn event_time(&self, i: usize) -> Tick {
+         self.recs[i].b.event_time
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..e6b2168c 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -15,10 +15,11 @@ pub mod radial;
+ pub mod scenario;
+ pub mod step;
+ pub mod thrust;
++pub mod ucensus;
+ pub mod universe;
+ pub mod view;
+ pub mod world;
+-
++pub use emergent_space::binding::census;
+ pub use body::Kind;
+ pub use ctx::Config;
+ pub use universe::{Budget, OrbitSpec, Universe};
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..ba6c6894 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -354,6 +354,10 @@ impl Work<'_, '_> {
+ 
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
++        let _rebind = crate::ucensus::Timer::start(&crate::ucensus::REBIND_NS);
++        if crate::ucensus::enabled() {
++            crate::ucensus::REBINDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
+         let old = &self.rec.b;
+@@ -404,6 +408,7 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let _kick = crate::ucensus::Timer::start(&crate::ucensus::KICK_NS);
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+@@ -430,6 +435,9 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        if crate::ucensus::enabled() {
++            crate::ucensus::KICKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
+         self.rebind(next, t, d)?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+diff --git a/crates/universe/src/ucensus.rs b/crates/universe/src/ucensus.rs
+new file mode 100644
+index 00000000..173bdbe2
+--- /dev/null
++++ b/crates/universe/src/ucensus.rs
+@@ -0,0 +1,53 @@
++//! The print-only universe census (lab run 20261020-1621-system-7fd3): fired kicks, rebinds and
++//! history walks beside the same paths, on only when `ES_MINT_CENSUS=1`. Counters are relaxed
++//! atomics; the shipped path is otherwise untouched.
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::time::Instant;
++
++pub static ON: AtomicBool = AtomicBool::new(false);
++pub static KICKS: AtomicU64 = AtomicU64::new(0);
++pub static KICK_NS: AtomicU64 = AtomicU64::new(0);
++pub static REBINDS: AtomicU64 = AtomicU64::new(0);
++pub static REBIND_NS: AtomicU64 = AtomicU64::new(0);
++pub static HIST_Q: AtomicU64 = AtomicU64::new(0);
++pub static HIST_HIT: AtomicU64 = AtomicU64::new(0);
++
++#[inline]
++pub fn enabled() -> bool {
++    ON.load(Ordering::Relaxed)
++}
++
++/// Times a whole function into `bucket` (a `?` return drops the guard, so nothing is missed).
++pub struct Timer(&'static AtomicU64, Instant);
++impl Timer {
++    #[inline]
++    pub fn start(bucket: &'static AtomicU64) -> Option<Self> {
++        enabled().then(|| Self(bucket, Instant::now()))
++    }
++}
++impl Drop for Timer {
++    fn drop(&mut self) {
++        self.0.fetch_add(self.1.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    }
++}
++
++pub fn init() {
++    if std::env::var("ES_MINT_CENSUS").as_deref() == Ok("1") {
++        ON.store(true, Ordering::Relaxed);
++        emergent_space::binding::census::init();
++    }
++}
++
++pub fn print() {
++    if enabled() {
++        println!(
++            "ucensus[universe]: kicks {} kick_ms {:.1} rebinds {} rebind_ms {:.1} hist_queries {} hist_hits {}",
++            KICKS.load(Ordering::Relaxed),
++            KICK_NS.load(Ordering::Relaxed) as f64 / 1e6,
++            REBINDS.load(Ordering::Relaxed),
++            REBIND_NS.load(Ordering::Relaxed) as f64 / 1e6,
++            HIST_Q.load(Ordering::Relaxed),
++            HIST_HIT.load(Ordering::Relaxed)
++        );
++    }
++}
