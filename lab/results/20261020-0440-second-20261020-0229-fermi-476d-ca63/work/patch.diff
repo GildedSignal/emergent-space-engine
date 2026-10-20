@@ -1,0 +1,141 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..9f327b1c 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+-/// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// included (the resident size alone drops pages the kernel compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,26 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stand-in: the resident set now and its high-water mark, from /proc (pages the kernel swapped out are missed;
++/// disclosed in the dossier).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let read = |name: &str| std::fs::read_to_string(format!("/proc/self/{name}")).ok();
++    let now = read("statm")
++        .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++        .map(|pages| pages * 4096)
++        .unwrap_or(0);
++    let peak = read("status")
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmHWM:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|kb| kb.parse::<u64>().ok()))
++        })
++        .map(|kb| kb * 1024)
++        .unwrap_or(0);
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -54,7 +76,10 @@ fn main() {
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
+-    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
++    // The lab's guard dial (instrument-only): default shipped 55 s; load-regime flights need more wall time to reach
++    // the same game-time. Never read by the engine.
++    let flight_max_s: f64 = std::env::var("ES_FLIGHT_MAX_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
++    let mut rows: Vec<(usize, f64, u64, f64, f64)> = Vec::new(); // frame, ms, events, lag s, presented game-s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+     let (mut held_max, mut truncated) = (0usize, false);
+@@ -64,7 +89,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(flight_max_s) {
+             truncated = true;
+             break;
+         }
+@@ -86,7 +111,7 @@ fn main() {
+                 stage_calls[k] += calls[k];
+             }
+         }
+-        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS, frame.presented as f64 * TICK_SECONDS));
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -119,6 +144,14 @@ fn main() {
+         refusals += r.refusals;
+         dead += (!r.alive) as usize;
+     }
++    // The lab's per-frame trace (print-only, off = shipped output): game-time-anchored wave analysis re-derives every
++    // number from these rows; gs = the frame's presented game-seconds.
++    eprintln!("csv frame,ms,events,lag_s,gs");
++    for r in &rows {
++        if r.0 >= 60 {
++            eprintln!("csv {},{:.4},{},{:.4},{:.2}", r.0, r.1, r.2, r.3, r.4);
++        }
++    }
+     // the view: one gather from a cold cache and one from the warm one, wall (skipped when the run is near its 60 s).
+     let mut cache = ViewCache::default();
+     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..6be4ecea 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -43,6 +43,11 @@ pub trait Encounters: Send + Sync {
+ /// is given (the bodies' histories may have moved on, been pruned, or the bodies died since).
+ pub trait Held: Send + Sync {
+     fn answer(&self) -> Vec<Encounter>;
++    /// The tick this scan was minted at: a print-only readout for the lab's TTL fence (`ES_SCAN_TTL_S`; the default
++    /// never expires).
++    fn minted_at(&self) -> Tick {
++        Tick::MAX
++    }
+ }
+ 
+ /// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
+@@ -123,6 +128,9 @@ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+     }
++    fn minted_at(&self) -> Tick {
++        self.t
++    }
+ }
+ 
+ impl Scan {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..a97d5deb 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1081,6 +1081,18 @@ impl Universe {
+         let t_prune = crate::prof::t();
+         self.prune();
+         crate::prof::add(crate::prof::PRUNE, t_prune);
++        // The lab's answer-or-expire fence (env-gated, off = shipped behaviour; 7b6f/e181): a scan minted more than
++        // `ES_SCAN_TTL_S` game-seconds ago is dropped unanswered at the frame's start. A law change when set (expired
++        // scans never log), for measurement only; e181 measured the answer side's price at <= 0.3% of encounters.
++        if let Ok(ttl) = std::env::var("ES_SCAN_TTL_S") {
++            let ttl: Tick = ttl.trim().parse::<f64>().unwrap_or(0.0).max(0.0) as Tick;
++            if ttl > 0 {
++                let cut = self.now.saturating_sub((ttl as f64 / crate::view::TICK_SECONDS) as Tick);
++                while self.scans.front().is_some_and(|s| s.minted_at() <= cut) {
++                    self.scans.pop_front();
++                }
++            }
++        }
+         let a = self.advance(target, budget);
+         let before = self.now;
+         self.now = a.horizon.max(self.now);

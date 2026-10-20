@@ -1,0 +1,75 @@
+patch already applied (regen rerun)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.26s
+skip idle1_k100000_s17 (done)
+skip idle2_k100000_s17 (done)
+skip idle3_k100000_s17 (done)
+skip idle1_k200000_s10 (done)
+skip idle2_k200000_s10 (done)
+skip idle3_k200000_s10 (done)
+skip idle1_k300000_s10 (done)
+started 16 spinners: 16 pids
+skip load1_k100000_s25 (done)
+skip load2_k100000_s25 (done)
+skip load3_k100000_s25 (done)
+skip load1_k200000_s45 (done)
+skip load2_k200000_s45 (done)
+skip load3_k200000_s45 (done)
+stopped
+skip fence1_k100000_s17 (done)
+skip fence1_k200000_s17 (done)
+matrix done 05:22:41
+--- gs analysis ---
+fence1_k100000_s17: onset f481 gs 13125 width_gs 833 end_gs 31035 crest 6466 ms (events 98867, 0.989/body, 65.4 us/ev) tail 3050 ms ebb 2540 excess_all 9515 cov 0.267 over 115 rss 503 held 274
+fence1_k200000_s17: onset f451 gs 13133 width_gs 767 end_gs 32096 crest 10462 ms (events 198744, 0.994/body, 52.6 us/ev) tail 8244 ms ebb 2544 excess_all 18706 cov 0.136 over 114 rss 971 held 387
+idle1_k100000_s17: onset f450 gs 13167 width_gs 800 end_gs 32140 crest 4651 ms (events 97980, 0.980/body, 47.5 us/ev) tail 1975 ms ebb 2035 excess_all 6626 cov 0.307 over 106 rss 1494 held 1867
+idle1_k200000_s10: onset f460 gs 13133 width_gs 767 end_gs 17794 crest 10039 ms (events 198626, 0.993/body, 50.5 us/ev) tail 0 ms ebb 1975 excess_all 10039 cov 0.197 over 23 rss 956 held 1901
+idle1_k300000_s10: onset f501 gs 13133 width_gs 712 end_gs 16347 crest 18647 ms (events 302837, 1.009/body, 61.6 us/ev) tail 0 ms ebb 895 excess_all 18647 cov 0.048 over 177 rss 1443 held 1875
+idle2_k100000_s17: onset f449 gs 13170 width_gs 800 end_gs 32196 crest 4617 ms (events 97709, 0.977/body, 47.3 us/ev) tail 2226 ms ebb 2080 excess_all 6844 cov 0.304 over 108 rss 1494 held 1858
+idle2_k200000_s10: onset f449 gs 13170 width_gs 767 end_gs 18196 crest 9621 ms (events 198445, 0.992/body, 48.5 us/ev) tail 2 ms ebb 2063 excess_all 9622 cov 0.214 over 24 rss 959 held 1863
+idle3_k100000_s17: onset f462 gs 13136 width_gs 800 end_gs 31718 crest 5486 ms (events 97971, 0.980/body, 56.0 us/ev) tail 2379 ms ebb 1852 excess_all 7865 cov 0.235 over 107 rss 1494 held 1800
+idle3_k200000_s10: onset f455 gs 13133 width_gs 767 end_gs 17934 crest 10455 ms (events 198766, 0.994/body, 52.6 us/ev) tail 0 ms ebb 1962 excess_all 10455 cov 0.188 over 19 rss 957 held 1895
+load1_k100000_s25: onset f1150 gs 13127 width_gs 743 end_gs 24702 crest 19998 ms (events 103485, 1.035/body, 193.2 us/ev) tail 6005 ms ebb 5227 excess_all 26003 cov 0.201 over 350 rss 1183 held 2048
+load1_k200000_s45: onset f1374 gs 13107 width_gs 842 end_gs 39754 crest 40793 ms (events 203354, 1.017/body, 200.6 us/ev) tail 35987 ms ebb 7514 excess_all 84454 cov 0.089 over 542 rss 3675 held 2048
+load2_k100000_s25: onset f1355 gs 13270 width_gs 757 end_gs 18093 crest 20206 ms (events 103796, 1.038/body, 194.7 us/ev) tail 1137 ms ebb 7226 excess_all 21342 cov 0.339 over 296 rss 553 held 2048
+load2_k200000_s45: onset f1222 gs 13124 width_gs 809 end_gs 41497 crest 38096 ms (events 203880, 1.019/body, 186.9 us/ev) tail 27779 ms ebb 6159 excess_all 78070 cov 0.079 over 560 rss 3777 held 2048
+load3_k100000_s25: onset f1393 gs 13166 width_gs 759 end_gs 16691 crest 17476 ms (events 103404, 1.034/body, 169.0 us/ev) tail 199 ms ebb 7792 excess_all 17675 cov 0.441 over 209 rss 538 held 2048
+load3_k200000_s45: onset f1523 gs 13203 width_gs 758 end_gs 36369 crest 43271 ms (events 204163, 1.021/body, 211.9 us/ev) tail 33024 ms ebb 8564 excess_all 78726 cov 0.109 over 560 rss 3183 held 2048
+
+== per-regime medians [min..max], crest anchored on gs ==
+  fence K=100000 n=1: onset_gs 13125 [13125..13125] width_gs 833 [833..833] crest_ms 6466 [6466..6466] tail_ms 3050 [3050..3050] ebb_ms 2540 [2540..2540] cov 0.267 [0.267..0.267] ev/body 0.989 [0.989..0.989] us/ev 65.4
+  fence K=200000 n=1: onset_gs 13133 [13133..13133] width_gs 767 [767..767] crest_ms 10462 [10462..10462] tail_ms 8244 [8244..8244] ebb_ms 2544 [2544..2544] cov 0.136 [0.136..0.136] ev/body 0.994 [0.994..0.994] us/ev 52.6
+  idle K=100000 n=3: onset_gs 13167 [13136..13170] width_gs 800 [800..800] crest_ms 4651 [4617..5486] tail_ms 2226 [1975..2379] ebb_ms 2035 [1852..2080] cov 0.304 [0.235..0.307] ev/body 0.980 [0.977..0.980] us/ev 47.5
+  idle K=200000 n=3: onset_gs 13133 [13133..13170] width_gs 767 [767..767] crest_ms 10039 [9621..10455] tail_ms 0 [0..2] ebb_ms 1975 [1962..2063] cov 0.197 [0.188..0.214] ev/body 0.993 [0.992..0.994] us/ev 50.5
+  idle K=300000 n=1: onset_gs 13133 [13133..13133] width_gs 712 [712..712] crest_ms 18647 [18647..18647] tail_ms 0 [0..0] ebb_ms 895 [895..895] cov 0.048 [0.048..0.048] ev/body 1.009 [1.009..1.009] us/ev 61.6
+  load K=100000 n=3: onset_gs 13166 [13127..13270] width_gs 757 [743..759] crest_ms 19998 [17476..20206] tail_ms 1137 [199..6005] ebb_ms 7226 [5227..7792] cov 0.339 [0.201..0.441] ev/body 1.035 [1.034..1.038] us/ev 193.2
+  load K=200000 n=3: onset_gs 13124 [13107..13203] width_gs 809 [758..842] crest_ms 40793 [38096..43271] tail_ms 33024 [27779..35987] ebb_ms 7514 [6159..8564] cov 0.089 [0.079..0.109] ev/body 1.019 [1.017..1.021] us/ev 200.6
+
+== crest exponent alpha per regime (medians; band from per-flight extremes) ==
+  fence 100000->200000: alpha(medians)=0.694 band [0.694..0.694] ratio=1.618
+  idle 100000->200000: alpha(medians)=1.110 band [0.810..1.179] ratio=2.158
+  idle 200000->300000: alpha(medians)=1.527 band [1.427..1.632] ratio=1.857
+  load 100000->200000: alpha(medians)=1.029 band [0.915..1.308] ratio=2.040
+
+== fence arms (idle, TTL=16) vs idle no-fence ==
+  fence K=100000: crest 6466 vs no-fence med 4651 (1.39x), tail 3050 vs 2226 (1.370x), onset_gs 13125 vs 13167, end_gs 31035 (tail window fully covered: False)
+  fence K=200000: crest 10462 vs no-fence med 10039 (1.04x), tail 8244 vs 0 (8244.068x), onset_gs 13133 vs 13133, end_gs 32096 (tail window fully covered: False)
+
+== prediction verdicts (bands and kill bars from predictions.md) ==
+P1a idle1e5 onset_gs median 13167 in [12700,13800]: HOLD
+P1b |onset_gs idle-load| K=100000: 1 gs (<750 HOLD, >1500 KILL): HOLD
+P1b |onset_gs idle-load| K=200000: 9 gs (<750 HOLD, >1500 KILL): HOLD
+P2 idle K=100000 ev/body [0.977..0.980] in [0.90,1.10]: HOLD
+P2 idle K=200000 ev/body [0.992..0.994] in [0.90,1.10]: HOLD
+P2 idle K=300000 ev/body [1.009..1.009] in [0.90,1.10]: HOLD
+P2 load K=100000 ev/body [1.034..1.038] in [0.90,1.10]: HOLD
+P2 load K=200000 ev/body [1.017..1.021] in [0.90,1.10]: HOLD
+P2b |ev/body regime shift| K=100000: 0.055 (<=0.08 HOLD, >0.10 KILL): HOLD
+P2b |ev/body regime shift| K=200000: 0.026 (<=0.08 HOLD, >0.10 KILL): HOLD
+P3 idle alpha(1e5->2e5) median 1.110 band [0.810..1.179]
+P3 load alpha(1e5->2e5) median 1.029 band [0.915..1.308]
+P3b idle alpha(1e5->3e5) 1.264 in [1.05,1.40]: HOLD
+P4/K4 fence1e5 tail 3050 vs no-fence 2226 (1.370x; <=0.15 HOLD, >0.25 KILL); crest 6466 vs 4651 (1.39x; 0.5-2.0 ok); held_max 274 (<=50 pred)
+P5 idle us/ev 47.5 -> 50.5 (+6.5%/doubling)
+P5 load us/ev 193.2 -> 200.6 (+3.8%/doubling)
+P5b load multiplier us/ev: 1e5 4.07x, 2e5 3.97x (K-uniform within 30%: HOLD; pred band [2.5,5.0])
