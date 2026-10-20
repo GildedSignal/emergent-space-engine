@@ -1,0 +1,48 @@
+(patch already applied — skipped)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.46s
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+shipped s11 exit=101 (101 = fire)
+gate s19 try2 exit=101
+=== fires (FIRE lines / exit 101) ===
+draws/g8704_s11.0.err:1
+draws/g8704_s19.0.err
+draws/g8704_s21.0.err
+draws/g8704_s23.0.err
+draws/g8704_s25.0.err
+draws/g8704_s27.0.err
+draws/g8704_s29.0.err
+draws/g8704_s31.0.err
+draws/g8704_s11.1.err
+draws/g8704_s19.1.err
+draws/g8704_s21.1.err
+draws/g8704_s23.1.err
+draws/g8704_s25.1.err
+draws/g8704_s27.1.err
+draws/g8704_s29.1.err
+draws/g8704_s31.1.err
+draws/s19t1.1.err
+draws/s19t2.1.err:1
+draws/s19t3.1.err
+=== arm summaries ===
+done battle seed 19 rate 2400 min_region 32 gate 0: 8704 bodies | present 1786 | rollbacks 5 merges 10 splits 1 regions 23->1 | deadline misses 1005 |
+done battle seed 21 rate 2400 min_region 32 gate 0: 8704 bodies | present 1536 | rollbacks 8 merges 12 splits 0 regions 25->1 | deadline misses 961 | 
+done battle seed 23 rate 2400 min_region 32 gate 0: 8704 bodies | present 1424 | rollbacks 11 merges 18 splits 1 regions 23->1 | deadline misses 947 |
+done battle seed 25 rate 2400 min_region 32 gate 0: 8704 bodies | present 1440 | rollbacks 5 merges 11 splits 1 regions 24->1 | deadline misses 945 | 
+done battle seed 27 rate 2400 min_region 32 gate 0: 8704 bodies | present 1536 | rollbacks 3 merges 12 splits 4 regions 23->1 | deadline misses 936 | 
+done battle seed 29 rate 2400 min_region 32 gate 0: 8704 bodies | present 1792 | rollbacks 3 merges 12 splits 0 regions 25->1 | deadline misses 924 | 
+done battle seed 31 rate 2400 min_region 32 gate 0: 8704 bodies | present 1936 | rollbacks 1 merges 20 splits 8 regions 24->2 | deadline misses 969 | 
+done battle seed 11 rate 2400 min_region 32 gate 1: 8704 bodies | present 1606 | rollbacks 6 merges 14 splits 3 regions 22->1 | deadline misses 961 | 
+done battle seed 19 rate 2400 min_region 32 gate 1: 8704 bodies | present 1748 | rollbacks 5 merges 11 splits 1 regions 23->1 | deadline misses 1127 |
+done battle seed 21 rate 2400 min_region 32 gate 1: 8704 bodies | present 1440 | rollbacks 10 merges 13 splits 0 regions 25->1 | deadline misses 982 |
+done battle seed 23 rate 2400 min_region 32 gate 1: 8704 bodies | present 1536 | rollbacks 4 merges 12 splits 1 regions 23->1 | deadline misses 939 | 
+done battle seed 25 rate 2400 min_region 32 gate 1: 8704 bodies | present 1456 | rollbacks 4 merges 11 splits 1 regions 24->1 | deadline misses 942 | 
+done battle seed 27 rate 2400 min_region 32 gate 1: 8704 bodies | present 1536 | rollbacks 2 merges 8 splits 1 regions 23->1 | deadline misses 931 | f
+done battle seed 29 rate 2400 min_region 32 gate 1: 8704 bodies | present 1536 | rollbacks 7 merges 17 splits 0 regions 25->1 | deadline misses 948 | 
+done battle seed 31 rate 2400 min_region 32 gate 1: 8704 bodies | present 1856 | rollbacks 1 merges 18 splits 8 regions 24->2 | deadline misses 909 | 
+done battle seed 19 rate 2400 min_region 32 gate 1: 8704 bodies | present 1536 | rollbacks 6 merges 12 splits 1 regions 23->1 | deadline misses 1142 |
+done battle seed 19 rate 2400 min_region 32 gate 1: 8704 bodies | present 1536 | rollbacks 8 merges 15 splits 1 regions 23->1 | deadline misses 1177 |
+=== equality law under the gate: every RB m<=0, no FIRE expected ===
+RB lid=44 s0=944 s=768 aff=[(52, 976)] m=32 out=[] mo=0
+ 02:06:23 up 53 days, 17:08,  1 user,  load average: 3.95, 2.88, 2.08
