@@ -1,0 +1,246 @@
+diff --git a/crates/universe/examples/alloc_probe.rs b/crates/universe/examples/alloc_probe.rs
+new file mode 100644
+index 00000000..1fa73481
+--- /dev/null
++++ b/crates/universe/examples/alloc_probe.rs
+@@ -0,0 +1,240 @@
++//! Print-only probe (run 20261019-2339-fermi-f623): the mint stream's allocation law, per fired kick,
++//! on the shipped `nladder` scene (`scenario::plane_extra`, same call, same defaults). A counting
++//! `GlobalAlloc` wraps `System` (the shipped engine sets none), and one probe line per wall second
++//! prints the window's allocation deltas next to the engine's own kick delta; at the end, a size
++//! histogram (exact sizes to 2 KiB) fingerprints the per-kick allocation family. The shipped
++//! `nladder` example is untouched; this binary is the probe. The counting wrapper perturbs wall
++//! timing (atomics per call) — game-lawful digits (kicks, game_s) are the engine's own.
++//!
++//! cargo run --release -p emergent-universe --example alloc_probe [-- <N> <coast|burn> [<wall s> [<rtf> [<budget ms>]]]]
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::time::{Duration, Instant};
++
++static ALLOCS: AtomicU64 = AtomicU64::new(0);
++static FREES: AtomicU64 = AtomicU64::new(0);
++static REALLOCS: AtomicU64 = AtomicU64::new(0);
++static ABYTES: AtomicU64 = AtomicU64::new(0); // bytes requested by alloc (+realloc's new size)
++static FBYTES: AtomicU64 = AtomicU64::new(0); // bytes released by free (+realloc's old size)
++static LIVE: AtomicU64 = AtomicU64::new(0); // alloc bytes minus freed bytes, wrapping
++static PEAK: AtomicU64 = AtomicU64::new(0);
++
++const HIST_MAX: usize = 2048; // exact sizes to 2 KiB, one bucket above
++/// The histogram array is allocated with `System` (bypassing this wrapper, so recording never
++/// recurses) and published as a raw address; before publication nothing is recorded.
++static HIST_ADDR: AtomicU64 = AtomicU64::new(0);
++
++struct Counting;
++
++impl Counting {
++    fn count(c: &AtomicU64, d: u64) {
++        c.fetch_add(d, Relaxed);
++    }
++    /// delta > 0 grows the live byte count, delta < 0 shrinks it (wrapping arithmetic on u64).
++    fn live(delta: i64) {
++        let step = if delta >= 0 { delta as u64 } else { (delta as i64).unsigned_abs().wrapping_neg() };
++        let now = LIVE.fetch_add(step, Relaxed).wrapping_add(step);
++        let mut p = PEAK.load(Relaxed);
++        while now > p {
++            match PEAK.compare_exchange_weak(p, now, Relaxed, Relaxed) {
++                Ok(_) => break,
++                Err(v) => p = v,
++            }
++        }
++    }
++    fn hist(size: usize) {
++        let a = HIST_ADDR.load(Relaxed);
++        if a == 0 {
++            return;
++        }
++        let i = if size <= HIST_MAX { size } else { HIST_MAX };
++        unsafe {
++            let h = a as *const AtomicU64;
++            (*h.add(i)).fetch_add(1, Relaxed);
++        }
++    }
++}
++
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc(l);
++        if !p.is_null() {
++            Self::count(&ALLOCS, 1);
++            Self::count(&ABYTES, l.size() as u64);
++            Self::live(l.size() as i64);
++            Self::hist(l.size());
++        }
++        p
++    }
++    unsafe fn alloc_zeroed(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc_zeroed(l);
++        if !p.is_null() {
++            Self::count(&ALLOCS, 1);
++            Self::count(&ABYTES, l.size() as u64);
++            Self::live(l.size() as i64);
++            Self::hist(l.size());
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        Self::count(&FREES, 1);
++        Self::count(&FBYTES, l.size() as u64);
++        Self::live(-(l.size() as i64));
++        System.dealloc(p, l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, new: usize) -> *mut u8 {
++        let q = System.realloc(p, l, new);
++        if !q.is_null() {
++            Self::count(&REALLOCS, 1);
++            Self::count(&FREES, 1);
++            Self::count(&FBYTES, l.size() as u64);
++            Self::live(-(l.size() as i64));
++            Self::count(&ALLOCS, 1);
++            Self::count(&ABYTES, new as u64);
++            Self::live(new as i64);
++            Self::hist(new);
++        }
++        q
++    }
++}
++
++#[global_allocator]
++static A: Counting = Counting;
++
++fn hist_counts() -> &'static [AtomicU64; HIST_MAX + 1] {
++    unsafe { &*(HIST_ADDR.load(Relaxed) as *const [AtomicU64; HIST_MAX + 1]) }
++}
++
++/// Linux RSS (macOS's proc_pid_rusage is stubbed to 0 in the shipped nladder; this probe is Linux-only in practice).
++fn rss_mb() -> u64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmRSS:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++        })
++        .unwrap_or(0)
++        / 1024
++}
++
++fn main() {
++    // Publish the histogram first, via System directly so nothing here recurses.
++    let layout = Layout::new::<[AtomicU64; HIST_MAX + 1]>();
++    let raw = unsafe { System.alloc(layout) as *mut [AtomicU64; HIST_MAX + 1] };
++    assert!(!raw.is_null());
++    for i in 0..=HIST_MAX {
++        unsafe {
++            (*raw)[i] = AtomicU64::new(0);
++        }
++    }
++    HIST_ADDR.store(raw as u64, Relaxed);
++
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10000);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(25.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(2000.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    println!(
++        "alloc_probe N={n} ({bodies} bodies) {flight} rtf {rtf} {seconds}s budget {budget_ms}ms; build {build:.2}s rss {} MB; ga_build allocs {} frees {} ab {:.0} MB live {:.0} MB",
++        rss_mb(),
++        ALLOCS.load(Relaxed),
++        FREES.load(Relaxed),
++        ABYTES.load(Relaxed) as f64 / 1e6,
++        LIVE.load(Relaxed) as f64 / 1e6
++    );
++    let (mut w_a, mut w_f, mut w_ab, mut w_fb, mut w_rl, mut w_ev) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
++    let s0 = p.u.stats;
++    let mut s_prev = s0;
++    let t_first = p.u.now;
++    let mut ran = 0usize;
++    let mut truncated = false;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) || rss_mb() > 1500 {
++            truncated = true;
++            break;
++        }
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, emergent_universe::thrust::word(1, 8));
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) },
++            i64::MAX,
++        );
++        w_ev += frame.events;
++        ran += 1;
++        if f % 60 == 59 {
++            let s = p.u.stats;
++            let kicks = s.kicks - s_prev.kicks;
++            s_prev = s;
++            let (a, fr, ab, fb, rl) = (
++                ALLOCS.load(Relaxed),
++                FREES.load(Relaxed),
++                ABYTES.load(Relaxed),
++                FBYTES.load(Relaxed),
++                REALLOCS.load(Relaxed),
++            );
++            println!(
++                "alloc: f={f} gs={:.0} kicks={kicks} evs={w_ev} allocs={} frees={} reallocs={} ab={} fb={} live_mb={:.1} peak_mb={:.1} rss_mb={}",
++                (p.u.now - t_first) as f64 * TICK_SECONDS,
++                a - w_a,
++                fr - w_f,
++                rl - w_rl,
++                ab - w_ab,
++                fb - w_fb,
++                LIVE.load(Relaxed) as f64 / 1e6,
++                PEAK.load(Relaxed) as f64 / 1e6,
++                rss_mb()
++            );
++            w_ev = 0;
++            (w_a, w_f, w_ab, w_fb, w_rl) = (a, fr, ab, fb, rl);
++        }
++        if !p.u.rec(p.player).alive {
++            break;
++        }
++    }
++    let s_end = p.u.stats;
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let kicks = s_end.kicks - s0.kicks;
++    let (ta, tf, tab) = (ALLOCS.load(Relaxed), FREES.load(Relaxed), ABYTES.load(Relaxed));
++    println!(
++        "totals: frames {ran} game_s {game_s:.0} kicks {kicks} ({:.3e}/body/game-s) allocs {ta} frees {tf} reallocs {} ab {:.0} MB fb {:.0} MB live {:.0} MB peak {:.0} MB truncated={truncated}",
++        REALLOCS.load(Relaxed),
++        kicks as f64 / bodies as f64 / game_s.max(1.0),
++        tab as f64 / 1e6,
++        FBYTES.load(Relaxed) as f64 / 1e6,
++        LIVE.load(Relaxed) as f64 / 1e6,
++        PEAK.load(Relaxed) as f64 / 1e6
++    );
++    let h = hist_counts();
++    let mut idx: Vec<usize> = (0..=HIST_MAX).collect();
++    idx.sort_by_key(|&i| std::cmp::Reverse(h[i].load(Relaxed)));
++    let top: Vec<String> = idx
++        .iter()
++        .take(16)
++        .map(|&i| format!("{}:{}", if i == HIST_MAX { ">2048" } else { &i.to_string() }, h[i].load(Relaxed)))
++        .collect();
++    println!("hist alloc-count by size (top 16): {}", top.join(" "));
++    println!(
++        "summary: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} game_s={game_s:.0} kicks={kicks} allocs={ta} frees={tf} alloc_bytes={tab} peak_bytes={} truncated={truncated} wall_s={:.1}",
++        PEAK.load(Relaxed),
++        t_start.elapsed().as_secs_f64()
++    );
++}

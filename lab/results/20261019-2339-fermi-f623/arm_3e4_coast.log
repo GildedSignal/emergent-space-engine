@@ -1,0 +1,24 @@
+alloc_probe N=30000 (30028 bodies) coast rtf 2000 20s budget 12ms; build 1.33s rss 70 MB; ga_build allocs 254703 frees 105746 ab 123 MB live 72 MB
+alloc: f=59 gs=1796 kicks=3429 evs=9581 allocs=322041 frees=169832 reallocs=96172 ab=183107693 fb=107640802 live_mb=75.5 peak_mb=79.7 rss_mb=77
+alloc: f=119 gs=3782 kicks=3210 evs=6579 allocs=56034 frees=55799 reallocs=14160 ab=48181780 fb=48144836 live_mb=75.5 peak_mb=79.7 rss_mb=77
+alloc: f=179 gs=5696 kicks=3002 evs=6028 allocs=52125 frees=51870 reallocs=12534 ab=41864020 fb=42104692 live_mb=75.3 peak_mb=79.7 rss_mb=77
+alloc: f=239 gs=7682 kicks=3043 evs=6022 allocs=52206 frees=52225 reallocs=12363 ab=42357880 fb=42408568 live_mb=75.2 peak_mb=79.7 rss_mb=77
+alloc: f=299 gs=9666 kicks=3032 evs=6067 allocs=52208 frees=52207 reallocs=12411 ab=42551728 fb=42551504 live_mb=75.2 peak_mb=79.7 rss_mb=77
+alloc: f=359 gs=11649 kicks=3004 evs=6115 allocs=52123 frees=52123 reallocs=12293 ab=41955320 fb=41935496 live_mb=75.2 peak_mb=79.7 rss_mb=77
+alloc: f=419 gs=13632 kicks=4316 evs=7355 allocs=69163 frees=62591 reallocs=16782 ab=47972944 fb=44608480 live_mb=78.6 peak_mb=79.7 rss_mb=78
+alloc: f=479 gs=15077 kicks=11719 evs=13918 allocs=163160 frees=107971 reallocs=43698 ab=70393232 fb=41200144 live_mb=107.8 peak_mb=107.8 rss_mb=105
+alloc: f=539 gs=15481 kicks=11520 evs=12119 allocs=156444 frees=100298 reallocs=40946 ab=53847460 fb=29358660 live_mb=132.3 peak_mb=132.3 rss_mb=130
+alloc: f=599 gs=16155 kicks=9114 evs=10195 allocs=125162 frees=81870 reallocs=32720 ab=49796364 fb=31941516 live_mb=150.1 peak_mb=150.2 rss_mb=148
+alloc: f=659 gs=18126 kicks=3223 evs=6221 allocs=55695 frees=69482 reallocs=14002 ab=48322380 fb=54297324 live_mb=144.2 peak_mb=150.8 rss_mb=149
+alloc: f=719 gs=20100 kicks=3058 evs=6122 allocs=52971 frees=53144 reallocs=12836 ab=44274420 fb=44831316 live_mb=143.6 peak_mb=150.8 rss_mb=149
+alloc: f=779 gs=22060 kicks=2995 evs=6063 allocs=51983 frees=52024 reallocs=12387 ab=42531584 fb=42454352 live_mb=143.7 peak_mb=150.8 rss_mb=149
+alloc: f=839 gs=24034 kicks=3086 evs=6161 allocs=53143 frees=53011 reallocs=12925 ab=44416276 fb=44394852 live_mb=143.7 peak_mb=150.8 rss_mb=149
+alloc: f=899 gs=26022 kicks=3184 evs=6196 allocs=55435 frees=55359 reallocs=14001 ab=49156100 fb=48700708 live_mb=144.2 peak_mb=150.8 rss_mb=149
+alloc: f=959 gs=27925 kicks=3067 evs=13490 allocs=60126 frees=59553 reallocs=13110 ab=45246408 fb=45117832 live_mb=144.3 peak_mb=150.8 rss_mb=149
+alloc: f=1019 gs=29826 kicks=2953 evs=28153 allocs=70687 frees=71472 reallocs=12460 ab=44274232 fb=45816920 live_mb=142.7 peak_mb=150.8 rss_mb=149
+alloc: f=1079 gs=31784 kicks=3107 evs=6269 allocs=54658 frees=54566 reallocs=13747 ab=47956676 fb=47635076 live_mb=143.1 peak_mb=150.8 rss_mb=149
+alloc: f=1139 gs=33717 kicks=3093 evs=6049 allocs=53644 frees=53544 reallocs=13464 ab=47397352 fb=47170600 live_mb=143.3 peak_mb=150.8 rss_mb=149
+alloc: f=1199 gs=35645 kicks=3036 evs=5874 allocs=52613 frees=52535 reallocs=13136 ab=46177684 fb=46478112 live_mb=143.0 peak_mb=150.8 rss_mb=149
+totals: frames 1200 game_s 35645 kicks 86191 (4.262e5/body/game-s) allocs 1661629 frees 1361484 reallocs 0.00008052565629368179 ab 1082 MB fb 939 MB live 143 MB peak 151 MB truncated=false
+hist alloc-count by size (top 16): 16:259805 32:193881 64:186522 384:177140 88:117325 240:116207 704:116173 352:116142 304:116023 832:115966 >2048:41173 1728:19059 960:13983 1408:13409 576:7376 128:6262
+summary: n=30000 bodies=30028 flight=coast rtf=2000 frames=1200 game_s=35645 kicks=86191 allocs=1661629 frees=1361484 alloc_bytes=1081785629 peak_bytes=150810971 truncated=false wall_s=10.5

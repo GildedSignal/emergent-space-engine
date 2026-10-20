@@ -1,0 +1,19 @@
+[1e4] kicks 94541 gs 47774 evs 181594 | allocs/kick 17.6 frees/kick 16.5 reallocs/kick 4.4 | naive ab/kick 12.64 KB fb/kick 12.09 KB | OLS marginal ab/kick 3.32 KB allocs/kick 13.0 | base churn 18 KB/gs (N-flat if equal across arms) | family calls/kick 8.71
+[3e4] kicks 86191 gs 35645 evs 174577 | allocs/kick 19.3 frees/kick 15.8 reallocs/kick 4.9 | naive ab/kick 12.26 KB fb/kick 10.64 KB | OLS marginal ab/kick 0.98 KB allocs/kick 10.6 | base churn 27 KB/gs (N-flat if equal across arms) | family calls/kick 10.15
+[1e4] hist bytes <=2048: 0.44 GB of window ab 1.22 GB -> >2048 scratch 0.78 GB (64%), ~0.56 calls/kick at ~15 KB avg
+
+=== composition at 1e9, rtf 100 (marginal attribution; naive average in parens) ===
+lambda 4.0e-05: kicks/s 4.00e+06 | alloc calls/s 1.04e+08 -> 0.60 cores (naive 0.81) | bytes 13.6 GB/s = 23% of 60 (naive 52 GB/s = 86%) | split8 marginal 1.7 GB/s (3%)
+lambda 8.4e-05: kicks/s 8.40e+06 | alloc calls/s 2.19e+08 -> 1.27 cores (naive 1.71) | bytes 28.5 GB/s = 48% of 60 (naive 109 GB/s = 181%) | split8 marginal 3.6 GB/s (6%)
+
+=== the ledger after every owned lever (1e9, rtf 100; cited rows unchanged) ===
+row                      today                          with owned levers              closes?
+kick stream CPU          193 c (82.5us x86) [3aec]      3.3 c (split8 + 4us Carlson)   yes
+allocator CPU  (NEW)     0.6-1.7 c (marginal-naive)     0.05-0.2 c (split8)           yes
+mint byte traffic (NEW)  13.6-28.5 GB/s marginal (23-48% of  1.7-3.6 GB/s (3-6%) split8    yes: material, not a wall;
+                         60; naive 51-107 in waves)     (no lever touches bytes;      pooling the >2KB scratch
+                                                         optional)                     cuts 2-3x)
+live mint ratchet        4 GB/s fresh pages             0.5 GB/s (split8)              yes w/ fence+prune [f80a/b911]
+state store              2.35 TB shipped                6 GB compact (<=48b)           wiring [097e]
+player root item         ~2 h freeze/burn               unchanged by every lever      NO: law change [cc9d]
+
