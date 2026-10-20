@@ -1,0 +1,28 @@
+=== 10000 coast ===
+scoped_alloc N=10000 (10028 bodies) coast rtf 100 budget 12 ms; build 0.45 s
+window: 4399 game-s, 7593 kicks, 6112 items, alive(player) true, truncated false
+naive (both scopes): 104077 allocs, 29722780 bytes, 101620 frees, 2643 reallocs = 13.7 allocs/kick, 3914 B/kick, 0.3 reallocs/kick
+item-scoped: 84545 allocs 19195644 B (11.1 allocs/kick, 2528 B/kick), frees 56089 (43877464 B) -> live -24681820 B; >2KiB: 29 allocs 108896 B
+base-scoped: 19532 allocs 10527136 B (2393 B/game-s), frees 45531 (30611072 B) -> live -20083936 B; reallocs 2643 (184256 B new); >2KiB: 737 allocs 2643648 B
+scoped: n=10000 flight=coast rtf=100 game_s=4399 kicks=7593 items=6112 naive_allocs_per_kick=13.71 naive_B_per_kick=3914 item_allocs_per_kick=11.13 item_B_per_kick=2528 item_share=0.646 base_B_per_gs=2393 item_big_B_per_kick=14 naive_big_B_per_kick=363
+=== 10000 burn ===
+scoped_alloc N=10000 (10028 bodies) burn rtf 100 budget 12 ms; build 0.44 s
+window: 4398 game-s, 8786 kicks, 19489 items, alive(player) true, truncated false
+naive (both scopes): 130635 allocs, 59746268 bytes, 127885 frees, 2864 reallocs = 14.9 allocs/kick, 6800 B/kick, 0.3 reallocs/kick
+item-scoped: 108612 allocs 25036028 B (12.4 allocs/kick, 2850 B/kick), frees 73239 (41017404 B) -> live -15981376 B; >2KiB: 29 allocs 108896 B
+base-scoped: 22023 allocs 34710240 B (7892 B/game-s), frees 54646 (111688992 B) -> live -76978752 B; reallocs 2864 (511360 B new); >2KiB: 1044 allocs 26536896 B
+scoped: n=10000 flight=burn rtf=100 game_s=4398 kicks=8786 items=19489 naive_allocs_per_kick=14.87 naive_B_per_kick=6800 item_allocs_per_kick=12.36 item_B_per_kick=2850 item_share=0.419 base_B_per_gs=7892 item_big_B_per_kick=12 naive_big_B_per_kick=3033
+=== 30000 coast ===
+scoped_alloc N=30000 (30028 bodies) coast rtf 100 budget 12 ms; build 1.32 s
+window: 4399 game-s, 7593 kicks, 6112 items, alive(player) true, truncated false
+naive (both scopes): 104077 allocs, 29722780 bytes, 101620 frees, 2643 reallocs = 13.7 allocs/kick, 3914 B/kick, 0.3 reallocs/kick
+item-scoped: 84545 allocs 19195644 B (11.1 allocs/kick, 2528 B/kick), frees 56089 (43877464 B) -> live -24681820 B; >2KiB: 29 allocs 108896 B
+base-scoped: 19532 allocs 10527136 B (2393 B/game-s), frees 45531 (30611072 B) -> live -20083936 B; reallocs 2643 (184256 B new); >2KiB: 737 allocs 2643648 B
+scoped: n=30000 flight=coast rtf=100 game_s=4399 kicks=7593 items=6112 naive_allocs_per_kick=13.71 naive_B_per_kick=3914 item_allocs_per_kick=11.13 item_B_per_kick=2528 item_share=0.646 base_B_per_gs=2393 item_big_B_per_kick=14 naive_big_B_per_kick=363
+=== 30000 burn ===
+scoped_alloc N=30000 (30028 bodies) burn rtf 100 budget 12 ms; build 1.32 s
+window: 4398 game-s, 8786 kicks, 19502 items, alive(player) true, truncated false
+naive (both scopes): 130641 allocs, 59777804 bytes, 127891 frees, 2864 reallocs = 14.9 allocs/kick, 6804 B/kick, 0.3 reallocs/kick
+item-scoped: 108612 allocs 25036028 B (12.4 allocs/kick, 2850 B/kick), frees 73241 (41024860 B) -> live -15988832 B; >2KiB: 29 allocs 108896 B
+base-scoped: 22029 allocs 34741776 B (7899 B/game-s), frees 54650 (111713072 B) -> live -76971296 B; reallocs 2864 (511360 B new); >2KiB: 1047 allocs 26568384 B
+scoped: n=30000 flight=burn rtf=100 game_s=4398 kicks=8786 items=19502 naive_allocs_per_kick=14.87 naive_B_per_kick=6804 item_allocs_per_kick=12.36 item_B_per_kick=2850 item_share=0.419 base_B_per_gs=7899 item_big_B_per_kick=12 naive_big_B_per_kick=3036

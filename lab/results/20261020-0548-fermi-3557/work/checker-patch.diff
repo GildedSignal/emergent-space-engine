@@ -1,0 +1,249 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..acdb25ad 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,9 +14,15 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
++/// Linux stand-in (the lab's footprint stub): no rusage, so the memory lines read 0 there.
++#[cfg(not(target_os = "macos"))]
++unsafe fn proc_pid_rusage(_pid: i32, _flavor: i32, _buffer: *mut u64) -> i32 {
++    0
++}
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+diff --git a/crates/universe/examples/scoped_alloc.rs b/crates/universe/examples/scoped_alloc.rs
+new file mode 100644
+index 00000000..f64a8f80
+--- /dev/null
++++ b/crates/universe/examples/scoped_alloc.rs
+@@ -0,0 +1,190 @@
++//! The scoped allocation probe: every heap byte charged to the fired item itself, or to the frame base.
++//! The lab's budget-1e9 page asked for exactly this instrument (f623's open direction 6): the OLS windows
++//! that split the mint's naive per-kick bytes into marginal vs base are budget-coupled (slopes −1.1 to
++//! +5.3 KB/kick across arms), so instead of inferring through windows we count directly — `ITEM_SCOPE`
++//! (universe.rs, print-only) is 1 exactly while an item resolves, and the counting `GlobalAlloc` below
++//! charges every alloc/free/realloc to that scope. Coast and burn arms on the shipped nladder scene.
++//!
++//! cargo run --release -p emergent-universe --example scoped_alloc [-- <N> <coast|burn> [<wall seconds> [<rtf> [<engine budget ms>]]]]
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::universe::ITEM_SCOPE;
++use emergent_universe::{Budget, Config};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::time::{Duration, Instant};
++
++/// Two scopes: 0 = base (frame bookkeeping, prune, held-scan drains, build), 1 = inside a resolving item.
++const SMALL: usize = 2048; // the mint's cut-off: >2 KiB is scratch, not the mint's own objects
++const BINS: usize = SMALL / 16 + 1; // 16-byte bins below 2 KiB, then the overflow bin
++const ZERO64: AtomicU64 = AtomicU64::new(0);
++
++struct Counters {
++    allocs: [AtomicU64; 2],
++    alloc_bytes: [AtomicU64; 2],
++    allocs_big: [AtomicU64; 2], // > SMALL
++    alloc_bytes_big: [AtomicU64; 2],
++    frees: [AtomicU64; 2],
++    free_bytes: [AtomicU64; 2],
++    reallocs: [AtomicU64; 2],
++    realloc_bytes: [AtomicU64; 2], // the new sizes
++    hist: [AtomicU64; 2 * BINS], // flat: scope*BINS + bin; last bin = >2 KiB (count only)
++}
++static C: Counters = Counters {
++    allocs: [AtomicU64::new(0), AtomicU64::new(0)],
++    alloc_bytes: [AtomicU64::new(0), AtomicU64::new(0)],
++    allocs_big: [AtomicU64::new(0), AtomicU64::new(0)],
++    alloc_bytes_big: [AtomicU64::new(0), AtomicU64::new(0)],
++    frees: [AtomicU64::new(0), AtomicU64::new(0)],
++    free_bytes: [AtomicU64::new(0), AtomicU64::new(0)],
++    reallocs: [AtomicU64::new(0), AtomicU64::new(0)],
++    realloc_bytes: [AtomicU64::new(0), AtomicU64::new(0)],
++    hist: [ZERO64; 2 * BINS],
++};
++fn scope() -> usize {
++    ITEM_SCOPE.load(Ordering::Relaxed) as usize
++}
++struct Probe;
++unsafe impl GlobalAlloc for Probe {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let s = scope();
++        C.allocs[s].fetch_add(1, Ordering::Relaxed);
++        C.alloc_bytes[s].fetch_add(l.size() as u64, Ordering::Relaxed);
++        if l.size() > SMALL {
++            C.allocs_big[s].fetch_add(1, Ordering::Relaxed);
++            C.alloc_bytes_big[s].fetch_add(l.size() as u64, Ordering::Relaxed);
++            C.hist[s * BINS + BINS - 1].fetch_add(1, Ordering::Relaxed);
++        } else {
++            C.hist[s * BINS + l.size() / 16].fetch_add(1, Ordering::Relaxed);
++        }
++        System.alloc(l)
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        let s = scope();
++        C.frees[s].fetch_add(1, Ordering::Relaxed);
++        C.free_bytes[s].fetch_add(l.size() as u64, Ordering::Relaxed);
++        System.dealloc(p, l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, new: usize) -> *mut u8 {
++        let s = scope();
++        C.reallocs[s].fetch_add(1, Ordering::Relaxed);
++        C.realloc_bytes[s].fetch_add(new as u64, Ordering::Relaxed);
++        System.realloc(p, l, new)
++    }
++}
++
++#[global_allocator]
++static A: Probe = Probe;
++
++fn snap() -> [u64; 14] {
++    [
++        C.allocs[0].load(Ordering::Relaxed),
++        C.alloc_bytes[0].load(Ordering::Relaxed),
++        C.frees[0].load(Ordering::Relaxed),
++        C.free_bytes[0].load(Ordering::Relaxed),
++        C.reallocs[0].load(Ordering::Relaxed),
++        C.realloc_bytes[0].load(Ordering::Relaxed),
++        C.allocs[1].load(Ordering::Relaxed),
++        C.alloc_bytes[1].load(Ordering::Relaxed),
++        C.frees[1].load(Ordering::Relaxed),
++        C.free_bytes[1].load(Ordering::Relaxed),
++        C.allocs_big[0].load(Ordering::Relaxed),
++        C.alloc_bytes_big[0].load(Ordering::Relaxed),
++        C.allocs_big[1].load(Ordering::Relaxed),
++        C.alloc_bytes_big[1].load(Ordering::Relaxed),
++    ]
++}
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    println!("scoped_alloc N={n} ({bodies} bodies) {flight} rtf {rtf} budget {budget_ms} ms; build {build:.2} s");
++    let mut base = None::<([u64; 14], emergent_universe::universe::Stats, i64)>;
++    let mut alive = true;
++    let mut truncated = false;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(150) {
++            truncated = true;
++            break;
++        }
++        if f == 60 {
++            if burn {
++                let t = p.u.now;
++                let _ = p.u.input(t, word(1, 8));
++            }
++            base = Some((snap(), p.u.stats, p.u.now));
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) },
++            i64::MAX,
++        );
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    let (s0, stats0, t0k) = base.unwrap_or_else(|| (snap(), p.u.stats, p.u.now));
++    let end = snap();
++    let game_s = (p.u.now - t0k) as f64 * emergent_universe::view::TICK_SECONDS;
++    let kicks = p.u.stats.kicks - stats0.kicks;
++    let items: u64 = p.u.stats.items.iter().sum::<u64>() - stats0.items.iter().sum::<u64>();
++    let d = |a: u64, b: u64| a.saturating_sub(b);
++    // per-scope deltas over the measured window (after the first second)
++    let (ba, bb, bf, bfb, br, brb) = (d(end[0], s0[0]), d(end[1], s0[1]), d(end[2], s0[2]), d(end[3], s0[3]), d(end[4], s0[4]), d(end[5], s0[5]));
++    let (ia, ib, iff, ifb) = (d(end[6], s0[6]), d(end[7], s0[7]), d(end[8], s0[8]), d(end[9], s0[9]));
++    let (ibb, ibab) = (d(end[12], s0[12]), d(end[13], s0[13]));
++    let (bab, babb) = (d(end[10], s0[10]), d(end[11], s0[11]));
++    let naive_a = ba + ia;
++    let naive_b = bb + ib;
++    println!("window: {game_s:.0} game-s, {kicks} kicks, {items} items, alive(player) {alive}, truncated {truncated}");
++    println!(
++        "naive (both scopes): {naive_a} allocs, {naive_b} bytes, {} frees, {} reallocs = {:.1} allocs/kick, {:.0} B/kick, {:.1} reallocs/kick",
++        bf + iff,
++        br,
++        naive_a as f64 / kicks.max(1) as f64,
++        naive_b as f64 / kicks.max(1) as f64,
++        br as f64 / kicks.max(1) as f64,
++    );
++    println!(
++        "item-scoped: {ia} allocs {ib} B ({:.1} allocs/kick, {:.0} B/kick), frees {iff} ({ifb} B) -> live {:+} B; >2KiB: {ibb} allocs {ibab} B",
++        ia as f64 / kicks.max(1) as f64,
++        ib as f64 / kicks.max(1) as f64,
++        ib as i64 - ifb as i64,
++    );
++    println!(
++        "base-scoped: {ba} allocs {bb} B ({:.0} B/game-s), frees {bf} ({bfb} B) -> live {:+} B; reallocs {br} ({brb} B new); >2KiB: {bab} allocs {babb} B",
++        bb as f64 / game_s.max(1.0),
++        bb as i64 - bfb as i64,
++    );
++    // top 16-byte bins per scope (the mint's family), window-relative for the item scope is approximated by totals
++    for (si, name) in [(0usize, "base"), (1usize, "item")] {
++        let mut bins: Vec<(usize, u64)> = (0..BINS).map(|b| (b * 16, C.hist[si * BINS + b].load(Ordering::Relaxed))).collect();
++        bins.sort_by(|a, b| b.1.cmp(&a.1));
++        let top: Vec<String> = bins.into_iter().take(8).filter(|(_, c)| *c > 0).map(|(sz, c)| format!("{}x{}", sz, c)).collect();
++        println!("hist {name} (top size-bins, 16 B granularity, whole run incl. build): {top:?}");
++    }
++    println!(
++        "scoped: n={n} flight={flight} rtf={rtf} game_s={game_s:.0} kicks={kicks} items={items} naive_allocs_per_kick={:.2} naive_B_per_kick={:.0} item_allocs_per_kick={:.2} item_B_per_kick={:.0} item_share={:.3} base_B_per_gs={:.0} item_big_B_per_kick={:.0} naive_big_B_per_kick={:.0}",
++        naive_a as f64 / kicks.max(1) as f64,
++        naive_b as f64 / kicks.max(1) as f64,
++        ia as f64 / kicks.max(1) as f64,
++        ib as f64 / kicks.max(1) as f64,
++        ib as f64 / naive_b.max(1) as f64,
++        bb as f64 / game_s.max(1.0),
++        ibab as f64 / kicks.max(1) as f64,
++        (ibab + babb) as f64 / kicks.max(1) as f64,
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..21acc605 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -81,6 +81,11 @@ const SCAN_BACKLOG: usize = 2048;
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
++/// Print-only allocation-attribution probe: 1 exactly while an item is resolving (nested work included).
++/// No engine logic reads it; the lab's scoped counting allocator does, to charge heap bytes to the fired
++/// item itself rather than infer them through windows. Atomics so wave threads inherit the tag.
++pub static ITEM_SCOPE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
++
+ /// The encounter hash chain's next link.
+ fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+     let mut h = blake3::Hasher::new();
+@@ -1019,11 +1024,16 @@ impl Universe {
+                 continue;
+             }
+             let t_item = Instant::now();
++            // Print-only attribution probe: 1 while an item (and everything it resolves nested) runs. The
++            // lab's scoped allocation probe reads this to charge heap bytes to the fired item itself
++            // instead of inferring them through budget-coupled windows. No law state touches it.
++            ITEM_SCOPE.store(1, std::sync::atomic::Ordering::Relaxed);
+             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                 self.resolve_wave(e, target);
+             } else {
+                 self.resolve_entity(e);
+             }
++            ITEM_SCOPE.store(0, std::sync::atomic::Ordering::Relaxed);
+             let ns = t_item.elapsed().as_nanos() as u64;
+             let m = &mut self.item_ns[class];
+             *m = if ns >= *m { ns } else { *m - *m / 64 };
