@@ -606,3 +606,4 @@ quadratic rebuild feeds), and the dial is the pivot between them.
 - 20261018-1126-library-686f (library, silver): the 10⁷ rung composed — birth protocol and the wave are the walls, RES passes 0.2–0.3×, 10⁹ needs partition/threads; the re-kick column's rtf² error caught by the checker (see ef63 below).
 - 20261018-1237-second-20261018-1126-library-686f-ef63 (second, fix): the re-kick rtf² error
 - 20261018-1617-library-be73 (library, awaiting grade): the pin's fix composed — a trigger
+- 20261020-1815-library-a2c0 (library, awaiting grade): 23a6's open closed to a band with zero flights (delta, the miss law, the ledger); five verbatim lessons 5/5 byte-identical; no flight, regen ~40 s.

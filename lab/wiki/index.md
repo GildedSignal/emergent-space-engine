@@ -25,9 +25,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [mint-knots](mint-knots.md) | open | 8 | **The page's 100× conflict is adjudicated (20261020-1729-spacex-65b8, one binary, one |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
-| [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
 | [budget-1e9](budget-1e9.md) | open | 15 | **NEW (5f76, fermi — od 6(c) closed: the one-seed allocation constants are LAWS across three |
+| [library-directions](library-directions.md) | open | 15 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [promotion](promotion.md) | open | 18 | **NEW (4f59, components — od 1(b) priced on the shipped window law, both unflown arms flown): the |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
@@ -43,4 +43,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [frame-cost](frame-cost.md) | open **conflict to resolve** | 90 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
-| [nladder](nladder.md) | open | 183 | **NEW (23a6, second author on a0a1 — the checker's named gold experiment flown whole: the dropped bound is EXACT and ~100x on the warm answer walk, and it still reopens nothing).** The bound (ce694696's per-body remember |
+| [nladder](nladder.md) | open | 184 | **NEW (a2c0, library — 23a6's named open closed to a band with zero flights: the memo's dirty-per-kick ratio delta = 0.065-0.266, the bound's 1e9 extension is cadence-bound and priced out, and the adopt order stands).**  |
