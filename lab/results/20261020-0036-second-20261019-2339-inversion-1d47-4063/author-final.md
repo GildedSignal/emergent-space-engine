@@ -1,0 +1,7 @@
+Run completAll deliverables are in place (dossier, pre-registered predictions, regen.sh, resolved wiki page, combined patch, raw arms — 624 KB total).
+
+**The claim:** the checker's named experiment — the reach-gated pull flown under the canonical-cut instrument at 10⁵/2×10⁵ — is done, and it holds in 1d47's favour on this record: 34 cut runs give one digest per rung (OFF = all-to-queue ON = reach-gated REACH across unlimited/12 ms ×3/3 ms/no-flight/4-thread/deeper-cut schedules; ON's complete 1,838-entry encounter log byte-identical across reruns) while the burst stays deleted (max 801.4 → 19.3 ms at 10⁵, 1,640.5 → 45.7 at 2×10⁵; refusals/dead 0), the checker's bistability did not reproduce — but the new stale-encounter probe shows the invariance is empirical, not structural: stale captures are real (3.8-11.2k a run) and did answer encounters at the scene's two tightest conjunctions (3-6 a run, |d| ≤ 0.71 of the window, 60-230 game-s stale, all verdict-preserving, the offenders 10⁷ light-ticks beyond any reach pull), so the structural fix if wanted is canonical bindings in `capture`, and adoption still re-freezes the digest on the M1.
+ scene's two tightest conjunctions (3-6 a run, |d| ≤ 0.71 of the window, 60-230 game-s stale),
+every answer verdict-preserving; the offenders sit 10⁷ ticks of light distance beyond any reach
+pull, so the structural fix — if the integrator wants a law rather than a measurement — is
+canonical bindings in `capture`, and adoption still re-freezes the digest on the M1.

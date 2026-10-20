@@ -1,0 +1,11 @@
+Working...
+Check complete. **Grade: gold** — `check.md` written; the author's wiki page corrected in place (two undercounts: "28 cut runs"/"0 flips in 28 runs" → 34, the record's true 16+18); tree restored to its pre-check state.
+
+**What I verified:**
+
+- **Reproduction (exact).** All regen cut runs hold one digest per rung×cut (`581ced1a…` 127,671/1,802 at 10⁵; `15a5d8a2…` at 18,000; `a5edea1c…` 227,671/1,838 at 2×10⁵; `7f395345…` at 18,000) across OFF/ON/REACH and every schedule. The 34-run count, the md5 byte-identity claim (`461ee701…`, six dumps), the unit arithmetic (46.7M ticks × 4.9255 µs = 229.8 game-s), and the burst numbers (801.4→19.3, 1,640.5→45.7 ms from the author's own files) all check. Note: regen.sh's summary table prints empty — a `grep -o` regex bug (`\{16\}` hex vs the 64-hex digest); the raw `work/regen/cut*.txt` are complete, so reproduction doesn't depend on it.
+- **Attack (13 runs, four axes outside the author's grid):** deeper cut 25,000 game-s (OFF=ON=REACH, `d081ddce…`, including the maximal-staleness no-flight arm — same three stale answers, ship 22070, ratio ≤0.17), 1 ms schedule at 2×10⁵ (OFF=ON, stale 11,137 under the gate), seed 2 (OFF=ON=REACH, `cd0c473d…`), 8 threads (OFF=ON). Zero flips — the empirical invariance is stronger than claimed.
+- **Predictions:** pre-registered; the decisive P4 held; P2's failure is the non-reproduction of the prior checker's bistability, with a diagnosis (its decision rode `input(now)`, so its decision tick was schedule-dependent) — honestly reported, and itself a finding.
+- **Gold rationale:** two premises shown wrong (the schedule-dependence verdict under a canonically-fixed scene; the necessity of the reach refinement), and it unblocks 1d47's 58-111× worst-frame deletion for adoption at a priced cost (one gated line + M1 re-freeze). The residual — empirical, not structural — is scoped as such by the author, with the structural fix correctly assigned to a different change.
+
+Named in check.md as missed: the seed axis (I flew it), the bistability-isolation rung (`input(now)` decision under this instrument, both arms), a targeted |d|/window ≥ 1 scene to hunt a verdict-flip, and the broken regen summary regex.

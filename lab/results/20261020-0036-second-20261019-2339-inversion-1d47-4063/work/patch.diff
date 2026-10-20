@@ -1,0 +1,337 @@
+diff --git a/crates/universe/examples/cut_digest.rs b/crates/universe/examples/cut_digest.rs
+new file mode 100644
+index 00000000..6b02d617
+--- /dev/null
++++ b/crates/universe/examples/cut_digest.rs
+@@ -0,0 +1,68 @@
++//! The canonical-cut digest at the ladder's burn rungs (the checker's `check_cut` recipe, on 1d47's arms):
++//! the plane with N more ships, the burn of `nladder` (forward L8 from 1 s of wall, a decision scheduled at
++//! its canonical tick), flown at rtf 1000 to a cut past the first kick wave with `frame_to(limit = cut)`
++//! — nothing resolves past the cut — then `settle(cut)` and one digest. The shipped contract
++//! (universe.rs, `frame_to`): a digest taken after `settle(limit)` is the same whatever the frames were.
++//! Arms come from the environment (the tree's patch): ES_ROOT_SHIPS_TO_QUEUE (1d47's gate),
++//! ES_ROOT_SHIPS_REACH=<ticks> (the reach-gated pull); no variable = shipped. ES_FIX_PROBE adds the scan
++//! counts. `no-flight` skips the frames entirely (settle from the schedule alone: the law's own order).
++//!
++//! cargo run --release -p emergent-universe --example cut_digest -- <N> [cut_game_s=17000] [unl|<ms>|noflight] [threads=1]
++use emergent_universe::encounter::scan_probe_counts;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++fn main() {
++    let t0 = std::time::Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let cut_s: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(17_000.0);
++    let sched = args.get(3).cloned().unwrap_or_else(|| "12".into());
++    let threads: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let rtf = 1000.0;
++    let cut = (cut_s / TICK_SECONDS) as i64;
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, threads, 48, n).unwrap();
++    let (mut frames, mut dolls): (u64, Vec<(u64, u16)>) = (0, Vec::new());
++    // The burn's decision at its canonical tick (nladder takes it at the first second of wall).
++    p.u.schedule((1.0 * rtf / TICK_SECONDS) as i64, word(1, 8)).unwrap();
++    if sched != "noflight" {
++        let ms: f64 = sched.parse().unwrap_or(12.0);
++        let mut guard = 0u64;
++        loop {
++            if p.u.now >= cut || guard > 400_000 {
++                break;
++            }
++            // A fresh wall deadline per frame, as nladder gives one (unlimited: no wall at all).
++            let until = if sched == "unl" { None } else { Some(std::time::Instant::now() + std::time::Duration::from_micros((ms * 1e3) as u64)) };
++            let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until }, cut);
++            frames += 1;
++            guard += 1;
++            let doll = p.u.rec(p.player).b.doll;
++            if dolls.last().map(|d| d.1) != Some(doll) {
++                dolls.push((frames, doll));
++            }
++        }
++    }
++    p.u.settle(cut);
++    let (scans, cands, stale, stale_max, s_enc, s_ratio, s_age) = scan_probe_counts();
++    println!(
++        "cut: n={n} cut_game_s={cut_s:.0} sched={sched} threads={threads} frames={frames} digest {} kicks {} encounters {} contacts {} | probe: scans {scans} cands {cands} stale {stale} (max {stale_max}) stale_enc {s_enc} (max ratio {}.{:03} of the window, max age {s_age} ticks) | dolls {dolls:?} [{:.1} s]",
++        p.u.digest(),
++        p.u.stats.kicks,
++        p.u.stats.encounters,
++        p.u.contacts,
++        s_ratio / 1000,
++        s_ratio % 1000,
++        t0.elapsed().as_secs_f64()
++    );
++    if std::env::var_os("ES_DUMP_ENC").is_some() {
++        let mut s = String::new();
++        for e in &p.u.enc_log {
++            s.push_str(&format!("{} {} {} {}\n", e.a, e.b, e.t, e.contact as u8));
++        }
++        std::fs::write(format!("enc_{n}_{sched}_{}.log", std::env::var("ES_DUMP_TAG").unwrap_or_default()), s).ok();
++    }
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..ccc7f36e 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,24 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux (the lab box): the resident set and its high-water mark from /proc/self/status — the same two numbers, the
++/// machine's own accounting (VmRSS now, VmHWM the peak), disclosed as the record's runs do.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -156,6 +176,20 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    if std::env::var_os("ES_FIX_PROBE").is_some() {
++        let (scans, cands, stale, stale_max, s_enc, s_ratio, s_age) = emergent_universe::encounter::scan_probe_counts();
++        println!(
++            "fixprobe: digest {} encounters {} contacts {} scans {} candidates {} stale {} (max {stale_max}) stale_enc {s_enc} (max ratio {}.{:03}, max age {s_age})",
++            &p.u.digest()[..16],
++            p.u.stats.encounters,
++            p.u.contacts,
++            scans,
++            cands,
++            stale,
++            s_ratio / 1000,
++            s_ratio % 1000
++        );
++    }
+     println!(
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..fbc06329 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -13,8 +13,44 @@ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
++use std::sync::atomic::{AtomicU64, AtomicU8, Ordering::Relaxed};
+ use std::sync::{Arc, Mutex, OnceLock};
+ 
++// ES_FIX_PROBE (a probe; unset = all zero and no work): what a captured candidate reads. A candidate is *stale* when
++// its body's next item is due before the scan's tick (its binding at that tick is a fit the due item will replace),
++// so with the root's ships left to the queue the scan's answer is a function of the schedule, not of the law.
++// The second half (4063): which answered encounters come from a stale candidate, how far past the encounter window
++// the stale read sat (|d| / 2^10·reach, ×1000), and how old the staleness was at capture (ticks).
++pub fn scan_probe_counts() -> (u64, u64, u64, u64, u64, u64, u64) {
++    (
++        SCANS.load(Relaxed),
++        CANDS.load(Relaxed),
++        STALE.load(Relaxed),
++        STALE_MAX.load(Relaxed),
++        S_ENC.load(Relaxed),
++        S_RATIO.load(Relaxed),
++        S_AGE.load(Relaxed),
++    )
++}
++static SCANS: AtomicU64 = AtomicU64::new(0);
++static CANDS: AtomicU64 = AtomicU64::new(0);
++static STALE: AtomicU64 = AtomicU64::new(0);
++static STALE_MAX: AtomicU64 = AtomicU64::new(0);
++static S_ENC: AtomicU64 = AtomicU64::new(0);
++static S_RATIO: AtomicU64 = AtomicU64::new(0);
++static S_AGE: AtomicU64 = AtomicU64::new(0);
++static PROBE: AtomicU8 = AtomicU8::new(0);
++fn probe_on() -> bool {
++    match PROBE.load(Relaxed) {
++        0 => {
++            let on = std::env::var_os("ES_FIX_PROBE").is_some();
++            PROBE.store(if on { 2 } else { 1 }, Relaxed);
++            on
++        }
++        v => v == 2,
++    }
++}
++
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+@@ -73,6 +109,9 @@ struct Scan {
+     me: Binding,
+     /// Every body that passed the cheap tests (alive, born, in the player's doll, with a reach), with its binding.
+     candidates: Vec<(usize, Binding, Scalar)>,
++    /// How stale each candidate's binding was at capture (its body's due item, `t - next_time`, in ticks; 0 = fresh;
++    /// empty when the probe is off). Carried so `compute` can say which answered encounters a stale read made.
++    stale: Vec<Tick>,
+     found: OnceLock<Vec<Encounter>>,
+ }
+ 
+@@ -132,8 +171,8 @@ impl Scan {
+         let (t, body) = (self.t, self.body);
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+         let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
+-        for (j, other, reach) in &self.candidates {
+-            let found = (|| -> Res<Option<bool>> {
++        for (k, (j, other, reach)) in self.candidates.iter().enumerate() {
++            let found = (|| -> Res<Option<(bool, f64)>> {
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
+                 let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
+@@ -144,9 +183,25 @@ impl Scan {
+                 if !hit(di, wi, near) {
+                     return Ok(None);
+                 }
+-                Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
++                let contact = hit(di, wi, reach.fixed(-q_exp)?);
++                // The probe's second half: how far past the window a stale read that answered sat (|d| / near).
++                let ratio = if !self.stale.is_empty() && self.stale.get(k).is_some_and(|s| *s > 0) {
++                    to_f64(d[0]).hypot(to_f64(d[1])) / to_f64(reach.scale(ENCOUNTER_LOG2).unwrap_or(Scalar::ZERO))
++                } else {
++                    0.0
++                };
++                Ok(Some((contact, ratio)))
+             })();
+-            if let Ok(Some(contact)) = found {
++            if let Ok(Some((contact, ratio))) = found {
++                if ratio > 0.0 {
++                    S_ENC.fetch_add(1, Relaxed);
++                    S_RATIO.fetch_max((ratio * 1000.0) as u64, Relaxed);
++                    S_AGE.fetch_max(*self.stale.get(k).unwrap_or(&0) as u64, Relaxed);
++                    // One line per answered encounter a stale read made (rare): who, when, how stale, how near.
++                    let age = *self.stale.get(k).unwrap_or(&0);
++                    let ship = *j;
++                    eprintln!("stale_enc: scan t {t} player {body} ship {ship} due {} age {age} |d|/window {ratio:.3} contact {contact}", t - age);
++                }
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
+@@ -187,12 +242,30 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        let stale_ages = if probe_on() {
++            let mut stale = 0u64;
++            let ages = candidates
++                .iter()
++                .map(|(j, _, _)| {
++                    let age = ctx.bodies.next_time(*j).filter(|nt| *nt < t).map_or(0, |nt| t - nt);
++                    stale += (age > 0) as u64;
++                    age
++                })
++                .collect::<Vec<Tick>>();
++            SCANS.fetch_add(1, Relaxed);
++            CANDS.fetch_add(candidates.len() as u64, Relaxed);
++            STALE.fetch_add(stale, Relaxed);
++            STALE_MAX.fetch_max(stale, Relaxed);
++            ages
++        } else {
++            Vec::new()
++        };
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+-        let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
++        let scan = Arc::new(Scan { body, t, interval, me, candidates, stale: stale_ages, found: OnceLock::new() });
+         *last = Some(scan.clone());
+         Some(scan)
+     }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..6e621af5 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -699,6 +699,32 @@ impl Universe {
+         }
+     }
+ 
++    /// ES_ROOT_SHIPS_REACH (a probe; unset = shipped): resolve before the player's scan only the due ships within
++    /// `max_light` ticks of light distance of the observer — the scan's reach (a conjunction needs a pair distance of
++    /// `2^ENCOUNTER_LOG2` radii, and a ship that close has a light distance far below one tick, so everything the scan
++    /// can answer on is resolved before it) — and leave the far wave to the queue, in deadline order and inside the
++    /// frame's budget (the burst: `pull_ships(key, false)` resolves the whole root wave inside the player's item).
++    fn pull_ships_near(&mut self, key: (Tick, usize), max_light: Tick) {
++        let mut skipped: Vec<(usize, Scalar)> = Vec::new();
++        loop {
++            let Some((t, i)) = self.ship_ticks.peek() else { break };
++            if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {
++                break;
++            }
++            // Out of the calendar for this walk (resolved ships re-enter it through `apply`).
++            let _ = self.ship_ticks.set(i, None);
++            if self.light_distance(i) <= max_light {
++                self.resolve_body(i);
++                self.requeue(i);
++            } else {
++                skipped.push((i, t));
++            }
++        }
++        for (i, t) in skipped {
++            let _ = self.ship_ticks.set(i, Some(t));
++        }
++    }
++
+     /// Resolve every item of `ids` with a key below `key`, in key order.
+     fn pull(&mut self, ids: &[usize], key: (Tick, usize)) {
+         while let Some(k) = self.lane(ids) {
+@@ -760,14 +786,23 @@ impl Universe {
+         }
+         self.apply(i, upd);
+         if kind == Kind::Player {
+-            // The scan reads the ships of the player's doll at its tick, so the ships with an item before it are resolved first. A ship of
+-            // the root doll never leaves it (the motion law v2 has no capture from the root: `step::Work::maybe_capture`), so when the
+-            // player is in a planet's doll after its item, the root's ships cannot be read by the scan: they are left to the queue, in the
+-            // order of their deadlines and inside the frame's budget (the player's item pulled every due ship of every doll before, a burst
+-            // the size of the root's whole wave of kicks, inside one item and outside the budget). Ships read only the sources, and the
+-            // player reads no ship: resolving the player's item before theirs changes no bit.
++            // The scan reads the ships of the player's doll at its tick, so the ships with an item before it are
++            // resolved first; a ship of the root doll never leaves it (the motion law v2 has no capture from the
++            // root), so when the player is in a planet's doll the root's ships cannot be read by the scan and are
++            // left to the queue (the shipped 766-770 pattern).
+             let in_root = self.bodies.doll(i) == 0;
+-            self.pull_ships(key, !in_root);
++            // The arms: shipped (pull the root's whole due wave inside the player's item), ES_ROOT_SHIPS_TO_QUEUE
++            // (leave every root ship to the queue), ES_ROOT_SHIPS_REACH=<ticks> (resolve before the scan only the
++            // ships within that light distance, leave the far wave to the queue).
++            let reach = std::env::var_os("ES_ROOT_SHIPS_REACH").and_then(|v| v.to_str().and_then(|s| s.parse::<Tick>().ok()));
++            let ships_to_queue = std::env::var_os("ES_ROOT_SHIPS_TO_QUEUE").is_some();
++            if !in_root {
++                self.pull_ships(key, true);
++            } else if let Some(max_light) = reach {
++                self.pull_ships_near(key, max_light);
++            } else if !ships_to_queue {
++                self.pull_ships(key, false);
++            }
+             let t_enc = crate::prof::t();
+             self.encounters_for_player();
+             crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
