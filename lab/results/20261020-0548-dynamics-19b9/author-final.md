@@ -1,0 +1,6 @@
+Working...
+Patch verified clean (3 files: the harness, the isolation test, the two read-only accessors), all run files under 5 MB, `predictions.md` pre-registered before the flights, `dossier.md`/`regen.sh`/wiki page written. Final state:
+
+**Verdicts on the pre-registered predictions** (C thermal s2 H=49152 and B cold s1 H=98304, digests bit-identical to c644's arms where comparable): P1 held (envelope maxAbsR/(2·maxk) ≤ 1.37 over 288M contacts, trendless), P2 held (exposure slope 0.16/0.03 vs the 0.25 kill bar, across per-body contact counts 18…2.23×10⁶), P2b held (net debt ≤ 3.4×10⁻⁶ of KE, 97% cross-body cancellation), P5 held (Pass R≡0; no-tide identity ΣE−ΣR exact to the unit every chronon, plus 0/200,000 unit batches), P6 held (42 bits of i64 headroom; law-capped envelope makes the panic unreachable), P4 honestly refuted (no id-sink, ρ≈0.04).
+
+**Claim:** the V1 contact law's energy carry (`Body.residual`) is a bounded attractor at storm scale — per-body |R| sits at O(the payback quantum 2|k|) independent of contact exposure through 288 million contacts, the net ledger stays microscopic, the exact identity holds to the unit, and the i64 panic channel keeps 42 bits of headroom — so the contact side of PRINCIPLE 13 is certified at the belt's most violent scene and no residual-bound gate is needed.

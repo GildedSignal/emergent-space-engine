@@ -1,0 +1,28 @@
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/lattice)
+warning: variable `wa` is assigned to, but never used
+   --> crates/lattice/examples/beltledger.rs:150:25
+    |
+150 |         let (mut c, mut wa) = (0u64, 0u64);
+    |                         ^^
+    |
+    = note: consider using `_wa` instead
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: variable does not need to be mutable
+   --> crates/lattice/examples/beltledger.rs:171:23
+    |
+171 |         let (mut esc, mut ke_all, mut sumr) = (0u64, 0i128, 0i128);
+    |                       ----^^^^^^
+    |                       |
+    |                       help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `emergent-lattice` (example "beltledger") generated 2 warnings (run `cargo fix --example "beltledger"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.17s
+bad batches: 0/200000, worst |dev| 0
+B_cold_s1 contacts 288352399 ch 98304 slope 0.1588 envratio 1.366 P1ok True netfrac 8856543.0 maxAbsR 1933736 bits 42 gross 37293694 net 1092928
+C_th_s2 contacts 88881906 ch 49152 slope 0.0281 envratio 1.325 P1ok True netfrac 5795869.0 maxAbsR 1489019 bits 42 gross 29225643 net -857853
+D_pass_zero True | E_identity dev 0
+# scene=beltledger n=1600 m=800 seed=2 horizon=49152 thermal=4096 stride=256 epoch=8192 pass=false notide=false q=1048576 mu=315251973915934720 law=RelativisticV1 r_esc=250q dk_cap=65536 tide=true
+# contacts=88881906 walls=0 sumR_final=-450074 digest=0845a045c1b68a0908b72ec031336f1454dff357f944397ec5151c3053c066df

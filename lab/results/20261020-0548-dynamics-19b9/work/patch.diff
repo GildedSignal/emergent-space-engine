@@ -1,0 +1,376 @@
+diff --git a/crates/lattice/examples/beltledger.rs b/crates/lattice/examples/beltledger.rs
+new file mode 100644
+index 00000000..9ba0ded7
+--- /dev/null
++++ b/crates/lattice/examples/beltledger.rs
+@@ -0,0 +1,292 @@
++//! The contact carry ledger through the storm (chaos-shadowing's named leftover, c644):
++//! does the V1 law's energy error-feedback carry (`Body.residual`, with the momentum
++//! `carry`) sit on a bounded attractor, random-walk, or drift through the belt's full
++//! relaxation — genesis, storm, grinder core — at the scene where contacts are most
++//! violent (3300 contacts/ch for 17k+ ch, |k| up to the grinder band)?
++//!
++//! Scene and tide are e3b7/c644's verbatim (shipped `Chronon` + `Law::RelativisticV1`,
++//! Q = 2^20, MU = 70·2^52, dk = −round(MU·x/r³) clamped at ±DK_CAP = q/16). The only new
++//! code is measurement, through two read-only accessors (`take_kept_events`, `carries`;
++//! both digest-neutral: `Log::digest` hashes counters, `World::digest` is untouched).
++//!
++//! Outputs (`--out` prefix):
++//! - `.global.tsv`: per chronon `t contacts esc n_in ke_all maxk sumR maxAbsR maxAbsC`
++//!   (R = energy carry, C = momentum carry; per-body |R| quantiles at stride in
++//!   `.ledger.tsv`).
++//! - `.ledger.tsv`: per stride: `t cum_ct p50 p90 p99 maxAbsR p99C maxAbsC` over LIVE
++//!   bodies (r < r_esc).
++//! - `.epoch.tsv`: per-body full dump every `--epoch` (default 8192):
++//!   `t id ring ct cl R Cx Cy k2 r_q` for live bodies.
++//! - `.events.tsv`: `U t id ring` at first osculating eps >= 0, `D t id ring` at first
++//!   r > 250q (c644's marks, for cross-run comparison).
++//! - `--pass`: every belt body `Response::Pass` (the instrument negative: the ledger
++//!   must stay identically zero). `--notide`: no gravity kick (the ledger identity
++//!   ΣE + ΣR = const, exact, becomes checkable to the unit; E per v1 = m(2Q²+|k|²)).
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Law, Response, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Kind, Kickable, Stepper};
++use std::collections::HashSet;
++
++const Q: i64 = 1 << 20;
++const MU: i128 = 70 * (1i128 << 52); // v_circ(70q) = Q/16
++const DK_CAP: i128 = Q as i128 / 16;
++
++fn isqrt128(n: i128) -> i128 {
++    let mut x = (n as f64).sqrt() as i128;
++    while x > 0 && x * x > n {
++        x -= 1;
++    }
++    while (x + 1) * (x + 1) <= n {
++        x += 1;
++    }
++    x
++}
++
++/// Round-half-away-from-zero integer division.
++fn div_round(num: i128, den: i128) -> i128 {
++    let h = den / 2;
++    if num >= 0 {
++        (num + h) / den
++    } else {
++        -((-num + h) / den)
++    }
++}
++
++fn main() {
++    let mut n = 1600i64;
++    let mut seed = 1u64;
++    let mut horizon = 49152i64;
++    let mut thermal = Q / 256; // belt thermal per component
++    let mut stride = 256i64;
++    let mut epoch = 8192i64;
++    let mut pass = false;
++    let mut notide = false;
++    let mut out = String::new();
++    let mut args = std::env::args().skip(1);
++    while let Some(a) = args.next() {
++        let a = a.clone();
++        match a.as_str() {
++            "--n" => n = args.next().expect("value").parse().unwrap(),
++            "--seed" => seed = args.next().expect("value").parse().unwrap(),
++            "--horizon" => horizon = args.next().expect("value").parse().unwrap(),
++            "--thermal" => thermal = args.next().expect("value").parse().unwrap(),
++            "--stride" => stride = args.next().expect("value").parse().unwrap(),
++            "--epoch" => epoch = args.next().expect("value").parse().unwrap(),
++            "--pass" => pass = true,
++            "--notide" => notide = true,
++            "--out" => out = args.next().expect("value"),
++            _ => panic!("unknown arg {a}"),
++        }
++    }
++    assert!(!out.is_empty(), "--out is required (four output files are written)");
++    let mut rng = Rng(seed ^ (n as u64) ^ 0xE17E);
++    let mut id = 1u64;
++    let m = n / 2; // belt bodies only: this harness flies no fleet
++    let mut bodies: Vec<Body> = Vec::with_capacity(m as usize);
++    let resp = if pass { Response::Pass } else { Response::Bounce };
++    let mut ring_of: Vec<i64> = vec![0; m as usize]; // genesis ring index, in q units below
++
++    // Belt: rings 36q..102q step 6q, slot count ∝ 2πr/6q, filled proportionally (e3b7).
++    let rings: Vec<i64> = (0..12).map(|i| 36 + 6 * i).collect();
++    let slots: Vec<i64> =
++        rings.iter().map(|&g| ((g as f64) * std::f64::consts::PI / 3.0).round() as i64).collect();
++    let slot_total: i64 = slots.iter().sum();
++    let mut placed = 0i64;
++    for (ri, &g) in rings.iter().enumerate() {
++        if placed >= m {
++            break;
++        }
++        let want = ((m as f64) * (slots[ri] as f64) / (slot_total as f64)).round() as i64;
++        let count = want.min(m - placed);
++        let r = (g * Q) as i128;
++        for j in 0..count {
++            let xq = if count == 1 {
++                r
++            } else {
++                -r + (2 * r * (j as i128)) / (count as i128 - 1)
++            };
++            let xq = xq.clamp(-r, r);
++            let yq = isqrt128((r + xq) * (r - xq));
++            let (x, y) = if j % 2 == 0 { (xq, yq) } else { (xq, -yq) };
++            let x = x + rng.range(-Q / 2, Q / 2) as i128;
++            let y = y + rng.range(-Q / 2, Q / 2) as i128;
++            let rr = isqrt128(x * x + y * y).max(1);
++            let v = isqrt128(MU / rr);
++            let kx = (div_round(-v * y, rr) + rng.range(-thermal, thermal) as i128) as i64;
++            let ky = (div_round(v * x, rr) + rng.range(-thermal, thermal) as i128) as i64;
++            ring_of[placed as usize + j as usize] = g;
++            bodies.push(Body::new(id, [x as i64, y as i64], [kx, ky], 1, Q, resp));
++            id += 1;
++        }
++        placed += count;
++    }
++
++    let w = World::new(Q, None, bodies)
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("belt world within the law's ranges");
++    let mut step = Chronon::new(w, true).expect("genesis valid");
++
++    let r_esc: i128 = 250 * Q as i128;
++    let nb = m as usize;
++    let mut ct = vec![0u64; nb]; // cumulative contacts per body (slot order == id order)
++    let mut cl = vec![0u64; nb]; // cumulative clamped-chronons per body
++    let mut dead = vec![false; nb]; // first r > r_esc fired a D line
++    let mut unbound = vec![false; nb]; // first osculating eps >= 0 fired a U line
++    let mut gbuf = String::with_capacity(96 * horizon as usize);
++    let mut lbuf = String::with_capacity(96 * (horizon / stride) as usize);
++    let mut ebuf = String::new();
++    let mut pbuf = String::new();
++    let mut prev_ops = 0u64;
++    let mut last_pairs: HashSet<(u64, u64)> = HashSet::new();
++    let mut motions = Vec::new();
++    let mut carries: Vec<[i64; 3]> = Vec::new();
++    let mut maxk_seen: i64 = 0;
++    let mut dks: Vec<[i64; 2]> = Vec::new();
++    let mut absr: Vec<i64> = Vec::with_capacity(nb);
++    let mut absc: Vec<i64> = Vec::with_capacity(nb);
++    for t in 1..=horizon {
++        step.step();
++        let (mut c, mut wa) = (0u64, 0u64);
++        let mut cur: Vec<(u64, u64)> = Vec::new();
++        for e in step.take_kept_events().into_iter().rev().take_while(|e| e.tick == t) {
++            match e.kind {
++                Kind::Contact => {
++                    c += 1;
++                    let pair = if e.a < e.b { (e.a, e.b) } else { (e.b, e.a) };
++                    cur.push(pair);
++                    ct[(e.a - 1) as usize] += 1;
++                    ct[(e.b - 1) as usize] += 1;
++                }
++                Kind::Wall => wa += 1,
++            }
++        }
++        last_pairs.clear();
++        last_pairs.extend(cur.iter().copied());
++        // Post-batch ledger, read before the tide kick (the kick never touches it).
++        step.carries(&mut carries);
++        // Gravity kick between chronons, from post-step positions (e3b7 verbatim).
++        step.motions(&mut motions);
++        dks.clear();
++        let (mut esc, mut ke_all, mut sumr) = (0u64, 0i128, 0i128);
++        absr.clear();
++        absc.clear();
++        let mut mar = 0i64;
++        let mut mac = 0i64;
++        let mut se_true = 0i128; // Σ⌊2Q²γ⌋: v1's exact fixed-point energy (rest included)
++        for (i, mo) in motions.iter().enumerate() {
++            let x = mo.x[0] as i128;
++            let y = mo.x[1] as i128;
++            let r2 = x * x + y * y;
++            let rr = isqrt128(r2);
++            if !notide {
++                let den = r2 * rr.max(1);
++                let ex = if den == 0 { 0 } else { div_round(MU * x, den) };
++                let ey = if den == 0 { 0 } else { div_round(MU * y, den) };
++                if ex.abs() > DK_CAP || ey.abs() > DK_CAP {
++                    cl[i] += 1;
++                }
++                let dkx = if den == 0 { 0 } else { -ex.clamp(-DK_CAP, DK_CAP) };
++                let dky = if den == 0 { 0 } else { -ey.clamp(-DK_CAP, DK_CAP) };
++                dks.push([dkx as i64, dky as i64]);
++            }
++            let k2 = (mo.k[0] as i128) * (mo.k[0] as i128) + (mo.k[1] as i128) * (mo.k[1] as i128);
++            let s_rel = (Q as i128) * (Q as i128) - k2; // > 0 by the law
++            se_true += isqrt128(((4i128 * Q as i128) * (Q as i128) * (Q as i128) * (Q as i128) * (Q as i128) * (Q as i128)) / s_rel);
++            let ri = carries[i][0];
++            sumr += ri as i128;
++            let a = ri.abs();
++            if a > mar {
++                mar = a;
++            }
++            let cc = carries[i][1].abs().max(carries[i][2].abs());
++            if cc > mac {
++                mac = cc;
++            }
++            if !unbound[i] && k2 >= 2 * (MU / rr.max(1)) {
++                unbound[i] = true;
++                ebuf.push_str(&format!("U {t} {} {}\n", i as u64 + 1, ring_of[i]));
++            }
++            if rr > r_esc {
++                esc += 1;
++                if !dead[i] {
++                    dead[i] = true;
++                }
++            } else {
++                absr.push(a);
++                absc.push(cc);
++            }
++            let km = mo.k[0].abs().max(mo.k[1].abs());
++            if km > maxk_seen {
++                maxk_seen = km;
++            }
++        }
++        if !notide {
++            step.kick(&dks).expect("gravity kick within the law's ranges");
++        }
++        let ops = step.metrics().ops;
++        gbuf.push_str(&format!(
++            "{t} {c} {esc} {} {ke_all} {maxk_seen} {sumr} {mar} {mac} {se_true} {}\n",
++            (nb as u64) - dead.iter().filter(|d| **d).count() as u64,
++            ops - prev_ops
++        ));
++        prev_ops = ops;
++        if t % stride == 0 {
++            absr.sort_unstable();
++            absc.sort_unstable();
++            let q = |v: &Vec<i64>, f: f64| {
++                if v.is_empty() { 0 } else { v[((f * (v.len() as f64 - 1.0)) as usize).min(v.len() - 1)] }
++            };
++            let cum_ct: u64 = (0..nb).filter(|i| !dead[*i]).map(|i| ct[i]).sum();
++            lbuf.push_str(&format!(
++                "{t} {cum_ct} {} {} {} {mar} {} {mac}\n",
++                q(&absr, 0.5),
++                q(&absr, 0.9),
++                q(&absr, 0.99),
++                q(&absc, 0.99),
++            ));
++        }
++        if t % epoch == 0 || t == horizon {
++            for (i, mo) in motions.iter().enumerate() {
++                if dead[i] {
++                    continue;
++                }
++                let x = mo.x[0] as i128;
++                let y = mo.x[1] as i128;
++                let rr = isqrt128(x * x + y * y);
++                let k2 = (mo.k[0] as i128) * (mo.k[0] as i128) + (mo.k[1] as i128) * (mo.k[1] as i128);
++                pbuf.push_str(&format!(
++                    "{t} {} {} {} {} {} {} {} {} {}\n",
++                    i as u64 + 1,
++                    ring_of[i],
++                    ct[i],
++                    cl[i],
++                    carries[i][0],
++                    carries[i][1],
++                    carries[i][2],
++                    k2,
++                    rr / Q as i128
++                ));
++            }
++        }
++        if t % 4096 == 0 {
++            eprintln!("t={t} contacts={c} esc={esc} maxAbsR={mar}");
++        }
++    }
++    let log = step.log();
++    let head = format!(
++        "# scene=beltledger n={n} m={m} seed={seed} horizon={horizon} thermal={thermal} stride={stride} epoch={epoch} pass={pass} notide={notide} q={Q} mu={MU} law=RelativisticV1 r_esc=250q dk_cap={} tide={}\n# contacts={} walls={} sumR_final={} digest={}\n",
++        DK_CAP,
++        !notide,
++        log.contacts,
++        log.walls,
++        carries.iter().map(|c| c[0] as i128).sum::<i128>(),
++        log.digest()
++    );
++    std::fs::write(format!("{out}.head"), &head).expect("write head");
++    std::fs::write(format!("{out}.global.tsv"), &gbuf).expect("write global");
++    std::fs::write(format!("{out}.ledger.tsv"), &lbuf).expect("write ledger");
++    std::fs::write(format!("{out}.epoch.tsv"), &pbuf).expect("write epoch");
++    std::fs::write(format!("{out}.events.tsv"), &ebuf).expect("write events");
++    eprintln!("{head}");
++}
+diff --git a/crates/lattice/examples/iso_ledger.rs b/crates/lattice/examples/iso_ledger.rs
+new file mode 100644
+index 00000000..e11b84ba
+--- /dev/null
++++ b/crates/lattice/examples/iso_ledger.rs
+@@ -0,0 +1,46 @@
++// Isolation: does V1 resolve conserve ΣE + Σresidual exactly, per batch?
++use emergent_lattice::law::{Body, Law, Response};
++use emergent_lattice::relativity::momentum;
++
++fn main() {
++    let q: i64 = 1 << 20;
++    let mut state: u64 = 0x1234_5678_9abc_def0;
++    let mut next = || { state ^= state << 13; state ^= state >> 7; state ^= state << 17; state };
++    let mut worst: i128 = 0;
++    let mut n_bad = 0u64;
++    for _ in 0..200_000u64 {
++        // random pair in contact geometry: close positions, approaching velocities
++        let bits = next() % 20 + 2;
++        let mut r = || (((next() % (1u64 << bits)) as i64) - (1i64 << (bits - 1))).clamp(-(q/2 - 1), q/2 - 1);
++        let d = [r() as i128, r() as i128];
++        if d[0] * d[0] + d[1] * d[1] == 0 { continue; }
++        let ka = [r(), r()];
++        let kb = [r(), r()];
++        // ensure approaching along d and inside light cone
++        let dot = d[0] * (kb[0] - ka[0]) as i128 + d[1] * (kb[1] - ka[1]) as i128;
++        if dot >= 0 { continue; }
++        let xa = [0i64, 0i64];
++        let xb = [d[0] as i64, d[1] as i64];
++        let mut bodies = vec![
++            Body::new(1, xa, ka, 1, q, Response::Bounce),
++            Body::new(2, xb, kb, 1, q, Response::Bounce),
++        ];
++        let e_before: i128 = bodies.iter().map(|b| momentum(Law::RelativisticV1, b.mass, b.k, q)[0]).sum();
++        let r_before: i128 = bodies.iter().map(|b| b.residual as i128).sum();
++        let pairs = vec![(0usize, 1usize)];
++        let walls = vec![false; 2];
++        let mut wm = [0i64; 2];
++        emergent_lattice::relativity::resolve_law(Law::RelativisticV1, q, &mut bodies, &pairs, &walls, None, &mut wm);
++        let e_after: i128 = bodies.iter().map(|b| momentum(Law::RelativisticV1, b.mass, b.k, q)[0]).sum();
++        let r_after: i128 = bodies.iter().map(|b| b.residual as i128).sum();
++        let dev = (e_after - r_after) - (e_before - r_before); // ledger: sumE - sumR invariant
++        if dev != 0 {
++            n_bad += 1;
++            if dev.abs() > worst.abs() { worst = dev; }
++            if n_bad <= 5 {
++                println!("DEV {dev} ka={ka:?} kb={kb:?} d={d:?} -> k={:?} {:?}", bodies[0].k, bodies[1].k);
++            }
++        }
++    }
++    println!("bad batches: {n_bad}/200000, worst |dev| {worst}");
++}
+diff --git a/crates/lattice/src/chronon.rs b/crates/lattice/src/chronon.rs
+index 9bab167d..004f07f9 100644
+--- a/crates/lattice/src/chronon.rs
++++ b/crates/lattice/src/chronon.rs
+@@ -141,6 +141,21 @@ impl Chronon {
+             });
+         }
+     }
++
++    /// The kept events so far, taken out of the log. Counters, sums and both digests are
++    /// unaffected (they live in the counters, never in the kept copy); only `sorted`
++    /// readers notice. Read-only instrumentation for harnesses that tally per-chronon
++    /// events without growing memory.
++    pub fn take_kept_events(&mut self) -> Vec<Event> {
++        std::mem::take(&mut self.log.events)
++    }
++
++    /// Per-body carries `[residual, carry[0], carry[1]]` at the world's tick. Read-only
++    /// instrumentation: no state changes, no digest effect.
++    pub fn carries(&self, out: &mut Vec<[i64; 3]>) {
++        out.clear();
++        out.extend(self.w.bodies.iter().map(|b| [b.residual, b.carry[0], b.carry[1]]));
++    }
+ }
+ 
+ impl Stepper for Chronon {
