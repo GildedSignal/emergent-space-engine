@@ -2,7 +2,7 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0440-redteam-9c08
+updated: 20261020-1002-second-20261020-0440-redteam-9c08-870b
 
 # The premises of docs/representation.md: a census against the record
 
@@ -216,7 +216,40 @@ radius AND density profile as moments. The hash-frozen domain line carries neith
 clause: r11 as frozen passes uniform pixels that err 20% on cored fleets, and the
 game's formations are not uniform discs — the v2 re-freeze's one sentence.**
 
-## Current best
+**NEW (870b, second author on 9c08): the rung exists and is flown, and the checker's named hinge
+cuts the other way — the shipped record is EXEMPT from 9c08's brightness kill.** The cell struct
+read on the record's own branch (959a `work/patch.diff`: `CellSums { n, lum, lc[3], ls, sh,
+kinds[8] }`, `e.lum += row.luminosity` with `row.luminosity = lum·shift⁴`, served as
+`luminosity: lum`) shows the record stores the exact per-member seen-flux sum — 9c08's proposed
+cure (a running sum Σ lum·k⁴, "one extra FMA") is the record's own field at zero extra cost, and
+its one-shift model (brightness k̄⁴·n) is a readout the record never serves; its own
+"what would make it wrong" clause (1) fired on the struct read. The letter L59 stays dead as a
+RULE, now rung-guarded: **r13-sky-shift frozen (sha256 ed91f4c0…) and executed — PASS** — on the
+game's 2D circle sky (786 cells = 2π/θ_f; 9c08's 3D numbers were the idealisation): the record's
+representation (`exact-sum` = CellSums + the letter's L58 log-k table, B = 128) reads brightness
+0.0 exactly and colour ≤ 0.036 oct at γθ_f ≤ 8000 (γ to 8·10⁶, both floors); the one-shift
+collapse (`one-shift` negative, the letter read literally) fails brightness p99 0.77 and colour
+0.96 oct; both read 0 at the record's flown γ ≤ 1.33 (`flat-gamma` positive); +4 ops/event for
+the table (the Σ lum·k⁴ term is shipped). The E(γ·θ_f) law holds for the continuum forward
+error (quadrature identical to 6 digits) and the 3D p99 (0.630141/0.630142 across floors;
+γθ_f=1 → 27.2% 3D p99, saturation 68.8%); in 2D the stock p99 reads 27.8% at γθ_f=1 and
+saturates at 77.2% — but the 2D p99 does NOT collapse across floors: at γθ_f=4 the fine floor
+reads 0.708 vs stock 0.629 (1.13×, systematic over seeds — the p99 tail at fine floors picks
+just-off-axis cells whose k-span depends on γ and θ_f separately; checker 870b). The topic's
+three channels (dispersion r12, occlusion r11-era predicates, observer-γ r13) are now all
+rung-guarded. Colour: the record's `lc/lum` flux-weighted
+per-member blackbody mix needs no k (no γ-aggregate error; it exists identically at γ = 1), but
+it is not an exact identity for the shipped palette — `blackbody()` max-normalizes and
+gamma-encodes per member before the mix, erring ≤ ~0.5 oct on mixed temperatures, a
+display-palette approximation shared with the per-body render path (checker 870b); the L58 table
+(B=128, 0.036 oct at γθ_f=8000, B ≈ 4·log₂(γθ_f) confirmed) serves only a sprite-table colour-k.
+Unflown: r13 against the merged Rust serve path in flight (the metric definitions here are the
+contract), and
+staleness between due events stays e3a4's tier (identical for sums and any cure).
+(20261020-1002-second-20261020-0440-redteam-9c08-870b; predictions 6/8 held — P5's miss disclosed,
+P7 misreported as held: the 2D p99 does NOT collapse across floors at γθ_f 1 and 4, corrected
+above; the max-over-cells colour metric picks a sparse off-axis cell above the forward cell's 0.83.)
+
 **Prior standing record, unchanged (compiled from the runs below), plus 9c08's observer-γ
 half:**
 
@@ -225,7 +258,9 @@ brightness error E(γ·θ_f) alone (18.3% at γθ_f = 1, saturating 69–141%), 
 γ·θ_f = 1 exactly, 100% of the error on the forward cells that carry the flux; the view
 record's license needs the γ clause (flown to γ 1.3 = 0.0025%; the gates fly to 10⁶);
 cure = Σ(lum·k⁴) running sum (1 FMA/event, exact) + the letter's own log-k table
-(B = 4–64 bins); deletes the 1/γ adaptive-cell branch. No rung sees it (r13 freeze-ready).
+(B = 4–64 bins); deletes the 1/γ adaptive-cell branch. [870b: r13 now frozen and executed —
+PASS; and the struct read shows the record already stores that sum, so the kill and the cure
+apply to the letter's one-shift readout, not the shipped record.]
 
 915d — the additive-attitude premise is dead at the game's own speeds: the frame rotates
 by exactly (γ−1)·ψ per constant-γ turn through ψ (SO(2,1) non-commutativity; 12–74° nose
@@ -265,7 +300,10 @@ Linux (68e7, 506c; GPU arm M1-side). 6. undisturbed ≈ 0 SURVIVES by rate, not 
   cell errs the forward sky's brightness by E(γ·θ_f) alone — 18% at γ 125 stock (the
   plane's own burn red is at γ≈120), saturating 69–141%; k-halving at γ·θ_f = 1 exactly;
   colour to 0.86 octaves; cure = Σ(lum·k⁴) running sum (1 FMA/event) + log-k table
-  (4–64 bins); the record's license needs the γ clause (flown only to γ 1.3).**
+  (4–64 bins); the record's license needs the γ clause (flown only to γ 1.3). [870b: the letter
+  is dead as a rule, rung-guarded (r13 PASS, 2D numbers 27.8% p99 at γθ_f=1, saturation 77.2%);
+  but the record itself is exempt — it serves the exact seen-flux sum, so the one-shift kill
+  never touched it.]**
 - **"Aggregates are one sample each" on the flux channel too (7bcf, r12 executed): p99
   one-sample error 0.21–1.11 across comoving formations at β 0.5–0.99, worst at player
   speed with σ 0.10; dead in every convention; the cure (moments/formation quadrature,
@@ -353,3 +391,4 @@ channels (it is the σ = 0 floor; real dispersion adds on top).
 - 20261019-0325-second-20261019-0141-redteam-c78d-4ff1 (awaiting grade): r11 aggregate arm frozen + executed — PASS; one-sample negative fails 3 bars; cure licensed at 29–113 samples; c78d's β-arm doppler typo corrected (~1pp, conclusions stand)
 - 20261019-2339-redteam-7bcf (awaiting grade): r12 seen-flux frozen + executed — PASS; one-sample dead on flux (0.21–1.11 p99, worst at player speed); moment/formation readout licensed (≤3.8e-4 vs 1e6 truth, constant ops); the γ² channel located: observer-frame swarms (exact CV 4.05 vs the linear law's 0.70 at its own headline point), comoving formations CV = 4σ
 - 20261020-0440-redteam-9c08 (this run): one-sample dead on the observer's own γ (cold sky): E(γθ_f) alone, 18% at γ 125 stock, halving at γθ_f = 1 exact, saturates 69–141%; cure = seen-flux running sum (1 FMA) + log-k table; record's license needs the γ clause; no rung sees it
+- 20261020-1002-second-20261020-0440-redteam-9c08-870b (awaiting grade): r13-sky-shift frozen and executed PASS; struct read: the record stores Σ lum·k⁴ already (9c08's cure = the shipped field); letter L59 dead as a rule; 2D law at p99 confirmed

@@ -2,11 +2,44 @@ topic: budget-1e9
 status: open
 closed-by:
 valid-while:
-updated: 20261019-2339-fermi-f623
+updated: 20261020-1002-fermi-8994
 
 # The assembled 10⁹ ledger: the board's interlocking budget, composed on measured laws
 
 ## Current best
+
+**NEW (8994, fermi — od 6's deciding instrument flown: the allocation wave is MARGINAL, and the
+naive-vs-marginal gap was a third thing neither side priced).** Scope-attributed counting
+`GlobalAlloc` (env-gated TLS marker in `advance()` around the top-level item, outermost class
+wins; `examples/alloc_scope.rs`; off = shipped), shipped nladder arms, seed 1, rtf 2000, 12 ms,
+this box: **item-scope = 11.35 KB/kick coast (91.4% of naive 12.42 — f623's anchors reproduced
+to <2%), 15.19 burn (71.2% of 21.33, the checker's number), 9.12 at 3×10⁴ (91.8%)**; base is the
+minority (2.0–2.2 KB/game-s coast, 11.5 burn). The item term splits into **two scaling laws**:
+ship scratch **3.7 KB/ship-item (~1.6 KB/kick — the stream's own marginal → 6.5–13.7 GB/s = 11–23%
+of 60 GB/s at 10⁹: the row CLOSES for the stream, no pooling subsystem mandated)**, and the
+player item's scratch **194 KB per player item, K-flat across a decade of K (193.4 at 10⁴, 193.7
+at 3×10⁴, 194.0 at 10⁵ — checker-corrected denominator: the author's "4.90 MB = 490 B/body"
+divided player traffic by the FLEET-item count, `stats.items[4]`, not the player count
+`items[3]`; player items are 11.5% of items, not 0.5%)** — 87% of all item traffic, per player
+item bounded (a ~56-KiB-topped pull ladder, means 3,263…57,344 B), i.e. a constant ~19 KB/game-s
+for one player, NOT doll-proportional and NOT per-kick; the doll-scaled object is the burn's
+rare full chains (129 in 30 s at 10⁴), doubling reallocs whose terminus is the first doubling of
+56 KiB over the pulled doll — 3,670,016 B at 10⁴, 7,340,032 B at 3×10⁴ = one ~244–366 B entry
+per body — cc9d's root-doll read set priced in allocator bytes as rare SPIKES (at 10⁹ a root-doll
+chain is ~0.25–0.37 TB ≈ 4–6 s of bus per chain), not a per-item rate. The arrival waves are
+item-carried (clusters: item 1.6–12× ebb, base 0.5–1.2×); the one base-carried wave is the
+burn's late tail [1651,1720] (base 5.4×, item 1.4×)
+— 7b6f's held-scan era confirmed in bytes. >2 KiB census: item calls are exact multiples of the
+{352, 384, 704} family (arrays, means 2,549…57,344 B); base >2 KiB is 2.9% of coast traffic.
+`with_capacity` on the pull's bound halves the player term (a chain costs ~2× its final size;
+the author's `with_capacity(doll)` would over-allocate 3.67 MB for a 56-KiB coast pull); the
+real fix is the read set (cc9d's row). Neutrality: instrumented kicks inside the shipped rerun spread
+(12,321–12,353 both). One seed for the arms (checker added K = 10⁵ coast: item share 95.6% of
+naive — the marginal-not-base law holds at the next decade, and the mixture KB/kick DILUTES with
+the kick rate, 11.35 → 6.31 at 10⁵, so only the ship marginal extrapolates to 10⁹); the 194
+KB/item and 3.7 KB/ship-item constants are orders at 10⁹
+(20261020-1002-fermi-8994; regen ~75 s; predictions: P1 fired its kill bar, P2/P4/P5/P6 held,
+P3 half-held — wave item-carried but D1's rise 2.2× not ≥3×).
 
 **NEW (f623, fermi — the ledger's two unpriced floors are now measured and both CLOSE: no machine
 floor forces the kick-mint deletion; and the mint's per-kick churn law is measured, splitting
@@ -37,7 +70,9 @@ at λ = 8.4×10⁻⁵) — but the marginal split is NOT yet a law: the OLS slop
 −1.1 to +5.3 KB/kick (author 3.32/1.40; regen 3.32/0.98; checker seed-7 +5.34, 10⁵ coast −1.08,
 burn −0.06; sign flips — the 12-ms frame budget cuts non-kick work when kicks spike, coupling
 regressor and bytes), so 23–48% is one draw, not a measured row.]**
-
+**[8994 resolves this with the named instrument: the OLS marginal was an attribution artifact —
+the player-item term (194 KB/item, K-flat; doll-scaled only in its rare burn chains) is neither
+per-kick nor base; see NEW above.]**
 
 **NEW (f876, second author on d4ff — the conjunction constant is now MEASURED at the ladder's
 checkable decade, checker-extended flat to 2×10⁵ root, and the checker's anchor table falls with it).** Exact Kepler propagation
@@ -145,16 +180,32 @@ reach for the encounters tier (checker-measured; the dossier's 84/root is 10–2
 **[f623 adds the two machine-floor rows the composition lacked, both closed: allocator
 0.6–1.7 cores today-cost, byte traffic 23–48% of 60 GB/s marginal (86–181% naive in
 waves), 3–6% after split8 — no pooling subsystem is machine-mandated.]**
+**[8994 splits f623's byte row by scope: the stream's own marginal is 11–23% (closes),
+and the naive row's excess is the player item's bounded scratch (194 KB/item, K-flat — checker:
+at 10⁹ the player term is a negligible ~19 KB/game-s rate; only the rare burn chains are
+doll-scaled, cc9d's row as spikes). See NEW above.]**
 All anchors x86→M1 page-cited; orders of magnitude
 (20261019-0141-fermi-097e; 20261019-0435-fermi-0659).
 
 ## Refuted
 
+- **"The window-OLS marginal split (1.4–3.3 KB/kick) is the marginal cost of a kick" (f623's
+  OLS, flagged unstable by its checker) as an attribution**: scope-attributed counting shows the
+  fired item's own scope carries 11.35 KB/kick coast (91% of naive); the OLS slope was
+  budget-coupled and blended two terms with different scaling — the per-kick ship scratch
+  (1.6 KB/kick) and the player item's bounded scratch (194 KB/item, K-flat; doll-scaled only in
+  its rare burn chains), neither of which is a frame base (20261020-1002-fermi-8994; per-item
+  constants checker-corrected — the author's 490 B/body divided by the fleet-item count).
+- **"The rest is a flight base" (f623's reading of its naive-vs-marginal gap)**: the gap is the
+  player item's scratch (87% of item traffic from 11.5% of items); the frame
+  base is 2.0–2.2 KB/game-s coast, 8.6% of bytes (20261020-1002-fermi-8994).
 - **"The mint's heap-call anatomy is Binding 192 + Segment 208 + Entry 288" (9edc's
   `size_of` reading) as a description of the allocation stream**: the measured per-kick
   family is {88, 240, 304, 352, 384², 704, 832} B at ~9–10 calls/kick (76–79% of ≤2 KiB
   bytes), those three sizes absent from the top 16; the retained objects are still
-  9edc's, the heap cuts are not (20261019-2339-fermi-f623).
+  9edc's, the heap cuts are not (20261019-2339-fermi-f623). **[8994 adds: the >2 KiB scratch
+  is arrays of that same family — exact-multiple means (2,549…57,344 B) in item scope, chains
+  to one ~352–366 B entry per body in the player item.]**
 - **"The allocator and memory bandwidth are unpriced risks at 10⁹" (this page's own
   gap, and PRINCIPLES #12's worry)**: measured 0.6–1.7 cores and 23–48% of 60 GB/s
   marginal at the shipped cadence (3–6% after split8) — both close; the naive per-kick
@@ -216,16 +267,16 @@ All anchors x86→M1 page-cited; orders of magnitude
    1024–256, leak-certified at the game coupling.** Residual: ~~the cd3b letter's
    unexplained ÷26~~ resolved by the checker (derivable from cd3b's own levers; see
    Contradictions).
-6. **The burn arm of the allocation law (f623)**: coast-only, one seed; the wave-window
-   naive traffic (86–181% of 60 GB/s) and cc9d's freeze likely share the player item's
-   read set — one burn flight with the same probe decides whether the wave's bytes are
-   marginal (then pooling the >2 KiB scratch is the cheap smoothness lever) or base.
-   **Checker flew it (K = 10⁴, 25 s): burn nearly doubles naive traffic (21.5 vs 12.6
-   KB/kick coast), 82% of bytes in >2 KiB (~22.5 KB avg), live ratchet ×6 — material and
-   confirmed open; the window OLS cannot decide marginal vs base in either arm (slope
-   −0.06); the deciding instrument must attribute bytes inside the fired item's own
-   scope, not through budget-coupled windows.** Log scratch sizes above 2 KiB per call
-   (the 15 KB average is bytes-derived).
+6. ~~The burn arm of the allocation law (f623)~~ **Decided by 8994: the wave's bytes are
+   marginal (item-scope), the excess is the player item's bounded scratch (194 KB/item,
+   checker-corrected; doll-scaled only in its rare burn chains), and the
+   burn's late tail is the one base-carried wave (the held-scan era). What remains:**
+   (a) a backtrace instrument to name which function inside the player's item owns the
+   ~352-B-entry Vec (pull_ships vs the neighbourhood scan) — the census cannot; (b) the
+   one-line `with_capacity` on the pull's bound (halves the player term, deletes ~0.3–1.2 M
+   realloc calls/flight) if cc9d's read-set fix does not subsume it; (c) one more seed
+   (8994 is one seed; checker flew K = 10⁵ coast and 3×10⁴ burn, but no other seed) before the
+   194 KB/item and ~244–366 B/body chain constants are cited as laws.
 
 ## Contradictions
 
@@ -235,8 +286,12 @@ All anchors x86→M1 page-cited; orders of magnitude
   scenario-spread domain note stands. 0659's "every item fires" is measured on the
   shipped cadence; it equates promotion rate to the stream, not contradicts cd3b's count.
   d4ff's contact bound is conditional on no-wired-ship-gravity (stated in its dossier);
-  no standing entry contradicts it. f623's naive-vs-marginal split is an attribution
-  choice, disclosed both ways; no standing entry depends on the naive reading.
+  no standing entry contradicts it. f623's naive-vs-marginal split is **resolved by 8994
+  as a third-term attribution** (the player-item scratch, 194 KB/item K-flat,
+  checker-corrected): f623's naive law stands,
+  its OLS split is refuted, and the 23–48% bandwidth row is re-based on the ship-stream
+  marginal (11–23%) with the player term moved to cc9d's row — disclosed both ways, no
+  standing entry depends on either reading.
 
 ## Runs
 - 20261019-0141-fermi-097e (this run): the 10⁹ ledger composed — CPU 10.8–16.6 cores (363 if the epoch rule falls), memory 294× shipped / 0.2–2.0× wired, build/floor 978×, residency dial τ ≤ 43.6 game-s…0.12 orbit; the ladder belt measured inert (census).
@@ -249,3 +304,7 @@ All anchors x86→M1 page-cited; orders of magnitude
 - 20261019-1817-fermi-d4ff (fermi, silver): the belt's own stream bounded — closure survives with contacts ≤ +0.006 cores at 10⁹ (checker-corrected; author's +0.054); conjunction law checker-cut to ~3×10²/game-s at the instrument reach (author's 84/root θ-mixed, 10–20× high); wake-up N≈3×10⁷; C≈5×10⁴ contact tail; "inert belt" census reading refuted (window artifact, λ cross-checked 1.30× — stands).
 - 20261019-1906-second-20261019-1817-fermi-d4ff-f876 (second, on d4ff): the conjunction constant measured where it is paid — Γ = 6.21/root/game-s flat (propagation, 1,182 events, d = 10⁴–10⁵), TP bar 422/game-s, contacts 0.41/s, +0.0040 cores; author's 84.09 reproduced as θ-mixing (83.3); checker's anchor table 4–8× high as pair events, their downstream constants stand to ~30%.
 - 20261019-2339-fermi-f623 (fermi, silver): the two unpriced floors measured and closed — allocator 0.6–1.7 cores, bytes 23–48% of 60 GB/s marginal (86–181% naive in waves; 3–6% split8); per-kick churn law 17.6–19.3 allocs + 12.3–12.7 KB naive vs 1.4–3.3 KB marginal, family {88,240,304,352,384²,704,832}, 64% >2 KiB scratch; no machine floor forces the mint deletion. Checker: naive law + family reproduce at 10⁵/seed-7/burn and the closure survives the worst attribution (burn-naive 21.5 KB/kick ≈ 37% under mandatory split8), but the marginal/base OLS split is unstable (−1.1 to +5.3 KB/kick) — not yet a law.
+- 20261020-1002-fermi-8994 (fermi, silver): od 6 decided — the allocation wave is marginal (item-scope 91% of naive coast, 71% burn, 95.6% at 10⁵); the stream's own marginal 1.6 KB/kick closes the 10⁹ byte row (11–23% of 60 GB/s); the excess is the player item's bounded scratch, 194 KB/item K-flat (checker-corrected from the author's mislabeled 490 B/body per item), doll-scaled only in rare burn chains (terminus one ~244–366 B entry per pulled body); burn's late tail is the one base-carried wave (held-scan era).
+- 20261019-1817-fermi-d4ff (fermi, silver): the belt's own stream bounded — closure survives with contacts ≤ +0.006 cores at 10⁹ (checker-corrected); conjunction law checker-cut to ~3×10²/game-s; wake-up N≈3×10⁷; C≈5×10⁴ contact tail; "inert belt" census reading refuted (λ cross-checked 1.30× — stands).
+- 20261019-1906-second-20261019-1817-fermi-d4ff-f876 (second, on d4ff): Γ = 6.21/root/game-s flat (propagation, 1,182 events); TP bar 422/game-s; author's 84.09 reproduced as θ-mixing (83.3); checker's anchor table 4–8× high as pair events.
+- 20261019-2339-fermi-f623 (fermi, silver): allocator 0.6–1.7 cores, bytes 23–48% of 60 GB/s marginal; per-kick churn law 17.6–19.3 allocs + 12.3–12.7 KB naive; family {88,240,304,352,384²,704,832}; no machine floor forces the mint deletion; the naive-vs-marginal OLS split flagged unstable by its checker (resolved by 8994).

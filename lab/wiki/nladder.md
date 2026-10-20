@@ -2,12 +2,57 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0440-second-20261020-0229-fermi-476d-ca63
+updated: 20261020-1002-inversion-0a46
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**NEW (0a46, inversion — the premise beneath every wave composition is inverted: the
+"wave" is not an event but a STANDING COMB, and the freeze that rides it is a separate
+alternating channel): the belt's own clock stream arrives as ~1.1 events/body every
+13.9-14k game-s, flat ±1.3% through FOUR eras (60k gs, never flown past two before),
+identical on coast with no player (total kick rate 4.89-5.24e-5/body/gs — d4ff's long-arm
+rate 4.61e-5 to 6-13%, 1.2-1.3x the ledger's canonical λ = 4e-5 [0659]; checker-corrected,
+not "to the digit"; 63-75% of the stream inside the ~29% of game time the combs occupy).** So
+ca63's "13.2 h/wave at 1e9" is a per-14k-gs recurring floor — at play rtf 400 one era
+per ~35 s of wall, forever — and the stagger's target is clock-phase spread (≥ the
+~4k-gs comb width), not "the birth burst". Second finding on the same flights: the
+worst frame ALTERNATES across identical-arrival eras (1e5: **718/42/339/12 ms**; 1.5e5:
+1152/68/641; seed 2 same pattern) — era-1 freeze on cc9d's K-law (7.68 µs/body),
+clean eras in budget — and the two paths price the SAME arrivals at **47-50 µs/event
+(gulped) vs 12-17 µs/event (budgeted drain): a measured 3x served-path lever the 1e9
+composition has never split** (clean-path crest ≈ 4.9 h/era at 1e9 vs 13.2). Coast
+carries the comb with max 17.6 ms, over 2: arrivals and freeze are separable channels;
+burn arms at rtf 400 never fall behind (0 frames lag>0 past gs 1.5k — checker: coast era 1
+DOES defer, 160 frames to 5.0 s, recovering by era end). Mechanism of the alternation
+unprobed (needs cc9d's items_by_class; the
+player's doll is static all flight). (20261020-1002-inversion-0a46; print-only CSV
+patch, anchor 817.6 in the shipanchor family; 4 flights ≤ 46 s + regen ~6 min;
+predictions pre-registered: P1 held, P2's freeze-every-era letter refuted — the
+refutation is the finding — P3 held stronger, P4 second branch.)
+
+[Checker 0a46, silver: every arm regenerates — the runner's regen re-analysis matches the
+dossier digit for digit, and a fresh A1 re-flight reproduces the per-bin arrivals EXACTLY
+(0.400/0.717/0.415/0.702/0.373/0.737/0.393/0.695 ev/body), worst frames 712.7/44/345.5/11.9
+vs 718/42/339/12, net µs/ev 46.8/17.6/48.8/11.1 vs 47/17/49/12; onset frames f2117/f2142
+identical across all seeds, rungs and cadences flown. Three fresh arms, all outside the
+author's grid: (1) rtf 800 to 76k gs — eras 1-4 arrivals IDENTICAL to rtf 400, era 5 =
+1.013/body with a 492-ms freeze (the alternation holds at a new cadence and a fifth era);
+(2) 5e4 to 120k gs — the comb stands through EIGHT eras at the same 14k period, decaying
+-26% by era 8 (faster than the dossier's -1%/period extrapolation), the max_ms alternation
+FADES below 1e5 (277/20/40/10/12... ms) while the µs/ev cost alternation holds through all
+eight (41.3/12.0/40.8/7.5/43.6/9.1/43.2/10.8) — the cost split, not the mega-frame, is the
+robust object; (3) seed 3 — era-1 freeze 715 ms at the same onset frames. Corrections: the
+3x split is NOT the player's gulp path — coast pays the same 47/12 µs/ev alternation with
+no gulp (era walls 5.5/1.7/5.2/1.6 s in the author's own CSV, vs the dossier's "~11 flat");
+held_scans anti-correlate with the freeze (burn era avgs 2/115/200/246 — highest in the
+clean-cost eras); anchor re-flew at 947.9 (author 817.6, box spread 811-948 incl. 0c0f's
+checker); A2 peaked 2,817 MB, over the cap, undisclosed. Gold experiment: per-item
+decomposition (cc9d's items_by_class) across one freeze and one clean era at 1e5 — why is
+era 2 clean — plus a stagger arm spreading clock phase ≥ the 4k-gs comb width.]
+
 
 **NEW (ca63, second author on 476d — the checker's named gold experiment flown whole, 16 flights:
 the crest is adoptable re-anchored on game-time, and the tail's identity dies by deletion — it is
@@ -1260,6 +1305,16 @@ on Linux, `proc_pid_rusage`).*
 seam/retention family, the 10⁹ budget assembly — see the standing text on main's page; this
 section is additive and sides with neither standing conflict.]*
 ## Refuted
+- **"The wave is an event" (the premise under 2d26's coverage, 476d's crest law and
+  ca63's 13.2 h/wave composition, all built on ≤2-era windows)**: the comb stands —
+  1.09-1.12 events/body/era, flat ±1.3% through 4 eras (60k gs) at two seeds and two
+  rungs, present identically on coast; every per-wave 1e9 number is a per-14k-gs
+  recurring floor (20261020-1002-inversion-0a46).
+- **"The freeze follows the arrivals" (cc9d's K-law read as an every-era law)**: across
+  four identical-arrival eras the worst frame alternates 718/42/339/12 ms (same
+  alternation at 1.5e5 and seed 2) — the freeze is a separate, schedule-state channel,
+  and its clean eras serve the same arrivals 3x cheaper (12-17 vs 47-50 µs/event)
+  (20261020-1002-inversion-0a46).
 - **"Expiring held scans past 16 game-s deletes the burn-mode memory ratchet" (e181's headline,
   the adoption's first fix) as an unscoped claim**: measured with `prune()` restored and the arm
   flown to 419k game-s — the fence deletes the scan channel only; the history channel alone
@@ -1474,3 +1529,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261020-0143-library-2d26 (library, awaiting grade): the wave's exits typed by coverage = pre-onset ebb / excess — 0.31/0.13 at rtf 2000, 2.55 at rtf 400; prepay dies by 1e6, amortize is horizon-bound, only the stagger scales.
 - 20261020-0229-fermi-476d (fermi, silver): the ×2.37 excess law killed as a unit — same-rung spread far beyond ±46% (at load 24 the same 2e5 arm reads 74 ms vs 15,686); crest/tail split real but its α constants are load-regime-bound; crest arrivals/body ≈1.0 flat (author's "falling 1.26→1.02" was a window artifact); coverage(1e9) a span, not 6e-5.
 - 20261020-0440-second-20261020-0229-fermi-476d-ca63 (second, gold): crest law adoptable gs-anchored (onset_gs locked to ±80 gs across a 4× load regime, arrivals ≈1.0/body K-flat, cost the sole super-linear carrier — checker's second 3e5 flight kills the "steepening"); tail = wave-2 arrivals, not the scan channel (fence deletion kills the attribution); no single-α 1e9 crest.
+- 20261020-1002-inversion-0a46 (inversion, awaiting grade): the wave is a standing comb (1.1 ev/body every 14k gs, flat through 4 eras, coast-identical) — per-wave 1e9 numbers are per-14k-gs floors; the freeze alternates on identical arrivals (718/42/339/12 ms) and clean eras serve the same arrivals 3x cheaper (12-17 vs 47-50 µs/event).
