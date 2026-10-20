@@ -1,0 +1,42 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.34s
+== A. F1 regeneration (R1): the re-flown e3 replica vs the committed artifact
+  belt-wide answers: F1 41 vs committed 41; identical (t,tests,skip_bnd): True
+  digest F1 8eecf1fa2a27f12b… == committed 8eecf1fa2a27f12b…: True
+  kick rate: F1 5.049e-5 vs committed 5.051e-5 /body/gs  (a2c0 used 9ed1's 4.889e-5; the flight's own is used below)
+== B. the delta pin: per-answer series at the ACTUAL gaps (F1 == committed e3)
+  cold: tests 88,873/99,715 = 89.13% miss, 3.75 us/body, read 4.06 us/read
+  gaps: [165.27, 330.54] gs (a2c0 assumed uniform 30000/41 = 732 gs; the belt-wide window spans gs 19,859-29,941)
+  warm miss per answer: 0.044%-0.488% vs kicks-per-gap lam*gap 0.83%-1.67% => every-kick-dirties (delta=1) excluded: max miss/(lam*gap) = 0.40
+  delta_eff per answer: 0.053-0.399, drifting (165-gs legs 0.053 -> 0.399); a2c0's fitted band 0.065-0.266 holds 28/40 (count below); its letter < 0.5 holds at every answer: True
+  mechanism: at CONSTANT 165-gs gaps the miss grows 0.044% -> 0.333% (7.5x over 18 answers), then decays to 0.142% past the cadence doubling -- a constant-delta kick-Poisson cannot grow at fixed cadence: no per-kick ratio exists; the invalidation rate is set by the scene (the burn approaching the belt shrinks the slack margins), and the doubling's own 2x is unidentifiable against that trend
+  c_check (checks+loop): 25.8-36.2 ns/cand, mean 27.4; c_read 3.86-4.91 us/read (a0a1's OFF law 4.17-4.5)
+  a2c0's degenerate corner needed c_check >= 40.5 ns with miss ~ 0: refuted -- mean 27.4 ns, and cost-derived warm miss 0.27% agrees with the counted 0.28% (independent channels)
+  (28 of 40 warm answers sit inside a2c0's fitted [0.065, 0.266]; the rest straddle both ends: 0.053 at the window's opening, up to 0.399 at the approach's steepest)
+  warm mean 0.038 us/body (23a6 published 0.041), warm-only skip 99.72%; the mixture recomputes the published mean skip: 97.55% vs 97.55% (diff 0.00 pp)
+== C. the era-cadence answer: no cadence reaches 23a6's 41 s (measured)
+  flight cadence: 111 belt-wide answers/era (gaps 165-330 gs)
+  sustaining it: checks 3.04 + warm reads 1.23 = 4.27 us/body/era = 4,268 s/era = 61x budget at 1e9 [INFERENCE at 1e9]
+  era cadence instead: one answer at 27.9k-gs staleness reads >= the plateau slope x 84 = 41% up to ~100%: 1,648-3,998 s = 24-57x budget
+  the 41-s sentence needs miss ~ 0 at era gaps (41 ns/body total vs c_check 27.4 ns alone): unreachable; the per-answer 41 s exists ONLY at <= 330-gs cadence, whose checks alone cost 3,036 s/era = 44x budget
+== D. ALL-walks per era, counted (the capture term's N-scaling)
+  3e3  c3  s1 wall45: 215 ALL /  37,761 gs =  158.9/era ; 0.137 us/body/walk -> 21.73 us/body/era
+  3e3  s_off smoke: 113 ALL /  14,469 gs =  217.9/era ; 0.068 us/body/walk -> 14.82 us/body/era
+  3e3  s_on  smoke: 113 ALL /  14,101 gs =  223.6/era ; 0.059 us/body/walk -> 13.17 us/body/era
+  3e3  d5  verify: 241 ALL /  57,452 gs =  117.0/era ; 0.083 us/body/walk -> 9.67 us/body/era
+  1e5  b1  s1 wall45: 126 ALL /  57,343 gs =   61.3/era ; 0.226 us/body/walk -> 13.87 us/body/era
+  1e5  w1  off wall45: 126 ALL /  57,400 gs =   61.2/era ; 0.187 us/body/walk -> 11.45 us/body/era
+  1e5  w2  on wall45: 126 ALL /  57,326 gs =   61.3/era ; 0.182 us/body/walk -> 11.19 us/body/era
+  1e5  c2  s2 wall45:  86 ALL /  57,335 gs =   41.8/era ; 0.185 us/body/walk -> 7.74 us/body/era
+  1e5  F1  cut30k:  81 ALL /  30,000 gs =   75.3/era ; 0.191 us/body/walk -> 14.38 us/body/era
+  3e5  a1  s1 wall45: 125 ALL /  41,531 gs =   84.0/era ; 0.258 us/body/walk -> 21.68 us/body/era
+  3e5  w3  on wall45: 126 ALL /  42,024 gs =   83.7/era ; 0.250 us/body/walk -> 20.95 us/body/era
+  per-era rate band: 3e3 117-224 ; 1e5 41.8-75.3 ; 3e5 83.7-84.0 -> NO monotone N-growth (falls 3e3->1e5, rises ~1.4x 1e5->3e5 seed-1-matched: non-monotone in N, ~flat at the >= 1e5 rungs)
+  the N^0.74 reading (a2c0's checker) rested on misattributed durations: c2 covered 56,035 gs (not 30k) and the 3e5 wall legs 40.2-40.7k gs (not the 19.5k cut)
+  capture at 1e9 [INFERENCE], each leg's own rate x own cost: 2.15-6.02 h/era (a2c0: 7.1-13.4 h on 96-180/era misattributed)
+== E. the corrected single-doll 1e9 era ledger (rtf 400) [INFERENCE at 1e9]
+  kick comb 12.75 h (a31c) ; capture 2.15-6.02 h ; answers 1.19 h (checks 0.84 + warm reads 0.34 at the flight's own cadence; cold 3.75 us/body once per memo lifetime); boundary comb deleted (kept row 2.39 h)
+  TOTAL 16.1-20.0 h/era = 830-1,030x budget ; shares: kick 64-79% capture 11-37% answers 6-7%
+  ordering kick >= capture >= answers SURVIVES; a2c0's answer share <= 2.5% -> 6-7%; adopt order (tier, then partition) unchanged
+  a2c0's ledger for comparison: capture 7.1-13.4 h, answers 0.08-0.49 h, total 20.0-26.6 h
+regen done
