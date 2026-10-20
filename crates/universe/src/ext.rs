@@ -16,28 +16,36 @@
 //! `p_t` do not change along it, so that time is known when the drift starts); the **kick** `Kc(σ)` adds `w·∇U_P` to the momentum
 //! and `w·∂_tU_P` to `p_t`, `w = σ·f'(U_P + c)`. One step is `D(Δs/2)·Kc(Δs)·D(Δs/2)`, with `Δs` a power of two held by the body:
 //! it is time-symmetric and symplectic, and its only error is the shadow offset of that map, a function of the current state
-//! (it cannot compound). There is no step choice, no hysteresis, no level and no stub.
+//! (it cannot compound). There is no step choice, no hysteresis and no level; the one stub is a body's first step (below).
 //!
 //! **Constants, from dimensionless numbers, never fitted to a gate** (the memo, §2.2):
 //! - `c_j = gm_j/R_H,j`, the secondary's potential at its Hill radius, where it stops being negligible; `c` is their sum, with a
 //!   floor of `10·Σ gm_j/a_j` that keeps `U_P + c` positive for the origin's fall out to ten separations (past the doll's
 //!   useful range `U_P + c` is held at `c/8`: a guard, a coarser step, not a branch of the law);
 //! - `b = 30·c`: the refinement passes from `d²` to `d` (Sundman's `dt ∝ r`) at about `R_H/30`;
-//! - `Δs = T/f'(c)`, rounded down to a power of two, `T` the step far from every secondary (**each body's own clock**,
-//!   14 October; [`constants`]): the longest that resolves the three timescales that force the body,
-//!   `T = min(2^−k_s·P, P_j/N_j over every secondary, 2^−k_p·P_j over the secondaries it can meet)`:
-//!   - its own orbit: `P` its radial period, `k_s = step_log2 + Config::smooth_octaves` = 4 (the lab's smooth frontier: 16 a period);
-//!   - the frame's fall: the origin falls toward every secondary `j` (the indirect term, a uniform field, the same at every body
-//!     of the doll), so every body is forced at `j`'s period `P_j`, with an amplitude `ε_j = μ_j·(Q/a_j)²` of the host's pull at
-//!     its apoapsis `Q` (one dimensionless number per secondary: it grows outward, as the frame's wobble does against a weaker
-//!     pull). It gets the smooth regime's error: `2^k_s·√(ε_j/ε_s)` steps a period (the split is second order; `ε_s = 2^-10`, the
-//!     Jupiter of the lab's belts), and at least `2^k_f` (`k_f = step_log2 + Config::forcing_octaves` = 2: at 2 a period, or with
-//!     no such term, a belt about Cinder, Home and the Giant aliases Cinder's 88 days and its eccentricity walks, growth
-//!     exponent 1.0-1.1; at 4 it is an offset, `examples/cadence.rs`);
-//!   - a passage: `P_j` the period of a secondary its orbit can meet, `k_p = Config::step_log2 + PASSAGE_OCTAVES` (the price B13
-//!     passes at: 64/64 at 2^8, where every ship of the doll at 2^7 per Cinder's period gave 60/64).
-//!     Which secondaries a body can meet is one dimensionless number per secondary: the gap between the radial ranges of the two
-//!     orbits in the secondary's Hill radii, against `2√3` (Gladman's bound: orbits further apart never meet).
+//! - `Δs = T/f'(c)`, rounded down to a power of two, `T` the step far from every secondary (**the step is a certificate**, 14 and
+//!   20 October; [`constants`]): the longest interval over which the body's description reproduces the law, chosen per body by
+//!   dimensionless numbers, never one clock for a doll: `T = min(2^−k_s·P, P_j/N_j over every secondary, 2^−k_p·P_j over the
+//!   secondaries it can meet)`. Each regime and the number that chooses it:
+//!   - **smooth** (no number below asks for more): its own orbit, `P` its tube's radial period, `k_s = step_log2 +
+//!     Config::smooth_octaves` = 4 (the lab's smooth frontier: 16 a period; the error is an offset, `ρ ≈ 0.5·n^−2.1`);
+//!   - **the frame's fall**, chosen by `ε_j = μ_j·(Q/a_j)²` per secondary `j`: the origin falls toward every secondary (the
+//!     indirect term, a uniform field), so every body is forced at `P_j` with that amplitude against the host's pull at its
+//!     apoapsis `Q` (it grows outward, as the frame's wobble does against a weaker pull). `N_j = 2^k_s·√(ε_j/ε_s)` gives it the
+//!     smooth regime's error (the split is second order; `ε_s = 2^-10`, the Jupiter of the lab's belts), and at least `2^k_f`
+//!     (`k_f = step_log2 + Config::forcing_octaves` = 2: at 2 a period, or with no such term, a belt about Cinder, Home and the
+//!     Giant aliases Cinder's period and its eccentricity walks, growth exponent 1.0-1.1; at 4 it is an offset,
+//!     `examples/cadence.rs`). It is the heliocentric frame's price, not the dynamics': centred on the barycentre of the
+//!     secondaries its orbit encloses, a body feels their quadrupole `μ_j·(a_j/q)²` at `P_j/2` instead, and a belt at 16 a period
+//!     is an offset with no floor (`examples/centring.rs`: 4.5x fewer kicks on the belt, 16-500x from 7 to 40 AU). Not built:
+//!     every reader of a root body's position would add the centre's, the enclosed planets' states at the read's tick;
+//!   - **a passage**, chosen by `g_j`, the gap between the radial ranges `[q, Q]` and `[q_j, Q_j]` in `j`'s Hill radii, against
+//!     `2√3` (Gladman's bound: orbits further apart never meet): `P_j` refined by `k_p = Config::step_log2 + PASSAGE_OCTAVES`
+//!     (the price B13 passes at: 64/64 at 2^8 at every phase of the first step, 59-60/64 at 2^7);
+//!   - **a commensurability** (`P/P_j` near `(p+1)/p`) asks for nothing finer: its forcing's period is the synodic period
+//!     `|1/P − 1/P_j|⁻¹ ≥ P` at every first-order commensurability, so the own clock already gives it `2^k_s` steps (B17 passes
+//!     on its 35 resonant cases), and inside a resonance no cadence certifies at any rate (the lab's kick-cadence, 67be): the
+//!     certificate that breaks there is the representation's (the encounter tier's), not the step's.
 //!
 //!   A body whose tube has no period (a passage through the system) can meet them all; the player, whose orbit is a decision,
 //!   keeps the doll's clock (`2^−k·P_D`), as every body did before.
