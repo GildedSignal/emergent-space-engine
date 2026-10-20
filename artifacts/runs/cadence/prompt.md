@@ -71,3 +71,8 @@ What the lab measured (`lab/wiki/kick-cadence.md`, gold and silver runs, planar 
 Then, only if every gate above is green: **the memory after the first kick** (the ladder's break 2: prune keeps the previous binding with its compiled orbit, 2.6 → 5.1 KB a body): the compiled shape is a cache of the key; make it evictable and recompiled on demand, bit for bit. Measure memory per body before and after.
 
 Return at most 15 lines: N1 sustained before/after, the `k` chosen per regime and why, kicks per body per game-second before/after, the gates, the memory result if reached, the final commit hash.
+
+## Restart (the integrator, 20 October): the step as a certificate
+
+The first builder (Opus, 14 October) was cut off by a usage limit after its first edits to `ext.rs`: read `git log origin/main..HEAD` on `wt/cadence` and its uncommitted state first; merge `origin/main`.
+Julien's frame (14 October): kicks belong "on certificates breaking", not on a metronome. The evidence since: zero-kick secular phasors are killed for the belt (14.5% of bodies pass; conjunctions carry the dynamics, `lab/wiki/belt.md`), conjunction-scheduled cadence never reaches the bar (`kick-cadence`), and every resolved kick fires (the velocity word's quantum is far below any behaviour, `fermi-0659`). So the certificate here is `representation.md`'s: **a step is the interval over which the description reproduces the law**, chosen per body by dimensionless numbers (its own orbit, its distance to each secondary in Hill radii, its nearness to a commensurability), refined where the certificate breaks (an approach, a resonance), never one clock for a doll. Say in the code's docs which number chooses each regime. The gates above are unchanged.
