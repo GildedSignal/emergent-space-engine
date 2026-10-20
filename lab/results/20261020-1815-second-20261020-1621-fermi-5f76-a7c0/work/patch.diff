@@ -1,0 +1,416 @@
+diff --git a/crates/universe/examples/alloc_scope.rs b/crates/universe/examples/alloc_scope.rs
+new file mode 100644
+index 00000000..1f7f1d2d
+--- /dev/null
++++ b/crates/universe/examples/alloc_scope.rs
+@@ -0,0 +1,340 @@
++//! The fired item's own allocation scope, attributed by the allocator itself (never through
++//! budget-coupled windows). Runs the shipped `nladder` flight verbatim; `ES_ALLOC_SCOPE=1` arms
++//! the engine's scope marker (universe.rs `alloc_scope`), this probe's counting `GlobalAlloc`
++//! attributes every alloc/free/realloc to the outermost scope it happens in: 0 = the frame's
++//! base, 1..=5 = inside the fired item of that class (planet, moon, ship, player, fleet;
++//! nested items stay in the outermost item). Per-frame deltas go to a CSV (`ES_ALLOC_CSV=path`),
++//! the census of call sizes to stdout. Off (`ES_ALLOC_SCOPE` unset) the flight is the shipped one.
++//!
++//! cargo run --release -p emergent-universe --example alloc_scope [-- <N> <coast|burn> [<wall seconds> [<rtf> [<engine budget ms>]]]]
++
++use emergent_universe::universe::alloc_scope;
++use emergent_universe::universe::Stats;
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::fs::File;
++use std::io::Write;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::time::{Duration, Instant};
++
++/// scope 0 = frame base, 1..=5 = fired item of class scope-1. Buckets are power-of-two sizes.
++const S: usize = 6;
++const B: usize = 34; // 2^0 .. 2^33 bytes
++static ALLOCS: [AtomicU64; S] = [const { AtomicU64::new(0) }; S];
++static BYTES: [AtomicU64; S] = [const { AtomicU64::new(0) }; S];
++static FREES: [AtomicU64; S] = [const { AtomicU64::new(0) }; S];
++static FREED: [AtomicU64; S] = [const { AtomicU64::new(0) }; S];
++static REALLOCS: [AtomicU64; S] = [const { AtomicU64::new(0) }; S];
++static RBYTES: [AtomicU64; S] = [const { AtomicU64::new(0) }; S];
++static BCOUNT: std::sync::LazyLock<[[AtomicU64; B]; S]> =
++    std::sync::LazyLock::new(|| std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))));
++static BBYTES: std::sync::LazyLock<[[AtomicU64; B]; S]> =
++    std::sync::LazyLock::new(|| std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))));
++
++fn bucket(size: usize) -> usize {
++    (usize::BITS - 1 - size.leading_zeros()) as usize
++}
++
++/// Second-author addition: name the sites behind the player item's ≥2 KiB traffic. `ES_BT=1`
++/// captures a backtrace on player-scope (4) allocs/reallocs ≥ 2 KiB — the first 120 calls per
++/// size bucket plus every 400th after (the census is steady; this samples it), deduped by the
++/// first frames past the allocator, counted and byte-summed per site. Guarded against
++/// re-entry (the capture itself allocates).
++mod bt {
++    use std::backtrace::Backtrace;
++    use std::cell::Cell;
++    use std::collections::HashMap;
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++    use std::sync::Mutex;
++
++    thread_local! {
++        static IN: Cell<bool> = const { Cell::new(false) };
++    }
++    static ON: AtomicBool = AtomicBool::new(false);
++    static N: [AtomicU64; 34] = [const { AtomicU64::new(0) }; 34];
++    static SITES: Mutex<Option<HashMap<String, (u64, u64, u64, u64, String)>>> = Mutex::new(None);
++
++    pub fn arm() {
++        ON.store(std::env::var("ES_BT").is_ok_and(|v| v != "0"), Ordering::Relaxed);
++    }
++
++    /// The site's name: the first four `emergent_universe` frames of the stack (the allocator,
++    /// `backtrace` and `raw_vec` machinery before them is the same for every site).
++    fn key(t: &str) -> String {
++        t.lines()
++            .filter(|l| l.contains("emergent_universe::") && !l.trim_start().starts_with("at"))
++            .take(4)
++            .map(|l| l.trim().trim_start_matches(|c: char| c.is_ascii_digit() || c == ':' || c == ' ').trim())
++            .collect::<Vec<_>>()
++            .join(" <- ")
++    }
++
++    pub fn maybe(scope: usize, size: usize, realloc: bool) {
++        if !ON.load(Ordering::Relaxed) || scope != 4 || size < 2048 || IN.get() {
++            return;
++        }
++        let b = (usize::BITS - 1 - size.leading_zeros()) as usize;
++        let i = N[b].fetch_add(1, Ordering::Relaxed);
++        if i >= 120 && i % 400 != 0 {
++            return;
++        }
++        IN.set(true);
++        let raw = Backtrace::force_capture().to_string();
++        static FIRST: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++        if !FIRST.swap(true, Ordering::Relaxed) {
++            eprintln!("RAW BT:\n{}", raw);
++        }
++        IN.set(false);
++        let k = format!("{}{}", if realloc { "realloc " } else { "alloc " }, key(&raw));
++        let mut g = SITES.lock().expect("the bt census");
++        let e = g.get_or_insert_with(HashMap::new);
++        let v = e.entry(k).or_insert_with(|| (0, 0, size as u64, size as u64, raw));
++        v.0 += 1;
++        v.1 += size as u64;
++        v.2 = v.2.min(size as u64);
++        v.3 = v.3.max(size as u64);
++    }
++
++    pub fn report() {
++        if !ON.load(Ordering::Relaxed) {
++            return;
++        }
++        let g = SITES.lock().expect("the bt census");
++        let mut rows: Vec<_> = g.iter().flatten().collect();
++        rows.sort_by_key(|(_, v)| std::cmp::Reverse(v.1));
++        println!("player >=2KiB site census (sampled: first 120/bucket + every 400th):");
++        for (k, (n, by, mn, mx, _raw)) in rows.iter().take(12) {
++            println!("  {:>7} calls {:>12} B  sizes {}..{}  {}", n, by, mn, mx, k);
++        }
++    }
++}
++
++
++struct ScopeAlloc;
++
++unsafe impl GlobalAlloc for ScopeAlloc {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc(l);
++        if !p.is_null() {
++            let s = alloc_scope::scope() as usize % S;
++            ALLOCS[s].fetch_add(1, Ordering::Relaxed);
++            BYTES[s].fetch_add(l.size() as u64, Ordering::Relaxed);
++            bt::maybe(s, l.size(), false);
++            let b = bucket(l.size()).min(B - 1);
++            BCOUNT[s][b].fetch_add(1, Ordering::Relaxed);
++            BBYTES[s][b].fetch_add(l.size() as u64, Ordering::Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        let s = alloc_scope::scope() as usize % S;
++        FREES[s].fetch_add(1, Ordering::Relaxed);
++        FREED[s].fetch_add(l.size() as u64, Ordering::Relaxed);
++        System.dealloc(p, l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, new: usize) -> *mut u8 {
++        let q = System.realloc(p, l, new);
++        if !q.is_null() {
++            let s = alloc_scope::scope() as usize % S;
++            REALLOCS[s].fetch_add(1, Ordering::Relaxed);
++            RBYTES[s].fetch_add(new as u64, Ordering::Relaxed);
++            let b = bucket(new).min(B - 1);
++            BCOUNT[s][b].fetch_add(1, Ordering::Relaxed);
++            BBYTES[s][b].fetch_add(new as u64, Ordering::Relaxed);
++            bt::maybe(s, new, true);
++        }
++        q
++    }
++}
++
++#[global_allocator]
++static A: ScopeAlloc = ScopeAlloc;
++
++#[derive(Clone, Copy)]
++struct Snap {
++    allocs: [u64; S],
++    bytes: [u64; S],
++    frees: [u64; S],
++    freed: [u64; S],
++    reallocs: [u64; S],
++    rbytes: [u64; S],
++}
++
++fn snap() -> Snap {
++    let g = |a: &AtomicU64| a.load(Ordering::Relaxed);
++    Snap {
++        allocs: std::array::from_fn(|i| g(&ALLOCS[i])),
++        bytes: std::array::from_fn(|i| g(&BYTES[i])),
++        frees: std::array::from_fn(|i| g(&FREES[i])),
++        freed: std::array::from_fn(|i| g(&FREED[i])),
++        reallocs: std::array::from_fn(|i| g(&REALLOCS[i])),
++        rbytes: std::array::from_fn(|i| g(&RBYTES[i])),
++    }
++}
++
++const CLASS: [&str; S] = ["base(frame)", "planet", "moon", "ship", "player", "fleet/handout"];
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    assert!(
++        std::env::var("ES_ALLOC_SCOPE").as_deref() == Ok("1"),
++        "run with ES_ALLOC_SCOPE=1 (and ES_ALLOC_CSV=path)"
++    );
++    bt::arm();
++    // Disclosed addition over 8994's instrument: env-gated seed override (default 1 = shipped bits).
++    let seed: u64 = std::env::var("ES_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let mut csv = std::env::var("ES_ALLOC_CSV").ok().map(|p| File::create(p).unwrap());
++    if let Some(f) = csv.as_mut() {
++        writeln!(f, "frame,ms,events,gs_now,base_a,base_b,base_rb,item_a,item_b,item_rb,player_a,player_b,player_rb").unwrap();
++    }
++    let t0 = Instant::now();
++    let mut p = emergent_universe::scenario::plane_extra(
++        emergent_universe::Config::default(),
++        seed,
++        emergent_universe::fleet::Order::Sparse,
++        1,
++        48,
++        n,
++    )
++    .unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let mut late_stats: Option<(Stats, i64)> = None;
++    let mut last_stats = p.u.stats;
++    let mut snap0 = snap();
++    let mut prev = snap();
++    let mut ran = 0usize;
++    let mut peak_item_frame = (0u64, 0usize); // (bytes, frame)
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(52) {
++            break;
++        }
++        if f == 60 {
++            if burn {
++                let t = p.u.now;
++                let _ = p.u.input(t, emergent_universe::thrust::word(1, 8));
++            }
++            late_stats = Some((p.u.stats, p.u.now));
++            snap0 = snap();
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            emergent_universe::Budget {
++                events: u64::MAX,
++                until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)),
++            },
++            i64::MAX,
++        );
++        let took = start.elapsed();
++        let now = snap();
++        if f >= 60 {
++            let d = |a: u64, b: u64| b - a;
++            let (ba, bb) = (d(prev.allocs[0], now.allocs[0]), d(prev.bytes[0], now.bytes[0]));
++            let (ia, ib) = (
++                d(prev.allocs[1], now.allocs[1]) + d(prev.allocs[2], now.allocs[2]) + d(prev.allocs[3], now.allocs[3]) + d(prev.allocs[5], now.allocs[5]),
++                d(prev.bytes[1], now.bytes[1]) + d(prev.bytes[2], now.bytes[2]) + d(prev.bytes[3], now.bytes[3]) + d(prev.bytes[5], now.bytes[5]),
++            );
++            let (pa, pb) = (d(prev.allocs[4], now.allocs[4]), d(prev.bytes[4], now.bytes[4]));
++            let (brb, irb, prb) = (d(prev.rbytes[0], now.rbytes[0]), d(prev.rbytes[1], now.rbytes[1]) + d(prev.rbytes[2], now.rbytes[2]) + d(prev.rbytes[3], now.rbytes[3]) + d(prev.rbytes[5], now.rbytes[5]), d(prev.rbytes[4], now.rbytes[4]));
++            if ib + pb + irb + prb > peak_item_frame.0 {
++                peak_item_frame = (ib + pb + irb + prb, f);
++            }
++            if let Some(fw) = csv.as_mut() {
++                writeln!(
++                    fw,
++                    "{},{:.3},{},{},{},{},{},{},{},{},{},{},{}",
++                    f,
++                    took.as_secs_f64() * 1e3,
++                    frame.events,
++                    p.u.now,
++                    ba,
++                    bb,
++                    brb,
++                    ia,
++                    ib,
++                    irb,
++                    pa,
++                    pb,
++                    prb
++                )
++                .unwrap();
++            }
++        }
++        prev = now;
++        last_stats = p.u.stats;
++        ran += 1;
++    }
++    let end = snap();
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    let (kicks, evs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events());
++    let items: Vec<u64> = (0..5).map(|c| last_stats.items[c] - s0.items[c]).collect();
++    let tot_items: u64 = items.iter().sum();
++    println!(
++        "alloc_scope: N={n} bodies={bodies} {flight} rtf={rtf} frames={ran} build_s={build:.2} game_s={game_s:.0} kicks={kicks} events={evs} items={items:?} peak_item_frame={:?}",
++        peak_item_frame
++    );
++    let item_bytes: u64 = (1..S).map(|s| end.bytes[s] - snap0.bytes[s] + end.rbytes[s] - snap0.rbytes[s]).sum();
++    let (base_a, base_rb): (u64, u64) = (end.bytes[0] - snap0.bytes[0], end.rbytes[0] - snap0.rbytes[0]);
++    println!(
++        "per fired kick: item-scope {:.2} KB alloc'd, base {:.2} KB/game-s; per fired item (any class): item-scope {:.2} KB",
++        item_bytes as f64 / kicks as f64 / 1e3,
++        (base_a + base_rb) as f64 / game_s.max(1.0) / 1e3,
++        item_bytes as f64 / tot_items.max(1) as f64 / 1e3,
++    );
++    for s in 0..S {
++        let (a, b) = (end.allocs[s] - snap0.allocs[s], end.bytes[s] - snap0.bytes[s]);
++        if a == 0 && b == 0 {
++            continue;
++        }
++        println!(
++            "scope {:>13} ({}): allocs {a}, bytes {b} ({:.1} KB), frees {}, freed {} KB, reallocs {}",
++            CLASS[s],
++            s,
++            b as f64 / 1e3,
++            end.frees[s] - snap0.frees[s],
++            (end.freed[s] - snap0.freed[s]) as f64 / 1e3,
++            end.reallocs[s] - snap0.reallocs[s],
++        );
++        println!(
++            "scope {:>13} ({}): realloc bytes {} ({:.1} KB)",
++            CLASS[s],
++            s,
++            end.rbytes[s] - snap0.rbytes[s],
++            (end.rbytes[s] - snap0.rbytes[s]) as f64 / 1e3
++        );
++    }
++    println!("size census (bucket, class): count, bytes, mean B — only buckets with bytes");
++    for s in 0..S {
++        for b in 0..B {
++            let c = BCOUNT[s][b].load(Ordering::Relaxed);
++            let by = BBYTES[s][b].load(Ordering::Relaxed);
++            if c > 0 && (1usize << b) >= 2048 {
++                println!("  {:>6} B {:>13}: {:>8} calls, {:>10} bytes, mean {:>8.0} B", 1usize << b, CLASS[s], c, by, by as f64 / c as f64);
++            }
++        }
++    }
++    println!("peak_rss {} kB", peak_rss_kb());
++    bt::report();
++}
++
++/// Peak resident set (VmHWM), kB — every arm reports it: the box's flight ceiling is 2 GB.
++fn peak_rss_kb() -> u64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmHWM"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|x| x.parse().ok()))
++        })
++        .unwrap_or(0)
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..860b6d3d 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -44,6 +44,51 @@ use emergent_space::{
+     orbit::{Orbit, OrbitKey, Scalar},
+     Tube,
+ };
++
++/// Print-only allocation-scope instrument (off = shipped: `enter`/`exit` return without touching
++/// anything unless `ES_ALLOC_SCOPE=1`). Marks the code as running inside the frame's top-level
++/// item of class `c` (0 = the frame's base, everything an item does not do); a counting
++/// `GlobalAlloc` in an example reads the depth and the outermost class, so allocation bytes are
++/// attributed to the fired item's own scope, never through budget-coupled windows. Nested items
++/// (the player's pull of due ships) stay inside the outermost item's scope.
++pub mod alloc_scope {
++    use std::cell::Cell;
++    thread_local! {
++        static DEPTH: Cell<u32> = const { Cell::new(0) };
++        static CLASS: Cell<u32> = const { Cell::new(0) };
++    }
++    fn on() -> bool {
++        static ON: std::sync::LazyLock<bool> =
++            std::sync::LazyLock::new(|| std::env::var("ES_ALLOC_SCOPE").as_deref() == Ok("1"));
++        *ON
++    }
++    /// Enter the fired item of class `c` (planet, moon, ship, player, fleet).
++    pub fn enter(c: usize) {
++        if !on() {
++            return;
++        }
++        DEPTH.with(|d| {
++            if d.get() == 0 {
++                CLASS.with(|k| k.set(1 + c as u32));
++            }
++            d.set(d.get() + 1);
++        });
++    }
++    pub fn exit() {
++        if !on() {
++            return;
++        }
++        DEPTH.with(|d| d.set(d.get() - 1));
++    }
++    /// The outermost scope (0 = frame base): what an allocator attributes the current call to.
++    pub fn scope() -> u32 {
++        if DEPTH.with(|d| d.get()) == 0 {
++            0
++        } else {
++            CLASS.with(|k| k.get())
++        }
++    }
++}
+ use std::collections::VecDeque;
+ use std::sync::Arc;
+ use std::time::Instant;
+@@ -1019,11 +1064,13 @@ impl Universe {
+                 continue;
+             }
+             let t_item = Instant::now();
++            alloc_scope::enter(class);
+             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                 self.resolve_wave(e, target);
+             } else {
+                 self.resolve_entity(e);
+             }
++            alloc_scope::exit();
+             let ns = t_item.elapsed().as_nanos() as u64;
+             let m = &mut self.item_ns[class];
+             *m = if ns >= *m { ns } else { *m - *m / 64 };

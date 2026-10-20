@@ -1,0 +1,89 @@
+instrument patch already applied; continuing
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.90s
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.37s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.54s
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 16.35s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.78s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.24s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.08s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 25.82s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.66s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.50s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.88s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.77s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.84s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+=== arms flown; analysis (grep the BT site census in BT.log):
+== BT: kicks=108538 items=[0, 0, 42696, 5538, 2254] item=11.51 KB/kick base=2.05 KB/gs
+   ship:    166654.2 KB total, /ship-item(items[2]=42696) = 3.9 KB, /kick = 1.54 KB, calls/item=7.6
+   player:  1082515.7 KB total, /player-item(items[3]=5538) = 195.5 KB, realloc-share=79%, calls/item=242.2
+            (author-denominator items[4]=2254: 480 KB — the 8994 author error)
+   player >2KiB census: 753293.2 KB = 70% of player term; rungs:
+      bucket    2048:  13010 calls x mean   3209 =  41754.3 KB  (mean/352=9.12, /384=8.36)
+      bucket    4096:  12505 calls x mean   6409 =  80144.5 KB  (mean/352=18.21, /384=16.69)
+      bucket    8192:  11498 calls x mean  12956 = 148970.7 KB  (mean/352=36.81, /384=33.74)
+      bucket   16384:   5620 calls x mean  28616 = 160824.4 KB  (mean/352=81.30, /384=74.52)
+      bucket   32768:   5581 calls x mean  57312 = 319859.9 KB  (mean/352=162.82, /384=149.25)
+      bucket   65536:      4 calls x mean  83456 =    333.8 KB  (mean/352=237.09, /384=217.33)
+      bucket  131072:      1 calls x mean 143360 =    143.4 KB  (mean/352=407.27, /384=373.33)
+      bucket  262144:      2 calls x mean 344400 =    688.8 KB  (mean/352=978.41, /384=896.88)
+      bucket  524288:      1 calls x mean 573440 =    573.4 KB  (mean/352=1629.09, /384=1493.33)
+   ship >2KiB census: 84987.4 KB = 51% of ship term
+== BT0: kicks=15650 items=[0, 0, 1344, 952, 2055] item=13.49 KB/kick base=2.04 KB/gs
+   ship:    19980.9 KB total, /ship-item(items[2]=1344) = 14.9 KB, /kick = 1.28 KB, calls/item=11.4
+   player:  190746.5 KB total, /player-item(items[3]=952) = 200.4 KB, realloc-share=79%, calls/item=265.6
+            (author-denominator items[4]=2055: 93 KB — the 8994 author error)
+   player >2KiB census: 148170.1 KB = 78% of player term; rungs:
+      bucket    2048:   3659 calls x mean   3102 =  11351.2 KB  (mean/352=8.81, /384=8.08)
+      bucket    4096:   3193 calls x mean   6130 =  19574.3 KB  (mean/352=17.41, /384=15.96)
+      bucket    8192:   2276 calls x mean  12621 =  28726.4 KB  (mean/352=35.86, /384=32.87)
+      bucket   16384:   1031 calls x mean  28445 =  29326.4 KB  (mean/352=80.81, /384=74.08)
+      bucket   32768:   1005 calls x mean  57168 =  57453.9 KB  (mean/352=162.41, /384=148.88)
+      bucket   65536:      4 calls x mean  83456 =    333.8 KB  (mean/352=237.09, /384=217.33)
+      bucket  131072:      1 calls x mean 143360 =    143.4 KB  (mean/352=407.27, /384=373.33)
+      bucket  262144:      2 calls x mean 343560 =    687.1 KB  (mean/352=976.02, /384=894.69)
+      bucket  524288:      1 calls x mean 573440 =    573.4 KB  (mean/352=1629.09, /384=1493.33)
+   ship >2KiB census: 24148.2 KB = 121% of ship term
+== C1: kicks=108308 items=[0, 0, 42410, 5549, 139] item=11.35 KB/kick base=2.04 KB/gs
+   ship:    156456.2 KB total, /ship-item(items[2]=42410) = 3.7 KB, /kick = 1.44 KB, calls/item=7.5
+   player:  1073165.7 KB total, /player-item(items[3]=5549) = 193.4 KB, realloc-share=80%, calls/item=232.9
+            (author-denominator items[4]=139: 7721 KB — the 8994 author error)
+   player >2KiB census: 755334.8 KB = 70% of player term; rungs:
+      bucket    2048:  11584 calls x mean   3263 =  37793.4 KB  (mean/352=9.27, /384=8.50)
+      bucket    4096:  11532 calls x mean   6528 =  75276.5 KB  (mean/352=18.55, /384=17.00)
+      bucket    8192:  11490 calls x mean  13055 = 149997.3 KB  (mean/352=37.09, /384=34.00)
+      bucket   16384:   5734 calls x mean  28657 = 164317.2 KB  (mean/352=81.41, /384=74.63)
+      bucket   32768:   5719 calls x mean  57344 = 327950.3 KB  (mean/352=162.91, /384=149.33)
+   ship >2KiB census: 84943.1 KB = 54% of ship term
+== D1: kicks=108282 items=[0, 0, 42414, 5546, 176] item=7.21 KB/kick base=2.05 KB/gs
+   ship:    156517.1 KB total, /ship-item(items[2]=42414) = 3.7 KB, /kick = 1.45 KB, calls/item=7.5
+   player:  624013.7 KB total, /player-item(items[3]=5546) = 112.5 KB, realloc-share=16%, calls/item=219.8
+            (author-denominator items[4]=176: 3546 KB — the 8994 author error)
+   player >2KiB census: 323763.6 KB = 52% of player term; rungs:
+      bucket    2048:    137 calls x mean   3121 =    427.5 KB  (mean/352=8.87, /384=8.13)
+      bucket    4096:     85 calls x mean   6409 =    544.8 KB  (mean/352=18.21, /384=16.69)
+      bucket    8192:   5766 calls x mean   9794 =  56474.2 KB  (mean/352=27.82, /384=25.51)
+      bucket   16384:     15 calls x mean  22801 =    342.0 KB  (mean/352=64.78, /384=59.38)
+      bucket   32768:   5713 calls x mean  46556 = 265975.1 KB  (mean/352=132.26, /384=121.24)
+   ship >2KiB census: 84943.1 KB = 54% of ship term
+== S1: kicks=297015 items=[0, 0, 278035, 1286, 283613] item=4.77 KB/kick base=2.22 KB/gs
+   ship:    1164118.9 KB total, /ship-item(items[2]=278035) = 4.2 KB, /kick = 3.92 KB, calls/item=13.4
+   player:  249728.4 KB total, /player-item(items[3]=1286) = 194.2 KB, realloc-share=79%, calls/item=238.5
+            (author-denominator items[4]=283613: 1 KB — the 8994 author error)
+   player >2KiB census: 196323.2 KB = 79% of player term; rungs:
+      bucket    2048:   4494 calls x mean   2844 =  12781.7 KB  (mean/352=8.08, /384=7.41)
+      bucket    4096:   2996 calls x mean   6283 =  18822.4 KB  (mean/352=17.85, /384=16.36)
+      bucket    8192:   2957 calls x mean  12557 =  37130.8 KB  (mean/352=35.67, /384=32.70)
+      bucket   16384:   1468 calls x mean  28671 =  42088.4 KB  (mean/352=81.45, /384=74.66)
+      bucket   32768:   1459 calls x mean  57344 =  83664.9 KB  (mean/352=162.91, /384=149.33)
+      bucket   65536:     16 calls x mean 114688 =   1835.0 KB  (mean/352=325.82, /384=298.67)
+   ship >2KiB census: 15025.9 KB = 1% of ship term
+tests: NO HEADER
+=== compare with dossier.md's table (C1/D1/S1 rows) and BT.log's site census

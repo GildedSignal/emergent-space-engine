@@ -1,0 +1,33 @@
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..a717fa1a 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -171,7 +171,13 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
+-        let mut candidates = Vec::new();
++        // The near list (when the radial index answered) bounds the candidates exactly: every
++        // candidate comes from it, so one allocation at its length replaces the doubling ladder
++        // (the instrument's two array-builds: this file's candidates, radial.rs's ids).
++        let mut candidates = match near.as_ref() {
++            Some(ids) => Vec::with_capacity(ids.len()),
++            None => Vec::new(),
++        };
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..2ddb4d2f 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -254,7 +254,8 @@ impl Radial {
+         if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
+             return None;
+         }
+-        let mut ids: Vec<u32> = idx.unbounded.clone();
++        let mut ids: Vec<u32> = Vec::with_capacity(idx.unbounded.len() + hit);
++        ids.extend_from_slice(&idx.unbounded);
+         for b in lo..=hi {
+             if let Some(l) = idx.bins.get(&b) {
+                 ids.extend_from_slice(l);
