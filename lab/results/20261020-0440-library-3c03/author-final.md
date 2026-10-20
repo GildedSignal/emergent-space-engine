@@ -1,0 +1,1 @@
+Claim: da23's finality-fire survivor is the regroup mint (inherited fin parts published with no alone-ness check, 0 alone_at decisions on the class); blocking the mints kills the class 3/10->0/10 but starves every merge (present 1792->538), so the fix is a mint-time publication cap — pinned on shipped state, priced in both arms, held by five verbatim library lessons.
