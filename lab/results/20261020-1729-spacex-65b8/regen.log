@@ -1,0 +1,17 @@
+== 1. pristine control (digest neutrality against the shipped records) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 42.99s
+pristine --seconds 10 -> b42da477294f7619f00872cd5a5f245efd6773e2446265d5cc7b4dd5a4f24df4 (matches shipped)
+pristine --members 400 --seconds 30 -> 8c242b023e8b79e49a703c57d98d1fe38bff0d3ca9f0fcc1cdb3c89160580280 (matches shipped)
+== 2. patched build ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 43.78s
+== 3. census arms ==
+determinism: rtf100 digest reproduced
+== 4. summary ==
+arm                    digest              mints  quad%  panels%  walk%  reads  bins
+default-s1             b42da477294f7619       27  16.67    66.67   0.03     22  {}
+m400-s1-rtf1           8c242b023e8b79e4      496   5.80    28.12   6.60    420  {}
+  passages: mints 82 quad 0.68% reads 28
+m400-s1-rtf100         bedd3d9a57605cba    18933  10.39    45.90   9.59    404  {'lt_1_over_64': 8710}
+  passages: mints 222 quad 0.68% reads 26
+m400-s3-rtf100         f8126518c91d8ff9    16154  10.94    50.00  19.90    402  {'lt_1_over_64': 7379}
+  passages: mints 201 quad 0.67% reads 28

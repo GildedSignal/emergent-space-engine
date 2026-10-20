@@ -1,0 +1,4 @@
+Working...
+All deliverables verified: pre-registered predictions, dossier, regen.sh (110 s end-to-end, pristine control included), the folded wiki page resolving the flagged conflict, per-row CSVs, and the patch — 3.8 MB total, tree in sync.
+
+**Claim:** the mint-knots page's 100× conflict is adjudicated in one instrument on shipped code (digests bit-identical): 624a's 14% is panel-landing share — a 1/n table-size floor plus probe scatter — 1991's 0.04–0.6% is the binding's lifetime (every close < 1/64 of a period), and the real law is a third quantity, read traffic (10–20% of panels touched regardless of lifetime, rtf-invariant), so the lazy-compile CPU lever stays blocked at the mint-sunk clock totals (Carlson O(1) totals first, then ~10× traffic-priced panels) while the near-total store lever stands.

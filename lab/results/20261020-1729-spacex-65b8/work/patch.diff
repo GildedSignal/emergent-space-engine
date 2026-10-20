@@ -1,0 +1,647 @@
+diff --git a/crates/space/src/census.rs b/crates/space/src/census.rs
+new file mode 100644
+index 00000000..8b221540
+--- /dev/null
++++ b/crates/space/src/census.rs
+@@ -0,0 +1,228 @@
++//! Print-only census of knot-panel consumption per minted shape (run 20261020-1729-spacex-65b8).
++//!
++//! Adjudicates the mint-knots page's two headline numbers by measuring, in ONE binary and
++//! ONE run, the two quantities earlier runs published separately:
++//! - panels whose quadrature arithmetic actually runs post-mint (`quad`), against
++//! - panels whose precomputed `.sum` word is only read (`probe`: bisection mids, table reads),
++//! plus the psi spread of post-mint quadrature (1991's "walk") and each row's cadence
++//! (next-kick interval / period, closed from the bench loop).
++//! No engine behaviour depends on this module; it is enabled explicitly by the bench.
++
++pub const CYCLE: u8 = 0;
++pub const PASSAGE: u8 = 1;
++
++#[derive(Clone, Debug)]
++pub struct Row {
++    pub id: u64,
++    pub kind: u8,
++    pub knots: u32,
++    pub tail: u32,
++    pub span: u64,
++    pub quad_panels: u32,
++    pub probe_panels: u32,
++    pub tail_quad: u32,
++    pub tail_probe: u32,
++    pub quad_calls: u32,
++    pub reads: u32,
++    pub psi_min: u64,
++    pub psi_max: u64,
++    pub closed: bool,
++    pub interval_over_period: f64,
++}
++
++struct Rec {
++    quad_panels: std::collections::BTreeSet<u32>,
++    probe_panels: std::collections::BTreeSet<u32>,
++    tail_quad: u32,
++    tail_probe: u32,
++    quad_calls: u32,
++    reads: u32,
++    psi_min: u64,
++    psi_max: u64,
++}
++
++#[derive(Default)]
++struct State {
++    enabled: bool,
++    depth: u32,
++    next_id: u64,
++    recs: Vec<Rec>,
++    rows: Vec<Row>,
++    by_ptr: std::collections::HashMap<(u8, usize), u64>,
++    reuse: u32,
++}
++
++thread_local! {
++    static S: std::cell::RefCell<State> = std::cell::RefCell::new(State::default());
++}
++
++pub fn enable() {
++    S.with(|s| s.borrow_mut().enabled = true);
++}
++
++/// Enter a compile: all quadrature below this depth is mint-time (the eager build itself).
++pub fn begin() {
++    S.with(|s| {
++        let mut s = s.borrow_mut();
++        if s.enabled {
++            s.depth += 1;
++        }
++    });
++}
++
++pub fn end_mint(kind: u8, ptr: usize, knots: u32, tail: u32, span: u64) -> u64 {
++    S.with(|s| {
++        let mut s = s.borrow_mut();
++        if !s.enabled {
++            return u64::MAX;
++        }
++        s.depth = s.depth.saturating_sub(1);
++        let id = s.next_id;
++        s.next_id += 1;
++        // A freed shape's address can be re-minted under the other kind: the dead
++        // mapping must not keep stealing this address's reads.
++        s.by_ptr.remove(&(1 - kind, ptr));
++        if s.by_ptr.insert((kind, ptr), id).is_some() {
++            s.reuse += 1;
++        }
++
++        s.recs.push(Rec {
++            quad_panels: Default::default(),
++            probe_panels: Default::default(),
++            tail_quad: 0,
++            tail_probe: 0,
++            quad_calls: 0,
++            reads: 0,
++            psi_min: u64::MAX,
++            psi_max: 0,
++        });
++        s.rows.push(Row {
++            id,
++            kind,
++            knots,
++            tail,
++            span: span.max(1),
++            quad_panels: 0,
++            probe_panels: 0,
++            tail_quad: 0,
++            tail_probe: 0,
++            quad_calls: 0,
++            reads: 0,
++            psi_min: u64::MAX,
++            psi_max: 0,
++            closed: false,
++            interval_over_period: f64::NAN,
++        });
++        id
++    })
++}
++
++#[inline]
++fn with_row(ptr: usize, quad: Option<(u32, u64)>, probe: Option<u32>, tail_quad: bool, tail_probe: bool) {
++    S.with(|s| {
++        let mut s = s.borrow_mut();
++        if !s.enabled || s.depth > 0 || s.rows.is_empty() {
++            return;
++        }
++        let id = match s.by_ptr.get(&(CYCLE, ptr)).or_else(|| s.by_ptr.get(&(PASSAGE, ptr))) {
++            Some(&id) => id,
++            None => return,
++        };
++        let i = id as usize;
++        if i >= s.recs.len() || i >= s.rows.len() {
++            return;
++        }
++        let mut st = &mut *s;
++        let (rec, row) = (&mut st.recs[i], &mut st.rows[i]);
++        row.reads += 1;
++        if tail_quad || tail_probe {
++            if tail_quad {
++                rec.tail_quad += 1;
++                row.tail_quad += 1;
++            } else {
++                rec.tail_probe += 1;
++                row.tail_probe += 1;
++            }
++            return;
++        }
++        if let Some(panel) = probe {
++            rec.probe_panels.insert(panel);
++        }
++        if let Some((panel, psi)) = quad {
++            rec.quad_panels.insert(panel);
++            rec.quad_calls += 1;
++            row.quad_calls += 1;
++            rec.psi_min = rec.psi_min.min(psi);
++            rec.psi_max = rec.psi_max.max(psi);
++        }
++    })
++}
++
++/// A compile failed: undo the depth so later reads still count.
++pub fn abort() {
++    S.with(|s| {
++        let mut s = s.borrow_mut();
++        if s.enabled {
++            s.depth = s.depth.saturating_sub(1);
++        }
++    });
++}
++
++/// Quadrature ran post-mint inside `panel`, at phase `psi` (the expensive `node` arithmetic).
++#[inline]
++pub fn quad(ptr: usize, panel: usize, psi: i128) {
++    with_row(ptr, Some((panel as u32, psi as u64)), None, false, false);
++}
++
++/// A precomputed `.sum` word was read at `panel` (bisection mid, table read, totals).
++#[inline]
++pub fn probe(ptr: usize, panel: usize) {
++    with_row(ptr, None, Some(panel as u32), false, false);
++}
++
++/// A passage tail panel's quadrature ran (`quad`) or its entry was only partitioned.
++#[inline]
++pub fn tail(ptr: usize, quad: bool) {
++    with_row(ptr, None, None, quad, !quad);
++}
++
++pub fn close(id: u64, interval_over_period: f64) {
++    S.with(|s| {
++        let mut s = s.borrow_mut();
++        if !s.enabled || id == u64::MAX {
++            return;
++        }
++        let row = match s.rows.get_mut(id as usize) {
++            Some(row) => row,
++            None => return,
++        };
++        row.closed = true;
++        row.interval_over_period = interval_over_period;
++    });
++}
++
++pub fn id_of(kind: u8, ptr: usize) -> u64 {
++    S.with(|s| s.borrow().by_ptr.get(&(kind, ptr)).copied().unwrap_or(u64::MAX))
++}
++
++/// Finalize counters into the rows (call once, after the run). Returns (rows, ptr-reuse events, mints).
++pub fn seal() -> (Vec<Row>, u32, u64) {
++    S.with(|s| {
++        let mut s = s.borrow_mut();
++        let mut st = &mut *s;
++        for (rec, row) in st.recs.iter_mut().zip(st.rows.iter_mut()) {
++            row.quad_panels = rec.quad_panels.len() as u32;
++            row.probe_panels = rec.probe_panels.len() as u32;
++            if rec.psi_max >= rec.psi_min {
++                row.psi_min = rec.psi_min;
++                row.psi_max = rec.psi_max;
++            } else {
++                row.psi_min = 0;
++                row.psi_max = 0;
++            }
++        }
++        let reuse = s.reuse;
++        let total = s.next_id;
++        (s.rows.clone(), reuse, total)
++    })
++}
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..399b5554 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -109,6 +109,7 @@
+ //! The retained fixed-unit cycle serves the galaxy debug view only.
+ 
+ pub mod binding;
++pub mod census;
+ mod inverse;
+ pub mod light;
+ pub mod kerr;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..1438fdaa 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -549,6 +549,26 @@ impl Orbit {
+         &self.shape
+     }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
++        crate::census::begin();
++        match Self::compile_minted(key) {
++            Ok(orbit) => {
++                let shape = &orbit.shape;
++                crate::census::end_mint(
++                    crate::census::CYCLE,
++                    Arc::as_ptr(shape) as usize,
++                    shape.knots.len() as u32,
++                    0,
++                    shape.knots.last().map(|k| k.psi).unwrap_or(1),
++                );
++                Ok(orbit)
++            }
++            Err(e) => {
++                crate::census::abort();
++                Err(e)
++            }
++        }
++    }
++    fn compile_minted(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+         }
+@@ -711,6 +731,7 @@ impl Orbit {
+                 psi: phi,
+             });
+         }
++        crate::census::probe(Arc::as_ptr(&self.shape) as usize, self.shape.knots.len() - 1);
+         let half = self.time(self.shape.knots.last().unwrap().sum)?;
+         let full = half.scale(1)?;
+         if normalized_time > full {
+@@ -730,6 +751,7 @@ impl Orbit {
+             return Err(Error::Range);
+         }
+         let normalized = elapsed.div(self.time_scale)?;
++        crate::census::probe(Arc::as_ptr(&self.shape) as usize, self.shape.knots.len() - 1);
+         let period = self.time(self.shape.knots.last().unwrap().sum)?.scale(1)?;
+         let cycles = u64::try_from(normalized.div(period)?.fixed(0)?).map_err(|_| Error::Range)?;
+         let rem = normalized.sub(period.mul(Scalar::raw(cycles as i128, 0)?)?)?;
+@@ -760,29 +782,34 @@ impl Orbit {
+         } else {
+             self.shape.cut(x.clamp(low, ONE))
+         };
++        let sptr = Arc::as_ptr(&self.shape) as usize;
+         let i = self
+             .shape
+             .knots
+             .partition_point(|k| k.psi as i128 <= psi)
+             .saturating_sub(1);
++        crate::census::probe(sptr, i);
+         let base = &self.shape.knots[i];
+         let sum = base.sum.add(self.shape.quad(base.psi as i128, psi)?)?;
++        crate::census::quad(sptr, i, psi);
+         Ok((
+             self.time(sum)?.mul(self.time_scale)?,
+             self.read(0, psi, true, sum)?,
+         ))
+     }
+-    /// Direct table read, including velocity; no quadrature or root solve.
+     pub fn crossing_state(&self, index: usize, cycles: u64, outbound: bool) -> Result<OrbitState> {
+         let k = self.shape.knots.get(index).ok_or(Error::Range)?;
++        crate::census::probe(Arc::as_ptr(&self.shape) as usize, index);
+         self.read(cycles, k.psi as i128, outbound, k.sum)
+     }
+     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
+         let s = &self.shape;
++        let sptr = Arc::as_ptr(s) as usize;
+         let mut lo_i = 0;
+         let mut hi_i = s.knots.len();
+         while lo_i < hi_i {
+             let mid = (lo_i + hi_i) / 2;
++            crate::census::probe(sptr, mid);
+             if self.time(s.knots[mid].sum)? <= target {
+                 lo_i = mid + 1;
+             } else {
+@@ -792,6 +819,7 @@ impl Orbit {
+         let index = lo_i.saturating_sub(1);
+         let base = &s.knots[index];
+         if self.time(base.sum)? == target || index + 1 == s.knots.len() {
++            crate::census::probe(sptr, index);
+             return Ok((base.psi as i128, base.sum));
+         }
+         let a = base.psi as i128;
+@@ -813,6 +841,7 @@ impl Orbit {
+             })?;
+         for iteration in 0..72 {
+             let sum = base.sum.add(s.quad(a, psi)?)?;
++            crate::census::quad(sptr, index, psi);
+             let t = self.time(sum)?;
+             if t.sub(target)?.abs() <= quantum || hi - lo <= 1 {
+                 return Ok((psi, sum));
+@@ -827,6 +856,7 @@ impl Orbit {
+                 continue;
+             }
+             let rate = self.time(s.node(psi)?)?;
++            crate::census::quad(sptr, index, psi);
+             let step = target.sub(t)?.div(rate)?.fixed(61)?;
+             let next = psi + step;
+             // Accept the quantum nearest the root if Newton cannot change psi.
+@@ -1018,6 +1048,26 @@ impl Passage {
+             .transpose()
+     }
+     pub fn compile(key: OrbitKey, outer_radius: Scalar) -> Result<Self> {
++        crate::census::begin();
++        match Self::compile_minted(key, outer_radius) {
++            Ok(passage) => {
++                let shape = &passage.orbit.shape;
++                crate::census::end_mint(
++                    crate::census::PASSAGE,
++                    Arc::as_ptr(shape) as usize,
++                    shape.knots.len() as u32,
++                    passage.tail.len() as u32,
++                    shape.knots.last().map(|k| k.psi).unwrap_or(1),
++                );
++                Ok(passage)
++            }
++            Err(e) => {
++                crate::census::abort();
++                Err(e)
++            }
++        }
++    }
++    fn compile_minted(key: OrbitKey, outer_radius: Scalar) -> Result<Self> {
+         if key.periodic() || outer_radius <= key.periapsis {
+             return Err(Error::Topology);
+         }
+@@ -1080,6 +1130,10 @@ impl Passage {
+     pub fn key(&self) -> OrbitKey {
+         self.orbit.key
+     }
++    /// Census identity of this passage's knot table (print-only, run 20261020-1729).
++    pub fn shape_ptr(&self) -> usize {
++        Arc::as_ptr(&self.orbit.shape) as usize
++    }
+     pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         let x = self.key().periapsis.div(radius)?;
+         if self.tail.is_empty() || x >= self.tail[0].0 {
+@@ -1088,9 +1142,12 @@ impl Passage {
+         if radius > self.outer_radius {
+             return Err(Error::Range);
+         }
++        let pptr = Arc::as_ptr(&self.orbit.shape) as usize;
+         let i = self.tail.partition_point(|k| k.0 >= x).saturating_sub(1);
++        crate::census::tail(pptr, false);
+         let (base, sum) = self.tail[i];
+         let sum = sum.add(self.tail_quad(x, base)?)?;
++        crate::census::tail(pptr, true);
+         Ok((
+             self.orbit.time(sum)?.mul(self.orbit.time_scale)?,
+             self.tail_read(x, sum)?,
+@@ -1126,6 +1183,7 @@ impl Passage {
+                 .tail
+                 .partition_point(|k| self.orbit.time(k.1).is_ok_and(|v| v <= t))
+                 .saturating_sub(1);
++            crate::census::tail(Arc::as_ptr(&self.orbit.shape) as usize, false);
+             let (base, sum) = self.tail[i];
+             if i + 1 == self.tail.len() {
+                 self.tail_read(base, sum)?
+@@ -1135,6 +1193,7 @@ impl Passage {
+                 let mut answer = None;
+                 for _ in 0..80 {
+                     let x = lo.add(hi)?.scale(-1)?;
++                    crate::census::tail(Arc::as_ptr(&self.orbit.shape) as usize, true);
+                     let here = sum.add(self.tail_quad(x, base)?)?;
+                     let time = self.orbit.time(here)?;
+                     if time.sub(t)?.abs() <= quantum || x == lo || x == hi {
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..7d04035b 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -2,11 +2,12 @@
+ use super::{script, Session};
+ use emergent_space::{
+     binding::Trajectory,
++    census::{self, Row},
+     orbit::{MemoCode, ShapeKey},
+ };
+-use emergent_universe::{body::What, step, Budget, Kind};
++use emergent_universe::{body::What, num::{time_of, to_f64}, step, Budget, Kind};
+ use serde_json::json;
+-use std::collections::HashSet;
++use std::collections::{HashMap, HashSet};
+ use std::time::Instant;
+ 
+ /// The shapes the rebinds of the replayed kicks asked for, under the exact key and under the law's
+@@ -45,13 +46,132 @@ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
+ 
++fn median(samples: &mut Vec<f64>) -> f64 {
++    if samples.is_empty() {
++        return f64::NAN;
++    }
++    samples.sort_by(f64::total_cmp);
++    samples[(samples.len() - 1) / 2]
++}
++
++/// One run, two instruments: 1991's phase walk and 624a's panel landings, split by
++/// whether the expensive node() arithmetic ran (`quad`) or only a precomputed `.sum`
++/// word was read (`probe`).
++fn census_json(rows: &[Row], reuse: u32, pops: &HashMap<u64, u8>) -> serde_json::Value {
++    let mut out = json!({"ptr_reuse": reuse, "mints": rows.len()});
++    for (kind, name) in [(census::CYCLE, "cycles"), (census::PASSAGE, "passages")] {
++        for (pop, pname) in [(0u8, "made"), (1u8, "leavers")] {
++            let sel: Vec<&Row> = rows
++                .iter()
++                .filter(|r| r.kind == kind && pops.get(&r.id) == Some(&pop))
++                .collect();
++            if sel.is_empty() {
++                continue;
++            }
++            let knots: u64 = sel.iter().map(|r| r.knots as u64 + r.tail as u64).sum();
++            let mut quad = Vec::new();
++            let mut probes = Vec::new();
++            let mut both = Vec::new();
++            let mut walk = Vec::new();
++            let mut reads = Vec::new();
++            let mut per_knot = Vec::new();
++            for r in &sel {
++                let n = (r.knots as f64).max(1.0);
++                quad.push(r.quad_panels as f64 / n);
++                probes.push(r.probe_panels as f64 / n);
++                both.push((r.quad_panels + r.probe_panels) as f64 / n);
++                if r.quad_calls > 0 {
++                    walk.push((r.psi_max - r.psi_min) as f64 / r.span as f64);
++                }
++                reads.push(r.reads as f64);
++                per_knot.push(n);
++            }
++            let never_quad = sel.iter().filter(|r| r.quad_panels == 0 && r.tail_quad == 0).count();
++            let never_any = sel
++                .iter()
++                .filter(|r| r.quad_panels == 0 && r.probe_panels == 0 && r.tail_quad == 0 && r.tail_probe == 0)
++                .count();
++            out[format!("{}/{}", name, pname)] = json!({
++                "mints": sel.len(), "knots": knots,
++                "median_knots": median(&mut per_knot),
++                "quad_frac_median": median(&mut quad), "quad_frac_max": quad.iter().copied().fold(0.0, f64::max),
++                "probe_frac_median": median(&mut probes),
++                "panels_frac_median": median(&mut both),
++                "walk_frac_median": median(&mut walk),
++                "reads_median": median(&mut reads),
++                "never_quad": never_quad, "never_any_panel_or_tail": never_any,
++                "tail_quad_total": sel.iter().map(|r| r.tail_quad).sum::<u32>(),
++                "tail_probe_total": sel.iter().map(|r| r.tail_probe).sum::<u32>(),
++            });
++        }
++    }
++    // Cadence bins over closed rows (all classes): does a longer-lived mint walk more?
++    let mut bins = serde_json::Map::new();
++    let edges = [
++        ("lt_1_over_64", 0.0f64, 1.0 / 64.0),
++        ("1_64_to_1_16", 1.0 / 64.0, 1.0 / 16.0),
++        ("1_16_to_1_4", 1.0 / 16.0, 1.0 / 4.0),
++        ("1_4_to_1", 1.0 / 4.0, 1.0),
++        ("ge_1", 1.0, f64::INFINITY),
++    ];
++    for (name, lo, hi) in edges {
++        let sel: Vec<&Row> = rows
++            .iter()
++            .filter(|r| r.closed && r.interval_over_period >= lo && r.interval_over_period < hi)
++            .collect();
++        if sel.is_empty() {
++            continue;
++        }
++        let mut walk = Vec::new();
++        let mut quad = Vec::new();
++        for r in &sel {
++            if r.quad_calls > 0 {
++                walk.push((r.psi_max - r.psi_min) as f64 / r.span as f64);
++            }
++            quad.push(r.quad_panels as f64 / (r.knots as f64).max(1.0));
++        }
++        bins.insert(
++            name.into(),
++            json!({"mints": sel.len(), "walk_median": median(&mut walk), "quad_median": median(&mut quad)}),
++        );
++    }
++    let unclosed = rows.iter().filter(|r| !r.closed).count();
++    out["cadence_bins_interval_over_period"] = serde_json::Value::Object(bins);
++    out["unclosed"] = json!(unclosed);
++    // The biggest mints (the tail the page argues about).
++    let mut top: Vec<&Row> = rows.iter().collect();
++    top.sort_by_key(|r| r.knots);
++    out["top_by_knots"] = top
++        .iter()
++        .rev()
++        .take(10)
++        .map(|r| {
++            json!({
++                "id": r.id, "kind": r.kind, "knots": r.knots, "tail": r.tail,
++                "quad_panels": r.quad_panels, "probe_panels": r.probe_panels,
++                "tail_quad": r.tail_quad, "reads": r.reads,
++                "walk_frac": if r.quad_calls > 0 { (r.psi_max - r.psi_min) as f64 / r.span as f64 } else { f64::NAN },
++                "interval_over_period": r.interval_over_period, "closed": r.closed,
++            })
++        })
++        .collect::<Vec<_>>()
++        .into();
++    out
++}
++
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
++    census::enable();
+     let machine_before = crate::measure::machine_state("before");
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+-    let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    let (mut made, mut leavers) = (Vec::<f64>::new(), Vec::<f64>::new());
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
++    // (census id, mint tick, period in doll seconds, clock exponent) of body i's last mint.
++    let mut mint_of: Vec<Option<(u64, i64, f64, i16)>> = vec![None; made_n.max(1)];
++    let mut pops: HashMap<u64, u8> = HashMap::new();
++    let (mut made, mut leavers) = (Vec::<f64>::new(), Vec::<f64>::new());
++    let mut shapes = Shapes::default();
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
+@@ -68,6 +188,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
+         }
+         last.resize(s.n_bodies(), None);
++        mint_of.resize(s.n_bodies(), None);
+         for (i, seen) in last.iter_mut().enumerate() {
+             let rec = s.p.u.rec(i);
+             if rec.kind != Kind::Ship || !rec.alive {
+@@ -87,7 +208,35 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+-                shapes.note(&e.trajectory);
++                let (ptr, kind, period) = match &e.trajectory {
++                    Trajectory::Cycle(c) => (
++                        c.shape() as *const _ as usize,
++                        census::CYCLE,
++                        to_f64(upd.rec.b.to_doll(c.period().unwrap_or_default()).unwrap_or_default()),
++                    ),
++                    Trajectory::Passage(p) => (
++                        p.shape_ptr(),
++                        census::PASSAGE,
++                        to_f64(upd.rec.b.to_doll(p.duration().unwrap_or_default()).unwrap_or_default()),
++                    ),
++                    _ => (0, census::CYCLE, f64::NAN),
++                };
++                let id = if ptr == 0 { u64::MAX } else { census::id_of(kind, ptr) };
++                if let Some((pid, t0, per, exp)) = mint_of.get(i).copied().flatten() {
++                    if let Ok(dt) = time_of(item.t - t0, exp) {
++                        let interval = to_f64(dt);
++                        if std::env::var("CENSUS_DEBUG").is_ok() {
++                            eprintln!("CLOSE? body {i} per {per:e} interval {interval:e} ratio {}", if per != 0.0 { interval / per } else { f64::NAN });
++                        }
++                        if per.is_finite() && per > 0.0 {
++                            census::close(pid, interval / per);
++                        }
++                    }
++                }
++                if id != u64::MAX {
++                    pops.insert(id, u8::from(i >= made_n));
++                    mint_of[i] = Some((id, item.t, period, upd.rec.b.clock_exp));
++                }
+             }
+             digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
+@@ -96,6 +245,20 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         frames = n;
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
++    let (rows, reuse, _total) = census::seal();
++    if let Ok(path) = std::env::var("CENSUS_CSV") {
++        let mut csv = String::from("id,kind,knots,tail,span,quad_panels,probe_panels,tail_quad,tail_probe,quad_calls,reads,psi_min,psi_max,closed,interval_over_period,pop\n");
++        for r in &rows {
++            csv.push_str(&format!(
++                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
++                r.id, r.kind, r.knots, r.tail, r.span, r.quad_panels, r.probe_panels, r.tail_quad,
++                r.tail_probe, r.quad_calls, r.reads, r.psi_min, r.psi_max, r.closed,
++                if r.interval_over_period.is_nan() { String::new() } else { format!("{}", r.interval_over_period) },
++                pops.get(&r.id).map(|p| p.to_string()).unwrap_or_default()
++            ));
++        }
++        std::fs::write(path, csv)?;
++    }
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+@@ -103,6 +266,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "census": census_json(&rows, reuse, &pops),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
