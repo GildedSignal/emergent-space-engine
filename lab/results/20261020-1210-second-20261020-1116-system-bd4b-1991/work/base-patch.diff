@@ -1,0 +1,215 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..95e24a5d 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -1010,7 +1010,13 @@ pub struct Passage {
+     pub outer_radius: Scalar,
+     tail: Vec<(Scalar, Integral)>,
+ }
++
+ impl Passage {
++
++    /// The shape's knot vector (read-only; the tail of the passage arc is private).
++    pub fn shape(&self) -> &OrbitShape {
++        self.orbit.shape()
++    }
+     /// Same shape and exponent-backed phase as massive passages; null proper time is zero.
+     pub fn photon(impact: Scalar, outer_radius: Scalar) -> Result<Option<Self>> {
+         OrbitKey::photon(impact)?
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..fce14fba 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stub (the lab's machines are Linux): resident and peak resident from /proc, kB to bytes.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let field = |name: &str| -> u64 {
++        std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|s| {
++                s.lines()
++                    .find(|l| l.starts_with(name))
++                    .and_then(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok())
++            })
++            .unwrap_or(0)
++            * 1024
++    };
++    (field("VmRSS:"), field("VmHWM:"))
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..8c9f77b5 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -44,6 +44,101 @@ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+     json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
++fn mints_if(made: bool, m: &mut (Mints, Mints)) -> &mut Mints {
++    if made { &mut m.0 } else { &mut m.1 }
++}
++#[derive(Default)]
++struct Mints {
++    // (wall µs of the kick, knots of the minted trajectory, heap bytes of the knots/crossings, counted?)
++    rows: Vec<(f64, usize, usize, bool)>,
++    no_mint_us: Vec<f64>,
++    kinds: [u64; 3], // cycle, passage, plunge
++}
++impl Mints {
++    fn profile(t: &Trajectory) -> (usize, usize, bool) {
++        match t {
++            Trajectory::Cycle(o) => shape_bytes(o.shape()),
++            Trajectory::Passage(p) => shape_bytes(p.shape()),
++            Trajectory::Plunge(pl) => {
++                let retained = pl.retained_bytes();
++                (pl.panel_count(), retained.saturating_sub(std::mem::size_of_val(pl)), true)
++            }
++        }
++    }
++    fn knots_share(&self) -> f64 {
++        let kn: u128 = self.rows.iter().filter(|r| r.3).map(|r| r.1 as u128 * 88).sum();
++        let tot: u128 = self.rows.iter().filter(|r| r.3).map(|r| (r.2 as u128 + 88).max(r.1 as u128 * 88)).sum();
++        if tot == 0 { 0.0 } else { kn as f64 / tot as f64 }
++    }
++    fn spearman(&self) -> f64 {
++        let n = self.rows.len();
++        if n < 8 || self.rows.iter().map(|r| r.1).collect::<HashSet<_>>().len() < 3 {
++            return f64::NAN;
++        }
++        let rank_of = |vals: &[f64]| -> Vec<f64> {
++            let mut o: Vec<usize> = (0..n).collect();
++            o.sort_by(|&a, &b| vals[a].partial_cmp(&vals[b]).unwrap());
++            let mut r = vec![0.0; n];
++            let (mut i, mut rank) = (0, 0.0);
++            while i < n {
++                let mut j = i;
++                while j + 1 < n && vals[o[j + 1]] == vals[o[i]] { j += 1; }
++                let avg = (2.0 * rank + (j - i + 1) as f64 + 1.0) / 2.0;
++                for &k in &o[i..=j] { r[k] = avg; }
++                rank += (j - i + 1) as f64;
++                i = j + 1;
++            }
++            r
++        };
++        let us: Vec<f64> = self.rows.iter().map(|r| r.0).collect();
++        let kn: Vec<f64> = self.rows.iter().map(|r| r.1 as f64).collect();
++        let (ru, rk) = (rank_of(&us), rank_of(&kn));
++        let (mu, mk) = (ru.iter().sum::<f64>() / n as f64, rk.iter().sum::<f64>() / n as f64);
++        let (mut num, mut du, mut dk) = (0.0, 0.0, 0.0);
++        for i in 0..n {
++            num += (ru[i] - mu) * (rk[i] - mk);
++            du += (ru[i] - mu).powi(2);
++            dk += (rk[i] - mk).powi(2);
++        }
++        if du == 0.0 || dk == 0.0 { f64::NAN } else { num / (du * dk).sqrt() }
++    }
++    fn json(&self) -> serde_json::Value {
++        let mut knots: Vec<usize> = self.rows.iter().map(|r| r.1).collect();
++        knots.sort_unstable();
++        let at = |p: f64| knots.get(((knots.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
++        let mut by_knots = self.rows.clone();
++        by_knots.sort_by_key(|r| r.1);
++        let terciles = || -> Vec<serde_json::Value> {
++            (0..3)
++                .map(|c| {
++                    let (lo, hi) = (c * by_knots.len() / 3, (c + 1) * by_knots.len() / 3);
++                    let mut band: Vec<f64> = by_knots[lo..hi].iter().map(|r| r.0).collect();
++                    band.sort_by(f64::total_cmp);
++                    json!({"knots": at(c as f64 / 3.0 + 0.49 / 3.0), "median_us": band.get(band.len() / 2).copied(), "n": band.len()})
++                })
++                .collect()
++        };
++        let mut minted: Vec<f64> = self.rows.iter().map(|r| r.0).collect();
++        let mut no_mint = self.no_mint_us.clone();
++        json!({
++            "mints": self.rows.len(), "knots_min": at(0.0), "knots_p25": at(0.25), "knots_med": at(0.5),
++            "knots_p75": at(0.75), "knots_max": at(1.0),
++            "distinct_knot_counts": knots.iter().collect::<HashSet<_>>().len(),
++            "heap_bytes_total": self.rows.iter().map(|r| r.2).sum::<usize>(),
++            "knots_share_of_heap": self.knots_share(),
++            "median_us_minted": percentiles(&mut minted)["median"].clone(),
++            "median_us_no_mint": percentiles(&mut no_mint)["median"].clone(),
++            "spearman_us_knots": self.spearman(),
++            "median_us_by_knot_tercile": if knots.iter().collect::<HashSet<_>>().len() >= 3 { serde_json::Value::Array(terciles()) } else { serde_json::Value::Null },
++            "kinds_cycle_passage_plunge": self.kinds,
++        })
++    }
++}
++
++fn shape_bytes(s: &emergent_space::orbit::OrbitShape) -> (usize, usize, bool) {
++    let k = s.knots();
++    (k.len(), k.len() * std::mem::size_of::<emergent_space::orbit::Knot>() + s.crossings().len() * 8, true)
++}
+ 
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+@@ -54,10 +149,11 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
++    let mut keys = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
+     let wall = Instant::now();
+     let mut frames = 0;
+-    let mut keys = 0;
++    let mut mints = (Mints::default(), Mints::default()); // (made, leavers)
+     for n in 1..=(seconds * 60.0) as usize {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+             return Err("kick replay exceeded 55 s; no complete result".into());
+@@ -84,8 +180,24 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
++            let kind = match &upd.new_entry {
++                Some(e) => match e.trajectory {
++                    Trajectory::Cycle(_) => 0,
++                    Trajectory::Passage(_) => 1,
++                    Trajectory::Plunge(_) => 2,
++                },
++                None => 3,
++            };
++            mints_if(i < made_n, &mut mints).kinds[kind.min(2)] += u64::from(kind < 3);
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
++            match &upd.new_entry {
++                Some(e) => {
++                    let (kn, heap, _counted) = Mints::profile(&e.trajectory);
++                    mints_if(i < made_n, &mut mints).rows.push((us, kn, heap, true));
++                }
++                None => mints_if(i < made_n, &mut mints).no_mint_us.push(us),
++            }
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+             }
+@@ -102,7 +214,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+-        "memo": shapes.json(),
++        "mint_made": mints.0.json(),
++        "mint_leavers": mints.1.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()

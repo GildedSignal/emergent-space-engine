@@ -1,0 +1,29 @@
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.31s
+[control] span_default_seed1.json: digest b42da477294f7619 replay a693ac68cbc7fb46 refused 0 -> PASS
+[control] span_m400_seed1.json: digest 8c242b023e8b79e4 replay 0de3a82c1926a83d refused 0 -> PASS
+
+[span_m400_seed1.json] seed 1 samples 161 digest 8c242b023e8b79e4 refused 0
+  plan_control ok/bad 0 0 unopened 0
+  made_cycle: n 23 t1_est 11 knots_med 6 coverage p25/med 0.000207/0.00228 max 0.0071 never_read med 5 share_total 0.869 release_capped 0 overhang_med 0.00000
+  member_cycle: n 55 t1_est 55 knots_med 90 coverage p25/med 0.000105/0.00042 max 0.0343 never_read med 89 share_total 0.983 release_capped 0 overhang_med 0.00000
+  member_passage: n 82 t1_est 82 knots_med 148 coverage p25/med 0.578967/0.61887 max 0.6478 never_read med 126 share_total 0.853 release_capped 0 overhang_med 0.00125
+  tail rows: [('member', 'cycle', 448, 446, '5.03e-07'), ('member', 'cycle', 257, 256, '2.91e-06'), ('member', 'cycle', 196, 194, '9.78e-05')]
+
+[span_m400_seed2.json] seed 2 samples 59 digest 81fc3cfe99d82076 refused 0
+  plan_control ok/bad 0 0 unopened 0
+  made_cycle: n 23 t1_est 11 knots_med 6 coverage p25/med 0.000114/0.00117 max 0.0073 never_read med 5 share_total 0.848 release_capped 0 overhang_med 0.00000
+  member_cycle: n 13 t1_est 13 knots_med 126 coverage p25/med 0.000423/0.00108 max 0.0077 never_read med 125 share_total 0.968 release_capped 0 overhang_med 0.00000
+  member_passage: n 23 t1_est 23 knots_med 149 coverage p25/med 0.550478/0.58181 max 0.6406 never_read med 131 share_total 0.876 release_capped 0 overhang_med 0.00115
+  tail rows: [('member', 'cycle', 185, 174, '4.20e-03'), ('member', 'cycle', 178, 175, '1.08e-03'), ('member', 'cycle', 168, 155, '7.34e-03')]
+
+[span_m400_seed3.json] seed 3 samples 152 digest 1f0a5da8f0a3938a refused 0
+  plan_control ok/bad 0 0 unopened 0
+  made_cycle: n 23 t1_est 11 knots_med 6 coverage p25/med 0.000121/0.00112 max 0.0071 never_read med 5 share_total 0.865 release_capped 0 overhang_med 0.00000
+  member_cycle: n 48 t1_est 48 knots_med 116 coverage p25/med 0.000165/0.00050 max 0.0205 never_read med 115 share_total 0.985 release_capped 0 overhang_med 0.00000
+  member_passage: n 81 t1_est 81 knots_med 149 coverage p25/med 0.581400/0.60607 max 0.6509 never_read med 127 share_total 0.856 release_capped 0 overhang_med 0.00122
+  tail rows: [('member', 'cycle', 346, 345, '3.75e-06'), ('member', 'cycle', 334, 332, '5.67e-06'), ('member', 'cycle', 237, 233, '2.18e-04')]
+
+original census fields regenerate: mints 137 kinds [55, 82, 0] heap/mint 12465 B

@@ -1,0 +1,448 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..95e24a5d 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -1010,7 +1010,13 @@ pub struct Passage {
+     pub outer_radius: Scalar,
+     tail: Vec<(Scalar, Integral)>,
+ }
++
+ impl Passage {
++
++    /// The shape's knot vector (read-only; the tail of the passage arc is private).
++    pub fn shape(&self) -> &OrbitShape {
++        self.orbit.shape()
++    }
+     /// Same shape and exponent-backed phase as massive passages; null proper time is zero.
+     pub fn photon(impact: Scalar, outer_radius: Scalar) -> Result<Option<Self>> {
+         OrbitKey::photon(impact)?
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..fce14fba 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stub (the lab's machines are Linux): resident and peak resident from /proc, kB to bytes.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let field = |name: &str| -> u64 {
++        std::fs::read_to_string("/proc/self/status")
++            .ok()
++            .and_then(|s| {
++                s.lines()
++                    .find(|l| l.starts_with(name))
++                    .and_then(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok())
++            })
++            .unwrap_or(0)
++            * 1024
++    };
++    (field("VmRSS:"), field("VmHWM:"))
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..a563fe91 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -44,6 +44,269 @@ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+     json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
++fn mints_if(made: bool, m: &mut (Mints, Mints)) -> &mut Mints {
++    if made { &mut m.0 } else { &mut m.1 }
++}
++#[derive(Default)]
++struct Mints {
++    // (wall µs of the kick, knots of the minted trajectory, heap bytes of the knots/crossings, counted?)
++    rows: Vec<(f64, usize, usize, bool)>,
++    no_mint_us: Vec<f64>,
++    kinds: [u64; 3], // cycle, passage, plunge
++}
++impl Mints {
++    fn profile(t: &Trajectory) -> (usize, usize, bool) {
++        match t {
++            Trajectory::Cycle(o) => shape_bytes(o.shape()),
++            Trajectory::Passage(p) => shape_bytes(p.shape()),
++            Trajectory::Plunge(pl) => {
++                let retained = pl.retained_bytes();
++                (pl.panel_count(), retained.saturating_sub(std::mem::size_of_val(pl)), true)
++            }
++        }
++    }
++    fn knots_share(&self) -> f64 {
++        let kn: u128 = self.rows.iter().filter(|r| r.3).map(|r| r.1 as u128 * 88).sum();
++        let tot: u128 = self.rows.iter().filter(|r| r.3).map(|r| (r.2 as u128 + 88).max(r.1 as u128 * 88)).sum();
++        if tot == 0 { 0.0 } else { kn as f64 / tot as f64 }
++    }
++    fn spearman(&self) -> f64 {
++        let n = self.rows.len();
++        if n < 8 || self.rows.iter().map(|r| r.1).collect::<HashSet<_>>().len() < 3 {
++            return f64::NAN;
++        }
++        let rank_of = |vals: &[f64]| -> Vec<f64> {
++            let mut o: Vec<usize> = (0..n).collect();
++            o.sort_by(|&a, &b| vals[a].partial_cmp(&vals[b]).unwrap());
++            let mut r = vec![0.0; n];
++            let (mut i, mut rank) = (0, 0.0);
++            while i < n {
++                let mut j = i;
++                while j + 1 < n && vals[o[j + 1]] == vals[o[i]] { j += 1; }
++                let avg = (2.0 * rank + (j - i + 1) as f64 + 1.0) / 2.0;
++                for &k in &o[i..=j] { r[k] = avg; }
++                rank += (j - i + 1) as f64;
++                i = j + 1;
++            }
++            r
++        };
++        let us: Vec<f64> = self.rows.iter().map(|r| r.0).collect();
++        let kn: Vec<f64> = self.rows.iter().map(|r| r.1 as f64).collect();
++        let (ru, rk) = (rank_of(&us), rank_of(&kn));
++        let (mu, mk) = (ru.iter().sum::<f64>() / n as f64, rk.iter().sum::<f64>() / n as f64);
++        let (mut num, mut du, mut dk) = (0.0, 0.0, 0.0);
++        for i in 0..n {
++            num += (ru[i] - mu) * (rk[i] - mk);
++            du += (ru[i] - mu).powi(2);
++            dk += (rk[i] - mk).powi(2);
++        }
++        if du == 0.0 || dk == 0.0 { f64::NAN } else { num / (du * dk).sqrt() }
++    }
++    fn json(&self) -> serde_json::Value {
++        let mut knots: Vec<usize> = self.rows.iter().map(|r| r.1).collect();
++        knots.sort_unstable();
++        let at = |p: f64| knots.get(((knots.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
++        let mut by_knots = self.rows.clone();
++        by_knots.sort_by_key(|r| r.1);
++        let terciles = || -> Vec<serde_json::Value> {
++            (0..3)
++                .map(|c| {
++                    let (lo, hi) = (c * by_knots.len() / 3, (c + 1) * by_knots.len() / 3);
++                    let mut band: Vec<f64> = by_knots[lo..hi].iter().map(|r| r.0).collect();
++                    band.sort_by(f64::total_cmp);
++                    json!({"knots": at(c as f64 / 3.0 + 0.49 / 3.0), "median_us": band.get(band.len() / 2).copied(), "n": band.len()})
++                })
++                .collect()
++        };
++        let mut minted: Vec<f64> = self.rows.iter().map(|r| r.0).collect();
++        let mut no_mint = self.no_mint_us.clone();
++        json!({
++            "mints": self.rows.len(), "knots_min": at(0.0), "knots_p25": at(0.25), "knots_med": at(0.5),
++            "knots_p75": at(0.75), "knots_max": at(1.0),
++            "distinct_knot_counts": knots.iter().collect::<HashSet<_>>().len(),
++            "heap_bytes_total": self.rows.iter().map(|r| r.2).sum::<usize>(),
++            "knots_share_of_heap": self.knots_share(),
++            "median_us_minted": percentiles(&mut minted)["median"].clone(),
++            "median_us_no_mint": percentiles(&mut no_mint)["median"].clone(),
++            "spearman_us_knots": self.spearman(),
++            "median_us_by_knot_tercile": if knots.iter().collect::<HashSet<_>>().len() >= 3 { serde_json::Value::Array(terciles()) } else { serde_json::Value::Null },
++            "kinds_cycle_passage_plunge": self.kinds,
++        })
++    }
++}
++
++fn shape_bytes(s: &emergent_space::orbit::OrbitShape) -> (usize, usize, bool) {
++    let k = s.knots();
++    (k.len(), k.len() * std::mem::size_of::<emergent_space::orbit::Knot>() + s.crossings().len() * 8, true)
++}
++
++/// The span-coverage census (print-only, outside the timed section): per minted binding, how much
++/// of the compiled arc the body walks before the binding stops being read — its next planned kick
++/// (the exact next item of the plan the mint leaves, or the next boundary plus half its interval
++/// when no kick is planned yet), capped for passages at the release radius (a tube is compiled to
++/// 2× the doll edge and the ship is handed back at the edge). Never-read panels are counted exactly
++/// from the knots' own `psi` values; the walk is read with the shipped readout on the new binding.
++const PSI_PI: u64 = 7244019458077122842; // tables::PI (private there): apoapsis in psi units.
++
++struct SpanRow {
++    kind: u8, // 0 cycle, 1 passage (plunges are counted by kind only: none mint here)
++    psi: Vec<u64>,
++    psi0: u64,
++    out0: bool,
++    cyc0: u64,
++    psi_edge: u64,    // compiled span top
++    psi_release: u64, // the walk's cap (release at outer/2); psi_edge when there is none
++    b: emergent_universe::bind::Binding,
++}
++
++#[derive(Clone)]
++struct Closed {
++    kind: u8,
++    knots: usize,
++    never_read: usize,
++    coverage: f64,
++    t1_exact: bool,
++    no_next: bool,
++    release_capped: bool,
++    overhang: f64,
++    read_err: bool,
++}
++
++/// Panels the walk from (psi0, out0, cyc0) to (psi1, out1, cyc1) never touches, on a closed table.
++/// Panels the walked arc `[lo, hi]` never touches: a read at psi brackets the panel containing it,
++/// so the touched knots are the index range spanned by `[lo, hi]`; everything outside is never read.
++fn never_read_bracket(psi: &[u64], lo: u64, hi: u64) -> usize {
++    if psi.is_empty() {
++        return 0;
++    }
++    let first = psi.partition_point(|&p| p <= lo).saturating_sub(1); // last knot at or before lo
++    let last = (psi.partition_point(|&p| p <= hi)).saturating_sub(1); // last knot at or before hi
++    let last = last.max(first);
++    psi.len() - (last - first + 1)
++}
++
++fn cycle_never_read(psi: &[u64], psi0: u64, out0: bool, cyc0: u64, psi1: u64, out1: bool, cyc1: u64) -> usize {
++    if cyc1 > cyc0 {
++        return 0; // a periapsis was crossed: the whole table was walked
++    }
++    let (lo, hi) = if out0 && !out1 {
++        (psi0.min(psi1), PSI_PI) // over the apoapsis and back in
++    } else {
++        (psi0.min(psi1), psi0.max(psi1))
++    };
++    never_read_bracket(psi, lo, hi)
++}
++
++fn close_span(row: SpanRow, t1: Option<i64>, t1_exact: bool) -> Closed {
++    let knots = row.psi.len();
++    let overhang = 1.0 - row.psi_release as f64 / row.psi_edge.max(1) as f64;
++    let Some(t1) = t1 else {
++        return Closed { kind: row.kind, knots, never_read: 0, coverage: f64::NAN, t1_exact, no_next: true, release_capped: false, overhang, read_err: false };
++    };
++    match row.kind {
++        0 => {
++            // The unwrapped radial coordinate U (in psi units): one period = 2·PSI_PI of U.
++            let u = |psi: u64, out: bool, cyc: u64| {
++                2.0 * PSI_PI as f64 * cyc as f64 + if out { psi as f64 } else { 2.0 * PSI_PI as f64 - psi as f64 }
++            };
++            let u0 = u(row.psi0, row.out0, row.cyc0);
++            match row.b.orbit_state(t1) {
++                Ok(st) => {
++                    let u1 = u(st.psi, st.outbound, st.cycles);
++                    Closed {
++                        kind: 0,
++                        knots,
++                        never_read: cycle_never_read(&row.psi, row.psi0, row.out0, row.cyc0, st.psi, st.outbound, st.cycles),
++                        coverage: ((u1 - u0) / (2.0 * PSI_PI as f64)).clamp(0.0, 1.0),
++                        t1_exact,
++                        no_next: false,
++                        release_capped: false,
++                        overhang: 0.0,
++                        read_err: false,
++                    }
++                }
++                Err(_) => Closed { kind: 0, knots, never_read: 0, coverage: 1.0, t1_exact, no_next: false, release_capped: false, overhang: 0.0, read_err: true },
++            }
++        }
++        _ => {
++            // A passage walks psi monotonically up from the periapsis side; an inbound mint walks
++            // down through periapsis first. The walk stops at the release radius at the latest.
++            let psi1 = match row.b.orbit_state(t1) {
++                Ok(st) => st.psi.min(row.psi_release),
++                Err(_) => row.psi_release, // past the tube's end: it was walked to the cap
++            };
++            let walked = if row.out0 { psi1 as f64 - row.psi0 as f64 } else { psi1 as f64 + row.psi0 as f64 };
++            let remaining = if row.out0 { row.psi_edge as f64 - row.psi0 as f64 } else { row.psi_edge as f64 + row.psi0 as f64 };
++            let lo = if row.out0 { row.psi0 } else { 0 };
++            let never_read = never_read_bracket(&row.psi, lo, psi1);
++            Closed {
++                kind: 1,
++                knots,
++                never_read,
++                coverage: if remaining > 0.0 { (walked / remaining).clamp(0.0, 1.0) } else { 1.0 },
++                t1_exact,
++                no_next: false,
++                release_capped: psi1 == row.psi_release,
++                overhang,
++                read_err: false,
++            }
++        }
++    }
++}
++
++fn open_span(e: &emergent_universe::bind::Entry, b: &emergent_universe::bind::Binding, t0: i64) -> Option<SpanRow> {
++    let (kind, psi, psi_edge, psi_release) = match &e.trajectory {
++        Trajectory::Cycle(c) => {
++            let psi: Vec<u64> = c.shape().knots().iter().map(|k| k.psi).collect();
++            let top = *psi.last().unwrap_or(&0);
++            (0u8, psi, top, top)
++        }
++        Trajectory::Passage(p) => {
++            let psi: Vec<u64> = p.shape().knots().iter().map(|k| k.psi).collect();
++            let edge = p.at_radius(p.outer_radius).ok().map(|(_, st)| st.psi)?; // compiled span top, tail included
++            // Released at the doll edge on the way out; the root doll (0) has no edge to be handed back at.
++            let release = if b.doll == 0 { edge } else { p.at_radius(p.outer_radius.scale(-1).ok()?).ok().map(|(_, st)| st.psi)? };
++            (1u8, psi, edge, release)
++        }
++        Trajectory::Plunge(_) => return None,
++    };
++    let st0 = b.orbit_state(t0).ok()?;
++    Some(SpanRow { kind, psi, psi0: st0.psi, out0: st0.outbound, cyc0: st0.cycles, psi_edge, psi_release, b: b.clone() })
++}
++
++fn span_json(rows: &[Closed]) -> serde_json::Value {
++    let live: Vec<&Closed> = rows.iter().filter(|r| !r.no_next && !r.read_err).collect();
++    let mut knots: Vec<usize> = live.iter().map(|r| r.knots).collect();
++    knots.sort_unstable();
++    let mut never: Vec<usize> = live.iter().map(|r| r.never_read).collect();
++    never.sort_unstable();
++    let mut cov: Vec<f64> = live.iter().map(|r| r.coverage).collect();
++    cov.sort_by(f64::total_cmp);
++    let mut over: Vec<f64> = live.iter().map(|r| r.overhang).collect();
++    over.sort_by(f64::total_cmp);
++    let at = |v: &[usize], p: f64| v.get(((v.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
++    let atf = |v: &[f64], p: f64| v.get(((v.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
++    let tot_knots: usize = live.iter().map(|r| r.knots).sum();
++    let tot_never: usize = live.iter().map(|r| r.never_read).sum();
++    json!({
++        "n": rows.len(),
++        "no_next_kick": rows.iter().filter(|r| r.no_next).count(),
++        "read_err": rows.iter().filter(|r| r.read_err).count(),
++        "t1_estimated": live.iter().filter(|r| !r.t1_exact).count(),
++        "release_capped": live.iter().filter(|r| r.release_capped).count(),
++        "knots_min": at(&knots, 0.0), "knots_med": at(&knots, 0.5), "knots_p75": at(&knots, 0.75), "knots_max": at(&knots, 1.0),
++        "never_read_med": at(&never, 0.5), "never_read_p75": at(&never, 0.75), "never_read_max": at(&never, 1.0),
++        "never_read_share_total": if tot_knots == 0 { 0.0 } else { tot_never as f64 / tot_knots as f64 },
++        "never_read_share_med": if live.is_empty() { 0.0 } else {
++            let mut s: Vec<f64> = live.iter().map(|r| r.never_read as f64 / r.knots.max(1) as f64).collect();
++            s.sort_by(f64::total_cmp);
++            atf(&s, 0.5).unwrap_or(0.0)
++        },
++        "coverage_min": atf(&cov, 0.0), "coverage_med": atf(&cov, 0.5), "coverage_p25": atf(&cov, 0.25), "coverage_max": atf(&cov, 1.0),
++        "release_overhang_med": atf(&over, 0.5),
++        "knots_total": tot_knots, "never_read_total": tot_never,
++    })
++}
+ 
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+@@ -54,10 +317,15 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
++    let mut keys = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
+     let wall = Instant::now();
+     let mut frames = 0;
+-    let mut keys = 0;
++    let mut mints = (Mints::default(), Mints::default()); // (made, leavers)
++    let mut closed: Vec<(bool, Closed)> = Vec::new(); // (made, row)
++    let mut span_err = 0u64; // mints whose span row could not be opened (at_radius/readout refused)
++    let mut planned: std::collections::HashMap<usize, (i64, bool)> = std::collections::HashMap::new(); // body -> (planned next-kick tick, exact)
++    let (mut ctrl_ok, mut ctrl_bad) = (0u64, 0u64); // observed next mint vs the plan's predicted tick (exact rows)
+     for n in 1..=(seconds * 60.0) as usize {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+             return Err("kick replay exceeded 55 s; no complete result".into());
+@@ -84,8 +352,49 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
++            let kind = match &upd.new_entry {
++                Some(e) => match e.trajectory {
++                    Trajectory::Cycle(_) => 0,
++                    Trajectory::Passage(_) => 1,
++                    Trajectory::Plunge(_) => 2,
++                },
++                None => 3,
++            };
++            mints_if(i < made_n, &mut mints).kinds[kind.min(2)] += u64::from(kind < 3);
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
++            match &upd.new_entry {
++                Some(e) => {
++                    let (kn, heap, _counted) = Mints::profile(&e.trajectory);
++                    mints_if(i < made_n, &mut mints).rows.push((us, kn, heap, true));
++                }
++                None => mints_if(i < made_n, &mut mints).no_mint_us.push(us),
++            }
++            // The span census: the minted binding's walk ends at its next planned kick (the plan's own
++            // next Kick item, or the next Boundary plus half the interval when no kick is planned yet).
++            if let Some(e) = &upd.new_entry {
++                let t0 = upd.rec.b.event_time;
++                if let Some((t1, true)) = planned.remove(&i) {
++                    if t1 == t0 { ctrl_ok += 1 } else { ctrl_bad += 1 }
++                } else {
++                    planned.remove(&i);
++                }
++                let next_kick = upd.rec.plan.iter().filter(|it| it.t > t0 && matches!(it.what, What::Kick(_))).map(|it| it.t).min();
++                let (t1, t1_exact) = match next_kick {
++                    Some(t) => (Some(t), true),
++                    None => match upd.rec.plan.iter().filter(|it| it.t > t0 && matches!(it.what, What::Boundary)).map(|it| it.t).min() {
++                        Some(tb) => (Some(tb + upd.rec.interval / 2), false),
++                        None => (None, false),
++                    },
++                };
++                match open_span(e, &upd.rec.b, t0) {
++                    Some(row) => {
++                        planned.insert(i, (t1.unwrap_or(t0), t1_exact));
++                        closed.push((i < made_n, close_span(row, t1, t1_exact)));
++                    }
++                    None => span_err += u64::from(!matches!(e.trajectory, Trajectory::Plunge(_))),
++                }
++            }
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+             }
+@@ -95,6 +404,34 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         s.p.u.settle(s.p.u.now);
+         frames = n;
+     }
++    let clone_rows = |made: bool, kind: u8| -> Vec<Closed> {
++        closed
++            .iter()
++            .filter(|&&(m, ref r)| m == made && r.kind == kind)
++            .map(|(_, r)| Closed { kind: r.kind, knots: r.knots, never_read: r.never_read, coverage: r.coverage, t1_exact: r.t1_exact, no_next: r.no_next, release_capped: r.release_capped, overhang: r.overhang, read_err: r.read_err })
++            .collect()
++    };
++    // The checker's tail correction made visible: the biggest mints, their class and their never-read count.
++    let mut tail: Vec<(bool, Closed)> = closed.iter().filter(|(_, r)| r.kind <= 1).cloned().collect();
++    tail.sort_by_key(|(_, r)| std::cmp::Reverse(r.knots));
++    tail.truncate(6);
++    let tail_json: Vec<serde_json::Value> = tail
++        .iter()
++        .map(|(m, r)| {
++            json!({"pop": if *m {"made"} else {"member"}, "kind": if r.kind == 0 {"cycle"} else {"passage"},
++                  "knots": r.knots, "never_read": r.never_read, "coverage": r.coverage,
++                  "t1_exact": r.t1_exact, "no_next_kick": r.no_next, "release_capped": r.release_capped})
++        })
++        .collect();
++    let span_out = json!({
++        "psi_note": "psi units: apoapsis = 7244019458077122842 (tables::PI). coverage = phase walked to the next rebind (or the release cap) / compiled span; never_read counted from the knots' own psi",
++        "made_cycle": span_json(&clone_rows(true, 0)),
++        "member_cycle": span_json(&clone_rows(false, 0)),
++        "member_passage": span_json(&clone_rows(false, 1)),
++        "made_passage": span_json(&clone_rows(true, 1)),
++        "tail_rows": tail_json,
++        "span_rows_unopened": span_err, "plan_control_ok": ctrl_ok, "plan_control_bad": ctrl_bad,
++    });
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+@@ -102,7 +439,9 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+-        "memo": shapes.json(),
++        "span": span_out,
++        "mint_made": mints.0.json(),
++        "mint_leavers": mints.1.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()

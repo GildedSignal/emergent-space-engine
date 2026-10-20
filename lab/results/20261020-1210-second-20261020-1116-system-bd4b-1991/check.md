@@ -1,0 +1,31 @@
+Grade: gold
+
+**Abstract.** The checker-named experiment is flown and holds: a minted binding walks 0.04–0.6% (cycles) / ~60% ψ but 12–15% of panels (passages) of its compiled arc before the next rebind, so 85–98.5% of minted panels are never interpolated. Reproduced bit-for-bit on all four arms; print-only proven independently (unpatched shipped binary → same digests). Lazy/class-split compile is dead as a CPU lever (step_for reads period()/duration() inside the binding's life — code-verified); the store lever is sized and already flown (0757/b9ae); f9b4's thinning gets its target (outer bands). My adversarial 300 s window fired the run's never-fired horizon control: 2300 repeat mints, 93% exactly on the planned tick, never early, worst 8.5×; corrected never-read median 0.987. Adoption cost: zero (a kill plus a sizing).
+
+**Reproduction.** Clean tree at the run's base (caa2a43b); applied work/patch.diff; regen.sh's four arms regenerate every deterministic field of the stored JSONs (digests, replay digests, refused, samples, all span class stats, plan control 0/0). Stronger than regen.sh: I built the **unpatched** shipped tree and ran default seed 1 and m400 seed 1 — digests b42da477294f7619 / a693ac68cbc7fb46 and 8c242b023e8b79e4 / 0de3a82c1926a83d match, so the census is genuinely print-only and the "shipped record" strings are not transcribed. Constants audited in source: PSI_PI = tables::PI (tables.rs:5), Scalar::scale(-1) = ÷2 (scaled.rs:73), release = at_radius(outer_radius/2); never_read_bracket's index logic is sound including lo below the first knot; cycle unwrap handles apoapsis and periapsis crossings correctly.
+
+**Predictions.** P2 held (passages ≥ 30% never-read: 85–88%). P4 held and sharpened. P1 and P3 failed as the author's own priors and are reported as failed in bold — these failures are the finding (they refute bd4b's expectation), and the pre-registered kill criterion (P1 and P2 both ≈ 0 never-read) did not trigger. Timestamps: predictions.md predates the patch (26' vs 7' into the session), but the runner's regen overwrote the original outputs, so the order is consistent, not provable; determinism (identical digests) is the compensating control.
+
+**Adversarial cases** (beyond the author's domain everywhere):
+1. **300 s window** (10× the author's, needed a scratch CLI-cap change; ~40 s wall, inside the minute budget): the run's one admitted hole — the plan-prediction control never fired at 30 s — fires here. 2300 repeat mints across 345 bodies: **dt = observed next mint − planned t1 is exactly 0 for 2137/2300, never negative, max 8.5×** (163 late rows are carried sub-quantum kicks, kick() step.rs:426-429). Corrected never-read with true horizons: median 0.987, p10 0.952, min 0.472, zero rows below 50%. The horizon is real; the claim is conservative.
+2. **Seeds 4, 5** (m400, 30 s): same class structure — member-cycle never-read 0.983/0.984, passages 0.868/0.853, made 0.869/0.857.
+3. **Populations 100 and 800, and the 55 s default arm**: structure unchanged (members 800 is byte-identical to 400 — the fleet's handout rate caps it, so 800 adds no regime; 100 has only 2+2 member mints, same shape).
+4. **Walk mechanism**: on all 2645 rows, walk ÷ interval has p10 = median = p90 = **1.000** — the next rebind is exactly one full interval after the mint, not "~interval/8".
+
+**CPU-kill premise verified in code**: step_for (step.rs:75-78) reads period()/duration() — the full-arc running-sum totals — and runs at the latest at the interval boundary after the mint (handoffs at the mint itself). A lazy compile could defer the traversal by at most half an interval, never delete it. Also next_exit reads duration() for the handoff plan.
+
+**Novelty.** No prior measurement of the arc span walked between mints by class. 4ea0's never-read 0 (kick-jet page) censused memo generations — different object, honestly composed on the page ("the reads exist but all fall inside one bracket"). history-demand's never-read is the history stock. This closes the mint-knots page's open direction 1 exactly as its checker scoped it. Not a closure: only two runs on the topic, one gold.
+
+**Corrections made to the author's page** (overstatements, not measurement errors):
+- "next rebind is a sub-kick of the nested split, ~interval/8 away" → the walk is one full interval (measured 1.000× on every row); the interval is small by step_for's 1/2^step_log2 law. The dossier's own parenthetical knew members close at boundary + interval/2; the headline mechanism contradicted it.
+- "the 448-knot tail … coverage ≤ 1e-4" → seed-1-only; seeds 2–3 tail rows reach 7e-3 with never-read still ≥ 93% (conclusion unchanged).
+- Noted (not fixed, conservative): the passage tail's own panels (Vec beyond the join, ~4.3 per radius octave) and their bytes are uncounted in both the span census and bd4b's 12.5 KB/mint — counting them only raises the never-read share and the memory share.
+
+**Goal fit.** Board's two worst rows (kick 75–160 µs vs ~50 ns floor; memory at 10⁹): the run splits their unification's lever and kills the CPU half before anything was built. PRINCIPLES 3 "Compute only surprises" — 85–98% of every mint is pre-computed reading that never happens; 6 "Store the generator, not the generated"; 18 — "who reads the arc before the next mint" answered: the clocks write it, nobody reads it.
+
+**What the author missed.**
+1. The horizon control: the 55 s arm (allowed by the shipped CLI) still doesn't fire it; only a window past the CLI's 55 s cap does. The author stopped at the shipped cap; the claim's load-bearing assumption (t1 is the binding's death) went unmeasured — it holds (93% exact, never early, worst 8.5×, corrected conclusion unchanged).
+2. The sub-quantum carry path (step.rs kick(): dvq == [0,0] → no rebind) is the one engine path that extends a binding past t1; 7% of rows, bounded 8.5×, absorbed by the margins.
+3. The mechanism glosses above ("interval/8", "≤ 1e-4") — corrected in place.
+4. The never-read claim for passages is horizon-proof by construction (the mint sits at ψ₀ ≈ 0.85 of the span; even walking to the release leaves ~85% unread) — worth stating, it makes the store half immune to the horizon question entirely.
+5. 2645 rows exist at 300 s versus 160 at 30 s — a longer-window arm would have cost one extra minute and closed item 1 in the author's own run.
