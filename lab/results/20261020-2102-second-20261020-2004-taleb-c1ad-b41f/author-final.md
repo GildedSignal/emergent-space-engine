@@ -1,0 +1,4 @@
+Working...
+Everything is in place — dossier, pre-registered predictions, regen.sh (clean-tree patch verified against base 2a2afff2), raw draws, protocol log, folded wiki page; no commits made.
+
+**The claim:** v6 — v5's floors rebuilt with certify's own geometric clash predicate (death-horizon touch test), a verified-only base term (the deleted `history[0]` restore-point term was the ignition deadlock behind the checker's stalls), and coverage-aware merge-capping — meets the checker's gold criterion: it holds v4's exact present on every class that killed v5 (clumps 2695, mixed 2698, streams 2698 > v4's 2577/819; v5 reproduces its 0/0/1024 stall in the same window) while staying 0-fire where shipped fires (battle 1/6 vs 0/6, crush 0/12 at ~1.9× v4's median present, equality law shut on all 141 RB lines).

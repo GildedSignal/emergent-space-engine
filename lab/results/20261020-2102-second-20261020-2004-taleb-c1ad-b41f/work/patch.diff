@@ -1,0 +1,1088 @@
+diff --git a/crates/allocator/examples/exposure.rs b/crates/allocator/examples/exposure.rs
+new file mode 100644
+index 00000000..c150dad9
+--- /dev/null
++++ b/crates/allocator/examples/exposure.rs
+@@ -0,0 +1,133 @@
++//! Exposure sweep for the finality assert (`alloc.rs`: "would revise its published tick"):
++//! the game's own scene shapes on the shipped frames harness, unsabotaged.
++//! One draw per process; a firing assert panics and the process exits non-zero.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example exposure -- <class> <seed> [rate] [min_region]
++//!
++//! Classes: gas | battle | streams | quiet  (all `Law::Relativistic`, sabotage off).
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig};
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::Response;
++use emergent_lattice::worlds;
++use std::sync::Arc;
++
++fn factory() -> Factory<Chronon> {
++    Arc::new(|w| Chronon::new(w, false).expect("a region's world is a valid world"))
++}
++
++fn main() {
++    let a = std::env::args().collect::<Vec<_>>();
++    let class = a.get(1).expect("class: gas|battle|streams|quiet").clone();
++    let seed: u64 = a.get(2).expect("seed").parse().unwrap();
++    let rate: f64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(600.0);
++    let n_gas: u64 = a.get(5).map(|s| s.parse().unwrap()).unwrap_or(8192);
++    let min_region: usize = a.get(4).map(|s| s.parse().unwrap()).unwrap_or(32);
++    let margin: f64 = a.get(6).map(|s| s.parse().unwrap()).unwrap_or(2.0);
++    let fleets: u64 = a.get(7).map(|s| s.parse().unwrap()).unwrap_or(12);
++    let gn: u64 = a.get(8).map(|s| s.parse().unwrap()).unwrap_or(4352);
++    let seconds: f64 = a.get(9).map(|s| s.parse().unwrap()).unwrap_or(4.5);
++    let gate: u8 = a.get(10).map(|s| s.parse().unwrap()).unwrap_or(0);
++    let q = 256;
++    let mut parts: Vec<_>;
++    let observer;
++    match class.as_str() {
++        // The churn class (the ratchet page's selfchurn): ONE dense slow gas cluster.
++        "gas" => {
++            parts = vec![scenes::loose_gas(n_gas, q, 2, seed, 1, [0, 0])];
++            let b = &parts[0].bodies.iter().map(|b| b.x).collect::<Vec<_>>();
++            let lo = b.iter().map(|p| p[0]).min().unwrap();
++            let hi = b.iter().map(|p| p[0]).max().unwrap();
++            observer = [(lo + hi) / 2, (lo + hi) / 2];
++        }
++        // The game's faction battle: lattice `worlds::galaxy` (power-law fleets of bouncers,
++        // bulk drift up to Q/4, dispersion Q/16, never overlapping at genesis, + 256 stream).
++        "battle" => {
++            let g = worlds::galaxy(gn, fleets, 11, q, seed).expect("galaxy scene in range");
++            let n = g.bodies.len();
++            let c = g.bodies.iter().fold(([i64::MAX, i64::MAX], [i64::MIN, i64::MIN]), |(lo, hi), b| {
++                ([lo[0].min(b.x[0]), lo[1].min(b.x[1])], [hi[0].max(b.x[0]), hi[1].max(b.x[1])])
++            });
++            observer = [(c.0[0] + c.1[0]) / 2, (c.0[1] + c.1[1]) / 2];
++            parts = vec![scenes::world(&g, g.bodies.clone())];
++            eprintln!("battle: {n} bodies, {fleets} power-law fleets (galaxy {gn})");
++        }
++        // Sustained ballistic crossing traffic (the belt's shape): 4 lanes x 4 clumps of Pass
++        // discs, lanes at opposing drifts, NO contact response change in the whole scene.
++        "streams" => {
++            parts = Vec::new();
++            let mut id = 1u64;
++            for lane in 0..4i64 {
++                let drift = if lane % 2 == 0 { q / 4 } else { -q / 8 };
++                for c in 0..4i64 {
++                    let w = worlds::random(96, 300, q, 1, seed + 100 * lane as u64 + c as u64, Response::Pass);
++                    let off = [c * 900 + lane * 200, lane * 1200];
++                    parts.push(scenes::world(&w, scenes::place(&w, id, off, 1, 1, [drift, 0])));
++                    id += 1000;
++                }
++            }
++            observer = [1650 * q, 1800 * q];
++        }
++        // Negative control: sparse Pass islands, far apart, no contacts, no crossings.
++        "quiet" => {
++            parts = Vec::new();
++            for i in 0..8u64 {
++                let w = worlds::random(48, 4000, q, 1, seed + i, Response::Pass);
++                let off = [(i % 4) as i64 * 6000, (i / 4) as i64 * 6000];
++                parts.push(scenes::world(&w, scenes::place(&w, 1 + 1000 * i, off, 1, 1, [0, 0])));
++            }
++            observer = [9000 * q, 3000 * q];
++        }
++        // The belt's shape: a wide grid of churny clusters (bounce discs, internal
++        // velocities /den) spaced with light slack: internal churn + sustained crossings.
++        "clumps" => {
++            parts = scenes::galaxy(q, 3, 3, 256, 1800, 8, seed);
++            observer = [2 * 1800 * q, 2 * 1800 * q];
++        }
++        // The deterministic laggard: 2500 single-body Pass worlds in a far cluster (the
++        // workers cannot clear their first strides in the window: frontier = 0 and
++        // history[0] = 0 for most of them, the whole run) plus sparse islands with the
++        // observer among them. v4's global floor0 is pinned at 0; v5 must decouple the
++        // islands and let the present run at the laggards' light delay (400k/256 ~ 1562).
++        "mixed" => {
++            parts = Vec::new();
++            let mut id = 3_000_000u64;
++            for i in 0..2500u64 {
++                let w = worlds::random(1, 4000, q, 1, seed.wrapping_add(i * 7), Response::Pass);
++                let off = [400_000 + (i % 50) as i64 * 300, (i / 50) as i64 * 300];
++                parts.push(scenes::world(&w, scenes::place(&w, id, off, 1, 1, [0, 0])));
++                id += 1;
++            }
++            for i in 0..7u64 {
++                let w = worlds::random(48, 4000, q, 1, seed + 100 + i, Response::Pass);
++                let off = [(i % 4) as i64 * 6000, (i / 4) as i64 * 6000];
++                parts.push(scenes::world(&w, scenes::place(&w, 2_000_000 + 1000 * i, off, 1, 1, [0, 0])));
++            }
++            observer = [9000, 3000];
++        }
++        _ => panic!("unknown class {class}"),
++    }
++    let bodies: usize = parts.iter().map(|w| w.bodies.len()).sum();
++    let parts = scenes::with_law(parts, emergent_lattice::law::Law::Relativistic);
++    let cfg = Config {
++        p_workers: 2,
++        e_workers: 2,
++        sabotage: None,
++        speed_margin: margin,
++        min_region,
++        observer,
++        view_radius: 400 * q,
++        stride_gate: gate == 1,
++        ..Config::default()
++    };
++    let mut al = Allocator::new(parts, factory(), cfg).expect("scene");
++    // stride_gate arm (10th arg): 1 grows finality's reach boxes by one stride's light
++    // travel, blocking finality past live stride starts (the finality-assert fix under test).
++    let rep = al.run_frames(&FrameConfig { hz: 240.0, seconds, rate, ahead_seconds: 0.3, record: false });
++    let f = rep.frames.as_ref().expect("frame report");
++    let r = &rep.regions;
++    eprintln!(
++        "done {class} seed {seed} rate {rate} min_region {min_region} gate {gate}: {bodies} bodies | present {:.0} | rollbacks {} merges {} splits {} regions {}->{} | deadline misses {} | final lead max {:.0} | violations {}",
++        rep.sim.present_end, r.rollbacks, r.merges, r.splits, r.initial, r.last, f.deadline_misses,
++        f.final_lead_chronons.max, rep.finality.hard_speed_violations
++    );
++}
+diff --git a/crates/allocator/examples/finpol.rs b/crates/allocator/examples/finpol.rs
+new file mode 100644
+index 00000000..b7ecd5d7
+--- /dev/null
++++ b/crates/allocator/examples/finpol.rs
+@@ -0,0 +1,123 @@
++//! Adjudicates the wiki conflict on `allocator-ratchet`: is the shipped finality assert
++//! (`alloc.rs:1451`) a property of the frame harness on any *churn* scene (b966:
++//! 14/35 draws at the keeping-up rate, reproduced three windows) or an artifact of one
++//! scene family (5d87: 18/18 frames arms survive on the wave family; batch-only grid
++//! defect)? This instrument separates the two variables the disputed runs confound —
++//! internal velocity spread (split-then-reclash churn) and bulk approach — and adds the
++//! arms neither ran in frames: on-grid chunks, window 32, min_region 32, churn dose.
++//!
++//! Scenes: `selfchurn` (ONE loose gas cluster, internal spread only, no approach),
++//! `crossing` (two churn clusters on perpendicular paths meeting mid-run), `wave`
++//! (zero-spread Pass slabs head-on: a planned merge, no churn — 5d87's class),
++//! `drift` (b966's scene, for continuity). Modes: frames | chunks | batch.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example finpol -- \
++//!         <scene> <mode> [n] [seconds|horizon] [chunk] [rate] [vmax] [seed]
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig, Report};
++use emergent_lattice::{chronon::Chronon, law::{Law, Response, World}, worlds};
++use std::sync::Arc;
++
++fn gas(q: i64, n: u64, vmax: i64, seed: u64, id: u64, off: [i64; 2]) -> World {
++    scenes::loose_gas(n, q, vmax, seed, id, off)
++}
++
++/// Two uniform-velocity Pass slabs closing head-on: they merge where they meet and
++/// nothing ever scatters — bulk motion and a real planned merge with zero churn.
++fn wave(q: i64, n: u64, seed: u64) -> Vec<World> {
++    let v = q / 8;
++    (0..2)
++        .map(|i| {
++            let w = worlds::random(n, 300, q, 1, seed + 50 + i, Response::Pass);
++            let off = if i == 0 { [-120, 0] } else { [120, 0] };
++            let drift = if i == 0 { [v, 0] } else { [-v, 0] };
++            scenes::world(&w, scenes::place(&w, 1_000_000 + 1000 * i as u64, off, 0, 1, drift))
++        })
++        .collect()
++}
++
++fn build(scene: &str, q: i64, n: u64, vmax: i64, seed: u64) -> Vec<World> {
++    match scene {
++        "selfchurn" => vec![gas(q, 2 * n, vmax, seed, 1, [0, 0])],
++        "crossing" => {
++            // Two churn clusters on perpendicular paths meeting near the origin mid-run
++            // (4000 units at q/16 per chronon ≈ chronon 250 per axis).
++            let mk = |seed: u64, id: u64, axis: usize, sign: i64| -> World {
++                let g = gas(q, n, vmax, seed, id, [0, 0]);
++                let mut b = g.bodies.clone();
++                b.iter_mut().for_each(|x| {
++                    x.x[axis] += sign * 4000 * q;
++                    x.k[axis] -= sign * q / 16;
++                });
++                scenes::world(&g, b)
++            };
++            vec![mk(seed, 1, 0, -1), mk(seed + 1, n + 1, 1, -1)]
++        }
++        "wave" => wave(q, n, seed),
++        "drift" => {
++            let speed = q / 8;
++            let mut ws = vec![gas(q, n, vmax, seed, 1, [-140, 0]), gas(q, n, vmax, seed + 1, n + 1, [140, 0])];
++            ws[0].bodies.iter_mut().for_each(|b| b.k[0] += speed);
++            ws[1].bodies.iter_mut().for_each(|b| b.k[0] -= speed);
++            ws
++        }
++        _ => panic!("scene must be selfchurn | crossing | wave | drift"),
++    }
++}
++
++fn row(tag: &str, r: &Report) {
++    println!(
++        "| {tag:<34} | {:>5.1}s | rb {:>3} | merges {:>4} | avoided {:>5} | regions {:>5} | E {:>5.0} | present/s {:>6.1} | frontier {:>5} | wasted {:>7} |",
++        r.wall_seconds, r.regions.rollbacks, r.regions.merges, r.regions.merges_avoided,
++        r.regions.last, r.regions.speed_escalation, r.sim.present_chronons_per_wall_second,
++        r.finality.frontier, r.regions.wasted_ops,
++    );
++}
++
++fn main() {
++    let q = 256i64;
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let scene = a.first().cloned().unwrap_or("selfchurn".into());
++    let mode = a.get(1).cloned().unwrap_or("frames".into());
++    let n: u64 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(120);
++    let hs: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(6.0);
++    let chunk: i64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(128);
++    let rate: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(600.0);
++    let vmax: i64 = a.get(6).and_then(|s| s.parse().ok()).unwrap_or(8);
++    let seed: u64 = a.get(7).and_then(|s| s.parse().ok()).unwrap_or(11);
++    let window: i64 = std::env::var("FINPOL_WINDOW").ok().and_then(|s| s.parse().ok()).unwrap_or(16);
++    let min_region: i64 = std::env::var("FINPOL_MINREGION").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++
++    let ws = scenes::with_law(build(&scene, q, n, vmax, seed), Law::Relativistic);
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let cfg = Config {
++        p_workers: 3, e_workers: 4, min_region: min_region.max(0) as usize, speed_margin: 0.5,
++        window, observer: [0, 0], view_radius: 300 * 256,
++        ..Config::default()
++    };
++    let mut al = Allocator::new(ws, factory, cfg).expect("scene");
++    let tag = format!("{scene}/{mode} n{n} r{rate} v{vmax} s{seed} w{window} m{min_region}");
++    match mode.as_str() {
++        "frames" => {
++            let r = al.run_frames(&FrameConfig { hz: 120.0, seconds: hs, rate, ahead_seconds: 0.25, record: false });
++            row(&tag, &r);
++            let f = r.frames.as_ref().expect("frames report");
++            println!("frames: {} drawn, misses {}, accel drops {}", f.frames, f.deadline_misses, f.acceleration_drops);
++        }
++        "chunks" => {
++            let horizon = hs as i64;
++            let mut tick = 0i64;
++            loop {
++                let next = (tick + chunk).min(horizon);
++                let r = al.run_to(next);
++                println!("chunk->{next}: frontier {}, rb {}, regions {}", r.finality.frontier, r.regions.rollbacks, r.regions.last);
++                tick = next;
++                if tick >= horizon { break; }
++            }
++        }
++        "batch" => {
++            let r = al.run_to(hs as i64);
++            row(&tag, &r);
++        }
++        _ => panic!("mode must be frames | chunks | batch"),
++    }
++}
+diff --git a/crates/allocator/examples/race.rs b/crates/allocator/examples/race.rs
+new file mode 100644
+index 00000000..1d84ec96
+--- /dev/null
++++ b/crates/allocator/examples/race.rs
+@@ -0,0 +1,46 @@
++//! Lab 20261017-1447-dynamics-fd35: the finality race on sustained-overlap churn (four dense
++//! Bounce gases, light-cone finality on; `sabotage` optionally forces rollbacks the shipped
++//! finality tests use), frames harness. One process per arm so a firing assert ends only
++//! that arm. HAZ/PRE/RB/FIRE lines go to stderr (the instrument in alloc.rs); one summary
++//! row to stdout.
++//!
++//!     cargo run -p emergent-allocator --release --offline --example race -- \
++//!         <n-per-cluster> <seed> <min_region> <rate> <seconds> [window] [stride_max] [vmax] [spacing] [sabotage] [ahead]
++use emergent_allocator::{scenes, Allocator, Config, Factory, FrameConfig};
++use emergent_lattice::{chronon::Chronon, law::{Law, World}};
++use std::sync::Arc;
++
++fn scene_churn(n: u64, seed: u64, vmax: i64, spacing: i64) -> Vec<World> {
++    // Four dense Bounce gases on a 2x2 grid `spacing` units apart (box side ~65 units at
++    // n = 400): overlap or approach churn; `sabotage` widens forecasts into conflicts.
++    let q = 256;
++    let ws = (0..4u64)
++        .map(|c| scenes::loose_gas(n, q, vmax, seed * 10 + c, c * 1_000_000, [(c as i64 % 2) * spacing, (c as i64 / 2) * spacing]))
++        .collect();
++    scenes::with_law(ws, Law::Relativistic)
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let n: u64 = a.first().unwrap_or(&"400".into()).parse().unwrap();
++    let seed: u64 = a.get(1).unwrap_or(&"11".into()).parse().unwrap();
++    let min_region: usize = a.get(2).unwrap_or(&"1".into()).parse().unwrap();
++    let rate: f64 = a.get(3).unwrap_or(&"900".into()).parse().unwrap();
++    let seconds: f64 = a.get(4).unwrap_or(&"3".into()).parse().unwrap();
++    let window: i64 = a.get(5).unwrap_or(&"16".into()).parse().unwrap();
++    let stride_max: u32 = a.get(6).unwrap_or(&"8".into()).parse().unwrap();
++    let vmax: i64 = a.get(7).unwrap_or(&"64".into()).parse().unwrap();
++    let spacing: i64 = a.get(8).unwrap_or(&"40".into()).parse().unwrap();
++    let sabotage: Option<u64> = a.get(9).and_then(|s| s.parse().ok()).map(|k: u64| k.max(1));
++    let ahead: f64 = a.get(10).unwrap_or(&"0.3".into()).parse().unwrap();
++    let scene = scene_churn(n, seed, vmax, spacing);
++    let factory: Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
++    let cfg = Config { min_region, window, stride_max, observer: [0, 0], sabotage, speed_margin: if sabotage.is_some() { 0.0 } else { 1.0 }, ..Config::default() };
++    let mut al = Allocator::new(scene, factory, cfg).expect("scene");
++    let r = al.run_frames(&FrameConfig { hz: 60.0, seconds, rate, ahead_seconds: ahead, record: false });
++    let f = r.frames.as_ref().expect("frames");
++    println!(
++        "SUM n={n} seed={seed} min={min_region} rate={rate} win={window} vmax={vmax} sp={spacing} sab={:?} ahead={ahead} frames={} present/s={:.0} present_end={:.0} rollbacks={} rgn0={} splits={} chr/s={:.0}",
++        sabotage, f.frames, r.sim.present_chronons_per_wall_second, r.sim.present_end, r.regions.rollbacks, r.regions.initial, r.regions.splits, r.sim.region_chronons_per_wall_second
++    );
++}
+diff --git a/crates/allocator/src/alloc.rs b/crates/allocator/src/alloc.rs
+index 8e8d8dc2..684ca79a 100644
+--- a/crates/allocator/src/alloc.rs
++++ b/crates/allocator/src/alloc.rs
+@@ -3,6 +3,13 @@
+ //! units, core classes, snapshot publishing and monitoring. The certificate and finality
+ //! arguments are in the crate docs (lib.rs). Every round-3 scheduling change has a switch in
+ //! [`Config`] so before/after runs share one build ([`Config::round2`] turns them all off).
++// Lab replay instrument (print-only, gated by ESE_STRIDE_DBG): pins which path published a
++// fire's fin_hi. SF lines mark every set_final caller; MG marks merge inheritance; the
++// alone_at ring records the coalesce inputs at deciding ticks, printed at FIRE.
++fn sdbg() -> bool {
++    static D: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ESE_STRIDE_DBG").is_ok());
++    *D
++}
+ use crate::forecast::{kinetic, CostModel, Features, Sabotage};
+ use crate::geom::{coalesce, islands, separated, Aabb, Ent, Uf};
+ use crate::qos::{self, Class};
+@@ -73,9 +80,16 @@ pub struct Config {
+     pub eligibility: bool,
+     /// Affinity: a worker keeps its region unless another is more urgent by half a window.
+     pub hysteresis: bool,
+-    /// Light-cone finality with one coalesce per candidate tick for all regions (finality is
+-    /// monotone in t), instead of one per region per bisection step.
++    /// Light-cone finality with one coalesce per distinct candidate tick for all regions
++    /// (finality is monotone in t), instead of one per region per bisection step.
+     pub fast_finality: bool,
++    /// Finality gate: grow every reach box in `alone_at`/`final_through` by one more
++    /// stride's light travel (v·(stride_max+1)·window). A stride from `verified` spans at
++    /// most (stride_max+1) windows, so its certificate hull lies inside that grown box;
++    /// coalescing then blocks any region from turning final past a live stride start, and
++    /// no clash can restore a lineage below a published tick (the finality assert, which
++    /// fired on churn and fleet battles: lab runs 01e7/bc0f/bf83/e517/c749).
++    pub stride_gate: bool,
+ }
+ 
+ impl Default for Config {
+@@ -102,6 +116,7 @@ impl Default for Config {
+             eligibility: true,
+             hysteresis: true,
+             fast_finality: true,
++            stride_gate: false,
+         }
+     }
+ }
+@@ -110,7 +125,7 @@ impl Config {
+     /// The round-2 scheduler: one scan under the lock, fixed 32-chronon windows, no lanes,
+     /// no eligibility, no hysteresis.
+     pub fn round2() -> Self {
+-        Config { window: 32, stride: 1, stride_max: 1, lanes: false, queues: false, aimd: false, eligibility: false, hysteresis: false, fast_finality: false, ..Config::default() }
++        Config { window: 32, stride: 1, stride_max: 1, lanes: false, queues: false, aimd: false, eligibility: false, hysteresis: false, fast_finality: false, stride_gate: false, ..Config::default() }
+     }
+ }
+ 
+@@ -391,10 +406,20 @@ struct State<S> {
+     fresh: Vec<u64>,
+     last_cap: Tick,
+     last_ran: Vec<Option<u64>>,
++    /// Lab replay instrument (print-only, ESE_STRIDE_DBG): (kind, id, t, fin_hi) publish
++    /// events (0 born, 1 front, 2 bisect, 3 shared), merge events, and the last alone_at
++    /// coalesce groups at deciding ticks — tuples until a FIRE formats them.
++    dbg_ev: VecDeque<(u8, u64, i64, i64)>,
++    dbg_mg: VecDeque<String>,
++    dbg_alone: Vec<(i64, Vec<(Vec<u64>, [i64; 5])>)>,
++    /// Lab replay instrument (print-only): one armed-PRE dump per process.
++    dbg_dumped: bool,
+     cost_sum: f64,
+     giants: usize,
+     rng: Rng,
+     last_finalize: Option<Instant>,
++    /// Publish counter for the lab race instrument (print-only).
++    haz_pubs: u64,
+ }
+ 
+ struct Job<S> {
+@@ -668,6 +693,10 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 blocked_by: None,
+             },
+         );
++        if sdbg() {
++            self.dbg_ev.push_back((0, id, 0, parts.iter().map(|s| s.tick).max().unwrap_or(0)));
++            if self.dbg_ev.len() > 8192 { self.dbg_ev.pop_front(); }
++        }
+         self.regions.get_mut(&id).expect("made").set_final(parts);
+         self.set_verified(None, Some(tick));
+         self.anchor(id, snap);
+@@ -1045,6 +1074,58 @@ impl<S: Stepper + Send + 'static> State<S> {
+         self.classify(d.id, c);
+         self.fresh.push(d.id);
+         let Some((world, end, comps)) = d.end else { return };
++        // Lab instrument (print-only): mirror the upcoming certify scan with the measured
++        // box. `D` is the largest fin_hi − s0 this stride's clash would restore, over the
++        // clashing lineages' descendants; D > 0 means the finality assert in rollback WILL
++        // fire if certify returns this clash (it decides with the same predicate).
++        {
++            let r = &self.regions[&d.id];
++            let (start, stop, truth, rad) = (r.verified, r.tick, r.bbox.hull(&end), r.rmax);
++            let (w0, w1) = (self.window(start), self.window(stop - 1));
++            let mut danger: Option<(i64, u64, i64)> = None; // (fin_hi − s0, truth lineage, s0)
++            for (_, list) in self.truths.range(w0..=w1) {
++                for t in list.iter().filter(|t| t.id != d.id && !separated(&truth, rad, &t.bbox, t.r)) {
++                    let s0 = start.min(t.start);
++                    let desc = self.descendants(&[d.id, t.id]);
++                    let fin = desc.iter().filter_map(|id| self.regions.get(id)).map(|x| x.fin_hi).max().unwrap_or(Tick::MIN);
++                    if danger.is_none_or(|(x, ..)| fin - s0 > x) {
++                        danger = Some((fin - s0, t.id, s0));
++                    }
++                }
++            }
++            eprintln!("PRE id={} s={} e={} D={:?}", d.id, start, stop, danger);
++            if let Some((m, tid, s0)) = danger {
++                if m > 0 && sdbg() && !self.dbg_dumped {
++                    self.dbg_dumped = true;
++                    eprintln!("SDBG armed id={} m={m} tid={tid} s0={s0} front={} ev:", d.id, self.frontier());
++                    for (k, id, t, fh) in &self.dbg_ev {
++                        let kind = ["born", "front", "bisect", "shared"][*k as usize];
++                        eprintln!("SDBG SF {kind} id={id} t={t} fin_hi={fh}");
++                    }
++                    for mg in &self.dbg_mg {
++                        eprintln!("SDBG {mg}");
++                    }
++                    eprintln!("SDBG armed ring:");
++                    for (t, groups) in &self.dbg_alone {
++                        if *t >= s0 {
++                            for (ids, b) in groups {
++                                eprintln!("SDBG dump t={t} ids={ids:?} r={} lo=({},{}) hi=({},{})", b[4], b[0], b[1], b[2], b[3]);
++                            }
++                        }
++                    }
++                    eprintln!("SDBG armed truths:");
++                    for (w, list) in &self.truths {
++                        for tr in list {
++                            eprintln!("SDBG truth w={w} id={} start={} r={} lo=({},{}) hi=({},{})", tr.id, tr.start, tr.r, tr.bbox.lo[0], tr.bbox.lo[1], tr.bbox.hi[0], tr.bbox.hi[1]);
++                        }
++                    }
++                    eprintln!("SDBG armed regs:");
++                    for r in self.regions.values() {
++                        eprintln!("SDBG reg id={} fin={} fin_hi={} verified={} tick={} busy={} giant={} rmax={}", r.id, r.fin, r.fin_hi, r.verified, r.tick, r.busy, r.giant, r.rmax);
++                    }
++                }
++            }
++        }
+         let front = self.frontier();
+         if let Err(clashes) = self.certify(d.id, &end) {
+             self.rollback(clashes);
+@@ -1330,6 +1411,10 @@ impl<S: Stepper + Send + 'static> State<S> {
+             let src = || gmembers[gi].iter().map(|&mi| &self.regions[&members[mi]]);
+             let history = merged_history(src().map(|r| &r.history), tick);
+             let fin = union_parts(src().map(|r| &r.fin_parts));
++            if sdbg() {
++                self.dbg_mg.push_back(format!("MG ids={:?} fin_hi={}", gmembers[gi].iter().map(|&mi| members[mi]).collect::<Vec<u64>>(), fin.iter().map(|s| s.tick).max().unwrap_or(0)));
++                if self.dbg_mg.len() > 512 { self.dbg_mg.pop_front(); }
++            }
+             let hold = src().map(|r| r.no_split_until).max().unwrap_or(tick);
+             let stride = src().map(|r| r.stride).min().unwrap_or(1);
+             specs.push(Err((World { bodies, consumed, wall_momentum: wall, ..blank.clone() }, log, ops, history, fin, hold, stride)));
+@@ -1359,6 +1444,9 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 }
+             }
+         }
++        // v5 merge-capping: the new regions' lineages are the union of their members'.
++        let new_ids: Vec<u64> = ids.iter().enumerate().filter(|(gi, _)| reuse[*gi].is_none()).map(|(_, &id)| id).collect();
++        self.cap_final(&new_ids);
+ 
+         let mset: HashSet<u64> = members.iter().copied().collect();
+         for win in w.max(self.plan_base)..self.plan_end() {
+@@ -1409,7 +1497,13 @@ impl<S: Stepper + Send + 'static> State<S> {
+         self.st.rollbacks += 1;
+         self.escalation *= 2.0;
+         clashes.sort_by_key(|&(id, s)| (s, id));
++        // Lab instrument (print-only, e517): PRE's closure is the descendants of the clashing
++        // lineages; rollback's `affected` is union-find over shared snapshots and can pull in
++        // siblings outside that closure. `out` measures the gap directly: affected ids outside
++        // the union of PRE's per-pair closures, and the restore margin they alone would carry.
++        let precl = self.descendants(&clashes.iter().map(|&(id, _)| id).collect::<Vec<_>>());
+         let mut restored: Vec<(u64, Tick)> = Vec::new();
++        let clashes_dbg = sdbg().then(|| clashes.clone());
+         for (lid, s0) in clashes {
+             // Regions restored earlier in this rollback already carry any of this lineage's
+             // bodies from an earlier (or equal) start, which is as valid.
+@@ -1446,6 +1540,52 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 assert!(self.regions.keys().all(|id| !desc.contains(id) || done.contains(id)), "a live clashing lineage keeps its snapshot at its stride start");
+                 continue;
+             }
++            // Lab instrument (print-only): the exact assert inputs, logged before the assert
++            // (which stays untouched): every affected region's published fin_hi against this
++            // pair's restore tick s0. RB is the subcritical margin when it passes; FIRE
++            // precedes the panic when it does not.
++            let mut fired = false;
++            for id in &affected {
++                let r = &self.regions[id];
++                if r.fin_hi > s0 {
++                    fired = true;
++                    eprintln!("FIRE id={id} s0={s0} fin_hi={} verified={} front={} busy={} box c={:?} s={:?}", r.fin_hi, r.verified, self.frontier(), r.busy,
++                        [(r.bbox.lo[0] + r.bbox.hi[0]) / 2 / 256, (r.bbox.lo[1] + r.bbox.hi[1]) / 2 / 256],
++                        [(r.bbox.hi[0] - r.bbox.lo[0]) / 256, (r.bbox.hi[1] - r.bbox.lo[1]) / 256]);
++                }
++            }
++            if fired && sdbg() {
++                eprintln!("SDBG clashes={:?} ev:", clashes_dbg.clone().unwrap_or_default());
++                for (k, id, t, fh) in &self.dbg_ev {
++                    let kind = ["born", "front", "bisect", "shared"][*k as usize];
++                    eprintln!("SDBG SF {kind} id={id} t={t} fin_hi={fh}");
++                }
++                for mg in &self.dbg_mg {
++                    eprintln!("SDBG {mg}");
++                }
++                eprintln!("SDBG ring:");
++                for (t, groups) in &self.dbg_alone {
++                    if *t >= s0 {
++                        for (ids, b) in groups {
++                            eprintln!("SDBG dump t={t} ids={ids:?} r={} lo=({},{}) hi=({},{})", b[4], b[0], b[1], b[2], b[3]);
++                        }
++                    }
++                }
++                eprintln!("SDBG truths:");
++                for (w, list) in &self.truths {
++                    for tr in list {
++                        eprintln!("SDBG truth w={w} id={} start={} r={} lo=({},{}) hi=({},{})", tr.id, tr.start, tr.r, tr.bbox.lo[0], tr.bbox.lo[1], tr.bbox.hi[0], tr.bbox.hi[1]);
++                    }
++                }
++            }
++            let out: Vec<(u64, i64)> = affected.iter().filter(|id| !precl.contains(id)).map(|id| (*id, self.regions[id].fin_hi)).collect();
++            let mo = out.iter().map(|&(_, f)| f).max().unwrap_or(s0) - s0;
++             eprintln!(
++                "RB lid={lid} s0={s0} s={s} aff={:?} m={} out={:?} mo={}",
++                affected.iter().map(|id| (id, self.regions[id].fin_hi)).collect::<Vec<_>>(),
++                affected.iter().map(|id| self.regions[id].fin_hi).max().unwrap_or(s0) - s0,
++                out, mo
++             );
+             for id in &affected {
+                 let r = &self.regions[id];
+                 assert!(r.fin_hi <= s0, "rollback of region {id} from {s0} would revise its published tick {}", r.fin_hi);
+@@ -1483,6 +1623,8 @@ impl<S: Stepper + Send + 'static> State<S> {
+             }
+             restored.push((rid, s));
+         }
++        // v5 merge-capping: the restored region's lineage is the union of the affected's.
++        self.cap_final(std::slice::from_ref(&restored.last().expect("a conflict restores something").0));
+         // Plans: forget regions that no longer exist; each restored region stands alone from
+         // its start and all of them are one entity from the latest start (they merge there).
+         let m = restored.iter().map(|&(_, s)| s).max().expect("a conflict restores something");
+@@ -1534,18 +1676,290 @@ impl<S: Stepper + Send + 'static> State<S> {
+     /// grown by v·(t − f) (all computations start from final states and no body outruns v);
+     /// merges planned by t and certificate hulls are closed over by coalescing those boxes;
+     /// the region is final if it stays alone.
++    /// Publish-floor arm selector (lab c1ad + b41f): one binary, env arms. v3 = no advance,
++    /// v4 = f1ca's global floor0, v5 = c1ad's per-region floors (killed as a configuration
++    /// on multi-cluster scenes by checker c1ad — kept flyable for the record), v6 = the
++    /// geometric rebuild (default): the same floors with every window-keyed term replaced
++    /// by certify's own clash predicate (see [`Self::floors_v6`]).
++    fn floor_policy() -> u8 {
++        static P: std::sync::LazyLock<u8> = std::sync::LazyLock::new(|| {
++            if std::env::var("ESE_V3").is_ok() {
++                return 3;
++            }
++            match std::env::var("ESE_FLOOR").as_deref() {
++                Ok("v3") | Ok("3") => 3,
++                Ok("v4") | Ok("4") => 4,
++                Ok("v5") | Ok("5") => 5,
++                _ => 6,
++            }
++        });
++        *P
++    }
++
++    /// Per-region publish floors. v6 (the geometric rebuild, lab b41f) by default; v5
++    /// (c1ad's original window-keyed floors, killed as a configuration on multi-cluster
++    /// scenes by checker c1ad — kept flyable under `ESE_FLOOR=v5` for the record); with no
++    /// hard speed (`lightcone` voided) the geometric argument dies, so v6 falls back to
++    /// v5's conservative window-keyed floors (finality itself is global there).
++    fn publish_floors(&self) -> HashMap<u64, Tick> {
++        if Self::floor_policy() == 5 || self.lightcone.is_none() {
++            return self.floors_v5();
++        }
++        self.floors_v6()
++    }
++
++    /// Per-region publish floors (v5, lab c1ad — every term keyed by window, no geometry).
++    /// For region `r`: the starts of live truths keyed at windows `r`'s strides still span
++    /// (from its `verified` on); for live truths of `r`'s lineage, the truth's start or the
++    /// least stride start of a live region whose strides can still span the truth's window
++    /// (a stride spans at most `stride_max` windows), whichever is lower; `r`'s own
++    /// `verified`, oldest kept snapshot, and least verified among its live ancestors. A
++    /// truth no live stride can still span pins nothing. KILLED as a configuration off the
++    /// battle class: the terms are global by window, so a distant cluster's live truths pin
++    /// unrelated regions and multi-cluster scenes stall at present 0 (checker c1ad,
++    /// clumps/mixed/streams). Exact modulo the `affected` closure being the descendants
++    /// closure (measured: `out=` shut on 2,714+ rollbacks, e517/c749/c1ad).
++    fn floors_v5(&self) -> HashMap<u64, Tick> {
++        let mut out: HashMap<u64, Tick> = HashMap::with_capacity(self.regions.len());
++        // Suffix-min of live truth starts by window key: the self term.
++        let mut suf: Vec<(i64, Tick)> = Vec::with_capacity(self.truths.len());
++        {
++            let mut acc = Tick::MAX;
++            for (&w, list) in self.truths.iter().rev() {
++                for t in list {
++                    acc = acc.min(t.start);
++                }
++                suf.push((w, acc));
++            }
++            suf.reverse();
++        }
++        let sm = |w: i64| match suf.binary_search_by_key(&w, |&(x, _)| x) {
++            Ok(i) => suf[i].1,
++            Err(i) => suf.get(i).map_or(Tick::MAX, |&(_, s)| s),
++        };
++        // Regions by verified window, and the least verified among those whose strides
++        // can still span window w (a stride spans at most stride_max windows).
++        let smax = self.cfg.stride_max.max(1) as i64;
++        let mut ver: Vec<(i64, Tick)> = self.regions.values().map(|r| (self.window(r.verified), r.verified)).collect();
++        ver.sort_unstable();
++        ver.dedup_by_key(|&mut (w, _)| w);
++        let mut lscan: HashMap<i64, Tick> = HashMap::new();
++        for &w in self.truths.keys() {
++            let l = ver.iter().filter(|&&(x, _)| x <= w && x + smax >= w).map(|&(_, t)| t).min().unwrap_or(Tick::MAX);
++            lscan.insert(w, l);
++        }
++        // Self term and base: a region publishes up to what its own strides can still be
++        // restored below (NOT the global frontier: a laggard's verified must not pin
++        // unrelated regions — that coupling was v4's starvation).
++        for r in self.regions.values() {
++            out.insert(r.id, r.verified.min(r.history[0].tick).min(sm(self.window(r.verified))));
++        }
++        // Lineage pins: per truth still scannable by some live stride, the least of its
++        // start and that scanner's stride start, grouped by the truth's lineage id.
++        let mut pin: HashMap<u64, Tick> = HashMap::new();
++        for (&w, list) in &self.truths {
++            let l = *lscan.get(&w).unwrap_or(&Tick::MAX);
++            if l == Tick::MAX {
++                continue;
++            }
++            for t in list {
++                let p = t.start.min(l);
++                pin.entry(t.id).and_modify(|e| *e = (*e).min(p)).or_insert(p);
++            }
++        }
++        self.lineage_pins(pin, out)
++    }
++
++    /// Per-region publish floors (v6, lab b41f — the geometric rebuild the checker named).
++    /// Same lineage propagation as v5, but every window-keyed term (the global suffix-min
++    /// `sm` and the global scanner-min `lscan`) is replaced by ONE pair scan that mirrors
++    /// certify's own clash predicate, and the base loses v5's oldest-snapshot term: a
++    /// stride of region `r` starting at `s` spans windows [w(s), w(s) + stride_max], so it
++    /// can scan a live truth keyed at window `w` only from `s ≥ boundary(w − stride_max)`;
++    /// the least such `s` gives the worst restore tick `s0 = min(s, t.start)` a clash on
++    /// that pair can carry, and the clash needs the truth to touch `r`'s box at `s` grown
++    /// by one stride's light travel (`v·(s − verified + stride_max·window)` — the same
++    /// slack `alone_at` certifies with). A truth that can never touch `r` pins nothing of
++    /// it, however stale: a laggard pins its geometric neighbours, not the scene. The base
++    /// is `r.verified` alone: the assert compares against the clash tick (a stride start
++    /// or truth start, both at or above it), never the walk-back restore point — v5's
++    /// `history[0]` term was over-conservative and deadlocked ignition (prune pins
++    /// history[0] at the sync floor, so inside the first sync grid every floor was 0,
++    /// nothing published, and the goal cap kept the frontier below the grid forever:
++    /// clumps/mixed at present 0, checker c1ad). Exactness: any future clash on (r, t)
++    /// scans from s″ ≥ max(r.verified now, boundary(w − stride_max)) = the `s` used here,
++    /// so its s0 is at or above the pin; a truth `r` writes later starts at or above
++    /// `r.verified` and is covered by the pins on `r`'s then-live earlier truths (same
++    /// geometry, lower or equal start); the `affected`-closure assumption is unchanged.
++    fn floors_v6(&self) -> HashMap<u64, Tick> {
++        let mut out: HashMap<u64, Tick> = HashMap::with_capacity(self.regions.len());
++        for r in self.regions.values() {
++            out.insert(r.id, r.verified);
++        }
++        let v = self.lightcone.expect("the caller falls back to v5 without a hard speed");
++        let smax = self.cfg.stride_max.max(1) as i64;
++        let win = self.cfg.window;
++        // Pair scan: every (region, live truth) whose stride can still meet, both parties
++        // pinned at the least s0 their clash could carry. Only windows at or above the
++        // region's verified window are scannable by its future strides.
++        let mut pin: HashMap<u64, Tick> = HashMap::new();
++        for r in self.regions.values() {
++            for (&w, list) in self.truths.range(self.window(r.verified)..) {
++                // The earliest stride of `r` that can scan window w, and the hull it
++                // certifies. The scan can also happen LATER — any start up to the truth's
++                // death (a truth is pruned only once the frontier passes its window), and
++                // `r` keeps approaching the truth until then — so the touch test uses the
++                // box grown to that horizon, not the earliest scan's (the s13 fire: the
++                // earliest-scan hull missed a pair a later scan clashed on).
++                let s = r.verified.max(self.boundary(w - smax));
++                let death = self.boundary(w + 1) + self.sync();
++                let reach = v.saturating_mul(s.max(death).saturating_sub(r.verified).saturating_add(smax.saturating_mul(win)));
++                let hull = r.bbox.grow(reach);
++                for t in list.iter().filter(|t| t.id != r.id && !separated(&hull, r.rmax, &t.bbox, t.r)) {
++                    let s0 = s.min(t.start);
++                    for id in [r.id, t.id] {
++                        pin.entry(id).and_modify(|e| *e = (*e).min(s0)).or_insert(s0);
++                    }
++                }
++            }
++        }
++        self.lineage_pins(pin, out)
++    }
++
++    /// Path-min over the lineage forest (children edges, old -> new): a region's stale
++    /// pin is the least pin on its ancestor chain, its own live ancestors' verified
++    /// included (their future strides and truths start at or above it).
++    fn lineage_pins(&self, pin: HashMap<u64, Tick>, mut out: HashMap<u64, Tick>) -> HashMap<u64, Tick> {
++        let val = |id: u64| pin.get(&id).copied().unwrap_or(Tick::MAX).min(self.regions.get(&id).map_or(Tick::MAX, |r| r.verified));
++        if !pin.is_empty() || self.children.keys().any(|id| self.regions.contains_key(id) && val(*id) < Tick::MAX) {
++            let mut memo: HashMap<u64, Tick> = HashMap::new();
++            let mut is_child = HashSet::new();
++            for cs in self.children.values() {
++                is_child.extend(cs.iter().copied());
++            }
++            let roots: Vec<u64> = self.children.keys().copied().filter(|id| !is_child.contains(id)).collect();
++            let mut stack: Vec<(u64, Tick)> = roots.into_iter().map(|id| (id, val(id))).collect();
++            while let Some((id, mp)) = stack.pop() {
++                let e = memo.entry(id).or_insert(mp);
++                if *e > mp {
++                    *e = mp;
++                }
++                for &c in self.children.get(&id).into_iter().flatten() {
++                    let cm = mp.min(val(c));
++                    if memo.get(&c).map_or(true, |&m| m > cm) {
++                        stack.push((c, cm));
++                    }
++                }
++            }
++            for r in self.regions.values() {
++                let p = memo.get(&r.id).copied().unwrap_or(Tick::MAX).min(val(r.id));
++                if p < Tick::MAX {
++                    *out.get_mut(&r.id).expect("seeded") = out[&r.id].min(p);
++                }
++            }
++        }
++        out
++    }
++
++    /// Merge-capping (v5/v6): a region born from a merge or rollback inherits parts published
++    /// under each parent's own floor; the union lineage can still restore below the highest
++    /// of them (a parent's stale-truth lineage), so the child's parts are capped at its own
++    /// floor at birth. They re-publish as finality advances; until then the view shows those
++    /// bodies at the child's older parts.
++    fn cap_final(&mut self, ids: &[u64]) {
++        if !self.cfg.stride_gate || !matches!(Self::floor_policy(), 5 | 6) {
++            return;
++        }
++        let fl = self.publish_floors();
++        let front = self.frontier();
++        for &id in ids {
++            let Some(r) = self.regions.get_mut(&id) else { continue };
++            let cap = fl.get(&id).copied().unwrap_or(Tick::MAX);
++            if r.fin_hi > cap {
++                // The child's inherited parts partition its bodies by parent lineage (each
++                // part carries the bodies it published); retaining by tick can drop a whole
++                // parent's lineage, and a merge can bridge two parents into a truth neither
++                // touched alone (hull(A∪B) exceeds hull(A)∪hull(B)), so the cap can fall
++                // below every inherited part. The view must still hold every body once:
++                // keep the parts at or below the cap, and whenever they no longer cover
++                // every body, rebuild from the deepest complete history entry at or below
++                // the cap (completeness in `merged_history` is exactly the guarantee that
++                // every then-lineage held a snapshot there — all bodies covered at one
++                // tick). Only when a parent is younger than the pin is there no such entry:
++                // the deepest complete entry at all (the birth entry) still covers every
++                // body; the child then sits above its pin, holds publication, and waits
++                // for the offending truth to be pruned or scanned elsewhere (CAPGAP).
++                r.fin_parts.retain(|p| p.tick <= cap);
++                let own: HashSet<u64> = r.last.world.bodies.iter().map(|b| b.id).collect();
++                let covered: HashSet<u64> = r.fin_parts.iter().flat_map(|p| p.world.bodies.iter().map(|b| b.id)).collect();
++                if !own.iter().all(|b| covered.contains(b)) {
++                    let e = r
++                        .history
++                        .iter()
++                        .rev()
++                        .find(|e| e.complete && e.tick <= cap)
++                        .map(|e| (e.tick, e.snaps.clone()))
++                        .or_else(|| r.history.iter().rev().find(|e| e.complete).map(|e| (e.tick, e.snaps.clone())));
++                    match e {
++                        Some((t, snaps)) => {
++                            if t > cap {
++                                eprintln!("CAPGAP id={id} cap={cap} show={t} front={front}");
++                            }
++                            r.set_final(snaps);
++                        }
++                        None => {
++                            r.fin = Tick::MIN;
++                            r.fin_hi = Tick::MIN;
++                        }
++                    }
++                } else {
++                    r.fin = r.fin_parts.iter().map(|p| p.tick).min().expect("non-empty");
++                    r.fin_hi = r.fin_parts.iter().map(|p| p.tick).max().expect("non-empty");
++                }
++            }
++        }
++    }
+     fn finalize(&mut self) {
+         self.last_finalize = Some(Instant::now());
+         let front = self.frontier();
++        static FDBG: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ESE_FLOOR_DBG").is_ok());
++        let policy = Self::floor_policy();
++        let floors = (self.cfg.stride_gate && matches!(policy, 5 | 6)).then(|| self.publish_floors());
++        if *FDBG {
++            if let Some((id, fh)) = self.regions.values().map(|r| (r.id, r.fin_hi)).max_by_key(|&(_, f)| f) {
++                let fl = floors.as_ref().and_then(|f| f.get(&id)).copied();
++                eprintln!("FLR p={} pol={} lc={:?} id={} fin_hi={} floor={:?} nreg={} ntruth={}", self.haz_pubs, policy, self.lightcone, id, fh, fl, self.regions.len(), self.truths.values().map(Vec::len).sum::<usize>());
++            }
++            if self.haz_pubs % 20 == 0 {
++                for r in self.regions.values() {
++                    eprintln!("FLRR p={} id={} fin_hi={} fin={} v={} w={} floor={:?} busy={}", self.haz_pubs, r.id, r.fin_hi, r.fin, r.verified, self.window(r.verified), floors.as_ref().and_then(|f| f.get(&r.id)), r.busy);
++                }
++            }
++        }
++        let floor0 = self.regions.values().map(|r| r.history[0].tick).chain(self.truths.values().flatten().map(|t| t.start)).min().unwrap_or(front);
++        let mut dbg_front: Vec<(u8, u64, i64, i64)> = Vec::new();
+         for r in self.regions.values_mut() {
+-            let next = r.history.iter().rev().find(|e| e.complete && e.tick <= front && e.tick >= r.fin_hi && e.tick > r.fin).map(|e| e.snaps.clone());
++            let bound = match &floors {
++                Some(f) => f.get(&r.id).copied().unwrap_or(front),
++                None if self.cfg.stride_gate && policy == 3 => Tick::MIN,
++                None if self.cfg.stride_gate => floor0.min(front),
++                None => front,
++            };
++            let next = r.history.iter().rev().find(|e| e.complete && e.tick <= bound && e.tick >= r.fin_hi && e.tick > r.fin).map(|e| e.snaps.clone());
+             if let Some(parts) = next {
++                if sdbg() {
++                    dbg_front.push((1, r.id, bound, parts.iter().map(|s| s.tick).max().unwrap_or(r.fin_hi)));
++                }
+                 r.set_final(parts);
+             }
+         }
++        if sdbg() {
++            self.dbg_ev.extend(dbg_front);
++            while self.dbg_ev.len() > 8192 { self.dbg_ev.pop_front(); }
++        }
+         let Some(v) = self.lightcone else { return };
+         if self.cfg.fast_finality {
+-            return self.finalize_shared(v);
++            return self.finalize_shared(v, floors.as_ref());
+         }
+         for _round in 0..8 {
+             let base: Vec<(u64, Vec<(Tick, Aabb)>, Tick, i64)> = self
+@@ -1557,7 +1971,7 @@ impl<S: Stepper + Send + 'static> State<S> {
+             let ids: Vec<u64> = self.regions.keys().copied().collect();
+             for id in ids {
+                 let r = &self.regions[&id];
+-                let cands: Vec<Tick> = r.history.iter().filter(|e| e.complete && e.tick > r.fin_hi && e.tick <= r.verified).map(|e| e.tick).collect();
++                let cands: Vec<Tick> = r.history.iter().filter(|e| e.complete && e.tick > r.fin_hi && e.tick <= r.verified).filter(|e| floors.as_ref().is_none_or(|f| f.get(&id).is_none_or(|&c| e.tick <= c))).map(|e| e.tick).collect();
+                 let (mut lo, mut hi, mut best) = (0usize, cands.len(), None);
+                 while lo < hi {
+                     let mid = (lo + hi) / 2;
+@@ -1571,6 +1985,10 @@ impl<S: Stepper + Send + 'static> State<S> {
+                 if let Some(t) = best {
+                     let r = self.regions.get_mut(&id).expect("listed");
+                     let parts = r.entry(t).expect("candidate").snaps.clone();
++                    if sdbg() {
++                        self.dbg_ev.push_back((2, id, t, parts.iter().map(|s| s.tick).max().unwrap_or(r.fin_hi)));
++                        if self.dbg_ev.len() > 8192 { self.dbg_ev.pop_front(); }
++                    }
+                     r.set_final(parts);
+                     changed = true;
+                 }
+@@ -1584,7 +2002,7 @@ impl<S: Stepper + Send + 'static> State<S> {
+     /// The same fixpoint with one coalesce per distinct candidate tick, deciding every region
+     /// at once: walking ticks downward, a region takes the first (largest) of its candidates
+     /// at which its group is alone. Monotone in t, so this equals the per-region bisection.
+-    fn finalize_shared(&mut self, v: i64) {
++    fn finalize_shared(&mut self, v: i64, floors: Option<&HashMap<u64, Tick>>) {
+         for _round in 0..8 {
+             let base: Vec<(u64, Vec<(Tick, Aabb)>, Tick, i64)> = self
+                 .regions
+@@ -1594,7 +2012,7 @@ impl<S: Stepper + Send + 'static> State<S> {
+             let cands: HashMap<u64, BTreeSet<Tick>> = self
+                 .regions
+                 .values()
+-                .map(|r| (r.id, r.history.iter().filter(|e| e.complete && e.tick > r.fin_hi && e.tick <= r.verified).map(|e| e.tick).collect()))
++                .map(|r| (r.id, r.history.iter().filter(|e| e.complete && e.tick > r.fin_hi && e.tick <= r.verified).filter(|e| floors.is_none_or(|f| f.get(&r.id).is_none_or(|&c| e.tick <= c))).map(|e| e.tick).collect()))
+                 .filter(|(_, c): &(u64, BTreeSet<Tick>)| !c.is_empty())
+                 .collect();
+             let ticks: BTreeSet<Tick> = cands.values().flatten().copied().collect();
+@@ -1616,51 +2034,149 @@ impl<S: Stepper + Send + 'static> State<S> {
+             for (id, t) in decided {
+                 let r = self.regions.get_mut(&id).expect("listed");
+                 let parts = r.entry(t).expect("candidate").snaps.clone();
++                if sdbg() {
++                    self.dbg_ev.push_back((3, id, t, parts.iter().map(|s| s.tick).max().unwrap_or(r.fin_hi)));
++                    if self.dbg_ev.len() > 8192 { self.dbg_ev.pop_front(); }
++                }
+                 r.set_final(parts);
+             }
+         }
+     }
+ 
+     /// Regions whose group is alone after coalescing everyone's reach at `t`.
+-    fn alone_at(&self, t: Tick, base: &[(u64, Vec<(Tick, Aabb)>, Tick, i64)], v: i64) -> HashSet<u64> {
++    fn alone_at(&mut self, t: Tick, base: &[(u64, Vec<(Tick, Aabb)>, Tick, i64)], v: i64) -> HashSet<u64> {
+         let pw = self.window(t - 1);
+         let plan = self.has_plan(pw).then(|| self.plan(pw));
++        // Stride gate: every stride a region may run from its current `verified` spans at
++        // most (stride_max+1) windows, so its certificate hull (the box clashes are decided
++        // on, and rollbacks restore to its start) lies inside its reach grown by one more
++        // stride's light travel. Coalescing on that box stops any region from turning final
++        // through `t` while a neighbour's stride started below `t`: a clash certified later
++        // would restore the pair to that start, below the published tick (the assert).
++        let slack = if self.cfg.stride_gate {
++            v.saturating_mul((self.cfg.stride_max as i64 + 1).saturating_mul(self.cfg.window))
++        } else {
++            0
++        };
+         let mut groups: HashMap<(bool, u64), Ent<u64>> = HashMap::new();
+         for (rid, parts, fin, r) in base {
+-            if *fin >= t {
++            let reg = &self.regions[rid];
++            // A region already final through `t` can still clash from a stride starting below
++            // `t`: a restored or merged region carries final parts above its `verified`
++            // (lab run c749: every fire's violated region was such a giant). Its stride
++            // projection must block its neighbours, so no region is skipped outright.
++            let g = if *fin < t {
++                parts.iter().fold(Aabb::EMPTY, |b, &(pt, x)| b.hull(&x.grow(v.saturating_mul((t - pt).max(0))))).grow(slack)
++            } else if self.cfg.stride_gate && reg.verified < t {
++                reg.bbox.grow(slack)
++            } else {
+                 continue;
+-            }
+-            let g = parts.iter().fold(Aabb::EMPTY, |b, &(pt, x)| b.hull(&x.grow(v.saturating_mul((t - pt).max(0)))));
++            };
+             let key = plan.and_then(|p| p.of.get(rid)).map_or((false, *rid), |&e| (true, e as u64));
+             let e = groups.entry(key).or_insert(Ent { ids: vec![], bbox: Aabb::EMPTY, r: 0 });
+             e.ids.push(*rid);
+             e.bbox = e.bbox.hull(&g);
+-            e.r = e.r.max(*r);
++            e.r = e.r.max(*r).max(reg.rmax);
++        }
++        let mut ents: Vec<Ent<u64>> = groups.into_values().collect();
++        // and a certified truth is a committed restore point: its stride start is where a
++        // future clash rolls its lineage back to, so while its start is below `t`, its hull
++        // blocks every group it can touch (an empty ids vec: it merges groups, joins none).
++        if self.cfg.stride_gate {
++            for list in self.truths.values() {
++                for tr in list {
++                    if tr.start < t {
++                        ents.push(Ent { ids: vec![], bbox: tr.bbox, r: tr.r });
++                    }
++                }
++            }
++        }
++        let merged = coalesce(ents);
++        if sdbg() && merged.iter().any(|e| e.ids.len() == 1) {
++            self.dbg_alone.push((
++                t,
++                merged.iter().map(|e| (e.ids.clone(), [e.bbox.lo[0], e.bbox.lo[1], e.bbox.hi[0], e.bbox.hi[1], e.r])).collect(),
++            ));
++            let n = self.dbg_alone.len();
++            self.dbg_alone.drain(0..n.saturating_sub(64));
+         }
+-        coalesce(groups.into_values().collect()).into_iter().filter(|e| e.ids.len() == 1).map(|e| e.ids[0]).collect()
++        merged.into_iter().filter(|e| e.ids.len() == 1).map(|e| e.ids[0]).collect()
+     }
+ 
+     /// No unfinished history can reach region `id` by `t`: every region with a final part
+     /// before `t` may still change anything within each part's box grown by v per chronon
+     /// since its tick; planned merges and certificate hulls are closed over by coalescing.
++    /// With `stride_gate`, grown by one more stride's light travel (see [`Self::alone_at`]).
+     fn final_through(&self, id: u64, t: Tick, base: &[(u64, Vec<(Tick, Aabb)>, Tick, i64)], v: i64) -> bool {
+         let pw = self.window(t - 1);
+         let plan = self.has_plan(pw).then(|| self.plan(pw));
++        let slack = if self.cfg.stride_gate {
++            v.saturating_mul((self.cfg.stride_max as i64 + 1).saturating_mul(self.cfg.window))
++        } else {
++            0
++        };
+         let mut groups: HashMap<(bool, u64), Ent<u64>> = HashMap::new();
+         for (rid, parts, fin, r) in base {
+-            if *fin >= t {
++            let reg = &self.regions[rid];
++            let g = if *fin < t {
++                parts.iter().fold(Aabb::EMPTY, |b, &(pt, x)| b.hull(&x.grow(v.saturating_mul((t - pt).max(0))))).grow(slack)
++            } else if self.cfg.stride_gate && reg.verified < t {
++                reg.bbox.grow(slack)
++            } else {
+                 continue;
+-            }
+-            let g = parts.iter().fold(Aabb::EMPTY, |b, &(pt, x)| b.hull(&x.grow(v.saturating_mul((t - pt).max(0)))));
++            };
+             let key = plan.and_then(|p| p.of.get(rid)).map_or((false, *rid), |&e| (true, e as u64));
+             let e = groups.entry(key).or_insert(Ent { ids: vec![], bbox: Aabb::EMPTY, r: 0 });
+             e.ids.push(*rid);
+             e.bbox = e.bbox.hull(&g);
+-            e.r = e.r.max(*r);
++            e.r = e.r.max(*r).max(reg.rmax);
+         }
+         coalesce(groups.into_values().collect()).iter().find(|e| e.ids.contains(&id)).is_none_or(|e| e.ids.len() == 1)
+     }
+ 
++    /// Lab race instrument (print-only, 20261017-1447-dynamics-fd35). One HAZ line per
++    /// publish: the frontier, the highest published tick `F`, the deepest live truth start
++    /// `S` (the smallest s0 any future clash could force), their global margin `g = F − S`,
++    /// and the per-pair armed margin `A`: the largest `fin_hi − s0` over every pair of an
++    /// in-flight stride's hard-speed reach hull and a live truth it could still touch, with
++    /// s0 = min(stride start, truth start) and the fin_hi maximised over both lineages'
++    /// descendants (a superset of rollback's snapshot closure). `A > 0` means some future
++    /// clash on that pair would fire the finality assert; `A ≤ 0` proves no clash can.
++    fn hazard(&mut self, present: f64) {
++        self.haz_pubs += 1;
++        let front = self.frontier();
++        let (mut finmax, mut nbusy) = (Tick::MIN, 0usize);
++        for r in self.regions.values() {
++            finmax = finmax.max(r.fin_hi);
++            nbusy += r.busy as usize;
++        }
++        let smin = self.truths.values().flatten().map(|t| t.start).min();
++        let gm = smin.map_or(Tick::MIN, |s| finmax - s);
++        let mut armed: Option<(i64, u64, u64, i64)> = None; // (danger, busy id, truth lineage, s0)
++        if let Some(v) = self.lightcone {
++            let busy: Vec<u64> = self.regions.values().filter(|r| r.busy).map(|r| r.id).collect();
++            for bid in busy {
++                let b = &self.regions[&bid];
++                let grow = v.saturating_mul((b.stride_end - b.verified).max(0));
++                let hull = b.bbox.hull(&b.bbox.grow(grow));
++                for t in self.truths.values().flatten() {
++                    if t.id == bid || separated(&hull, b.rmax, &t.bbox, t.r) {
++                        continue;
++                    }
++                    let s0 = b.verified.min(t.start);
++                    let desc = self.descendants(&[bid, t.id]);
++                    let fin = desc.iter().filter_map(|id| self.regions.get(id)).map(|r| r.fin_hi).max().unwrap_or(Tick::MIN);
++                    let danger = fin - s0;
++                    if armed.is_none_or(|(d, ..)| danger > d) {
++                        armed = Some((danger, bid, t.id, s0));
++                    }
++                }
++            }
++        }
++        let a = armed.map_or(String::from("-"), |(d, b, t, s)| format!("{d} b{b} t{t} s{s}"));
++        eprintln!("HAZ p={} t={:.2} f={} F={} S={} g={} b={} A={}", self.haz_pubs, present, front, finmax, smin.unwrap_or(-1), gm, nbusy, a);
++    }
++
+     fn finished(&self) -> bool {
+         match self.goal {
+             Goal::Batch(t) => self.regions.values().all(|r| !r.busy && r.verified == t),
+@@ -1734,6 +2250,8 @@ impl<S: Stepper + Send + 'static> Shared<S> {
+         if g.dirty {
+             g.dirty = false;
+             g.finalize();
++            let present = f64::from_bits(self.present.load(Relaxed));
++            g.hazard(present);
+             let v = Arc::new(g.view());
+             let old = std::mem::replace(&mut *self.view.lock().unwrap(), v);
+             drop(old);
+@@ -1850,9 +2368,14 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
+             goal: Goal::Batch(t0),
+             escalation: 1.0,
+             cost: CostModel::default(),
++            dbg_ev: VecDeque::new(),
++            dbg_mg: VecDeque::new(),
++            dbg_alone: Vec::new(),
++            dbg_dumped: false,
++            haz_pubs: 0,
+             spo: [30e-9, 60e-9],
+-            st: Stats::default(),
+             workers,
++            st: Stats::default(),
+             idle_p: 0,
+             running: false,
+             dirty: true,
+@@ -1874,8 +2397,8 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
+             work: Condvar::new(),
+             done: Condvar::new(),
+             view: Mutex::new(Arc::new(View::default())),
+-            present: AtomicU64::new((t0 as f64).to_bits()),
+             queue_depth: AtomicUsize::new(0),
++            present: AtomicU64::new((t0 as f64).to_bits()),
+         });
+         {
+             let mut g = sh.state.lock().unwrap();
