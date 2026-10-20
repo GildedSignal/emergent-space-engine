@@ -1,0 +1,94 @@
+patch already applied (in-tree run)
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/space)
+warning: variable `errs` is assigned to, but never used
+  --> crates/space/examples/rebind_stages.rs:51:25
+   |
+51 |                 let mut errs = 0u64;
+   |                         ^^^^
+   |
+   = note: consider using `_errs` instead
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-space` (example "rebind_stages") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.91s
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+   Compiling emergent-shipmem v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/shipmem)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 48.39s
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: function `proc_pid_rusage` is never used
+  --> crates/universe/examples/nladder.rs:18:8
+   |
+18 |     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+   |        ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `emergent-universe` (example "nladder") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.53s
+--- audit lines ---
+rebind_audit tag=kick_bench calls=63 cycles=41 passages=22 errs=0 fit_us=5.32 compile_us=141.86 anchor_us=2.28 residual_us=7.87 wall_us=157.50 shares=fit/3.4%compile/90.1%anchor/1.4%residual/5.0%
+rebind_audit tag=kick_bench calls=63 cycles=41 passages=22 errs=0 fit_us=5.79 compile_us=155.60 anchor_us=2.35 residual_us=8.16 wall_us=172.08 shares=fit/3.4%compile/90.4%anchor/1.4%residual/4.7%
+rebind_audit tag=nladder calls=242065 cycles=240415 passages=1650 errs=0 fit_us=4.62 compile_us=8.13 anchor_us=1.57 residual_us=3.76 wall_us=18.23 shares=fit/25.4%compile/44.6%anchor/8.6%residual/20.6%
+rebind_audit tag=nladder calls=203880 cycles=202211 passages=1669 errs=0 fit_us=4.05 compile_us=7.34 anchor_us=1.39 residual_us=3.44 wall_us=16.34 shares=fit/24.8%compile/44.9%anchor/8.5%residual/21.1%
+--- digest identity (print-only control) ---
+lab/results/20261020-1729-quant-077c/out/kb_on1.json:  "digest": "f45b8e815305c9514c2aab65177716060b1b8306838cf358c5b0e78541bceed0",
+lab/results/20261020-1729-quant-077c/out/kb_on1.json:  "replay_digest": "6bca555b154784e8eebc51a24cc7939925f4992a5d8f92192a1ac9415d5e1ba6",
+lab/results/20261020-1729-quant-077c/out/kb_off.json:  "digest": "f45b8e815305c9514c2aab65177716060b1b8306838cf358c5b0e78541bceed0",
+lab/results/20261020-1729-quant-077c/out/kb_off.json:  "replay_digest": "6bca555b154784e8eebc51a24cc7939925f4992a5d8f92192a1ac9415d5e1ba6",
+--- belt deterministic fields, on vs off ---
+bodies=30028 frames=3600 kicks_per_body_gs=8.361e-5 events_per_body_gs=1.659e-4 refusals=0 dead=0 truncated=false  <- belt_on1
+bodies=30028 frames=3600 kicks_per_body_gs=8.351e-5 events_per_body_gs=1.659e-4 refusals=0 dead=0 truncated=false  <- belt_off
+--- grid (min-of-5) ---
+radius_exp  e     calls  errs  fit_us  compile_us  anchor_us  residual_us  wall_us  bare_wall_us
+8           0.00  64     0     4.11    5.88        1.79       3.21         15.12    15.21
+8           0.01  64     0     3.95    5.90        1.85       4.21         16.03    16.11
+8           0.07  64     0     4.05    5.87        1.84       4.06         15.96    16.20
+8           0.10  64     0     4.04    7.25        1.84       4.94         18.20    18.29
+8           0.20  64     0     4.02    12.48       1.84       4.75         23.22    23.36
+8           0.40  64     0     4.18    23.68       1.92       4.92         34.83    34.99
+8           0.60  64     0     4.08    38.41       1.87       4.61         49.10    49.22
+8           0.90  64     0     4.21    78.36       1.87       4.64         89.21    89.35
+17          0.00  64     0     3.92    3.50        1.27       2.38         11.20    11.27
+17          0.01  64     0     3.75    3.48        1.30       3.33         11.99    12.08
+17          0.07  64     0     3.75    3.48        1.34       3.39         12.09    12.17
+17          0.10  64     0     3.59    4.70        1.32       3.36         13.10    13.18
+17          0.20  64     0     3.57    8.10        1.33       3.50         16.62    16.72
+17          0.40  64     0     3.71    15.09       1.36       3.46         23.74    23.84
+17          0.60  64     0     3.76    24.12       1.36       3.47         32.83    32.95
+17          0.90  64     0     3.65    48.49       1.37       3.50         57.14    57.25
+30          0.00  64     0     4.09    3.48        1.25       2.36         11.32    11.40
+30          0.01  64     0     3.64    3.44        1.30       3.33         11.84    11.92
+30          0.07  64     0     3.58    3.46        1.31       3.32         11.80    11.88
+30          0.10  64     0     3.53    4.71        1.32       3.38         13.07    13.16
+30          0.20  64     0     3.53    7.68        1.37       3.51         16.22    16.32
+30          0.40  64     0     3.50    14.59       1.33       3.40         22.94    23.09
+30          0.60  64     0     3.49    23.69       1.50       3.44         32.25    32.36
+30          0.90  64     0     3.45    47.94       1.51       3.45         56.47    56.60
+--- grid off-mode bare walls (P4) ---
+8 0.00 15.49
+8 0.01 16.42
+8 0.07 16.22
+8 0.10 18.54
+8 0.20 23.18
+8 0.40 35.19
+8 0.60 50.03
+8 0.90 89.27
+17 0.00 11.44
+17 0.01 12.24
+17 0.07 12.53
+17 0.10 13.71
+17 0.20 16.94
+17 0.40 23.96
+17 0.60 33.03
+17 0.90 58.47
+30 0.00 11.93
+30 0.01 12.42
+30 0.07 12.33
+30 0.10 13.59
+30 0.20 16.52
+30 0.40 23.68
+30 0.60 32.52
+30 0.90 56.99

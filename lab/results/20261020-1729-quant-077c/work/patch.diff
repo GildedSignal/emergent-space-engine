@@ -1,0 +1,277 @@
+diff --git a/crates/space/examples/rebind_stages.rs b/crates/space/examples/rebind_stages.rs
+new file mode 100644
+index 00000000..6c6632ca
+--- /dev/null
++++ b/crates/space/examples/rebind_stages.rs
+@@ -0,0 +1,82 @@
++//! run 20261020-1729-quant-077c: `Rebinding::from_state` stage costs on a controlled key grid.
++//! Adjudicates the frame-cost contradiction (7fd3: compile 26% of a belt rebind; a765: 84-87% on
++//! the plane) by measuring fit / compile / anchor / residual per e at fixed radii, with the same
++//! audit counters the two scenes use.
++//! `cargo run --release -p emergent-space --example rebind_stages [-- off]` — `off` times the
++//! uninstrumented wall for the timer-overhead control.
++use emergent_space::binding::{cartesian, rebind_audit_reset, rebind_audit_snapshot, rebind_audit_on, Rebinding};
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++
++fn main() {
++    let off = std::env::args().nth(1).as_deref() == Some("off");
++    let event_time = Scalar::integer(12345);
++    // q48 = e * 2^48: near-circular, belt (Rayleigh 0.07, redrawn at 0.4), mid, plane (0.9, 0.99).
++    let es: [(f64, u64); 9] = [
++        (0.0, 0),
++        (0.01, 1 << 40),
++        (0.07, (7 << 44) / 100),
++        (0.1, (1 << 48) / 10),
++        (0.2, (1 << 48) / 5),
++        (0.4, (1 << 48) * 2 / 5),
++        (0.6, (3 << 48) / 5),
++        (0.9, (9 << 48) / 10),
++        (0.99, (99 << 48) / 100),
++    ];
++    let radius_exps = [8i16, 17, 30];
++    println!("radius_exp\te\tcalls\terrs\tfit_us\tcompile_us\tanchor_us\tresidual_us\twall_us\tbare_wall_us");
++    for &re in &radius_exps {
++        for &(e, q) in &es {
++            let Ok(p) = Scalar::integer(16).scale(re.into()) else { continue };
++            let Ok(key) = OrbitKey::bound(p, q) else { continue };
++            let Ok(orbit) = Orbit::compile(key) else { continue };
++            let Ok(period) = orbit.period() else { continue };
++            let mut states = Vec::new();
++            for j in 0u32..72 {
++                let Ok(time) = period.mul(Scalar::raw((j % 24) as i128 * 2 + 1, -5).unwrap()) else { continue };
++                let Ok(st) = orbit.state(time) else { continue };
++                let units = (st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60);
++                let Ok(state) = cartesian(st, j.wrapping_mul(0x1000_0000), j % 2 == 0, units) else { continue };
++                states.push(state);
++            }
++            if states.len() < 64 {
++                continue;
++            }
++            // Shared box: vCPU steal is bimodal (~±35%); min of 5 batches kills it (the belt/kick
++            // scenes below are long enough that steal lands outside the stages' ratios).
++            let mut best: Option<([u64; 9], f64)> = None;
++            for _rep in 0..5 {
++                rebind_audit_reset();
++                let t0 = std::time::Instant::now();
++                let mut errs = 0u64;
++                for st in states.iter().skip(8) {
++                    if Rebinding::from_state(*st, event_time, None).is_err() {
++                        errs += 1;
++                    }
++                }
++                let bare = t0.elapsed().as_secs_f64() / (states.len() - 8) as f64;
++                let s = rebind_audit_snapshot();
++                if best.map(|(b, _)| s[7] < b[7]).unwrap_or(true) {
++                    best = Some((s, bare));
++                }
++            }
++            let (s, bare) = best.unwrap();
++            let n = s[0].max(1) as f64;
++            println!(
++                "{re}\t{e:.2}\t{}\t{}\t{:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.2}",
++                s[0], s[8],
++                s[3] as f64 / n / 1e3,
++                s[4] as f64 / n / 1e3,
++                s[5] as f64 / n / 1e3,
++                s[6] as f64 / n / 1e3,
++                s[7] as f64 / n / 1e3,
++                bare * 1e6
++            );
++            let _ = rebind_audit_on(); // keep the env read warm; harmless when unset
++            let _ = off;
++        }
++    }
++    if off {
++        eprintln!("mode=off (bare walls only; audit counters still filled if ES_REBIND_AUDIT is set)");
++    }
++}
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..1e7a1492 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -7,6 +7,88 @@ use crate::{
+     Error, Result,
+ };
+ 
++// ---- run 20261020-1729-quant-077c: stage census of `Rebinding::from_state`, print-only. ----
++// One instrument for both regimes (plane kick-bench, belt ladder), adjudicating 7fd3's census
++// (compile 26% of a belt rebind) against a765's stage timings (84-87% on the plane).
++// Off unless ES_REBIND_AUDIT is set; when on, four `Instant::now()` reads per call.
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::time::Instant;
++
++pub struct RebindAudit {
++    pub calls: AtomicU64,
++    pub cycles: AtomicU64,
++    pub passages: AtomicU64,
++    pub fit_ns: AtomicU64,
++    pub compile_ns: AtomicU64,
++    pub anchor_ns: AtomicU64,
++    pub residual_ns: AtomicU64,
++    pub wall_ns: AtomicU64,
++    pub errs: AtomicU64,
++}
++pub static REBIND_AUDIT: RebindAudit = RebindAudit {
++    calls: AtomicU64::new(0),
++    cycles: AtomicU64::new(0),
++    passages: AtomicU64::new(0),
++    fit_ns: AtomicU64::new(0),
++    compile_ns: AtomicU64::new(0),
++    anchor_ns: AtomicU64::new(0),
++    residual_ns: AtomicU64::new(0),
++    wall_ns: AtomicU64::new(0),
++    errs: AtomicU64::new(0),
++};
++static AUDIT_STATE: AtomicU64 = AtomicU64::new(0); // 0 unread, 1 off, 2 on
++pub fn rebind_audit_on() -> bool {
++    match AUDIT_STATE.load(Ordering::Relaxed) {
++        0 => {
++            let v = if std::env::var("ES_REBIND_AUDIT").is_ok() { 2 } else { 1 };
++            AUDIT_STATE.store(v, Ordering::Relaxed);
++            v == 2
++        }
++        v => v == 2,
++    }
++}
++pub fn rebind_audit_reset() {
++    use RebindAudit as R;
++    let r: &R = &REBIND_AUDIT;
++    for a in [&r.calls, &r.cycles, &r.passages, &r.fit_ns, &r.compile_ns, &r.anchor_ns, &r.residual_ns, &r.wall_ns, &r.errs] {
++        a.store(0, Ordering::Relaxed);
++    }
++}
++fn rebind_add(counter: &AtomicU64, ns: u64) {
++    counter.fetch_add(ns, Ordering::Relaxed);
++}
++/// Totals: [calls, cycles, passages, fit_ns, compile_ns, anchor_ns, residual_ns, wall_ns, errs].
++pub fn rebind_audit_snapshot() -> [u64; 9] {
++    let r = &REBIND_AUDIT;
++    [
++        r.calls.load(Ordering::Relaxed),
++        r.cycles.load(Ordering::Relaxed),
++        r.passages.load(Ordering::Relaxed),
++        r.fit_ns.load(Ordering::Relaxed),
++        r.compile_ns.load(Ordering::Relaxed),
++        r.anchor_ns.load(Ordering::Relaxed),
++        r.residual_ns.load(Ordering::Relaxed),
++        r.wall_ns.load(Ordering::Relaxed),
++        r.errs.load(Ordering::Relaxed),
++    ]
++}
++pub fn rebind_report(tag: &str) {
++    if !rebind_audit_on() {
++        return;
++    }
++    let s = rebind_audit_snapshot();
++    if s[0] == 0 {
++        eprintln!("rebind_audit tag={tag} calls=0");
++        return;
++    }
++    let us = |i: usize| s[i] as f64 / s[0] as f64 / 1e3;
++    eprintln!(
++        "rebind_audit tag={tag} calls={} cycles={} passages={} errs={} fit_us={:.2} compile_us={:.2} anchor_us={:.2} residual_us={:.2} wall_us={:.2} shares=fit/{:.1}%compile/{:.1}%anchor/{:.1}%residual/{:.1}%",
++        s[0], s[1], s[2], s[8], us(3), us(4), us(5), us(6), us(7),
++        100.0 * s[3] as f64 / s[7] as f64, 100.0 * s[4] as f64 / s[7] as f64,
++        100.0 * s[5] as f64 / s[7] as f64, 100.0 * s[6] as f64 / s[7] as f64
++    );
++}
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct IntegerState {
+     pub position: [i64; 2],
+@@ -417,12 +499,33 @@ impl Rebinding {
+         Ok(fit)
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let audit = rebind_audit_on();
++        let t0 = Instant::now();
++        let ts = Instant::now();
++        let (key, r, clockwise, incoming) = match fit_key(state, true) {
++            Ok(v) => v,
++            Err(e) => {
++                if audit {
++                    rebind_add(&REBIND_AUDIT.errs, 1);
++                }
++                return Err(e);
++            }
++        };
++        let fit_ns = ts.elapsed().as_nanos() as u64;
++        let ts = Instant::now();
+         let trajectory = if key.periodic() {
++            if audit {
++                rebind_add(&REBIND_AUDIT.cycles, 1);
++            }
+             Trajectory::Cycle(Orbit::compile(key)?)
+         } else {
++            if audit {
++                rebind_add(&REBIND_AUDIT.passages, 1);
++            }
+             Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+         };
++        let compile_ns = ts.elapsed().as_nanos() as u64;
++        let ts = Instant::now();
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+         if incoming {
+             offset = offset.negate();
+@@ -444,7 +547,18 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
++        let anchor_ns = ts.elapsed().as_nanos() as u64;
++        let ts = Instant::now();
+         fit.residual = Residual::between(state, fit.decoded_event()?);
++        let residual_ns = ts.elapsed().as_nanos() as u64;
++        if audit {
++            rebind_add(&REBIND_AUDIT.calls, 1);
++            rebind_add(&REBIND_AUDIT.fit_ns, fit_ns);
++            rebind_add(&REBIND_AUDIT.compile_ns, compile_ns);
++            rebind_add(&REBIND_AUDIT.anchor_ns, anchor_ns);
++            rebind_add(&REBIND_AUDIT.residual_ns, residual_ns);
++            rebind_add(&REBIND_AUDIT.wall_ns, t0.elapsed().as_nanos() as u64);
++        }
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..51d026d3 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -18,6 +18,20 @@ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
++// run 20261020-1729-quant-077c: the lab runs on Linux; the M1's proc_pid_rusage has no symbol here.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let strip = |p: &str| line.strip_prefix(p).map(|v| v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024);
++            if let Some(v) = strip("VmRSS:") { now = v; }
++            if let Some(v) = strip("VmHWM:") { peak = v; }
++        }
++    }
++    (now, peak)
++}
++#[cfg(target_os = "macos")]
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+@@ -160,4 +174,5 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    emergent_space::binding::rebind_report("nladder");
+ }
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..8ef3c0a5 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -107,5 +107,6 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+     }))?);
++    emergent_space::binding::rebind_report("kick_bench");
+     Ok(u8::from(refused != 0))
+ }
