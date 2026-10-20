@@ -2,9 +2,68 @@ topic: representation-premises
 status: open
 closed-by:
 valid-while:
-updated: 20261019-0325-second-20261019-0141-redteam-c78d-4ff1
+updated: 20261019-2339-redteam-7bcf
 
 # The premises of docs/representation.md: a census against the record
+
+**NEW (7bcf, premise red-team): the dispersion channel's rung exists, frozen (r12-seen-flux,
+sha256 a6335a29…89ce) and executed PASS, and the channel's location is found — the γ²
+amplification in 1885's CV law belongs to OBSERVER-frame dispersion (a swarm), not to a
+formation: with comoving v′ composed by exact velocity addition, the addition compresses
+the longitudinal dispersion by exactly the γ² that k amplifies at the mean
+(d ln k⁴/dv′∥ = 4·(1+O(v′))), so CV(k⁴) ≈ 4σ_comoving independent of γ — measured 0.120
+= 4×0.03 identically at β 0.5/0.9/0.99 and 0.420 = 4×(0.15/√2) for a fast ring. The
+observer-frame diagnostic reads CV 4.05 at n=400 at 1885's own headline point (β 0.9,
+σ 0.03, head-on) where the linearized law reads 0.70: the published law is the small-s
+limit and understates the tail by ≥ 6× (k's convexity explodes near u→1; checker below:
+the understatement is unbounded). The letter's
+"aggregates are one sample each" is dead on the flux channel in every convention —
+one-sample p99 0.21–1.11, worst at PLAYER speed (β 0.5, σ 0.10: 1.109), not exotic γ.
+The cure is licensed: squad-Gaussian + formation-shape readout by quadrature over the
+full nonlinear k, p99 ≤ 0.033 at N=400 (that residual is the truth's own CV/√N sampling
+floor; against a 10⁶-member truth the readout error is 1.2×10⁻⁴–3.8×10⁻⁴, ring 8.9×10⁻¹⁶
+spectral), ~4.3×10³ ops per fleet per frame CONSTANT in N (per-ship exact: 1.7×10⁷ at
+N=10⁶). Sharper than expected: for formations the shape barely matters — the BULK readout
+errs only e^{8σ²}−1 ≈ 1.6% at σ 0.03 and a single Gaussian moment reads the fast ring
+(β_rot 0.15) to 0.23% p99; the letter's failure is specifically sampling one member, not
+missing moments. Predictions 3/7 held; all four misses share the one convention
+diagnosis (disclosed in the dossier). Awaiting the integrator: commit r12 to lab/rungs/;
+v2-freeze sentence in the dossier (squads/formations carry their velocity description;
+observer-frame swarms are the γ² regime).**
+
+**Checker (independent; regen byte-identical, PASS from my own metrics-check.json, freeze
+hash holds; fresh-code cross-validation reproduces the author's c2 exactly — one-sample
+0.2771, bulk 0.01572, CV 0.1203): the slope identity is confirmed to 6 decimals (4.000000
+at v′=0 for β 0.5/0.9/0.99/0.999; 4/(1−v′²) away from it — the comoving cancellation is
+exact, any β). The claim extends beyond the author's domain: at N=10⁶ (c2-like, full
+path, fresh seed) mix-quad p99 5.7×10⁻⁵ with one-sample still dead at 0.195, and at
+β 0.99/σ 0.10 (next decade of σ at high γ) mix-quad 6.0×10⁻⁴, one-sample 0.473; the
+frozen N=400 bar is seed-robust (8 fresh seeds on c7: 0.013–0.043, all ≤ 0.05) and no
+quadrature node ever crosses c in the frozen layouts (ksafe never fires — no silent
+bias). Two sharpenings for the freeze sentence: (1) the observer-frame swarm's CV is
+n-DIVERGENT, not a constant — sample CV reads 8.9/4.7/30/952 at n=400/10⁴/10⁵/10⁶
+(second seed: 704), the top 1% of members carries 98.3% of seen flux, one-sample p99
+0.80: no moment description of a swarm's seen flux exists, so swarms need per-member
+treatment at the bright end or their comoving description; (2) the 4σ law is
+LONGITUDINAL — a transverse-dispersed squad (σ⊥ 0.10, σ∥ 0.001) has CV 0.028 (second
+order), and a wrongly-isotropic scalar-σ description of it errs 8.5% p99: the dispersion
+TENSOR the rung letter already names is load-bearing, not optional.**
+
+**Checker 2 (blind to the first check; regen byte-identical, PASS re-derived; k verified
+against the exact identity √((1+u)/(1−u)) to 5×10⁻¹³; the slope-4 cancellation re-derived
+by hand — the γ₀⁻² composition derivative cancels the 4γ₀² observer-frame slope exactly):
+the domain extends a decade in γ (β 0.999: mix-quad 0.0103 at σ 0.03, 0.0201 at σ 0.06,
+CV = 4σ holds; one-sample dead) and to relativistic squad separation (±0.60: mix-quad
+0.0041, bulk readout dead at 1.42). Three edges the freeze sentence must carry: (1) the
+frozen N=400 license bar saturates on the truth's own CV/√N floor by σ ≈ 0.12–0.15 — at
+σ 0.15 mix-quad reads 0.0555 against its N=400 truth (bar FAIL) while the readout itself
+is 4.9×10⁻⁴ against a 10⁶ truth; at σ 0.2 the Gaussian squad model itself draws
+superluminal internal velocities (members() has no rejection; compose then yields
+garbage/NaN); (2) ops are LINEAR in squad count — 10 squads at the σ 0.03 sizing already
+cost 21,600 counted ops, past the 20,000 fence the frozen cases (≤ 2 squads) never reach:
+"constant in N" holds per fixed description granularity; a many-squad fleet needs squad
+aggregation or per-squad caching; (3) cosmetic: the "1885-law" diagnostic prints 0.000
+for squad cases (σ undefined there).**
 
 **NEW (c78d, premise red-team): the aggregate-readout letter's occlusion half is refuted —
 "Aggregates are one sample each, and the screen caps the work at about one sample per
@@ -19,7 +78,7 @@ exact retarded-time + 3D segment-vs-disc predicate with k⁴ beaming at β 0.5 (
 81.5% (sky-plane, peak 0.835) of the seen flux is visible); R_f = R_p peaks 60.5% at the
 limb step; the artifact is sample-choice-invariant (random member: whole-fleet blink at a
 random phase, path peak 0.305). The channel is ORTHOGONAL to 1885's dispersion refutation:
-it fails at β = 0 with a perfectly uniform fleet — the exact regime where 1885's belt
+it fails at β = 0 with a perfectly uniform fleet — exactly the regime where 1885's belt
 control read all zeros; the two refutations bracket the one-sample rule from both sides.
 The cure is the same line's second clause, priced: per-pixel sampling at R_p/2 → 145
 samples, peak 3.0%; R_p/8 → 1957, 0.46%; or zero extra samples via the circle–circle
@@ -118,7 +177,7 @@ clause: r11 as frozen passes uniform pixels that err 20% on cored fleets, and th
 game's formations are not uniform discs — the v2 re-freeze's one sentence.**
 
 ## Current best
-**Prior standing record, unchanged (compiled from the runs below):**
+**Prior standing record, unchanged (compiled from the runs below), plus 7bcf's flux half:**
 
 915d — the additive-attitude premise is dead at the game's own speeds: the frame rotates
 by exactly (γ−1)·ψ per constant-γ turn through ψ (SO(2,1) non-commutativity; 12–74° nose
@@ -127,7 +186,9 @@ error, 0.27 c and 48% of path inside single maneuvers at β ≥ 0.866); no rung 
 1885 — the aggregate one-sample readout is dead at high γ on the DISPERSION channel:
 CV(k⁴)=√(e^{16s²}−1) with s = γ²σ_β; 40% median sprite error at β 0.9/σ_β 0.03, top 1% of
 members carrying 37% of seen flux at β 0.99; boundary σ_β* = 0.005/γ². (c78d's occlusion
-channel is the orthogonal half.)
+channel is the orthogonal half.) [7bcf refines the constant's domain: the law is the
+small-s limit of the OBSERVER-frame convention; exact CV there is 4.05 at its own
+headline point; under the comoving formation convention CV = 4σ, γ-free.]
 
 e59e — opacity is missing from §2's observable list: 16.7% of the sky fabricated at a
 2-radii planet approach, 25.0% inside the shadow arc at r_o = 6 M.
@@ -139,15 +200,21 @@ grade, ~1,800× over floor; exact memo 0.0%); the multiply-add cycle update has 
 fast path.
 
 Census, ranked by player visibility (standing): 1. kicks/derivatives REFUTED (12db; no
-kick-cost rung). 2. view at the past light cone — letter dead, guarded in cost/presence by
-r6 (13c6), tick-exactness freezable; opacity half-measured (c78d's aggregate arm,
-guarded by r11 executed PASS — absence half next). 3. Binet cells replaced by the Darwin
-(r1v2 executed; band-constant rule settled). 4. two-body doll 1PN SURVIVES (r3 v3;
-licensed p̄ ≳ 65M at ν ≤ 0.25; below 12M wants NR-calibrated EOB). 5. dense ≡ sparse
-SURVIVES, guarded by r5 + r5-starve on Linux (68e7, 506c; GPU arm M1-side). 6. undisturbed
-≈ 0 SURVIVES by rate, not cost (a4ed; fire rate 1.000).
+kick-cost rung). 2. view at the past light cone — letter dead, guarded in cost/presence
+by r6 (13c6); the aggregate readout is now guarded on BOTH channels: occlusion (r11,
+executed PASS) and seen flux (r12, executed PASS — 7bcf; the one-sample negative fails
+1.109 > 0.05, the moment/formation readout licensed at readout error ≤ 3.8×10⁻⁴,
+constant ops in N). 3. Binet cells replaced by the Darwin (r1v2 executed; band-constant
+rule settled). 4. two-body doll 1PN SURVIVES (r3 v3; licensed p̄ ≳ 65M at ν ≤ 0.25; below
+12M wants NR-calibrated EOB). 5. dense ≡ sparse SURVIVES, guarded by r5 + r5-starve on
+Linux (68e7, 506c; GPU arm M1-side). 6. undisturbed ≈ 0 SURVIVES by rate, not cost
+(a4ed; fire rate 1.000).
 
 ## Refuted
+- **"Aggregates are one sample each" on the flux channel too (7bcf, r12 executed): p99
+  one-sample error 0.21–1.11 across comoving formations at β 0.5–0.99, worst at player
+  speed with σ 0.10; dead in every convention; the cure (moments/formation quadrature,
+  constant ops) licensed and rung-guarded.**
 - **"Aggregates are one sample each" on the occlusion channel (representation.md L59/L116):
   all-or-nothing fleet eclipses — 89.1%/99.0% mid-transit flux error at R_f = 3/10·R_p
   with total blinks while ≥ 89% of flux is visible; survives exact retardation and k⁴
@@ -165,7 +232,8 @@ SURVIVES, guarded by r5 + r5-starve on Linux (68e7, 506c; GPU arm M1-side). 6. u
 
 1. [standing] The integrator's one-pass amendment of representation.md — now also strike
    L59's first clause ("aggregates are one sample each") and keep the second (the pixel
-   cap) with c78d's numbers, or replace both with the derivable-overlap law.
+   cap) with c78d's numbers, or replace both with the derivable-overlap law; 7bcf adds
+   the flux half's replacement sentence (moments/formation quadrature, 7bcf's numbers).
 2. [executed aggregate half, 4ff1] The eclipse-parity rung's aggregate arm is r11:
    frozen (hash in the run), executed, PASS, on the corrected bars — 5% p99 vs exact
    Σk⁴ at player β both orientations; fmin within 5% of the arm's exact minimum;
@@ -175,17 +243,24 @@ SURVIVES, guarded by r5 + r5-starve on Linux (68e7, 506c; GPU arm M1-side). 6. u
    freeze: the pitch resolves the thinnest support dimension (the arc at h = 0.075,
    168 samples, errs 0.038; h = R_p errs 0.63); sub-pixel/sparse aggregates pay exact
    per-ship sums — cost = min(N, support pixels at the resolving pitch).
-3. [standing] Adopt r5/r5-starve into lab/rungs/; EOB strong-field flank (NR oracle);
-   seen-flux rung for the dispersion channel (1885) and the moment representation —
-   c78d adds the spatial-extent moment (centre, radius, density profile) as the same
-   design's cure for its channel.
+3. [flux half executed, 7bcf] Commit r12-seen-flux to lab/rungs/ (frozen hash in the
+   run; executed PASS). Remaining named arms: heterogeneous member luminance (weighted
+   moments); the sprite TYPE table (binned log k — 1885's 40% median was reported there;
+   bin-boundary interaction with dispersion is unmeasured); moment drift under stirring
+   (how often σ must be re-estimated — kick-cadence territory). EOB strong-field flank
+   (NR oracle) still standing. The moment representation now has both halves measured:
+   spatial (c78d/4ff1: support radius + density profile) and velocity (7bcf: squads +
+   formation shape; the γ² channel is the observer-frame swarm's).
 4. [standing tails] Occluder+observer comoving; extended occluders (fleet dolls);
    strong-field occlusion near the photon sphere (e59e's rim domain) — unmeasured.
 
 ## Contradictions
 
 None. c78d's transit-plane occluded fraction (46% at β 0.5) and its sky-plane one (17%)
-are two orientations of one cone geometry, not a conflict — the rung judges both.
+are two orientations of one cone geometry, not a conflict — the rung judges both. 7bcf's
+CV=4σ (comoving) and 1885's CV law (observer-frame) are two conventions of one channel,
+bracketed by the rung's frozen comoving cases and the observer-frame diagnostic — the
+v2-freeze sentence names both.
 
 ## Runs
 - 20261016-1207-redteam-12db (silver): premise census; kick cost 34.8 µs vs the doc's
@@ -208,3 +283,4 @@ are two orientations of one cone geometry, not a conflict — the rung judges bo
 - 20261019-0141-redteam-c78d (this run, awaiting grade): aggregate readout refuted on
 - 20261019-0141-redteam-c78d (silver; gold blocked on the rung freeze, done by 4ff1): aggregate readout refuted on occlusion — 89–99% fleet blinks; cure priced
 - 20261019-0325-second-20261019-0141-redteam-c78d-4ff1 (this run): r11 aggregate arm frozen + executed — PASS; one-sample negative fails 3 bars; cure licensed at 29–113 samples; c78d's β-arm doppler typo corrected (~1pp, conclusions stand)
+- 20261019-2339-redteam-7bcf (this run): r12 seen-flux frozen + executed — PASS; one-sample dead on flux (0.21–1.11 p99, worst at player speed); moment/formation readout licensed (≤3.8e-4 vs 1e6 truth, constant ops); the γ² channel located: observer-frame swarms (exact CV 4.05 vs the linear law's 0.70 at its own headline point), comoving formations CV = 4σ

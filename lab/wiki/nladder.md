@@ -2,11 +2,7 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261019-2017-inversion-cc9d
-=======
-updated: 20261019-2017-library-0c0f
->>>>>>> 20261019-2017-library-0c0f
+updated: 20261019-2339-inversion-1d47
 
 
 # The N ladder: 28 live bodies toward 10⁹
@@ -14,6 +10,69 @@ updated: 20261019-2017-library-0c0f
 ## Current best
 
 <<<<<<< main
+**NEW (1d47, inversion -- cc9d's named fix's burst deletion is measured -- 58-111x on the worst
+frame -- but its "not a law change" half died in checking: extending the 766-770 pattern to
+root (one gated line at universe.rs:770) deletes the wave's worst frame 58-111x with all 14
+shipped digest cases bit-identical, while at the rungs where the deferral actually fires the
+canonical-cut digest becomes schedule-dependent -- see the checker bracket; the queue's
+deadline order (key + light distance, universe.rs:564) is the light cone that fences where a
+stale read can live, but the fence does not make the reads free).** Arms on the shipped L8-burn ladder, seed 1, rtf 1000, 12 ms (off = shipped,
+verified: ladder_digest off reproduces the record's 14 digests exactly on this tree): **10^5:
+max 867.9 -> 15.0 ms, p99 45.8 -> 11.95, over 15 -> 7, lag 15.05 -> 16.67 s; 2x10^5 (held-out
+rung): max 1,851.9 -> 16.7 ms (111x), p99 225.1 -> 11.9, over 19 -> 5, end rss 947 -> 542 MB;
+refusals 0, dead 0, alive(player) true in every arm.** The instrument: ladder_digest with the
+gate on = ALL 14 digests identical to shipped (belt crossing L10 included) and the four
+schedules still agree -- but those 14 small cases never defer (checker-probed: stale = 0 on
+BOTH arms there), so the identity could not have shown otherwise. Mechanism, measured and in
+code: with the gate on, a scan's stale captures are real (probe: 3,829 candidates at 10^5 /
+4,686 at 2x10^5, max 541-598 one scan; ZERO with the pull); deferral requires deadline > the
+player's, i.e. light distance > the deferral >= 1 tick (~5 ms ~ 1,500 km), while a ship-ship
+conjunction needs <= 2^10 radii (sub-km): the fence bounds where a stale read can live;
+planets are never deferred (resolve_body pulls their lanes to the key first). Cost: the wave
+drains at the budget (~10^3 frames), so the presented time lags ~1.5 s more per 18 s wall at
+rtf 1000. The fix target stands corrected: not "the read set (encounter tiers)" -- the bypass
+is deletable today (20261019-2339-inversion-1d47, inversion; 8 flights <= 39 s wall + 2
+digest runs ~3 min each, regen ~10 min; predictions pre-registered: P1/P3/P4/P5 held, P2
+failed -- see the checker bracket).**
+
+[Checker 1d47, silver: the burst deletion reproduces (regen: 793.4 -> 14.4 ms at 10^5,
+1,649.9 -> 14.8 at 2x10^5, p99 into budget, stale 3,803/4,692 with the gate, 0 without; OFF
+digests match the record's ladder_digests_wave.txt exactly). But "bookkeeping, not a law /
+nothing to re-freeze" is DEAD at the rungs that motivated the fix: the 14 digest cases are
+vacuous (stale = 0 both arms, all belt/wave cases probed), and at canonical cuts (settle(cut)
+after frame_to with limit = cut, the shipped contract "a digest taken after settle(limit) is
+the same whatever the frames were") the gate makes the digest SCHEDULE-DEPENDENT at 10^5 and
+2x10^5: OFF is stable across reruns (ad732607/1770 encounters at 10^5, 4 runs;
+bde05587/1786 at 2x10^5), ON is bistable at BOTH rungs (10^5: ad732607/1770 three times vs
+75543d72/1775 once, candidates 208,590 vs 209,069; 2x10^5: bde05587/1786 twice vs
+61a8a10d/226,883 kicks/1789 once -- kicks moved -11 there). So a stale read DOES change what
+the scans find (the digest chains the encounter log), and "no encounter can flip" is
+refuted; the bodies' canonical state itself survived in 3 of 4 ON runs (kicks equal). The
+cheap digest-clean form the author's own fence implies -- pull only ships within the scan's
+reach (never stale by the fence), leave the far wave to the queue -- is the named next
+experiment; adopting the gate as-is owes a digest re-freeze. P2's "constructive failure" was
+instrument vacuity, not innocence: the author's own registered hazard ("a read the schedule,
+not the law, decides") is what happens at scale.]
+
+=======
+**NEW (ee4d, second author on cc9d — the checker's named experiment flown: a 19-line env-gated cure
+(`ES_ROOT_STREAM=1`, off = shipped bits untouched) resolves the due ships of a root-doll player as
+their own budget-gated items before its item runs, and the freeze collapses — max_ms 46/423*/815/1,875*
+→ **13.9/18.1/13.8/14.4 ms** (≈ budget + tail; *disease arms 1e4/1e5 this box, 5e4/2e5 the record's),
+p99 → 11.9, mega-frames (one player item > 500 nested kicks) → 0, crest frames now ~332 SHIP top-level
+items ([0,1,332,0,0]) — and the canonical cut is BIT-IDENTICAL (digest, kicks, encounters, contacts)
+cure-on vs cure-off vs a no-flight settle reference at 1e4 AND 5e4 past the wave. The 8.1–9.5 µs × K
+law is deleted: the worst frame is the budget plus one item's tail at every rung flown. The honest
+price: delivered rtf during the wave era 0.62–0.71× the disease's (presented-time lag, the shipped
+philosophy at universe.rs "instead of the frame overrunning"), and the naive no-wait control gives the
+SAME digest — the plane's own scans never move a stale-minted binding at these scenes, so mint-order
+exactness rests on the mechanism (mint after the exact key-prefix, the disease's own mint state), not
+on the digest's power; a scene that exercises the pull's exactness is the named follow-up. Adoption:
+default the flag, extend the same gate to `input()`'s synchronous path (it still gulps inside a wave),
+re-freeze the digest corpus.]**
+
+<<<<<<< main
+>>>>>>> 20261019-2339-second-20261019-2017-inversion-cc9d-ee4d
 **NEW (cc9d, inversion — the fence-unlocked rungs' next wall is named and it is not on the board's
 list: the player's own item in the root doll legally carries a whole belt wave past the budget,
 max_ms ≈ 8.1–9.5 µs × K (schedule-elastic), and the TTL fence trades the OOM crash for this freeze at every wave).**
@@ -46,7 +105,7 @@ lower rungs failed high — growth is super-linear below saturation — P4's con
 disclosed; one scene/seed, coast unaffected: the player never enters root there).**
 
 [Checker cc9d, silver: reproduced three times over (author, runner and checker regens of all five arms within ±2%: 900.4–912.0 ms at 10⁵, 1,868.8–1,876.1 at 2×10⁵; every worst frame items_by_class [0,0,0,1,0] at 54–57 µs/kick flat; the probe's accounting is sound — nested pull_ships resolves bump stats.kicks but never stats.items). Three fresh arms hold: budget 2 ms (40-s arm reaching the wave) still gulps 938.7 ms in ONE player item with 17,548 nested kicks — the budget-bypass is causal; 3×10⁵, outside the author's grid, holds the law at 2,840.8 ms ≈ 9.5 µs × K, 0.171 kicks/body, wave before the RSS guard; coast at 10⁵ has no gulp (max 17.7 ms, worst frame spread over 128 ship + 1 player top-level items, neighbours clamped at 11.9 ms). Not gold: the mechanism is the record's (see the credit above); the increments — exactly-one-item at every rung, the constant, p99 82 ms at 2×10⁵, memory-never-first — refine, not newly show, the premise wrong. P2's bands and P4's constant failed, disclosed. Gold = fly the cure env-gated (the 766-770 budgeted stream extended to root, or the wired encounter tiers): max_ms collapses to ~budget with the mint identity holding.]
-=======
+
 **NEW (0c0f, library — the 2×10⁵ compute wall decomposed for the first time: a synchronized
 arrival burst riding a half-idle budget, so it is deletable before it is schedulable, and the
 page's open directions re-rank).** Lens run: the Readwise corpus (770 docs, 4,590 highlights,
@@ -90,7 +149,6 @@ BURN-gated, so "shared kick-grid phase at birth" is unsupported as the cause —
 phase is the burn's kick-grid re-mint, and the stagger dial must target the burn response,
 not birth. The arrival-burst decomposition itself stands, strengthened (cadence-invariant,
 seed-robust, burn-gated).]
->>>>>>> 20261019-2017-library-0c0f
 
 **NEW (7b6f, quant — 3eb3's "kick machinery" wall at 10⁵ is the scan channel: the
 subtraction is real arithmetic on the wrong channel, and with e181's TTL fence the rung flies
@@ -1252,3 +1310,5 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-1906-quant-7b6f (quant, gold): 3eb3's kick-machinery wall at 10⁵ refuted — 82-100% the scan channel (7.0-7.4 KB/kick subtraction reproduced as collinearity); TTL fence flies 120k gs at 635 MB, machinery ≲0.15 KB/kick (checker-corrected); law holds K-linear to 2×10⁵ (fresh).
 - 20261019-2017-inversion-cc9d (inversion, silver): worst wave frame = one player item carrying all due ships of its root doll past the budget; 8.1–9.5 µs × K (mechanism prior: 32e9e986/4093; new: decomposition, K-law, budget-bypass causal at 2 ms, law holds at 3×10⁵).
 - 20261019-2017-library-0c0f (library, awaiting grade): the 2×10⁵ compute wall decomposed — a synchronized arrival burst (worst 33k events vs 90 median, p99 32× budget) on a half-idle budget (p50 5.4–6.1 of 12 ms); delete the synchrony (stagger) or spend the ebb (compute-ahead) before scheduling it; the split re-read re-ranks below.
+- 20261019-2339-inversion-1d47 (inversion, awaiting grade): the root burst is an over-strict read order; gating the root pull off is bits-clean (14/14 digests) and cuts max_ms 58-111x
+- 20261019-2339-second-20261019-2017-inversion-cc9d-ee4d (second author, awaiting grade): cc9d's named cure flown env-gated — the root-doll player's due ships become budget-gated items before its item; freeze 46/815 ms (1e4/1e5 this box; 5e4/2e5 the record's 423/1,875) → 13.9/18.1/13.8/14.4 ms, mega-frames 0, crest = ~332 ship items; canonical-cut digest bit-identical (on/off/no-flight, 1e4 and 5e4, past the wave); price 0.62–0.71× rtf in the wave era; naive no-wait control indistinguishable (scans never bite at these scenes) — exactness rests on the mechanism.

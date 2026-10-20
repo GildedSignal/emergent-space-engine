@@ -2,11 +2,42 @@ topic: budget-1e9
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1906-second-20261019-1817-fermi-d4ff-f876
+updated: 20261019-2339-fermi-f623
 
 # The assembled 10⁹ ledger: the board's interlocking budget, composed on measured laws
 
 ## Current best
+
+**NEW (f623, fermi — the ledger's two unpriced floors are now measured and both CLOSE: no machine
+floor forces the kick-mint deletion; and the mint's per-kick churn law is measured, splitting
+naive vs marginal for the first time).** Print-only counting-`GlobalAlloc` probe (new
+`alloc_probe` binary on the shipped `nladder` scene; shipped code untouched), coast arms
+K = 10⁴ (48,803 gs, 96,108 kicks) and 3×10⁴ (36,404 gs, 87,380), this box, load 0.3:
+**naive 17.6–19.3 allocs + 16 frees + 4.4–4.9 reallocs and 12.3–12.7 KB allocated per fired kick
+(12.1 KB freed — the engine already pools by immediate free; net live 0.55–1.6 KB/kick = the
+known ratchet), but window OLS attributes only ~11–13 allocs and 1.4–3.3 KB to the MARGINAL
+kick** — the rest is a flight base (checker: NOT N-flat — 18→27→53 KB/game-s at 10⁴/3×10⁴/10⁵),
+64% of all allocated
+bytes sitting in >2 KiB scratch at 0.56 calls/kick (~15 KB avg). The heap-call family is
+**{88, 240, 304, 352, 384², 704, 832} B at ~9–10 calls/kick = 76–79% of ≤2 KiB bytes — NOT the
+mint anatomy {192, 208, 288}** (9edc's sizes are `size_of`, not the heap cuts). Malloc floor
+measured: 11.6 ns per alloc+touch+free pair (86 M/s/core). **Composed at 10⁹, rtf 100, λ ∈
+{4, 8.4}×10⁻⁵: allocator 0.6–1.7 cores; byte traffic 13.6–28.5 GB/s marginal = 23–48% of the
+M1's ~60 GB/s (naive wave windows 52–109 GB/s = 86–181%, transiently ~1× the machine — cc9d's
+wave, likely the same read set); after split8: 0.05–0.2 cores, 1.7–3.6 GB/s (3–6%).** So the
+closure sentence survives with both new rows closed: **the mint deletion's case stays memory
+(the ratchet) + CPU (its share of the 82.5 µs item) — no pooling subsystem is machine-mandated**
+("the best part is no part"); the after-lever table's only unclosable row remains the player's
+root-doll item (cc9d). Predictions: P4/P5 held (P4's bandwidth half holds on the marginal
+(20261019-2339-fermi-f623; regen ~2 min; coast only, one seed, x86→M1 orders only; burn arm named
+below). **[Checker, silver: the decision survives every attack — naive constants (10.5–13.5 KB,
+17–21 calls/kick) and the heap family reproduce at 10⁵, seed 7 and burn, and even the worst
+attribution (burn-naive 21.5 KB/kick) closes under the already-mandatory split8 (≈37% of 60 GB/s
+at λ = 8.4×10⁻⁵) — but the marginal split is NOT yet a law: the OLS slope across arms spans
+−1.1 to +5.3 KB/kick (author 3.32/1.40; regen 3.32/0.98; checker seed-7 +5.34, 10⁵ coast −1.08,
+burn −0.06; sign flips — the 12-ms frame budget cuts non-kick work when kicks spike, coupling
+regressor and bytes), so 23–48% is one draw, not a measured row.]**
+
 
 **NEW (f876, second author on d4ff — the conjunction constant is now MEASURED at the ladder's
 checkable decade, checker-extended flat to 2×10⁵ root, and the checker's anchor table falls with it).** Exact Kepler propagation
@@ -111,11 +142,24 @@ self-stirred [07b4] ✓, 15.8 GB driven-worst [fc48/0820] = 2.0×, 2.6–5.0 GB 
 **[d4ff adds the belt-belt rows the composition lacked (checker-corrected): contacts ≤ +0.006 cores
 (today-cost, 10⁹, both bodies itemized); conjunction bar ~3×10² events/game-s at the instrument
 reach for the encounters tier (checker-measured; the dossier's 84/root is 10–20× high).]**
+**[f623 adds the two machine-floor rows the composition lacked, both closed: allocator
+0.6–1.7 cores today-cost, byte traffic 23–48% of 60 GB/s marginal (86–181% naive in
+waves), 3–6% after split8 — no pooling subsystem is machine-mandated.]**
 All anchors x86→M1 page-cited; orders of magnitude
 (20261019-0141-fermi-097e; 20261019-0435-fermi-0659).
 
 ## Refuted
 
+- **"The mint's heap-call anatomy is Binding 192 + Segment 208 + Entry 288" (9edc's
+  `size_of` reading) as a description of the allocation stream**: the measured per-kick
+  family is {88, 240, 304, 352, 384², 704, 832} B at ~9–10 calls/kick (76–79% of ≤2 KiB
+  bytes), those three sizes absent from the top 16; the retained objects are still
+  9edc's, the heap cuts are not (20261019-2339-fermi-f623).
+- **"The allocator and memory bandwidth are unpriced risks at 10⁹" (this page's own
+  gap, and PRINCIPLES #12's worry)**: measured 0.6–1.7 cores and 23–48% of 60 GB/s
+  marginal at the shipped cadence (3–6% after split8) — both close; the naive per-kick
+  average (12.3–12.7 KB, 86–181% of bandwidth in waves) over-attributes an N-flat
+  flight base, 64% of it >2 KiB scratch, to the mint (20261019-2339-fermi-f623).
 - **"The ladder belt is inert, so every composed CPU number is a player-stream fact"
   (the census note under 097e/3aec) as a reading of the belt's clock rate**: the census
   windows (10 s wall, rtf 100 ≈ 10³ game-s) end an order of magnitude before the belt's
@@ -131,7 +175,7 @@ All anchors x86→M1 page-cited; orders of magnitude
   steady-state pair MC (6.83 at 10⁵, falling per root above) — both sit 4–8× below it; the table's
   rising-with-reach shape matches presence counting, not debounced pair events. Checker f876-review
   confirms by rerun and by a third, differently-structured counter (596 events at 10⁵ → 6.27;
-  2,264 events at 2×10⁵ → 5.96, falling; KDTree counter 5.65 at 3×10⁴). The checker's
+  2,264 at 2×10⁵ → 5.96, falling; KDTree counter 5.65 at 3×10⁴). The checker's
   downstream constants survive (~30%) because their asymptote and bands absorbed it (f876).
 - **"Closure needs 14.6 µs/event — a 1.3–2.1× gap, not a physics gap" (cd3b's letter,
   carried by 097e's ledger) as the stream's closure bar**: the bar itself is
@@ -172,6 +216,16 @@ All anchors x86→M1 page-cited; orders of magnitude
    1024–256, leak-certified at the game coupling.** Residual: ~~the cd3b letter's
    unexplained ÷26~~ resolved by the checker (derivable from cd3b's own levers; see
    Contradictions).
+6. **The burn arm of the allocation law (f623)**: coast-only, one seed; the wave-window
+   naive traffic (86–181% of 60 GB/s) and cc9d's freeze likely share the player item's
+   read set — one burn flight with the same probe decides whether the wave's bytes are
+   marginal (then pooling the >2 KiB scratch is the cheap smoothness lever) or base.
+   **Checker flew it (K = 10⁴, 25 s): burn nearly doubles naive traffic (21.5 vs 12.6
+   KB/kick coast), 82% of bytes in >2 KiB (~22.5 KB avg), live ratchet ×6 — material and
+   confirmed open; the window OLS cannot decide marginal vs base in either arm (slope
+   −0.06); the deciding instrument must attribute bytes inside the fired item's own
+   scope, not through budget-coupled windows.** Log scratch sizes above 2 KiB per call
+   (the 15 KB average is bytes-derived).
 
 ## Contradictions
 
@@ -181,7 +235,8 @@ All anchors x86→M1 page-cited; orders of magnitude
   scenario-spread domain note stands. 0659's "every item fires" is measured on the
   shipped cadence; it equates promotion rate to the stream, not contradicts cd3b's count.
   d4ff's contact bound is conditional on no-wired-ship-gravity (stated in its dossier);
-  no standing entry contradicts it.
+  no standing entry contradicts it. f623's naive-vs-marginal split is an attribution
+  choice, disclosed both ways; no standing entry depends on the naive reading.
 
 ## Runs
 - 20261019-0141-fermi-097e (this run): the 10⁹ ledger composed — CPU 10.8–16.6 cores (363 if the epoch rule falls), memory 294× shipped / 0.2–2.0× wired, build/floor 978×, residency dial τ ≤ 43.6 game-s…0.12 orbit; the ladder belt measured inert (census).
@@ -193,3 +248,4 @@ All anchors x86→M1 page-cited; orders of magnitude
 - 20261019-1656-components-3aec (components, silver): post-73b5 re-composition — the stream dominates and is rate-bound at its floor (24 cores at the 6 µs floor, shipped cadence; closure = cadence cut AND ≤ 4.9 µs/event); kick item measured 82.5 µs x86 N-flat (player stream; checker: the belt's own items 44.7 µs, total 5.6–6.3×).
 - 20261019-1817-fermi-d4ff (fermi, silver): the belt's own stream bounded — closure survives with contacts ≤ +0.006 cores at 10⁹ (checker-corrected; author's +0.054); conjunction law checker-cut to ~3×10²/game-s at the instrument reach (author's 84/root θ-mixed, 10–20× high); wake-up N≈3×10⁷; C≈5×10⁴ contact tail; "inert belt" census reading refuted (window artifact, λ cross-checked 1.30× — stands).
 - 20261019-1906-second-20261019-1817-fermi-d4ff-f876 (second, on d4ff): the conjunction constant measured where it is paid — Γ = 6.21/root/game-s flat (propagation, 1,182 events, d = 10⁴–10⁵), TP bar 422/game-s, contacts 0.41/s, +0.0040 cores; author's 84.09 reproduced as θ-mixing (83.3); checker's anchor table 4–8× high as pair events, their downstream constants stand to ~30%.
+- 20261019-2339-fermi-f623 (fermi, silver): the two unpriced floors measured and closed — allocator 0.6–1.7 cores, bytes 23–48% of 60 GB/s marginal (86–181% naive in waves; 3–6% split8); per-kick churn law 17.6–19.3 allocs + 12.3–12.7 KB naive vs 1.4–3.3 KB marginal, family {88,240,304,352,384²,704,832}, 64% >2 KiB scratch; no machine floor forces the mint deletion. Checker: naive law + family reproduce at 10⁵/seed-7/burn and the closure survives the worst attribution (burn-naive 21.5 KB/kick ≈ 37% under mandatory split8), but the marginal/base OLS split is unstable (−1.1 to +5.3 KB/kick) — not yet a law.
