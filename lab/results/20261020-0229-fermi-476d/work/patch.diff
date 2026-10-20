@@ -1,0 +1,91 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..e8ef0ec1 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,26 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stand-in: the resident set now and its high-water mark, from /proc (pages the kernel swapped out are missed;
++/// disclosed in the dossier).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let read = |name: &str| std::fs::read_to_string(format!("/proc/self/{name}")).ok();
++    let now = read("statm")
++        .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++        .map(|pages| pages * 4096)
++        .unwrap_or(0);
++    let peak = read("status")
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmHWM:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|kb| kb.parse::<u64>().ok()))
++        })
++        .map(|kb| kb * 1024)
++        .unwrap_or(0);
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -62,6 +84,7 @@ fn main() {
+     let mut last_stats = p.u.stats;
+     let mut alive = true;
+     let mut ran = 0usize;
++    let mut wave_kicks: Option<(usize, u64)> = None; // (first over-budget frame, kicks then)
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+         if t_start.elapsed() > Duration::from_secs(55) {
+@@ -87,6 +110,9 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if f >= 60 && wave_kicks.is_none() && took.as_secs_f64() * 1e3 > budget_ms + 1.0 {
++            wave_kicks = Some((f, p.u.stats.kicks));
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -102,6 +128,26 @@ fn main() {
+     let (now2, rss2) = footprint();
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    // The wave decomposition (print-only): excess = sum of over-budget ms from the first over frame,
++    // ebb = sum of under-budget ms before it, both after the first second. Windowed excesses make the
++    // arms comparable when the 55 s guard truncates a deeper rung.
++    let (first_over, kicks_at_first_over) = wave_kicks.unwrap_or((usize::MAX, last_stats.kicks));
++    let excess_all: f64 = late.iter().filter(|r| r.0 >= first_over).map(|r| (r.1 - budget_ms).max(0.0)).sum();
++    let ebb_pre: f64 = late.iter().filter(|r| r.0 < first_over).map(|r| (budget_ms - r.1).max(0.0)).sum();
++    let excess_w = |w: usize| late.iter().filter(|r| r.0 >= first_over && r.0 < first_over + w).map(|r| (r.1 - budget_ms).max(0.0)).sum::<f64>();
++    let kicks_in_wave = last_stats.kicks.saturating_sub(kicks_at_first_over);
++    let events_in_wave = if first_over == usize::MAX { 0 } else { rows.iter().filter(|r| r.0 >= first_over).map(|r| r.2).sum::<u64>() };
++    let wave_ms_total: f64 = if first_over == usize::MAX { 0.0 } else { late.iter().filter(|r| r.0 >= first_over).map(|r| r.1).sum() };
++    println!(
++        "wave: first_over={first_over} kicks_in_wave={kicks_in_wave} events_in_wave={events_in_wave} wave_ms_total={wave_ms_total:.1} excess_all_ms={excess_all:.1} ebb_pre_ms={ebb_pre:.1} excess_w300_ms={:.1} excess_w600_ms={:.1} us_per_kick_wave={:.2} coverage_all={:.4}",
++        excess_w(300), excess_w(600), if kicks_in_wave > 0 { wave_ms_total * 1e3 / kicks_in_wave as f64 } else { 0.0 }, if excess_all > 0.0 { ebb_pre / excess_all } else { f64::INFINITY }
++    );
++    eprintln!("csv frame,ms,events,lag_s");
++    for r in &rows {
++        if r.0 >= 60 {
++            eprintln!("csv {},{:.4},{},{:.4}", r.0, r.1, r.2, r.3);
++        }
++    }
+     ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+     let mut ev: Vec<f64> = late.iter().map(|r| r.2 as f64).collect();
+     ev.sort_by(|a, b| a.partial_cmp(b).unwrap());
