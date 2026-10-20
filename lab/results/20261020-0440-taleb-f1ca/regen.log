@@ -1,0 +1,49 @@
+   Compiling emergent-allocator v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/allocator)
+    Finished `release` profile [optimized + debuginfo] target(s) in 3m 03s
+== E1 reproducer s19 (sequential, quiet)
+== quiet paired protocol (sequential)
+== 4-way and 12-way crush blocks (background, then wait)
+== summary
+crush_shipped_s11 fire=0 present 118 rollbacks 0 
+crush_shipped_s19 fire=0 present 538 rollbacks 0 
+crush_shipped_s21 fire=0 present 435 rollbacks 1 
+crush_shipped_s23 fire=0 present 205 rollbacks 1 
+crush_v3_s11 fire=0 present 43 rollbacks 0 
+crush_v3_s19 fire=0 present 341 rollbacks 0 
+crush_v3_s21 fire=0 present 153 rollbacks 0 
+crush_v3_s23 fire=0 present 119 rollbacks 0 
+crush_v4_s11 fire=0 present 43 rollbacks 0 
+crush_v4_s19 fire=0 present 341 rollbacks 0 
+crush_v4_s21 fire=0 present 153 rollbacks 1 
+crush_v4_s23 fire=0 present 119 rollbacks 0 
+e1_shipped_s19 fire=0 present 833 rollbacks 4 
+e1_v3_s19 fire=0 present 341 rollbacks 2 
+e1_v4_s19 fire=0 present 730 rollbacks 3 
+mid_shipped_s11 fire=0 present 180 rollbacks 1 
+mid_shipped_s19 fire=0 present 538 rollbacks 0 
+mid_shipped_s21 fire=0 present 558 rollbacks 3 
+mid_shipped_s23 fire=0 present 311 rollbacks 4 
+mid_v4_s11 fire=0 present 286 rollbacks 0 
+mid_v4_s19 fire=0 present 341 rollbacks 0 
+mid_v4_s21 fire=0 present 153 rollbacks 2 
+mid_v4_s23 fire=0 present 119 rollbacks 2 
+quiet_shipped_s11 fire=0 present 729 rollbacks 6 
+quiet_shipped_s13 fire=0 present 640 rollbacks 6 
+quiet_shipped_s15 fire=0 present 512 rollbacks 4 
+quiet_shipped_s17 fire=0 present 587 rollbacks 4 
+quiet_shipped_s19 fire=0 present 735 rollbacks 4 
+quiet_shipped_s21 fire=0 present 743 rollbacks 6 
+quiet_shipped_s23 fire=0 present 608 rollbacks 4 
+quiet_shipped_s25 fire=0 present 714 rollbacks 3 
+quiet_v4_s11 fire=0 present 529 rollbacks 6 
+quiet_v4_s13 fire=0 present 356 rollbacks 4 
+quiet_v4_s15 fire=0 present 389 rollbacks 4 
+quiet_v4_s17 fire=0 present 587 rollbacks 3 
+quiet_v4_s19 fire=0 present 678 rollbacks 0 
+quiet_v4_s21 fire=0 present 717 rollbacks 6 
+quiet_v4_s23 fire=0 present 311 rollbacks 4 
+quiet_v4_s25 fire=0 present 512 rollbacks 3 
+== equality law on gated draws (all m<=0, out empty):
+m=0
+out= nonempty: 0  |  fires on gated draws: 0
+no fires in this window (race)
