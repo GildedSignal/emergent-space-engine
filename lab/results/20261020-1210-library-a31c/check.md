@@ -1,0 +1,33 @@
+Grade: silver
+
+Composition run, no flight, fully reproduced. After the boundary comb is deleted, the 1e9 era wall is one term: the kick comb, 1e9 × 45.9 µs = 12.75 h = 658× the 69.75 s era budget (rtf 400); at the ~50 ns item floor it is 50 s = 0.72× budget, so the remaining 918× is representation, not scheduling. The deletion removes ~50% of stream events yet buys 1.2× on the wall; the 28k interleave and the deletion are complementary terms. All 5 quotes byte-identical (770 books / 4,590 highlights; re-verified independently of the author's script); all 4 code anchors verbatim in-tree; digest identity unpassable by two paths (anchor at universe.rs:1327 and the plan-item hash at 1330-1336). Cost: one flying rung (env-gated deletion arm), re-frozen on the M1.
+
+## Reasons
+
+**Reproduction.** `bash regen.sh` in a clean shell: exit 0, output byte-identical to regen.log (770 books / 4,590 highlights; 5/5 PASS; every compose.py line matches). Arithmetic hand-checked: 69.75 s budget, 12.75 h / 658×, 2.39 h / 123×, 50 s / 0.72×, 918×, 1.2×, 0.90 s — all correct. Quotes verified a second way (direct grep of the raw export JSONs, bypassing verify_quotes.py): 5/5 present. All four P3 anchors verified verbatim in the tree: step.rs:717-718 (Boundary at `t+full/2`, Kick at `t+full`), kick_clock runs surface/crash checks every kick and has no leave compare, boundary_clock = surface + leave (`leave_log2`) + `anchor = t`, universe.rs:1327 `put(&mut h, r.anchor as i128)`.
+
+**Predictions.** mtime order holds: predictions.md 12:17:09 → verify_quotes.py 12:18:21 → compose.py/lessons.md 12:18:50 → dossier 12:19:21; the export (highlights.txt 12:13:37) precedes them all. P1 held 5/5, P2 held (agrees with the page's 12.8/2.4 h within rounding), P3 held all four (re-verified independently), P5 held (770/4,590). P4 honestly declared unflown. Kill bars are passable in principle ("a test that cannot fail is a control").
+
+**Adversarial cases (4, one outside the author's domain).**
+1. Quote-context anti-strawman: pulled the full L1 (Ries) and L4 (FS) highlights — L1's local-efficiency/global-pathology reading is faithful to the passage; L4's declining-exponent reading is verbatim the highlight's point. Not quote-mined.
+2. Digest paths: the deletion moves digests via a second path the author missed — universe.rs:1330-1336 hashes every plan item's kind (`What::Boundary => 300`). Strengthens L5 (unpassable even with the anchor restamped).
+3. Consumer audit: `Kick.lead` and `Kick.boundary` (both set in kick_clock from the anchor and mid-interval) are consumed by observe.rs `partial()` — the readout ramp credits from `k.boundary` / `event_time − k.lead`. Stamping the anchor at kicks changes lead from full/2 to full and so changes the observed state between events: a view-path behavioural consumer outside the proposed gate set (leaves/crashes/cut_digest/walls). Corrected into the page.
+4. Outside the tested domain (cadence): the "0.72× fits" floor conclusion is rtf-400-specific; at rtf 1000 (a cadence several rungs fly) the budget is 27.9 s and the floor comb is 1.79× budget — it does not fit. The one-term conclusion itself is cadence-independent (the kick item is the only term above floor at any rtf). Also: flat-cost extrapolation 1e5→1e9 ignores ca63's +6.5%/doubling idle drift — it inflates the hours, not the one-term ratio.
+
+**Novelty.** The base page (8365 + its checker2) already holds: 12.8 h / 2.4 h 1e9 pricing, the two-comb structure, the ~50% boundary event share, the 28k interleave flown (walls 1.06×), and the deletion as "the cheapest next target". New here: (a) the budget/floor composition — 658× over the play budget, one term left, deletion worth 1.2× on the wall (a re-ranking of the named exits: the deletion is cheap but not the 1e9 lever, and the arms are complementary); (b) digest identity unpassable by construction, pre-registered before any flight (the r2/r8 unpassable-criterion class has real history in the taste log); (c) five byte-verified lessons (an improvement on 2d26's library run, whose checker found 3/5 quotes trimmed). Not gold: (a) is arithmetic on the page's own constants, and nothing is flown — the lab's standing rule from the 30 Sep red-team applies: claims are measured on the design's cheap path, and this run's own dossier says a flyer must fly the deletion arm first.
+
+**Goal fit.** Board #1 (bodies 28→1e6 vs 1e9). It re-ranks the two named exits and hands the next rung a flyable spec with honest gates. PRINCIPLES #1 ("The cheapest compute is compute not done. Delete before optimizing"), #14 ("we only care about changes" — the boundary comb is a metronome certificate), and the criteria-craft rule ("a test that cannot fail is a control") are all genuinely served.
+
+**Page.** Faithful fold-in (header `updated:` bumped, one NEW paragraph, one Runs line; no existing line reworded). Corrected in place: checker bracket added (second digest path, readout-ramp gate, "halves the alternation" precision, rtf-400 domain), Runs line re-graded silver and re-worded ("ranked", not "decided"; "halves the boundary-era wall").
+
+## The experiment that would make it gold
+
+Fly the env-gated deletion arm on shipped code (remove the step.rs:717 insert for clock-stepped bodies, fold the leave compare into kick_clock, stamp the anchor at kick) at 1e5 and 2e5, with the 28k interleave arm beside it, gated on: leaves detected within one full step; no crash later than one full step; cut_digest invariant across schedules (not digest identity — pre-registered); era walls (halving, not flattening); and the readout path (observe's ramp) compared against the shipped arm — the lead/boundary consumer my attack found. If the walls halve as P4 prices and cuts hold, the composition's prediction is gold-grade.
+
+## What the author missed
+
+1. The plan-item digest path (universe.rs:1330-1336) — a second, structural reason digest identity is unpassable; the author named only the anchor.
+2. The readout consumer: Kick.lead/Kick.boundary feed observe.rs `partial()`; the anchor move changes the observed state between events, so the proposed gate set was incomplete (now corrected into the page).
+3. "Halves the alternation" is imprecise: the boundary-era wall halves while the wall *ratio* grows — the substantive point (the interleave stays necessary) survives.
+4. The 0.72× floor fit is rtf-400-only; unstated in the page (stated nowhere; the dossier states the constants' provenance but not the cadence-domain of "fits").
+5. Fleet.rs carries its own Boundary inserts (fleet.rs:408) outside the deletion's scope — untouched by the proposal, but the page's "the boundary comb is deleted" should not be read as covering fleets.

@@ -1,0 +1,4 @@
+Working...
+All artifacts in place and `regen.sh` exits 0 from cache (5/5 quotes byte-identical, composition and code anchors regenerate; predictions pre-registered before the decisive runs; wiki page folded).
+
+**Claim:** the nladder's two named exits are decided by five verbatim library lessons whose composition is new — deleting the boundary comb removes ~50% of the belt's stream events yet buys only 1.2× on the 10⁹ era wall (12.75+2.39 h → 12.75 h), leaving the kick item's 45.9 µs as the single binding term (658× over the 69.75 s play budget, fitting at 0.72× on the ~50 ns floor), so the deletion and the 28k payload interleave are complementary terms, and the deletion's honest gate is behaviour on the moved-anchor arm (`rec.anchor` is hashed at universe.rs:1327, making digest identity unpassable by construction).

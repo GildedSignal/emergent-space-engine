@@ -1,0 +1,45 @@
+== 1. Readwise export ==
+fetched fresh: 9 pages
+
+== 2. Quote byte-identity (P1) ==
+export: 770 books, 4590 highlights
+PASS  L1 Ries (Lean Startup), larger batches feel efficient
+      [The Lean Startup — Eric Ries] (1 hit(s))
+PASS  L2 Hoffmann (World Atlas of Coffee), even bed / do no more
+      [The World Atlas of Coffee — James Hoffmann] (1 hit(s))
+PASS  L3 Kahneman (Thinking, Fast and Slow), attention when needed
+      [Thinking, Fast and Slow — Daniel Kahneman] (1 hit(s))
+PASS  L4 Farnam Street (Power Laws), declining exponent
+      [Power Laws: How Nonlinear Relationships Amplify Results — Farnam Street] (1 hit(s))
+PASS  L5 Darwin via Farnam Street (How Darwin Thought), memorandum at once
+      [How Darwin Thought: The Golden Rule of Thinking — Farnam Street] (2 hit(s))
+
+== 3. 1e9 composition (P2) ==
+era wall budget at rtf 400      :    69.75 s
+kick comb  1e9 x 45.9us         :    12.75 h   (658x over budget)
+bnd comb   1e9 x  8.6us         :     2.39 h   (123x over budget)
+boundary share of stream events : ~50% (49.7 burn / 50.7 coast, 8365 regen)
+kick comb at 50ns item floor    :    50.00 s   (0.72x budget -> fits)
+gap carried by the kick item    : 918x  (45.9us -> ~50ns)
+boundary deletion buys          : 1.2x on the era wall (12.75+2.39 -> 12.75 h)
+era-2/4 wall at 1e5 after delete: 105k x 8.6us = 0.90 s of items deleted (P4)
+
+== 4. Code anchors (P3) ==
+-- step.rs:717-718 (the comb inserts):
+        insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
+        insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
+-- step.rs:663-676 excerpt (kick_clock crash checks every kick, no leave check):
+        // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+        let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+        for (s, &j) in secs.iter().zip(sources) {
+            self.rec.alive = false;
+            return Ok(Resolved::Lost);
+        }
+-- step.rs:725-739 boundary_clock (surface + leave + anchor stamp):
+5:        if self.rec.kind != Kind::Planet && r < self.doll().surface {
+9:        if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+13:        self.rec.anchor = t;
+-- universe.rs:1327 (anchor hashed into the frame digest):
+            put(&mut h, r.anchor as i128);
+
+regen done.
