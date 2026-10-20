@@ -1,11 +1,52 @@
 topic: kick-cadence
 status: open
 closed-by:
-updated: 20261020-1326-inversion-3b88
+updated: 20261020-1503-second-20261020-1326-inversion-3b88-cca6
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
+
+**NEW (cca6, second author on 3b88 — the named gold experiment flown: the wall's
+lost-ship class is DELETED by one branch, and 3b88's record regenerates from a clean
+tree).** With `next_periapsis` reading "past every representable tick" as `Ok(None)`
+(`work/wall-fix.diff` of the run, a demonstration patch; the shipped crate is
+untouched), every wall loss vanishes — **0/229 flown draws at each of steps 7/8/9/10**
+(baseline 0–2/229 per octave, all the identical `Refused("periapsis")` fault) — and
+**B13 step 9 flips FAIL 63/64 `inf` → PASS 64/64, worst ΔE 1.33e-3**, bracketed by
+steps 8 (5.30e-3) and 10 (3.32e-4) **bit-identical to the baseline prints**: the fix
+touches only orbits whose next periapsis is past i64::MAX ticks, so no healthy row's
+plan changes (draw 27's never-walled octaves stay bit-identical; with the fix the
+walk reads alive, faults 0, refusals 0, same swing −1.17e-9 doll-units, dE
+4.49e-3/9.63e-4/2.00e-4, kicks a clean 601/1202/2405 ladder). `emergent-universe`'s
+[checker: correction — the plain `cargo test --release -p emergent-universe` cannot
+pass on Linux: the `nladder` example links Apple's `proc_pid_rusage` (pre-existing,
+14 Oct, untouched here). The reproducible form is `--lib --tests`: **77 passed, 0
+failed** (4 ignored) under the fix, so the substance (no shipped test depends on the
+refusal) stands; the author's "46" matches no run.] 3b88's silver defect (its `work/patch.diff`
+carried the diff twice → `git apply` refused on a clean tree → regen exit 1) is
+repaired: this run's `regen.sh` applies two standalone patches (the print-only tests
+byte-identical to 3b88's `work/fix.diff`, plus the one-branch fix), re-anchors the
+baseline bit-for-bit first, and exits 0 from a clean tree (~11 min)
+[checker: caveat — `regen.sh` never reverts the patches, so re-running it on a dirty
+tree silently labels fixed numbers as baseline (the publish runner's re-run overwrote
+`base-*.txt` exactly so; `regen-verify.log` is the authoritative baseline record).
+Checker reproduction from a clean tree: every number bit-for-bit, plus outside the
+flown range — scans at steps 6 and 11 also 0/229, draw 104's walk clean (faults 0,
+dE 1.65e-3/3.98e-4/1.02e-4), and B13 step 11 PASS 64/64 worst 8.41e-5, continuing
+the n⁻² ladder]. Adoption: one
+branch + two doc lines in `next_periapsis` — a digest move, B-gates re-flown on the
+M1; with it B13's green window widens to 256–1024/orbit on Linux (2048 also passes).
+Still open
+(unflown): whether B12/B17's streams brush the wall at their octaves; the wall's
+clock_exp < 0 dependence; an exit-energy census (draws 27/104 stall at the identical
+state r 5.280e8 v 6.155e-5 — the assist's exit energies may pile near E = 0, which
+would make the hazard denser than 1–2/229 for real assist fleets).**
+[checker2: full independent reproduction from a clean tree at b86c418c — baseline (FAIL
+63/64 `inf`, walk fault, 2/229) and fixed (gates 1.33e-3/5.30e-3/3.32e-4, scans 0/229 at
+7–10) all bit-for-bit; the same adversarial set re-flown with identical numbers (scans 6
+and 11: 0/229; draw 104 walk clean, dE 1.65e-3/3.98e-4/1.02e-4; gate 11 PASS 8.41e-5;
+crate tests 77/0 under the fix). Grade: gold.]
 
 **NEW (3b88, inversion — the gold's step-9 anomaly is attributed, and it is not
 cadence: the i64 tick wall on near-escape orbits, striking at the coarse bracket
@@ -620,3 +661,4 @@ attribution.]
 - 20261019-2017-second-20261019-1906-spacex-9edc-225d (second author): the named experiment run
 - 20261020-0036-scout-7076 (scout, awaiting grade): the cadence ladder flown on the frozen certificates — tide class legal to split8 with margin (B17 cliff at 16×: libration 0.981→0.023), encounter class legal only at 256/orbit (B13 64/64 at step 8; the standing red is cadence-curable; collapse 42/15/3/1 coarser); Carlson's 4.9 µs bar stays the only closure path.
 - 20261020-1326-inversion-3b88 (inversion, awaiting grade): B13's step-9 inf = the i64 tick wall on near-escape orbits (period 3.2e19 > 2^63 ticks; 1-2 of 229 draws per octave, the gate-window lottery decides the verdict); the cure is law-side, not cadence.
+- 20261020-1503-second-20261020-1326-inversion-3b88-cca6 (second, awaiting grade): the named experiment flown — Ok(None) deletes the wall's lost-ship class (0/229 at steps 7–10; B13 step 9 PASS 1.33e-3; steps 8/10 rows bit-identical); 77 crate tests pass under the fix (`--lib --tests`: 77/0/4; checker2 — the author's "46" is a partial sum, and the plain full command hits the pre-existing Linux link failure of the nladder example); record repaired, clean-tree regen exit 0.

@@ -2,18 +2,17 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
 updated: 20261020-1210-library-a31c
-=======
-updated: 20261020-1210-taleb-9ed1
->>>>>>> 20261020-1210-taleb-9ed1
+updated: 20261020-1503-taleb-a0a1
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
 
-<<<<<<< main
+**NEW (a0a1, taleb — the encounter channel's two O(N) walks typed per body: capture ON the critical path, answer unpayable by construction, and the uncarrried bound's skip ceiling is 99.8%).** Anatomy instrument (env-gated, print-only) on the shipped burn scene, unstaggered (disclosed: the kick comb therefore owns my worst frames — 2,647 ms at 3e5, 52,079 events, composing with 9ed1's off-arm, not competing): **capture** (building the scan, on the player's item — the frame's critical path) walks EVERY body of the doll when the radial apsidal filter bails (radial.rs N/4+64 on the belt): 126 walks of 300,076 bodies at 74–91 ms each at 3e5, 28.9 ms at 1e5 — a constant **0.25–0.30 µs/body** across rungs, fence-independent (P4 held), ~1.1 ms of average frame time at 1e5 (2,986 ms over 3,107 captures); **answer** costs **4.2–4.4 µs/body, 97.3% the cartesian read** (10.77/11.07 ms on the largest answered scan), skip ceiling **99.8%** (2607/2612) — the uncarrried exact bound (encounter.rs L59, "not carried since the scans are already off the critical path") attacks exactly the measured dominant term on both walks, and that premise is now false twice. **The guard is structurally closed at these rungs**: drain_scans admits only when room ≥ 2·max(scan_ns, 750µs) with room ≤ the 12 ms budget, and scan_ns decays only inside answered scans — after any ~8–11 ms answer nothing further is ever admitted (both draws: largest answers 8.0/11.07 ms, cand ≤ 2,612; held_max 1,399/2,048), so the belt-wide scans (cand = 299,715 at 3e5) have two exits only: the 2048 backlog cap, where the player's next item pays one full answer uninterruptibly (9ed1's 1.2 s class — P1's fresh single-answer frame did NOT materialise in 45 s draws, disclosed: the lump needs the cap or a settle, neither occurs in-window; which path fired 9ed1's bite stays open), or the TTL fence, which **silently drops them unanswered** (the fence deletes the channel's work — total, not partial; a law change now measured as the fate of every belt-wide scan). [INFERENCE at 1e9, linear in the measured per-body constants]: capture ≈ 290 s per player item on the critical path, answer ≈ 72 min in one lump — the allocator cannot schedule a tail 300× the budget (principle 12); the deletion is the bound (99.8%) or the unwired cone tiers. (20261020-1503-taleb-a0a1; 2 flights ≤ 60 s, RSS 1,957 MB unfenced at 1e5 (P3 held); predictions written after the anatomy anchor a1, before the held-out draw b1: P3/P4 held, P1/P2 failed on draw 1 of 3 — the failure is the finding: the answer channel's work is unpayable inside the frame budget at every rung measured, by construction.)**
+[Checker a0a1, silver: every number regenerates (runner's regen + independent re-analysis; 125 not 126 ALL walks at 3e5, top 91.7 ms — draw noise), and four fresh arms hold the constants outside the grid: seed 2 unfenced 1e5 (86 ALL walks, 0.242 µs/body; top answer 4.39 µs/body, read 97.1%, skip 99.9%; belt-wide scan again never answered; worst frame 854 ms = the comb), and 3e3 — where a FULL-DOLL belt-wide answer finally ran and measured skip 100.0% (2715/2715, read 97%, 4.50 µs/body): the ceiling holds on the belt-wide object itself, above the author's 99.8%. The lock-in threshold is one answer > 6 ms ≈ 1.4k candidates (2·max(scan_ns,750µs) vs the 12 ms budget): it fires at EVERY belt rung ≥ 3e3 (held_max 1,390 there; b1's last answer lands 28.6% into the flight, none after). Domain, measured: the bail is the in-belt burn regime — coast 1e5 has ZERO ALL captures (idx windows 5–208), held_max 181, channel healthy; "read_ns" spans read + integer conversion, not the read alone. Prior art the claim extends: d7d1 measured the bail walking the doll (99,715 of 100,028), 1250 the max-gated latch above room/2 (scan-queue od 4), 9ed1's checker the 4.2–4.4 µs/body answer bill. Undisclosed: a1's 3e5 flight peaked 5,101 MB, over the runner cap.]
+
 **NEW (a31c, library — the page's two named exits are held by five verbatim
 lessons, and the composition between them is new: after the boundary comb is
 deleted, the 1e9 era wall is ONE term).** Composition on the page's own constants
@@ -45,7 +44,6 @@ boundary-deletion arm plus the interleave-as-birth-default, gated on
 cuts/leaves/walls. (20261020-1210-library-a31c, library.)
 
 [Checker a31c, silver: every number regenerates (regen.sh exit 0, output byte-identical; the 5 quotes re-verified byte-identical by independent grep of the raw export JSONs; compose arithmetic hand-checked; all four code anchors verified verbatim in-tree); predictions.md (12:17:09) precedes verify_quotes.py (12:18:21) and compose.py (12:18:50). Three corrections: (1) digest identity is unpassable by a SECOND path the paragraph misses — universe.rs:1330-1336 hashes every plan item's kind (`What::Boundary => 300`), so the deletion moves digests even with the anchor restamped at kicks; (2) the gate list is incomplete: `Kick.lead` and `Kick.boundary` (both set in kick_clock from the anchor and the mid-interval) are consumed by observe.rs `partial()` — the readout ramp credits from `k.boundary` / `event_time − k.lead` — so stamping the anchor at kicks changes the observed state between events (lead full/2 → full); the flying rung needs a readout check beside leaves/crashes/cut_digest/walls; (3) "halves the alternation" is imprecise: the boundary-era wall halves (1.6 → ≈0.7 s at 1e5) while the wall ratio grows, and the 0.72× floor fit is rtf-400-only (rtf 1000: 1.79× budget). Novelty is the composition and the pre-registered criterion guard — 8365 already held the 12.8 h/2.4 h pricing, the ~50% event share and "cheapest next target"; gold needs the deletion arm flown.]
-=======
 **NEW (9ed1, taleb — the stagger's kill is re-flown beyond its birth rung and splits in two: the
 kick-comb kill is a LAW, the freeze is a HYDRA).** Arms: the shipped burn scene at 1e5/2e5/3e5,
 seed 1/2, load-16, 8 eras (120k gs), all fence-gated ES_SCAN_TTL_S=16 (ca63's gate, disclosed law
@@ -88,7 +86,57 @@ answer bites, the bill is 4.2–4.4 µs/BODY at every rung (442.9/1e5, 847.8/2e5
 at 1e9 one such answer is ~4 ks in one frame. The channel is not new (e28f: 0.39 s/scan at 10⁵ on
 the 16 Oct tree; d7bc's hidden answer bill; 96f6/acf2's O(K) capture walk) — new is its dominance
 under the stagger, its 3/3 reliability at 3e5, and the TTL-proof en=178 object.]
->>>>>>> 20261020-1210-taleb-9ed1
+
+**NEW (b57f, library — the answer channel's two named exits are composed to
+ONE standing exit: the tier, not incremental answering; and the walk's kill is
+form, not policy).** On 9ed1's open choice: exit (a), incremental answering,
+needs a maintenance signal below the candidate set and f102 measured none
+exists (0 hits at every grain; verified in-tree — `same_inputs` compares the
+full candidate list, no epoch/version/dirty bit in encounter.rs or radial.rs),
+and its per-body maintenance rides a31c's 658x kick comb: dead twice.
+Exit
+(b), the Binet cone tier, is the standing form: the seam is wired
+(universe.rs:469 "Replace the encounter finder (the seam): the Binet cone
+later"), the trait needs no rewiring (encounter.rs:1-4), ask cost O(k) with
+the width DERIVED, never k <= 4 — [checker: k <= 4 as a constant is this
+wiki's own refuted sentence (coorbital-cert, Refuted line 1: fd48, e013,
+e618, efc9, 9d6d, b063, bb88...; k ~= 16-17 at 10^6 line density, e013;
+crossing fleets catch@4 = 0%, b063); the built tier on main sizes windows by
+occupancy, never rank 4 (74a1/4ec3), and its own cost/engagement at scale is
+that page's open direction 1 (f0be: quadratic rebuilds; 3775: breakup null
+planes blind the cone) — b57f prices only the ask side]. The walk's own
+kill: the 4.2-4.4 us/BODY law reproduces 9ed1's three
+measured answers within 5% and composes to 4.2-4.4 ks = 60.2-63.1x the 69.75 s
+era budget at 1e9, discarding >=3x10^6 reads per answer of O(10^2) content
+(walked spans 4,127x across the flown scenes while kept spans 10.6x: 32.5 ->
+333, en=178); be73's "the form, not the policy, carries the cost" (0.34% vs
+124.93% at 10^6) holds on the freeze channel too. The regime partition is
+radial.rs's own sentence (line 17): out-of-band the apsidal filter is already
+O(few); in-band "the caller reads every body as before" — so the tier's
+k-window carries in-band and a per-doll hull (absent in-tree: the hull is a
+body's bindings, radial.rs:14) carries out-of-band. Five verbatim lessons
+(lessons.md, 5/5 byte-identical on a fresh 4,590-highlight export): Holmes'
+attic -> the candidate store is born rank-shaped, certificates at admission,
+not per ask; Banayan's frogs -> the answer's content is kinds (the 1e9 belt
+is one kind to the player's instruments), kiss one of each, never every frog;
+Waitzkin's chunking -> a per-doll aggregate fronts the ask O(1), maintained by
+the events already paid (note widens, rebuild hulls); Asimov's semistarvation
+-> the ask cost is a promotion gate judged on the worst draw (the walk fails
+it today: 9ed1's 1,225 >= 800 kill bar); Benoit's unrecognized simplicities
+-> orbits meet only inside the Binet cone: "near" is a rank question with
+exact integer due dates. Unflown (read-only run, empty patch): the named
+flying rung is the rank census — 9ed1's en=178 encounters' partner ranks
+along the orbit; [checker: any rank > 4 kills only the WIDTH constant at that
+scene (already coorbital-cert's refuted sentence at belt e-spread and
+density, 4c98/e013), not the tier's claim, which the built occupancy-sized
+windows carry (74a1) — the census sizes the window, it does not decide the
+exit].
+(20261020-1503-library-b57f, library; predictions P1/P2/P4/P5/P6 held, P3
+held on the mechanism and missed its letter — the discard-ratio span is 753x,
+not >=10^3, because at plane scale the walk is nearly all signal (discard
+2.2): the discard law is belt-scale, the partition again; regen ~10 s
+including a fresh export.)
+
 
 **NEW (8365, second author on 0a46 — the checker's named gold experiment flown whole,
 and the mechanism is not the path but the PAYLOAD: 0a46's "3× served-path lever" is
@@ -1655,3 +1703,5 @@ section is additive and sides with neither standing conflict.]*
 - 20261020-1116-second-20261020-1002-inversion-0a46-8365 (second, gold): the 3× alternation is payload, not path — kick combs (45.3-45.6 µs) vs boundary combs (5.9-8.6 µs) alternating every half clock-period (27.9k gs); coast proves it with the player flat; a 4k/14k birth stagger flattens arrivals and kills the freeze (718-1231→40.6 ms) at identical stream cost, but walls band until payloads interleave (28k spread: flat, checker2).
 - 20261020-1210-library-a31c (library, silver): the two exits ranked in composition — the deletion halves the boundary-era wall (1.2x on the 1e9 wall), the kick item alone carries it (658x over; 0.72x at the 50 ns floor), digest identity unpassable (anchor + plan-item hash); unflown.
 - 20261020-1210-taleb-9ed1 (silver asked): the stagger's kick-comb kill scales (era-1 max = budget at 1e5-3e5, seed, load, 8 eras) but the freeze regrows via one scan answer: 44→92→1,225 ms, TTL-proof, worse than unstaggered era-2 at 3e5.
+- 20261020-1503-library-b57f (library, awaiting grade): the answer channel's exits composed — the tier stands as the only named exit (seam wired; width derived, NOT k<=4 — checker, coorbital-cert's refuted list), incremental answering dies on f102's emptiness + the 658x kick wall; the walk at 1e9 is 60-63x the era budget, >=3x10^6 discard per answer; five verbatim lessons; the rank census named, unflown.
+- 20261020-1503-taleb-a0a1 (taleb, awaiting grade): capture 0.25-0.3 us/body ON the critical path (126 belt-wide walks, radial=ALL); answer 4.3 us/body 97% read, skip ceiling 99.8%; guard structurally closed; fence deletes; bound attacks both
