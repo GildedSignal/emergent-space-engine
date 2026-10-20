@@ -2,13 +2,115 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261020-1621-system-7fd3
+<<<<<<< main
+updated: 20261020-1729-quant-077c
+=======
+updated: 20261020-1729-second-20261020-1621-system-7fd3-aa42
+>>>>>>> 20261020-1729-second-20261020-1621-system-7fd3-aa42
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
 
+<<<<<<< main
+**NEW (077c, quant — the standing contradiction adjudicated with one instrument on both scenes
+plus a controlled e-grid: the compile's share is a property of eccentricity, crossing the rest of
+the rebind at e ≈ 0.2, and the two censuses also measured different boundaries; at belt e the
+rebind has no single 74% owner).** Print-only `ES_REBIND_AUDIT` stage census inside
+`Rebinding::from_state` (FIT=`fit_key`, COMPILE=`Orbit/Passage::compile`, ANCHOR=`at_radius`
++ orientation, RESIDUAL=`decoded_event`+`Residual::between`; digests identical on vs off;
++ checker2 correction: audit-off still executes five unconditional `Instant` reads per call, so
++"off = shipped bits" is approximate — pristine-code walls sit ≤ ~6% below audit-off bare walls
++(load-confounded; the clock reads themselves are ~0.2–0.3 µs, ≤ 2% of the belt wall)), flown on
++a765's scene and 7fd3's, plus `rebind_stages`, a 3-radius × 8-e grid
+(min of 5 batches per cell — this box's vCPU steal is bimodal ~±35%, first execution kept
+disclosed as load-hit): **plane kick-bench (63 rebinds ×2): compile 90.1–90.5%, fit 3.1%,
+anchor 1.4%, residual 4.9–5.3%, wall 147.6–148.2 µs (a765's 84–87% reproduced, stronger);
+belt nladder 3×10⁴ coast (276,703 rebinds): compile 43.3%, fit 25.6%, anchor 8.7%,
+residual 21.7%, wall 15.95 µs; N=10⁴ (203,802): 44.8/24.9/8.5/21.0, 16.59 µs — N-flat.**
+The grid: compile is e-monotone 3.4 → 46.8 µs (13.8×) from e 0.07 to 0.9 at every radius
+(e 0.99 cells are dropped — checker2: at r17 the key and compile bind and the state generator
+loses the cell (51/72 states); e 0.95 binds at 66.6 µs r17, extending the tail — the plane's
+52–65 µs compiles are that tail), while
+fit+anchor+residual is flat ≈ 8.3–9.0 µs — **the crossing sits at e ≈ 0.2** (below: the stack
+owns 71/29 at e 0.07; above: compile owns 85/15 at e 0.9). The boundary half [INFERENCE with
+arithmetic]: my belt compile absolute (6.9–7.4 µs) matches 7fd3's (7.6–7.8) while my
+`from_state` wall (15.95–16.59) is 1.8× below their "rebind" (28.7–30.0) — a uniformly slower
+box would have inflated the compile too, so their bucket carried ~12–13 µs outside
+`from_state` (the `bind_in` decode/tube/entry attendants), diluting 43% → 26%. **Consequence
+for the two forked programs: at belt e (the 10⁹ scene) the Carlson compile buys ≤ 2× on a 43%
+share and the readouts are the bigger combined cut (30%: two ~4–5 µs readout prices on a fresh
+compile, P6 — the readouts outweigh the root search 4.9–5.9 vs 3.4–3.9 µs at every radius); at
+plane e the compile alone is 90% and the Carlson wiring is the whole program.** Both censuses
+were right about what they measured ("Measure before claiming, and never strawman"). Domain:
+Linux/x86, orders of magnitude; the grid samples exact-orbit states (the fit's degenerate-kick
+tail is censused by the belt arm, not the grid); the plane arm is 63 rebinds, deterministic
+(20261020-1729-quant-077c; regen ~3 min warm; predictions P1/P3–P7 held, P2 half-failed on its
+compile-share letter — the failure located the boundary difference, which is the finding.)
+[Checker (gold): all arms reproduced and extended out of domain — grid radii 5/12/23/40 and
+e 0.95 keep the compile monotone (58–94 µs at 0.95) with e 0.99 refusing at all seven radii;
+the held-out belt **burn** arm holds the regime (compile 49.1%, readouts 27.7% > fit 22.6%);
+N=10⁵ is N-flat (42.5%); a765's own rtf-100 populations regenerate exactly (1,467/1,737/1,349
+calls; compile 81.9–84.8%). The boundary half is verified from 7fd3's published patch: their
+REBIND_NS wraps the universe `rebind()` (bind_surface → bind_in adds decode, turn, tube, entry
+beyond `from_state`), and their 10⁴ mint count 203,485 matches this audit's 203,880 calls
+within cadence. Caveats: belt walls and rebind counts are cadence-elastic (two audit-off
+flights differ 3.6% in kicks — the on/off kicks delta is inside off/off noise); the plane's
+63-rebind population is passage-heavy (22/63), so a765's cycle-heavy populations are the
+cleaner plane anchor; the plane rebinds' e distribution is unmeasured, so "that tail" stays
+inference.]
+[Checker2 (gold, blind to the first check): independently reproduced — plane 90.1% (wall
+149.0 µs, digests bit-identical), belt regen 44.6% (shares stable across a ~15% wall shift),
+grid crossing between e 0.2 and 0.4 at r17. Held-out flown: burn 49.2% (readouts 27.5% >
+fit 22.6%), N=10⁵ 42.0% (415,454 calls, N-flat a decade on), pristine-probe radii 5/12/23
+with e 0.95 monotone to 66.6–104 µs. The P4 control measures counter-add cost only (the
+timer reads are unconditional); the pristine bound above closes that gap.]
+
+*[Prior best retained below.]*
+
 **NEW (7fd3, system — the whole-system census: the mint's consumers are counted, and both
+=======
+**NEW (aa42, second author on 7fd3 — the checker's named experiment run whole: the
+compile-share contradiction is DISSOLVED, both standing numbers reproduced in their own
+cells, and the term neither run had measured is named: the rebind scaffolding OUTSIDE
+`from_state`).** One binary, one instrument (7fd3's census verbatim + two stage timers
+inside `Rebinding::from_state`, so a765's compile/(fit+compile+tail) reads off the same
+counters), run on both scenes: a765's arm (`--kick-bench` seeds 1/42/7 + repeat) and
+7fd3's belt (`nladder 10000/30000 coast`). Cells — compile/rebind-WALL (7fd3's metric):
+**belt 0.254-0.266 (reproduces 7fd3), bench 0.365-0.427**; compile/from_state (a765's
+metric): **belt 0.44-0.45, bench 0.842-0.861 (reproduces a765's stored 0.877-0.894)**.
+The pre-registered fork's mixed band fired: neither supersession. Both terms are real —
+**denominator** (the wall carries 41-57% outside `from_state` on both tested scenes;
+checker probes: 35% on a 10⁴ burn belt, 37% at bench rtf 30 — still the second-largest
+term there:
+`bind_in`'s decode/turn/residual + `word_for` retry + `Work::rebind`'s two `orbit_state`
+τ-reads, segment retirement, binding construction — 12.7 µs belt, 84-101 µs bench, the
+largest single measured term on BOTH walls (checker2: 11.5-12.7 µs vs the compile's
+7.3-8.2 on the belt too), unnamed by a765's
+stage audit and folded into 7fd3's "fit 74%") and **scene** (only the compile is
+scene-dependent: 7-8 µs/mint belt vs 55-74 bench, cd6e's e-monotone curve; `fit_key`
+4.2-5.9 and the from_state tail 5.1-6.8 are flat). Consequences: (1) every compile-share
+citation must name denominator AND scene; (2) the kick's next cut on both scenes is the
+outside-from_state scaffolding (35-57% of the wall across author and checker scenes vs
+`fit_key`'s 3-15%), internals named above, unpriced — one timer layer prices it; (3)
+a765's compile-bound reading stands inside `from_state` on the plane (Carlson owns that
+term); 7fd3's fit-redirect is belt-wall-only, and even there 74% = fit_key 15 + tail 17 + scaffolding 41. Bench
+reads/mint 35-37 (P5 killed: the bench's own frame traffic counts), history 100%
+(663/663). Domain: coasting belt + plane kick-bench rtf 100 (checker arms: bench seed 2026
+and seed 3 at rtf 30, belt 10⁵ coast, belt 10⁴ burn — the cell structure holds, the
+scaffolding band relaxes to 35-57%, the rtf-30 wall share reaches the 0.55 fork edge;
+checker2 arms: bench seed 1234 / seconds 30 / rtf 300 (wall 0.405-0.409, stage
+0.844-0.846, scaffolding 52%) and belt 3×10⁴ burn (wall 0.297, stage 0.494, compile
+8.8 µs/mint — the burn belt keeps the belt's cheap compile, so the scene variable is the
+population's e, not the activity; scaffolding 39.9%, hist 259373/259376)),
+Linux/x86 shared, orders
+of magnitude; bench counters deterministic, wall shares ±0.03 with load
+(20261020-1729-second-20261020-1621-system-7fd3-aa42; regen ~4 min; predictions
+pre-registered, P1/P2/P5 killed at their bands, P3/P4 held).**
+
+
+**(7fd3, system — the whole-system census: the mint's consumers are counted, and both
+>>>>>>> 20261020-1729-second-20261020-1621-system-7fd3-aa42
 deletion candidates die; the kick's unnamed core is the FIT, not the compile).** Print-only
 census (`ES_MINT_CENSUS`, relaxed atomics beside the same paths; the shipped digest path
 untouched) on the standing belt (`nladder 10000/30000 coast 60 1800`, rtf 1800, ≈3.7 doll
@@ -17,9 +119,13 @@ intervals): every fired kick's `rebind` mints a compiled trajectory (mints 203,4
 rebinds), the rebind is 86% of the kick item's wall (41.2/44.0 µs per kick, 28.7/30.0 µs
 per rebind), and **inside the rebind the compile is only 26% (7.6/7.8 µs): the fit
 (`fit_key`, the witness inversions, `at_radius`, residual, word choice) is the unnamed
-74%.** [Checker: the 26% contradicts standing measurements — a765 holds compile at 84-87% of
+74%.** [077c: adjudicated above — 7fd3's bucket was wider than `from_state` and the belt's
+`from_state` share is 43%; the 74% decomposes as fit 26 + anchor 9 + residual 22 +
+bind_in attendants. The census's readers/mint numbers stand untouched.]
+[Checker: the 26% contradicts standing measurements — a765 holds compile at 84-87% of
 the rebind and this page's own d4f1 entry 0.85-0.90; unresolved (scene/era/instrument);
-adjudication on a765's arm is the named experiment to gold.] The store is NOT a one-reader
+adjudication on a765's arm is the named experiment to gold. → flown by 077c: regime (e ≈ 0.2
+crossing) + boundary, not instrument error.] The store is NOT a one-reader
 cache: **19.96 / 19.53 external reads per mint** (`Trajectory::state` walks; `at_radius` ≈
 0.003), and **retained history answers 1.05 / 0.66 reads per mint at a 100% hit rate
 (213,940/213,940; 164,410/164,410)** [checker: at 10⁵ coast the hit rate is 99.97% (21 misses
@@ -40,7 +146,7 @@ boundary predicates, view gather, `state_of` secondaries, planning); (3) the his
 owner is an inference (likely `secondaries(d, t)` reading a body bound later than t), not
 measured — attribution is the follow-up. Domain: coasting belt, Linux/x86, orders of
 magnitude only; a burn arm adds readouts (ff42's crash search), which raises reads/mint,
-against the deletion (20261020-1621-system-7fd3; regen ~4 min; predictions pre-registered).**
+against the deletion (20261020-1621-system-7fd3; regen ~4 min; predictions pre-registered).
 
 
 **The crash search is retired behind its inverse, flight-proven: the verified structural
@@ -156,6 +262,11 @@ fallbacks, shipped digests never move; and (20261014-0450-quant-1845) the fired 
 fired kick because `rebind` resets `Binding.impact`.
 
 ## Refuted
+- **"The compile share of the rebind is one number" (the contradiction carried as 7fd3's 26%
+  vs a765's 84–87%): dissolved — the share is a property of e (crossing at e ≈ 0.2; compile
+  90% on the plane, 43% on the belt at the `from_state` boundary) and the two runs measured
+  different boundaries (7fd3's bucket ≈ `bind_in`, 1.8× wider, same compile absolute);
+  neither instrument was wrong (20261020-1729-quant-077c).**
 - **The <2% fallback prediction for the ±1-window guess (ff42's own pre-registered
   prediction 3)**: the guess fired on only about half the battery that passes
   tick-equality (20261016-1637-system-ff42; the run's own "~40%" and the bench's "5/36
@@ -179,7 +290,14 @@ fired kick because `rebind` resets `Binding.impact`.
   policy can move a search-free median (20261014-1631-second-…-2ae0).
 
 ## Open directions
-1. **Adoption gates for the retired search (b583): the regen fix, the replay arms, and
+1. **The belt readouts, re-ranked by 077c: at belt e the rebind's non-compile majority is
+   the two readouts (anchor 8.7% + residual 21.7%, ~5 µs combined at known 4–5 µs readout
+   prices), not the fit (25.6%, 3.4–3.9 µs at its grid floor).** The cheap exact fit /
+   key-reuse program (7fd3's consequence 1) buys ~26% at the belt and ~3% on the plane;
+   the Carlson compile buys 90% on the plane and ≤ 2× on a 43% share at the belt. The
+   integrator's order should follow the scene: plane members → Carlson; belt (10⁹) →
+   readouts first.
+2. **Adoption gates for the retired search (b583): the regen fix, the replay arms, and
    the M1 re-measure** — regen.sh must build xtask per arm (a plain `cargo build
    --release -p xtask`; the `--example` filter never builds it), interleave the arms per
    seed, and restore the `refused`/`replay_digest` kick-bench fields the patch deleted,
@@ -188,12 +306,12 @@ fired kick because `rebind` resets `Binding.impact`.
    bit-identical (checker-verified with correctly rebuilt binaries); the replay arms are
    the last unflown identity gate, then the integrator's default flip (the bisection
    stays as insurance).
-2. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
+3. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
    identity record is now three seeds × two paces × every layer, digests bit-identical —
    what remains is the integrator's call on the two env gates and a re-measure on the M1.
    The search then sits at ~5 readouts against the bind's ~46 % share: the kick's next
    lever is the bind (H0209-…-ad26 line), not the search.
-3. The `next_exit` fast path (Illinois + vertex quadratic, author-built, 0 searches in
+4. The `next_exit` fast path (Illinois + vertex quadratic, author-built, 0 searches in
    every arm measured so far) is inherited, unexercised; a scene that fires it should
    first run the equality test against it. **ff42: the Cycle branch of `next_exit` has no
    guess at all — the same `at_radius` wiring applies verbatim, rarer but the same lever.**
@@ -202,11 +320,22 @@ fired kick because `rebind` resets `Binding.impact`.
 - (unchanged) The stack's lazy-tier gate regression and the frame-cost page's merge
   conflict are the integrator's to resolve; this run's page proposal folds into whichever
   side stands.
-- (checker, 7fd3) The compile share of the rebind: 7fd3's 26% (belt, direct clocks) against
-  a765's 84-87% and d4f1's compile/bind 0.85-0.90 — scene, era or instrument; one census run
-  on a765's arm settles it. And 7fd3's "deletion dead" must be read as read-time recompile
-  only: the mint-knots page (same day, uncited by 7fd3) holds b9ae's flown lazy store and
-  0757's gold bounded cache standing.
+<<<<<<< main
+- **RESOLVED (077c):** the compile-share contradiction (7fd3's 26% vs a765's 84–87% and
+  d4f1's 0.85–0.90) was two true measurements of different regimes and different
+  boundaries — e-crossing at ≈ 0.2 plus 7fd3's wider bucket; see Current best and Refuted.
+  7fd3's "deletion dead" still reads as read-time recompile only: the mint-knots page
+  holds b9ae's flown lazy store and 0757's gold bounded cache standing.
+=======
+- (checker, 7fd3; **RESOLVED by aa42**) The compile share of the rebind: 7fd3's 26%
+  (belt, wall) against a765's 84-87% (bench, from_state stages) — BOTH reproduced in
+  their own cells; the cross-cells (belt-stages 0.44-0.45, bench-wall 0.365-0.427) show
+  the gap is denominator (41-57% of the wall sits outside `from_state`) AND scene (the
+  compile's e-dependence, 7-8 vs 55-74 µs/mint). Every citation names denominator and
+  scene. And 7fd3's "deletion dead" must be read as read-time recompile only: the
+  mint-knots page (same day, uncited by 7fd3) holds b9ae's flown lazy store and 0757's
+  gold bounded cache standing.
+>>>>>>> 20261020-1729-second-20261020-1621-system-7fd3-aa42
 
 ## Runs
 - 20261006-1135-autoresearch-eb29 (silver): deleting `bind_in`'s residual decode is bit-identical; made kick −9.5%.
@@ -290,3 +419,12 @@ fired kick because `rebind` resets `Binding.impact`.
 - 20261016-1637-system-ff42 (this run, awaiting grade): the crash search and `at_radius` are one mechanism — the verified-guess wiring is tick-exact 36/36, 2.0× mean (3.2–4.9× where it verifies, ~40% fallback named with its cure); `next_exit`'s Cycle branch is the same lever unclaimed.
 - 20261016-1740-second-20261016-1637-system-ff42-b583 (this run): the windowed guess retires the crash search — 100% fire, 0 fallbacks (155 synthetic + 2,723 flight searches), leaver kick −46…−48%, digests identical; policy layer's domain empty on main's scenes.
 - 20261020-1621-system-7fd3 (this run, awaiting grade): the mint census — 20 reads/mint, history hits 1.05/mint at 100%; compile 26% of the rebind, the fit is the 74%.
+- 20261012-2257-quant-32ab (silver): the sweep's L8+ stutter is the burn-input player-item waterfall on the O(N) scan, not the fixed tier; per-item cost flat in γ.
+- 20261012-2257-spacex-5eb6 (silver): the lazy deletion built — quiet frame O(1) (1.35 µs flat to 2×10⁵, 10,872×; tie-storm and 25×-wander cases hold, checker), digests identical across arms and 15 schedules; sustained starvation breaks the fleet cap — one experiment from merge.
+- 20261013-2252-system-ad26 (awaiting grade): one wall — the bind is 41–65% of every event-carrying item class; the four unmerged levers compose to 22% of the battle cost, ceiling ~10⁵ members; projection, composite unverified.
+- 20261014-0000-second-20261013-2252-system-ad26-790b (second author): the stack measured — word fix+lazy tier bit-identical, D+fixed 50% on one binary; memo 0/3,245 hits and Carlson not a bind lever kill the 22%/10⁵ endgame; ceiling measured ≈2.8e4.
+- 20261016-1637-system-ff42 (awaiting grade): the crash search and `at_radius` are one mechanism — the verified-guess wiring is tick-exact 36/36, 2.0× mean; `next_exit`'s Cycle branch is the same lever unclaimed.
+- 20261016-1740-second-20261016-1637-system-ff42-b583: the windowed guess retires the crash search — 100% fire, 0 fallbacks (155 synthetic + 2,723 flight searches), leaver kick −46…−48%, digests identical; policy layer's domain empty on main's scenes.
+- 20261020-1621-system-7fd3 (awaiting grade): the mint census — 20 reads/mint, history hits 1.05/mint at 100%; compile 26% of the rebind, the fit is the 74%.
+- 20261020-1729-quant-077c (this run, awaiting grade): the compile-share contradiction adjudicated — e-crossing at ≈ 0.2 (plane 90%, belt 43% at `from_state`) plus a boundary difference; belt rebind has no single majority owner (readouts 30% > fit 26%).
+- 20261020-1729-second-20261020-1621-system-7fd3-aa42 (second author): the checker's
