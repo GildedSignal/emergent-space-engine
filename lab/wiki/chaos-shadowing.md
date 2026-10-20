@@ -2,10 +2,68 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b
+updated: 20261020-0229-dynamics-c644
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
 
+
+**NEW (c644, dynamics — open direction 2's named leftover flown: the belt-interior
+e-walk measured directly, per body, through the self-destruction. The mechanism
+attribution INVERTS: the clamp zone is not the belt's killer; the belt dies by contact
+relaxation — a core-halo split with an exponential hazard).** Harness
+`crates/lattice/examples/beltewalk.rs` (e3b7's genesis and tide verbatim, plus per-body
+osculating snapshots at stride 128, per-chronon per-body contact/clamp tallies through a
+digest-neutral `Chronon::take_kept_events`, chronon-exact U (eps>=0) and D (r>250q)
+marks). Arms B cold s1 / C thermal s2 (H 49152) + D Pass s1 (H 8192, the control):
+**dead bodies that ever clamped: 2/492 (B), 3/498 (C)** — the 9b3b gate e < 1-2.1q/a
+never fires in situ, and no death is reachable by the e-walk at conserved energy (bound
+apocenters <= 2a <= 204q < 250q); 79% of deaths unbind first. **The killer is energy
+redistribution with a contact signature: Spearman(|deps|, per-body contacts) = +0.88
+(B) / +0.88 (C) against -0.14 in the flat Pass control (eps drift <= 0.38%, a-ratio in
+[0.996, 1.004], 0 clamps); 472/472 positive-dE leavers exit with ~their own binding
+energy (median +2.6e9 v^2-units) while survivors split into a sunk core (a-ratio median
+0.054, 37% inside r < 2.1q, median r 7.6q) and a wide skirt — the negative-heat-capacity
+fate of a collisional gas in a central field (e56b's wall-box flat, Pass+tide flat: the
+interaction term is the only mover).** The e-walk itself is real and diffusive-ish:
+Var(e) 2.6e-7 -> 0.94 against contact exposure (r2 0.74/0.67, under the 0.9 bar),
+<de^2>/contact 0.209/0.107 (within the pre-registered factor 2; Pass: 2.2e-9). **The
+survival law: exponential, lamda = 3.44 vs 3.26 x10^-5/ch (cold vs thermal seed, 6%
+apart), half-life ~20k ch ~ 3 orbits at 70q, then self-quench: the remnant holds ~310
+bodies for the last 17k ch while still rattling at 3300 contacts/ch.** Deaths per ring
+rise outward (B 49%->79%, C 40%->74%) — ordered by |eps0|, the OPPOSITE of the e_c
+pericenter ordering; median t_D flat across rings. Zone residents exist but are edge
+cases for the DEATH toll (2-3 pump-killed; the sinking leavers are 20 but only 1 ever
+clamped — they sink by core contacts without entering the zone [checker correction];
+the sub-quantum core holds ~108 survivors below r = 0.5q, not one, with raw
+true-field deps ~ -4.3e12 each — the author's "one pathological body" understated the
+core's population); eps bookkeeping vs the
+true field is meaningless inside r <~ 2.1q, where the applied clamped tide is not the
+field. Consequence for the fix list: an exact inner zone would not save the belt; the
+decision is whether a contact-collisional belt is wanted at all (at this density the
+belt relaxes in ~3 dynamical times; the re-birth cadence bound is 1/lamda ~ 3 orbits).
+Pre-registered: P1/P3 refuted, P2 partial, P4 held with the quench amendment, P5 held in
+substance (letter missed: the Pass belt records 456k rattle contacts; a max|k| criterion
+conflates orbital phase — eps is the invariant that held). Arm A (hottest draw) was in
+flight at the author's deadline (t = 28672, esc 445, same class) — the checker's regen
+completed it: 508 dead, 6/508 clamped, lamda 3.44e-5, same class; with the checker's
+seed-3 arm the >=3-seed protocol is met (four base-density bounce arms, seeds 1-3:
+lamda 3.26-3.63e-5, half-life 19-21k ch). Named next: the contact carry ledger
+(Body.residual) through the storm; per-ring relaxation flux; the core's own
+evaporation tail past 49k (20261020-0229-dynamics-c644).**
+
+[Checker, adversarial — clean-tree regen reproduces every headline number (B/C/D to the
+digit; A now complete: 508 dead, 6/508 clamped, lamda 3.44e-5). Two probes outside the
+author's range, both confirming: seed 3 thermal full horizon (501 dead, 4/501 clamped,
+lamda 3.63e-5, rings 34%->81% outward) and 2x density n=3200, H=24576 (980 dead,
+0/980 clamped — the clamp-zone chain gets LESS relevant as the e-walk speeds up;
+lamda 6.46e-5 ~ 2x base, i.e. contact-rate-limited, the relaxation reading's own
+scaling; rings 20%->85% outward). Three letter corrections, none touching the claim:
+dead bodies' median min-r before death is 69-74q (p10 20q; C has ZERO dead bodies ever
+below 2.1q) — the apocenter argument holds a fortiori; the tail hazard after 32k is
+0.6-1.0e-5/ch (~4x below the fit lamda, a plateau, not "collapses to ~0": 29-54 more
+deaths land after 32k, remnant drifts 371->308); the sinking leavers (20) are NOT zone
+residents — only 1 ever clamped (corrected above). Digest-neutrality of
+take_kept_events verified in source (Log::digest hashes counters only).]
 
 **NEW (9b3b, second author on e3b7 — the checker's named experiment folded in as the
 run's own record, both checker digests reproduced bit-for-bit, and the ladder that
@@ -238,6 +296,17 @@ by e3b7.]
 run; unchanged by e3b7.]
 
 ## Refuted
+- **NEW - "Bounce contacts walk bodies' e to ~0.97 and the tide's inner clamp zone is
+  the sole energy injector" (9b3b's reading, as the CONTACT-BEARING belt's mechanism)**:
+  in the belt proper the zone is never reached (2/492 and 3/498 dead bodies ever
+  clamped; the e-walk cannot kill: bound apocenters <= 204q < 250q), and the deaths are
+  relaxation-driven unbinds ordered by |eps0| (c644). 9b3b's isolated ladder stands for
+  the zone itself.
+- **NEW - "deaths order by the pericenter gate e_c = 1-2.1q/a, inner rings first"
+  (c644's own pre-registered P3)**: measured outer-first (deaths per ring 49%->79%
+  outward in B, 40%->74% in C; median t_D flat across rings); the boundary that matters
+  is eps = 0 (c644).**
+
 
 - **NEW — "the gravity-held belt can be flown on the lattice's kick surface to answer
   the plateau-lifetime question" (e56b's named leftover, this run's own premise)**: the
@@ -386,3 +455,4 @@ as recorded.
 - 20261019-0435-dynamics-e56b (awaiting grade): game case flown — one season, extensive hot plateau; no train; free space one-shot
 - 20261019-1551-dynamics-e3b7 (awaiting grade): gravity-held belt — the kick tide fails its own cold-belt gate; fleet season evicts 86%
 - 20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b (awaiting grade): Pass belt flat to 49k (checker digests bit-for-bit); ladder: pump = the DK_CAP clamp zone below r≈2q (held e≤0.97, ejected e≥0.975, 3 clamped ch suffice; grinder speeds reproduced one-body)
+- 20261020-0229-dynamics-c644 (dynamics, awaiting grade): the e-walk flown per body - killer is relaxation not the clamp zone (2/492 clamped); exponential hazard 3.3e-5/ch, self-quench remnant ~310

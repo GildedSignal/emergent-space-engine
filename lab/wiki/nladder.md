@@ -2,12 +2,55 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0143-library-2d26
+updated: 20261020-0229-fermi-476d
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**NEW (476d, fermi — the day-old ×2.37 excess law is not a law: the full-window excess has
+±46% same-scene flight spread and conflates a near-linear crest with an α≈1.9 memory tail;
+inside the burst, arrivals/body are ≈1.0 and K-flat in crest windows while per-event over-budget
+cost rises mildly).** My own print-only instrument (per-frame CSV + wave decomposition; engine untouched)
+reproduces 2d26's 1e5 anchor to +0.5% (excess 6,651 vs 6,619; ebb 2,098 vs 2,046 — but the same
+arm's own third flight, regen's, reads 9,011, so the 0.5% was a two-draw coincidence) and cc9d-checker's
+3e5 max (2,854 vs 2,840.8, the held-out rung), but the 2e5 full window reads 22,866 vs their 15,686
+(+46%), over 120 vs 110 — the rung's wave integrals are schedule-elastic. Fixed-frame split (onset
+itself drifts 452↔542 across flights): wave-1 zone [440,600) = 4,633/9,814(s10)/15,231(s17)/15,578 at
+1e5/2e5/2e5/3e5 — the SAME rung spreads ±22% across two flights — and tail zone [600,1020) =
+2,019→7,639 per ×2 K (α 1.92): the super-linear anchor is the post-crest gs-20k–34k small-over-frame
+era, the held-scan channel's shape and era (7b6f; TTL fence takes it to 0 from gs 18k), NOT the
+arrival burst. Mechanism in the burst (checker-corrected to crest-window events, over-frames in
+[440,600)): events/body 0.979/0.997/1.000 — FLAT ≈1, not falling; the author's 1.26/1.13/1.02 mixed
+windows (first_over 65 vs 468) — and over-budget µs/event 46.7/49.2/51.9 (rising ~+5%/doubling; the
+author's 36.8→51.0 mixed crest ms with whole-wave kicks; cc9d's 0.16–0.17 was the worst-frame gulp ratio).
+Consequences: 2d26's coverage table demotes to an order-of-magnitude span (coverage(1e9) spans
+1×10⁻⁵…1×10⁻⁴ across the measured exponents; crest-only α 1.1–1.15 → 1–2×10⁻⁵, prepay even deader;
+no exit flips at 1e6); the tail does not need the stagger (the fence deletes it) — the stagger's true
+target, the crest, is ~K^1.1–1.3 with crest-work(1e9) ≈ 32 h one wave at this schedule, arrivals
+≈1.0/body K-flat. Instrument floor for every future wave exit: ≥3 flights per rung (±22% same-rung).
+4e5 unflightable under 2 GB (scan channel walls before the game-time-locked onset), and the 2e5 long
+arm peaked at 2,758 MB (survived once; not repeated). (20261020-0229-fermi-476d; 6 flights ≤ 62 s +
+regen ~5 min; predictions pre-registered: P1 held, P2 failed on its letter (1.596 vs band ≤1.58) with
+the kill bar (≥1.62) not fired — the designed 1.50-vs-1.66 discrimination is unresolvable at the
+discovered ±22% noise; P3 half-inverted (both terms move, in opposite directions); P4/P5 held.)
+
+[Checker 476d, silver: every window number regenerates from the author's CSVs, and four fresh
+flights STRENGTHEN the kill — but along a dimension the author never varied: load. All six author
+flights ran at load ~0.25; at load 24 (8 shared cores) the same 2e5/3e5 s10 arms read 74/78 ms
+full-window (the wave lands beyond 600 frames; end lag 16.1/30.8 s) vs 9,814/15,686, and 1e5 s17
+reads 16,441 with the burst at frames 965–997 — the same arrival object (103,430 events =
+1.034/body) at 152.9 µs/event vs ~47 at load 0.25, so the "flight-stable crest ±1.4%" (dossier)
+is 4,633→15,676 across regimes and per-event cost is 3.2×; 5e4 s17 (below the author's grid)
+shows NO concentrated burst at all under load (max 36.5, excess 414 ms): the drain amortizes the
+wave — crest-vs-amortized is schedule-chosen. The ebb (coverage's denominator) also drifts
+(4,581 vs 2,098 ms). P2 failed on its letter (1.596 ∉ (1.42,1.58)); P3's "≤0.18 held (1.02–1.26)"
+is false as written (window totals; the worst-frame ratio ~0.17–0.18 is what holds). The kill of
+×2.37 stands, stronger than claimed; the substituted constants (crest α 1.08–1.15, tail α 1.92
+two-point with the 2.7-GB-pressure flight, +18%/doubling) are window artifacts or single-regime
+draws. Gold experiment: crest anchored on game-time (gs), per-frame event counts, ≥3 flights per
+rung at two load regimes, one TTL-fence arm to pin the tail channel.]
 
 **NEW (2d26, library — the wave's three exits are typed by one measured law, prepay coverage =
 pre-onset ebb / wave excess, and the law kills the prepay route at the rungs that matter: 0c0f's
@@ -1356,3 +1399,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261019-2339-second-20261019-2017-inversion-cc9d-ee4d (second author, awaiting grade): cc9d's named cure flown env-gated — the root-doll player's due ships become budget-gated items before its item; freeze 46/815 ms (1e4/1e5 this box; 5e4/2e5 the record's 423/1,875) → 13.9/18.1/13.8/14.4 ms, mega-frames 0, crest = ~332 ship items; canonical-cut digest bit-identical (on/off/no-flight, 1e4 and 5e4, past the wave); price 0.62–0.71× rtf in the wave era; naive no-wait control indistinguishable (scans never bite at these scenes) — exactness rests on the mechanism.
 - 20261020-0036-second-20261019-2339-inversion-1d47-4063 (second author, awaiting grade): 1d47's named experiment flown — canonical-cut instrument (cut_digest, decision at a canonical tick): OFF = ON = REACH=16 on 34 cut runs at 10^5/2x10^5 (16+18; one digest a rung; unlimited/12x3/3 ms/no-flight/4 threads/deeper cut; ON's 1,838-entry encounter log byte-identical across reruns), burst stays deleted (801.4→19.3, 1,640.5→45.7 ms), checker's bistability not reproduced; stale reads real (3.8-11.2k) and answer 3-6 encounters a run at |d|≤0.71 window but verdict-preserving — the invariance is empirical, not structural; reach pull buys nothing measurable (offenders 10^7 ticks out).
 - 20261020-0143-library-2d26 (library, awaiting grade): the wave's exits typed by coverage = pre-onset ebb / excess — 0.31/0.13 at rtf 2000, 2.55 at rtf 400; prepay dies by 1e6, amortize is horizon-bound, only the stagger scales.
+- 20261020-0229-fermi-476d (fermi, silver): the ×2.37 excess law killed as a unit — same-rung spread far beyond ±46% (at load 24 the same 2e5 arm reads 74 ms vs 15,686); crest/tail split real but its α constants are load-regime-bound; crest arrivals/body ≈1.0 flat (author's "falling 1.26→1.02" was a window artifact); coverage(1e9) a span, not 6e-5.
