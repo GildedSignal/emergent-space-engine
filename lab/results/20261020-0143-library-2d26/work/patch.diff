@@ -1,0 +1,56 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..c6cf4301 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,20 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// print-only Linux stand-in (the lab box; prior lab runs did the same, disclosed): VmRSS now, VmHWM peak, bytes.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let kv = |l: &str| l.split_whitespace().next().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) * 1024;
++            if let Some(r) = line.strip_prefix("VmRSS:") { now = kv(r); }
++            if let Some(r) = line.strip_prefix("VmHWM:") { peak = kv(r); }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -100,6 +116,15 @@ fn main() {
+         }
+     }
+     let (now2, rss2) = footprint();
++    // print-only: dump the per-frame series when asked; no env var, no change (the ladder: line is the shipped record)
++    if let Ok(path) = std::env::var("ES_FRAME_TRACE") {
++        if let Ok(mut out) = std::fs::File::create(&path) {
++            use std::io::Write;
++            for r in &rows {
++                let _ = writeln!(out, "{} {:.4} {} {:.4}", r.0, r.1, r.2, r.3);
++            }
++        }
++    }
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+     ms.sort_by(|a, b| a.partial_cmp(b).unwrap());

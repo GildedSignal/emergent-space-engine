@@ -1,0 +1,21 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.23s
+1e5 burn: frames 1020 p50 5.81 (0.48 of budget) over 111 onset_frame 462 slack_pre 2086 ms excess 6786 ms coverage(slack_pre/excess) 0.307 excess/total_slack 1.30 lag onset 0.0 max 31.7 end 0.0 s events med 91 max 16508
+   play-cadence price: excess 6786 ms drained at 12 ms/frame = 566 extra frames = 9.4 s of presented-time lag; prepay needs 174 frames of ebb
+2e5 burn: frames 1020 p50 6.49 (0.54 of budget) over 113 onset_frame 457 slack_pre 2010 ms excess 16102 ms coverage(slack_pre/excess) 0.125 excess/total_slack 3.36 lag onset 0.0 max 32.0 end 0.0 s events med 91 max 35634
+   play-cadence price: excess 16102 ms drained at 12 ms/frame = 1342 extra frames = 22.4 s of presented-time lag; prepay needs 168 frames of ebb
+1e5 coast: frames 1020 p50 10.40 (0.87 of budget) over 3 onset_frame None slack_pre - ms excess 5 ms coverage(slack_pre/excess) - excess/total_slack 0.00 lag onset - max 32.6 end 1.4 s events med 167 max 432
+rtf400 2e5: frames 2700 p50 0.422 (0.035) onset_frame 2070 slack_pre 20516 ms excess 8772 ms coverage 2.34 lag_max 5.38 end 0.00
+composed coverage at rtf400: 1e5 5.5 3e5 1.41 1e6 0.32 1e9 5.9e-05
+docs 770 highlights 4590
+==> out100000_burn.txt <==
+ladder: n=100000 bodies=100028 flight=burn rtf=2000 frames=1080 build_s=4.27 foot_build_mb=237 foot_end_mb=1494 b_per_body=2348 p50_ms=5.808 p99_ms=160.763 max_ms=826.368 over=111 lag_s=31.719 kicks_per_body_gs=4.671e-5 events_per_body_gs=9.355e-5 refusals=0 dead=0 held_max=1879 view_ms=2057.0 truncated=false wall_s=25.9
+
+==> out200000_burn.txt <==
+ladder: n=200000 bodies=200028 flight=burn rtf=2000 frames=1080 build_s=8.81 foot_build_mb=471 foot_end_mb=2984 b_per_body=2342 p50_ms=6.490 p99_ms=338.241 max_ms=1819.928 over=113 lag_s=32.042 kicks_per_body_gs=3.879e-5 events_per_body_gs=7.765e-5 refusals=0 dead=0 held_max=1797 view_ms=4163.5 truncated=false wall_s=48.2
+
+==> out200000_burn400.txt <==
+ladder: n=200000 bodies=200028 flight=burn rtf=400 frames=2760 build_s=9.18 foot_build_mb=471 foot_end_mb=992 b_per_body=2342 p50_ms=0.422 p99_ms=11.947 max_ms=1677.449 over=13 lag_s=5.375 kicks_per_body_gs=6.399e-5 events_per_body_gs=7.317e-5 refusals=0 dead=0 held_max=870 view_ms=4387.8 truncated=false wall_s=38.1
+
+==> out100000_coast.txt <==
+ladder: n=100000 bodies=100028 flight=coast rtf=2000 frames=1080 build_s=4.65 foot_build_mb=238 foot_end_mb=485 b_per_body=2348 p50_ms=10.405 p99_ms=11.950 max_ms=16.584 over=3 lag_s=32.632 kicks_per_body_gs=6.606e-5 events_per_body_gs=8.170e-5 refusals=0 dead=0 held_max=109 view_ms=2152.1 truncated=false wall_s=21.2
