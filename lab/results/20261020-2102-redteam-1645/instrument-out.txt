@@ -1,0 +1,117 @@
+== controls (a=0) ==
+bend a=0 b=  100.0: 0.040222540 vs 4/b+15pi/4b^2 0.041178097 rel=-2.32e-02
+bend a=0 b=   50.0: 0.084583450 vs 4/b+15pi/4b^2 0.084712389 rel=-1.52e-03
+bend a=0 b=   20.0: 0.235935995 vs 4/b+15pi/4b^2 0.229452431 rel=+2.83e-02
+a=0 b_c=+-5.196152 (=3sqrt3 5.196152)
+a=0 r_o=20.0: edges +-0.2490 arc 7.9% (039d: 7.9/25.0/37.1... at 20/6/3.2M)
+a=0 r_o=6.0: edges +-0.7854 arc 25.0% (039d: 7.9/25.0/37.1... at 20/6/3.2M)
+a=0 r_o=3.2: edges +-1.4646 arc 46.6% (039d: 7.9/25.0/37.1... at 20/6/3.2M)
+spiral a=0.0 pro: r_ph=3.0000 b_c=+5.19615 bend at b_c*(1+1e-6) = 13.42 rad (2.1 turns)
+spiral a=0.0 retro: r_ph=3.0000 b_c=-5.19615 bend at b_c*(1+1e-6) = 13.42 rad (2.1 turns)
+spiral a=0.9 pro: r_ph=1.5579 b_c=+2.84442 bend at b_c*(1+1e-6) = 34.02 rad (5.4 turns)
+spiral a=0.9 retro: r_ph=3.9103 b_c=-6.83232 bend at b_c*(1+1e-6) = 10.47 rad (1.7 turns)
+
+== shadow edges (static observer) vs the chi-blind law ==
+a=0.5 r_o=20.0: b_c +4.096/-6.138 r_ph 2.347/3.532 | edges [-0.2954,+0.1955] vs chi-blind [+-0.2490] | arc 7.8% vs 7.9% | centre -0.0499 rad (-2.9 deg)
+    edge error chi-blind: prograde -3.07 deg, retrograde -2.66 deg
+a=0.5 r_o=6.0: b_c +4.096/-6.138 r_ph 2.347/3.532 | edges [-0.9887,+0.5913] vs chi-blind [+-0.7854] | arc 25.1% vs 25.0% | centre -0.1987 rad (-11.4 deg)
+    edge error chi-blind: prograde -11.12 deg, retrograde -11.65 deg
+a=0.5 r_o=3.2: b_c +4.096/-6.138 r_ph 2.347/3.532 | edges [-1.5708,+0.9009] vs chi-blind [+-1.4646] | arc 39.3% vs 46.6% | centre -0.3349 rad (-19.2 deg)  RETRO-EDGE WRAPS
+a=0.9 r_o=20.0: b_c +2.844/-6.832 r_ph 1.558/3.910 | edges [-0.3300,+0.1353] vs chi-blind [+-0.2490] | arc 7.4% vs 7.9% | centre -0.0974 rad (-5.6 deg)
+    edge error chi-blind: prograde -6.51 deg, retrograde -4.64 deg
+a=0.9 r_o=6.0: b_c +2.844/-6.832 r_ph 1.558/3.910 | edges [-1.1938,+0.3975] vs chi-blind [+-0.7854] | arc 25.3% vs 25.0% | centre -0.3982 rad (-22.8 deg)
+    edge error chi-blind: prograde -22.23 deg, retrograde -23.40 deg
+a=0.9 r_o=3.2: b_c +2.844/-6.832 r_ph 1.558/3.910 | edges [-1.5708,+0.5756] vs chi-blind [+-1.4646] | arc 34.2% vs 46.6% | centre -0.4976 rad (-28.5 deg)  RETRO-EDGE WRAPS
+a=0.998 r_o=20.0: b_c +2.111/-6.997 r_ph 1.074/3.998 | edges [-0.3383,+0.1003] vs chi-blind [+-0.2490] | arc 7.0% vs 7.9% | centre -0.1190 rad (-6.8 deg)
+    edge error chi-blind: prograde -8.52 deg, retrograde -5.11 deg
+a=0.998 r_o=6.0: b_c +2.111/-6.997 r_ph 1.074/3.998 | edges [-1.2601,+0.2914] vs chi-blind [+-0.7854] | arc 24.7% vs 25.0% | centre -0.4844 rad (-27.8 deg)
+    edge error chi-blind: prograde -28.31 deg, retrograde -27.20 deg
+a=0.998 r_o=3.2: b_c +2.111/-6.997 r_ph 1.074/3.998 | edges [-1.5708,+0.4158] vs chi-blind [+-1.4646] | arc 31.6% vs 46.6% | centre -0.5775 rad (-33.1 deg)  RETRO-EDGE WRAPS
+
+== bend(b) per sense vs chi-blind Schwarzschild (star-bearing error) ==
+a=0.9 b=  6.0: pro 1.026150 ret CAP (captured side skipped)
+a=0.9 b= 10.0: pro 0.504533 ret 0.720404 schw 0.590296 | err pro -4.914 deg ret +7.455 deg asym -12.368 deg
+a=0.9 b= 20.0: pro 0.222737 ret 0.250928 schw 0.235936 | err pro -0.756 deg ret +0.859 deg asym -1.615 deg
+a=0.998 b=  6.0: pro 0.988680 ret CAP (captured side skipped)
+a=0.998 b= 10.0: pro 0.496860 ret 0.739005 schw 0.590296 | err pro -5.353 deg ret +8.520 deg asym -13.874 deg
+a=0.998 b= 20.0: pro 0.221394 ret 0.252686 schw 0.235936 | err pro -0.833 deg ret +0.960 deg asym -1.793 deg
+
+== rim wall: log divergence per sense ==
+a=0.0 pro: A=1.000 bend(1e-3)=6.51 bend(1e-6)=13.42 | winding-image gap db/b = 1.86e-03 (memo key must resolve this)
+a=0.0 retro: A=1.000 bend(1e-3)=6.51 bend(1e-6)=13.42 | winding-image gap db/b = 1.86e-03 (memo key must resolve this)
+a=0.9 pro: A=2.583 bend(1e-3)=16.18 bend(1e-6)=34.02 | winding-image gap db/b = 8.78e-02 (memo key must resolve this)
+a=0.9 retro: A=0.784 bend(1e-3)=5.05 bend(1e-6)=10.47 | winding-image gap db/b = 3.31e-04 (memo key must resolve this)
+
+== oracle bends at the shipped sweep points (vs DEFL lines from cargo) ==
+ORACLE a=0.0 b=+3.0000 phi=CAPTURED
+ORACLE a=0.0 b=-3.0000 phi=CAPTURED
+ORACLE a=0.0 b=+3.2000 phi=CAPTURED
+ORACLE a=0.0 b=-3.2000 phi=CAPTURED
+ORACLE a=0.0 b=+3.5000 phi=CAPTURED
+ORACLE a=0.0 b=-3.5000 phi=CAPTURED
+ORACLE a=0.0 b=+4.0000 phi=CAPTURED
+ORACLE a=0.0 b=-4.0000 phi=CAPTURED
+ORACLE a=0.0 b=+4.5000 phi=CAPTURED
+ORACLE a=0.0 b=-4.5000 phi=CAPTURED
+ORACLE a=0.0 b=+5.0000 phi=CAPTURED
+ORACLE a=0.0 b=-5.0000 phi=CAPTURED
+ORACLE a=0.0 b=+5.5000 phi=2.552965182
+ORACLE a=0.0 b=-5.5000 phi=2.552965182
+ORACLE a=0.0 b=+6.0000 phi=1.719328310
+ORACLE a=0.0 b=-6.0000 phi=1.719328310
+ORACLE a=0.0 b=+6.5000 phi=1.351259074
+ORACLE a=0.0 b=-6.5000 phi=1.351259074
+ORACLE a=0.0 b=+8.0000 phi=0.858650018
+ORACLE a=0.0 b=-8.0000 phi=0.858650018
+ORACLE a=0.0 b=+10.0000 phi=0.590295788
+ORACLE a=0.0 b=-10.0000 phi=0.590295788
+ORACLE a=0.0 b=+20.0000 phi=0.235935995
+ORACLE a=0.0 b=-20.0000 phi=0.235935995
+ORACLE a=0.0 b=+100.0000 phi=0.040222540
+ORACLE a=0.0 b=-100.0000 phi=0.040222540
+ORACLE a=0.0 bcrit +-5.19615
+ORACLE a=0.5 b=+4.5000 phi=2.740603373
+ORACLE a=0.5 b=-4.5000 phi=CAPTURED
+ORACLE a=0.5 b=+5.0000 phi=1.885784349
+ORACLE a=0.5 b=-5.0000 phi=CAPTURED
+ORACLE a=0.5 b=+6.5000 phi=1.052337020
+ORACLE a=0.5 b=-6.5000 phi=2.157293263
+ORACLE a=0.5 b=+8.0000 phi=0.744475438
+ORACLE a=0.5 b=-8.0000 phi=1.029387085
+ORACLE a=0.5 b=+10.0000 phi=0.538877894
+ORACLE a=0.5 b=-10.0000 phi=0.654872356
+ORACLE a=0.5 b=+20.0000 phi=0.228404251
+ORACLE a=0.5 b=-20.0000 phi=0.244019594
+ORACLE a=0.5 b=+100.0000 phi=0.040006962
+ORACLE a=0.5 b=-100.0000 phi=0.040440425
+ORACLE a=0.5 bcrit +4.09627/-6.13816
+ORACLE a=0.9 b=+3.0000 phi=6.120360987
+ORACLE a=0.9 b=-3.0000 phi=CAPTURED
+ORACLE a=0.9 b=+3.2000 phi=4.290389231
+ORACLE a=0.9 b=-3.2000 phi=CAPTURED
+ORACLE a=0.9 b=+3.5000 phi=3.102609599
+ORACLE a=0.9 b=-3.5000 phi=CAPTURED
+ORACLE a=0.9 b=+4.0000 phi=2.178250449
+ORACLE a=0.9 b=-4.0000 phi=CAPTURED
+ORACLE a=0.9 b=+8.0000 phi=0.675930745
+ORACLE a=0.9 b=-8.0000 phi=1.253213866
+ORACLE a=0.9 b=+10.0000 phi=0.504532984
+ORACLE a=0.9 b=-10.0000 phi=0.720403614
+ORACLE a=0.9 b=+20.0000 phi=0.222737489
+ORACLE a=0.9 b=-20.0000 phi=0.250928295
+ORACLE a=0.9 b=+100.0000 phi=0.039836136
+ORACLE a=0.9 b=-100.0000 phi=0.040616420
+ORACLE a=0.9 bcrit +2.84442/-6.83232
+ORACLE a=0.998 b=+3.0000 phi=3.880558450
+ORACLE a=0.998 b=-3.0000 phi=CAPTURED
+ORACLE a=0.998 b=+3.2000 phi=3.242814873
+ORACLE a=0.998 b=-3.2000 phi=CAPTURED
+ORACLE a=0.998 b=+8.0000 phi=0.661321576
+ORACLE a=0.998 b=-8.0000 phi=1.331538446
+ORACLE a=0.998 b=+10.0000 phi=0.496860189
+ORACLE a=0.998 b=-10.0000 phi=0.739004522
+ORACLE a=0.998 b=+20.0000 phi=0.221394411
+ORACLE a=0.998 b=-20.0000 phi=0.252685665
+ORACLE a=0.998 b=+100.0000 phi=0.039794503
+ORACLE a=0.998 b=-100.0000 phi=0.040659770
+ORACLE a=0.998 bcrit +2.11089/-6.99667

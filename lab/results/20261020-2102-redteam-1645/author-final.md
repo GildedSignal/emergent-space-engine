@@ -1,0 +1,4 @@
+Working...
+All deliverables complete: predictions written before the decisive run, instrument + shipped probe both regenerating in ~11s (regen verified, residual = the oracle's own truncation tail, 1e-9), dossier, regen.sh, and the topic's wiki page with the result folded in.
+
+**Claim:** The view at a spinning hole is the last unmeasured half of the gather's premises, and it splits exactly: the shipped signed-b Kerr geodesics match the exact oracle to the printed digits (the lopsided shadow *can* emerge), but the χ-blind/|b|-keyed reading of the letter's "memoized deflection(b)" is dead by type — shadow edges misplaced 2.7°–28.3°, arc centre displaced up to 33°, the retrograde edge wrapping past tangential at r_o ≤ 3.2M, and the rim wall splitting by sense (δb/b = 8.8×10⁻² prograde vs 3.3×10⁻⁴ retrograde against 1.9×10⁻³ flat) — and no gate sees any of it (r15-kerr-shadow freeze-ready in the dossier).

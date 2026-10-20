@@ -1,0 +1,42 @@
+diff --git a/crates/space/tests/kerr_view_probe.rs b/crates/space/tests/kerr_view_probe.rs
+new file mode 100644
+index 00000000..beadb8b1
+--- /dev/null
++++ b/crates/space/tests/kerr_view_probe.rs
+@@ -0,0 +1,36 @@
++//! Probe: the shipped `kerr::deflection` against the exact-float oracle for the
++//! view premise (law.md L32/L55, representation.md L57). Prints a sweep; the
++//! oracle comparison lives in the run's python instrument. Run:
++//!   cargo test -p emergent-space --test kerr_view_probe -- --nocapture
++use emergent_space::{
++    kerr::{self, Spin},
++    orbit::Scalar as S,
++};
++
++fn s(x: f64) -> S {
++    if x == 0.0 {
++        return S::ZERO;
++    }
++    let e = x.abs().log2().floor() as i32;
++    S::raw((x * 2f64.powi(60 - e)).round() as i128, e - 60).unwrap()
++}
++fn d(x: S) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++#[test]
++fn kerr_deflection_sweep() {
++    for a in [0.0f64, 0.5, 0.9, 0.998] {
++        let spin = Spin::new(s(a)).unwrap();
++        for b in [3.0f64, 3.2, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 8.0, 10.0, 20.0, 100.0] {
++            for sgn in [1.0f64, -1.0] {
++                let bb = sgn * b;
++                match kerr::deflection(spin, s(bb)) {
++                    Ok(Some(v)) => println!("DEFL a={} b={:+.4} phi={:.9}", a, bb, d(v)),
++                    Ok(None) => println!("DEFL a={} b={:+.4} CAPTURED", a, bb),
++                    Err(e) => println!("DEFL a={} b={:+.4} ERR {:?}", a, bb, e),
++                }
++            }
++        }
++    }
++}
