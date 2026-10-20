@@ -1,0 +1,34 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 25.27s
+== quiet (expect: canon arms 581ced1a stable; frame arms 0b9930b6 stable, decision tick 199980)
+q_off_canon load[8.71 12.85 9.93] digest 581ced1a kicks 127671 encounters 1802 stale0 
+q_on_canon load[7.44 12.36 9.82] digest 581ced1a kicks 127671 encounters 1802 stale5223 
+q_on_canon2 load[6.77 11.97 9.73] digest 581ced1a kicks 127671 encounters 1802 stale4931 
+q_off_frame load[5.56 11.45 9.59] digest 0b9930b6 kicks 127663 encounters 1792 stale0 tick 196926963
+q_off_frame2 load[4.55 10.94 9.45] digest 0b9930b6 kicks 127663 encounters 1792 stale0 tick 196926963
+q_on_frame load[4.00 10.61 9.36] digest 0b9930b6 kicks 127663 encounters 1792 stale5059 tick 196926963
+== loaded (6 spinners; expect: canon arms STILL 581ced1a; frame arms >=2 distinct digests, ticks < 199980 varying)
+l_on_canon load[3.42 10.15 9.23] digest 581ced1a kicks 127671 encounters 1802 stale5212 
+l_on_canon2 load[4.64 10.00 9.20] digest 581ced1a kicks 127671 encounters 1802 stale5214 
+l_on_canon3 load[5.31 9.80 9.15] digest 581ced1a kicks 127671 encounters 1802 stale5214 
+l_off_canon load[5.85 9.63 9.11] digest 581ced1a kicks 127671 encounters 1802 stale0 
+l_off_canon2 load[6.18 9.46 9.07] digest 581ced1a kicks 127671 encounters 1802 stale0 
+l_off_frame_1 load[6.73 9.37 9.04] digest cdc70d7c kicks 127576 encounters 1825 stale0 tick 98566143
+l_off_frame_2 load[7.97 9.45 9.08] digest 079acea1 kicks 127650 encounters 1779 stale0 tick 183404339
+l_off_frame_3 load[9.27 9.65 9.15] digest 0618bc04 kicks 127604 encounters 1750 stale0 tick 133072691
+l_off_frame_4 load[10.69 9.96 9.27] digest 9e5d9157 kicks 127572 encounters 1849 stale0 tick 90177535
+l_on_frame_1 load[11.60 10.25 9.39] digest b4a1ee18 kicks 127640 encounters 1773 stale5984 tick 169869311
+l_on_frame_2 load[12.42 10.63 9.55] digest 53a49a6b kicks 127565 encounters 1895 stale9375 tick 79691775
+l_on_frame_3 load[11.93 10.66 9.59] digest ac94eb88 kicks 127561 encounters 1951 stale10054 tick 73400319
+l_on_frame_4 load[11.99 10.79 9.67] digest 438cb2b0 kicks 127651 encounters 1784 stale6092 tick 182452223
+== optional 2e5 spot (skip with REGEN_SKIP_2E5=1)
+l_off_frame_2e5_1 load[12.61 11.04 9.79] digest fd02c825 kicks 227535 encounters 2636 stale0 tick 46137343
+l_off_frame_2e5_2 load[13.22 11.51 10.02] digest ea299646 kicks 227650 encounters 1820 stale0 tick 183404339
+== summary: distinct digests per cell
+q_off_canon:       1 digest 581ced1a 
+q_on_canon:       2 digest 581ced1a 
+q_off_frame:       2 digest 0b9930b6 
+q_on_frame:       1 digest 0b9930b6 
+l_on_canon:       3 digest 581ced1a 
+l_off_canon:       2 digest 581ced1a 
+l_off_frame:       1 digest 0618bc04       1 digest 079acea1       1 digest 9e5d9157       1 digest cdc70d7c       1 digest ea299646       1 digest fd02c825 
+l_on_frame:       1 digest 438cb2b0       1 digest 53a49a6b       1 digest ac94eb88       1 digest b4a1ee18 
