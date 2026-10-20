@@ -1,0 +1,8 @@
+Working...
+Check complete. `check.md` written: **Grade: gold**.
+
+**What I did:**
+- **Reproduced from a clean tree**: reset the tree, applied `work/tests.diff` then `work/wall-fix.diff`, ran every dossier command. Baseline bit-for-bit (B13 step 9 FAIL 63/64 `inf`, 2/229 draws 27+104, fault at tick 910984136830); fixed legs digit-identical (PASS 64/64 ×3: 5.30e-3 / 1.33e-3 / 3.32e-4; walk 601/1202/2405 kicks; 0/229 at steps 7–10; by_draw 64/64).
+- **Adversarial cases** (two outside the author's 7–10 range): scans at steps 6 and 11 = 0/229; draw 104's walk clean under the fix (faults 0, ladder dE 1.65e-3→1.02e-4); gate 11 PASS 8.41e-5 continues the n⁻² ladder. All held — and widened the green-window claim to 256–2048/orbit.
+- **Two record defects found**: (1) the crate-test guard as written cannot pass on Linux (`nladder` example links macOS-only `proc_pid_rusage`, pre-existing since 14 Oct); reproducible form gives **77 passed / 0 failed**, not the claimed 46 — substance stands, page corrected; (2) `regen.sh` never reverts its patches, so the publish runner's re-run on a dirty tree silently overwrote the shipped `base-*.txt` with fixed-leg numbers — `regen-verify.log` is the authoritative baseline (its FAIL/`Refused` content is impossible from the fixed tree). Both flagged in check.md, page corrected in place, tree left clean.
+- Predictions P1–P4 all held; novelty verified against `docs/HISTORY.md` and the wiki page (3b88 attributed, this run deletes — not a repetition). Mechanism confirmed in code: the refusal path at `step.rs:846-866` and three `Ok(None)`-ready consumers of `next_periapsis`.

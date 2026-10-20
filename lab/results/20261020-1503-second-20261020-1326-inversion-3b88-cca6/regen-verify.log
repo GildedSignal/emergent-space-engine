@@ -1,0 +1,34 @@
+=== baseline gate step 9 ===
+plane_trace step_log2=9 lost at sample 1 of 1 (kicks=926 handoffs=0 refused=0 lost=1)
+B13 FAIL assists: 63/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE inf ΔL inf; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [8.68 s]
+=== baseline escape walk draw 27 step 9 ===
+draw 27: q 4.06 R_p, v_inf 16.1 km/s, reference closest 2.080 R_p, t_exit 1803528721821.1460
+step 9 fault #0 at tick 910984136830 (doll 0): Kick(0) Refused("periapsis"); state r 5.280e8 v 6.155e-5 doll-units; binding cycle: period 3.195e19 doll-s = 3.195e19 ticks at clock_exp 0
+step 9: alive false, kicks 926, lost 1, body refusals 1, faults 1, min kick E -1.172e-9 doll-units, dE err inf dL err inf
+=== baseline scan step 9 ===
+draw 27: q 4.06 R_p, v_inf 16.1 km/s, closest 2.080 R_p: LOST (kicks 926, lost 1, fault Some((Kick(0), Refused("periapsis"))))
+draw 104: q 5.83 R_p, v_inf 17.7 km/s, closest 5.697 R_p: LOST (kicks 718, lost 1, fault Some((Kick(0), Refused("periapsis"))))
+step 9: 2/229 flown draws lost the ship (27 inside-planet draws skipped)
+=== fixed gate step 8 ===
+B13 PASS assists: 64/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 5.30e-3 ΔL 5.30e-3; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [4.45 s]
+=== fixed gate step 9 ===
+B13 PASS assists: 64/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 1.33e-3 ΔL 1.33e-3; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [8.86 s]
+=== fixed gate step 10 ===
+B13 PASS assists: 64/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 3.32e-4 ΔL 3.33e-4; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [17.21 s]
+=== fixed escape walk draw 27 steps 8,9,10 ===
+draw 27: q 4.06 R_p, v_inf 16.1 km/s, reference closest 2.080 R_p, t_exit 1803528721821.1460
+step 8: alive true, kicks 601, lost 0, body refusals 0, faults 0, min kick E -1.171e-9 doll-units, dE err 4.49e-3 dL err 4.49e-3
+step 9: alive true, kicks 1202, lost 0, body refusals 0, faults 0, min kick E -1.172e-9 doll-units, dE err 9.63e-4 dL err 9.62e-4
+step 10: alive true, kicks 2405, lost 0, body refusals 0, faults 0, min kick E -1.172e-9 doll-units, dE err 2.00e-4 dL err 2.00e-4
+=== fixed scan step 9 ===
+step 9: 0/229 flown draws lost the ship (27 inside-planet draws skipped)
+=== fixed scan step 8 ===
+step 8: 0/229 flown draws lost the ship (27 inside-planet draws skipped)
+=== fixed scan step 10 ===
+step 10: 0/229 flown draws lost the ship (27 inside-planet draws skipped)
+=== fixed scan step 7 ===
+step 7: 0/229 flown draws lost the ship (27 inside-planet draws skipped)
+=== fixed by_draw step 9 ===
+step 9: 64/64 within 1%; draws with refused kicks (a heliocentric state with no tube): none
+done; numbers are in lab/results/20261020-1503-second-20261020-1326-inversion-3b88-cca6/{base-*,fix-*}.txt
+REGEN-EXIT=0

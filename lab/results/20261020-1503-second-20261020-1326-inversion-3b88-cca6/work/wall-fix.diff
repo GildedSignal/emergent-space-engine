@@ -1,0 +1,27 @@
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..3b679236 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -253,7 +253,9 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+     Ok(Some(lo))
+ }
+ 
+-/// The tick of the tube's next periapsis passage at or after `after`, if it has one.
++/// The tick of the tube's next periapsis passage at or after `after`, if it has one within the
++/// tick horizon: a cycle whose next periapsis is past every representable tick has none (the same
++/// word as a passage already past its periapsis), not a refusal.
+ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+@@ -272,7 +274,10 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+             peri
+         }
+     };
+-    Ok(Some(i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis"))?))
++    // A refusal here ended barely-bound bodies outright (run 20261020-1326-inversion-3b88): the
++    // binding is real, its next periapsis is simply beyond the integer tick horizon, and the
++    // body's step saturates at MAX_STEP until a handoff retimes it.
++    Ok(i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).ok())
+ }
+ 
+ /// The impact the tube holds: the first tick at or after `after` where it is below `surface` (the doll's units). That is
