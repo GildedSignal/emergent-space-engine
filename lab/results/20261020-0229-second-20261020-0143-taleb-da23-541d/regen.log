@@ -1,0 +1,20 @@
+(patch already applied — skipped)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 18s
+=== 1. the pin: sequential armed replay (the survivor's publisher) ===
+pin1: no armed pair this draw (race; trying again)
+pin2: no armed pair this draw (race; trying again)
+pin3: no armed pair this draw (race; trying again)
+pin4: no armed pair this draw (race; trying again)
+=== 2. v3 paired protocol (8 seeds, both arms, one build) ===
+fires shipped arm: 0 / fires v3 arm: 0
+shipped present: present 347 present 730 present 558 present 311 present 602 present 512 present 769 present 780 
+v3     present: present 43 present 341 present 153 present 119 present 154 present 47 present 289 present 141 
+v3 equality law (RB lines with m>0, expect 0): 0
+=== 3. v3 back-to-back determinism (same seed twice) ===
+v3 s19 back-to-back identical
+=== 4. lib tests with the switch in (default off) ===
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.71s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.89s
+ 03:40:55 up 53 days, 18:43,  0 user,  load average: 39.94, 37.65, 27.61
