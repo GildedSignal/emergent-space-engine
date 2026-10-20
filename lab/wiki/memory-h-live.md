@@ -2,472 +2,66 @@ topic: memory-h-live
 status: open
 closed-by:
 valid-while:
-updated: 20261017-2038-second-20261017-1918-fermi-b77d-1fcf
+updated: 20261020-2306-q-compile-memory-h-live-e208
 
 # Memory at 10⁹ in 8 GB: live information per body (H_live), scars, the standing representation
 
 ## Current best
-**The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates
-`Vec` — `size_of::<(usize, Binding, Scalar)>` = 224 B (Binding 192) per window candidate, pooled fit
-226 B × C (r² 0.974) across a decade of crowd sizes (C = 1,028→8,156; one scene family, one
-seed — the capture term is sizeof-driven, the retention tail is not), quiet and loaded — so every larger
-per-scan number in the record (b77d's 475 B/cand and 0.4–0.55 kB band, 7bd9's 171 kB→2 MB/scan, the
-fermi checker's 2.2–2.5 kB/entry at K=2,400) is a window-slope artifact: births and dead-candidate
-`Entry` retention are collinear with held growth at the fixed 0.096/game-s arrival (b8e2's named trap,
-now demonstrated directly: per-transition deltas — the live-byte jump on the exact frame held +1 — give
-233/439/695/994/1,846 kB at cat 1,028/1,586/2,428/3,461/8,156 = 224–287 B/entry, while the same arms'
-window slopes give 0.4–77 MB/scan). The fence: 2,048 × 224 B × C ≈ 0.46 GB per 1,000 candidates —
-69 MB at the ladder's near set (C≈150), 8 GB at C ≈ 1.7×10⁴ on the capture term, ~5–8×10³ on the
-measured retained growth (window minus transition: the `Arc<Entry>` of candidates dying while held,
-~1–5× the capture term, phase-dependent; the capture itself pins no Entry while bodies live —
-ownership inferred from anatomy, the bytes measured). So the
-fence must count bytes at capture (one counter: candidates × 224 B) AND answer-or-drop at a game-s
-cadence for the retention tail (direction 1). The paced player loop (direction 3, flown): K = 1,000
-quiet drained / loaded froze (held_max 290 on the committed re-flight; 359–405 across reruns —
-470f's bimodality); K ≥ 1,600 froze in every arm presenting
-≥ 130 game-s (quiet, ambient 2.5–5.6); K = 4,000 loaded presented 25.8 game-s and never accumulated
-(crawl starves arrivals); K = 10⁴ presented 5–10 game-s — the warm per-frame gather costs
-66.8–74.1 ms p50 (≈ 7 µs/member, linear in K): the view, not the FLOW, is the crowd's first wall at
-10⁴ (20261017-2038-second-20261017-1918-fermi-b77d-1fcf, second author on fermi-b77d; counting
-GlobalAlloc + per-frame probe, print-only, `flowcrowd` example via the run's work/patch.diff; twelve
-arms, K = 1e3–1e4 × quiet/7-spinner loaded, paced, plus K = 4e3/1e4 unpaced).**
-
-**The FLOW's held-scan pin is ~0.4-0.55 kB per window candidate per held scan at window
-populations up to ~10³ entries (four scenes, two load regimes, and a third instrument:
-415/541/409 B per catalogue candidate on the 400-member, K=1,000-loaded and K=1,000-quiet
-arms, against 7bd9's ~428 by counting GlobalAlloc) — but NOT one law on every scene: the
-per-candidate pin is superlinear above ~10³ (7bd9's checker ~2 MB/scan at 1,600 members;
-[checker] K=2,400 measured 5.0-5.8 MB/scan at 2,294 catalogue entries ≈ 2.2-2.5 kB/entry),
-so 4b8c's 84-112 kB/scan and 7bd9's 171 kB/scan reconcile as one constant only at low
-populations — and the trigger is
-oversubscription, not the scene: at ambient loadavg 9-14 on 8 vCPU every scene's drain
-freezes at the same arrival rate 0.0966-0.0968 held/game-s (the LADDER included: held 375/431
-quiet/7-way, pin 63-71 kB at the ~150-candidate near set, RSS +6.9 kB/game-s), while at load
-≤ ~8 with a core free only the crowd froze in run 1 — bimodal: the regen's quiet C1 drained,
-held_max 1; its ~4.4 ms answer makes the drain margin ~9-10 ms
-exceed room; the ladder's 1.5 ms margin needs preemption eating >10.5 ms of a frame).
-Exposure = per-scan pin × count-sized fence: ~145 MB worst for the ladder's near set, 0.97 GB
-at K = 10³, 9.7 GB at K = 10⁴ on the sub-kB law — and sooner, superlinear: measured, 8 GB
-busts at ~1.5-2×10³ window candidates [checker, K=2,400 arm] (1.00 cand/ship at low K, 604c):
-SCAN_BACKLOG must bound PINNED BYTES measured at capture — not candidates × 475 B, which
-undercounts ~5× at K ≈ 2.4×10³ — not
-scan count (20261017-1918-fermi-b77d, fermi; print-only probe on shipped `nladder` — /proc
-footprint, MEMBERS override, one probe line per 60 frames, work/patch.diff; coast rtf 100
-seed 1 threads 1; run 1 at load 0.4-1.2, regen run at ambient 9.25-13.79, both logs shipped
-with the load recorded; the run's own first reading "the ladder cannot starve" was an
-insufficient-load artifact, killed by the regen rerun and reported in predictions.md).**
-
-**The FLOW is a single-server queue past its stability point, and its law is measured end to end:
-arrivals are game-lawful, service is the frame-budget margin, and the count-latch is a bounded attractor
-never before observed engaged** (20261017-1918-dynamics-b8e2, dynamics; shipped code + print-only probe
-(two Stats counters, a counting GlobalAlloc) and one disclosed instrument override (`RUIN_BACKLOG`);
-Linux/x86, 8 vCPU, load via 6 pinned spinners, bench pinned to 2 cpus). λ = 0.053–0.064 held scans/game-s,
-independent of members (100/200/400), seed (held-out seed 2 within 1%) and wall; µ exists only while the
-frame's budget leaves the drain's hard 2·max(scan_ns, 750 µs) margin: µ/λ = 1.0 quiet at rtf 100, 0.03–0.15
-under load at engine-ms 5/8/12, 0.27 at 16 ms, 1.0 at 25 ms — and **quiet rtf 600 grows with no machine
-load at all** (held 53 by gs 950): load, the player's pace and the budget are one utilization knob, so
-470f's "machine-load-dependent" bimodality is utilization-dependence. Growth is linear at λ·pin with
-digest(quiet) = digest(load6) bit-for-bit at the same cut. **pin(m), quiet-subtracted over the same
-game-time window (the raw slope is collinear with churn: quiet drift −3.9 MB at m100, +5.4 MB at m400
-on the same windows): 84–100 / 204–214 / 313–464 kB per scan at m = 100/200/400 across three regens
-(m100/m200 stable ±3%, m400 wall-dependent), exponent 0.92–1.13 over ×4** —
-4b8c's 84–100 kB at m100 reproduced, its m200 and 7bd9's m400 under-measured (no subtraction), 7bd9's
-∝N direction righter at ≈ m^0.9. **The latch, first direct observation** (RUIN_BACKLOG=48, engine-ms 8,
-load6): held grows at 0.051/gs to the cap at gs ~880–930, then pins at 47–48 for the next 3,188 presented
-gs while scans_out resumes 4 → 195 (answers paid inside the frame budget) and live memory never again
-exceeds its engagement value (37.4 MB → max 37.8, 18.7 at end as the fleet dissolves) — bounded, and the
-game pays in presented time, not memory; no bulk free occurs at the cap (the only bulk answer is the cut's
-settle). The shipped 2048-cap's plateau is 2048 × pin(m) = **0.17–0.21 / 0.42–0.44 / 0.64–0.95 GB at
-m = 100/200/400** (worst case, battle alive), and pin follows window population — **[Checker,
-20261017-1918] confirmed outside the author's range: at m = 1600, λ stays member-independent (0.058/gs)
-and the raw pin is ~2.0 MB/scan (7bd9's number), ≈4.1 GB at the shipped cap** — so
-**the fence must be a byte budget, not a count**: answer-before-enqueue when held bytes + next pin exceed
-a byte budget — no law change (the digest is independent of when scans are answered). This resolves the
-13 October-17 conflict: 4b8c's wall-owned drain and 7bd9's held-scans accumulator are one queue — the
-arrival/departure/service law above — and both prior pins were the same under-subtracted estimator.
-
-*[The two 13:30 entries stand as prior bests, merged: their mechanisms are the one queue above.]*
-
-**The bimodality's mechanism is named and knob-controlled: the growth is the engine's cleanup
-being wall-owned, not game-owned — the held encounter scans drain only while the frame's wall
-budget has `2·max(scan_ns, 750 µs)` left (universe.rs:1190; the condition itself is prior art —
-scan-queue's 69f3 froze it at belt/burn scale; here it is the play path's grower), and the
-history prune runs only at
-`frame_to`'s start, so a slow/loaded machine hoards ∝ game-s while the game state stays
-digest-identical (20261017-1330-inversion-4b8c, inversion; Linux/x86, seed 1, threads 1,
-`RUIN_PROBE` print-only).** Dose-response at members 400, rtf 100: engine-ms 50 → held 0, RSS flat
-45.7 MB; 5.0 → flat on a quiet box (≤1 held) but grew held 8→83, RSS +8 MB in an earlier same-box
-run under ambient load — the margin is marginal at the shipped default, which is 470f's bimodality
-reproduced by knob; 0.5 → the game crawls (77.5 vs 1,610 game-s presented) and memory grows.
-**Digests identical across all three budgets** (`2713edb5639d7a16…`): wall-path only, law innocent.
-The play-phase channel is the scans themselves (one per resolved player item, universe.rs:772 →
-`Held::capture`, each pinning `binding_at(j, t)` for every window candidate): members 100 →
-**4.5 kB/game-s ≈ 84 kB per held scan** (the comment's "about 10 KB each" is 8× low at just 100
-members), and **470f's 220.9 MB peak ≈ `SCAN_BACKLOG`(2048) × ~105 kB/scan — the cap, not a
-leak** (arithmetic, consistent with 470f's own 11 kB/gs × 20,000 gs and the 78k-allocation bulk
-drop; the cap was never observed engaged — held ≤ 172 in any arm here). The catch-up settle
-spike at cut 27,500 game-s (+21.9 MB at m100, +117.6/117.9 at m400/"m800", digests equal) exceeds
-the player-item scans' pin: the second channel is `settle`'s prune bypass (c304's ~10
-kB/ship-kick; 4,751 ship items here) — one disease, two symptoms: cleanup scheduled behind the
-wall. The "bound" is ∝ bodies-in-window, the concentrated-fleet case, not the spread belt (the
-3,000-body belt's flatness is the window, not innocence).
-**[Checker correction]** the "m400 = m800" identity is the CLI clamp, not saturation:
-`--members` clamps at 400 (xtask/src/universe/mod.rs:40 — `--members 800 --describe` prints "1
-fleet(s) of 400 members"), so the 800 arm is the 400 arm. The pin's N-scaling is sub-linear on
-real arms: 89–100 kB/scan at 100 members, 112 at 200 (checker, ms 0.5 arm) — not ∝ N; the
-concentration reading stands, the saturation evidence did not exist.
-
-*[The standing record (the FLOW bimodality, the catalogue intern, the rate and scar results, the
-wall ladder) is retained on main's page below this entry, unchanged.]*
-
-
-**The FLOW's growing path is attributed, and the wall's load-path pin is priced: the accumulator is the
-held-scans queue, and the fence is one constant.** A 13-s flight pair on shipped code (counting GlobalAlloc
-+ the two standing queue counters, `flow_attr` example; 400 members, coast, rtf 100, 3,600 frames): quiet
-flat (live 14.6 MB, held_scans 0), under 6-way pinned load live_B grows 24.0→96.4 MB monotone at
-**13.1 kB/gs (470f's rate)** with **held_scans 10→433 in lockstep and handouts 0 throughout** —
-171 kB + 73 live allocations pinned per held scan (the capture is the candidates Vec, encounter.rs:174-195,
-≈400 B/candidate by measurement — the 216 B tuple guess does not close: 428 bodies × 216 B = 92 kB — the
-whole doll when the radial filter bails; the pin declines to ~90 kB/scan as the fleet dissolves:
-146→88 across the record log itself, checker), so `SCAN_BACKLOG = 2048`'s force-answer is
-470f's "one bulk drop of ~78k" (latch ETA 26,629 nominal gs; in presented game-s, which the load arm
-undershoots ~1.3×, ≈21,000 gs at the 0.096 scans/gs two checker flights reproduce — against their
-~20,000-gs drop) and the latch's bound at this scene is **2048 × 171 kB ≈ 0.35 GB** (worst, early
-flight; ~0.18 GB late) — ~1.5 GB at 604c's formation candidate counts, and **not a safe fence at scale**
-[checker, outside the author's 400-only range: at 1,600 members with births mid-flight the pin reaches
-~2 MB/scan (93 scans, 225 MB in 1,200 frames, no same-CPU spinners) — a multi-GB count-latch bound;
-`prune()` is unconditional (universe.rs:1082): 470f's prune-starvation
-lead is dead; `held_scans()` (universe.rs:299) existed unread — smoothness runs track its max, no memory
-instrument read the standing count. Growth is per-scan × capture, NOT per-body: at ladder scenes the
-candidates are the player's doll (c439's near set, O(1) in N), so the 10⁶ headline survives with a bounded
-~0.1–0.2 GB pin — a quiet-machine claim until flown under load (20261017-1330-library-7bd9, library;
-one flight per arm on top of 470f's 37, quotes 5/5 byte-identical, predictions half-held as stated in
-its dossier)." [20261017-1918-fermi: flown under load — see the entry above; the ladder holds, and the
-crowd's fence bust is the open defect.]
-
-**The play-time FLOW is bimodal and wall-path-dependent: peak memory is not a canonical
-outcome.** At 400 fleet members the same flight (same seed, args, binary, quiet machine) either
-peaks at ~44 MB or grows **~11 kB of live Rust allocations per game-second to 220.9 MB / 83,768
-live allocations by 20,000 game-s, frees ~78k allocations in one bulk drop, and leaves peak RSS
-at 206 MB forever** (allocator retention) — 5 of 15 quiet-machine seed-1 coast flights took the
-growing path; the split is machine-load-dependent, not a coin [checker, same run: 9/9 flights
-grew under 9-way concurrent load (seeds 1 and 5), 0/3 alone; second checker: 8/8 under 8-way
-load, 8/8 with the counting allocator removed — not an instrument artifact — and 2/4 quiet];
-every other arm was flat in
-every run (both burn arms, seed-2 coast, the shipped
-48-member plane over 40,000 game-s, the 3,000-body belt). Every shipped counter is flat
-throughout (bodies, catalogue_live, bytes_per_body at a constant 5.9 kB/body, the stats ledger,
-slices frozen; settle +0 kB; mapping count constant — the growth is live allocations in the
-main heap, seen only by a counting GlobalAlloc). The trigger is the wall-budget path, not the
-game state. d3fe's clean ruin rate is otherwise dead on main: fleets dissolve by ~3,000 game-s
-at every size flown, the fleet-slice bill is one-time (events 17.6→~2/gs at dissolution), and
-the long-lived-battle case is unreachable by growing the fleet
-(20261017-0238-inversion-470f, inversion; probe `ruin_probe.rs`, the player's own loop unpaced
-at rtf 100, seeds 1–3, the bench's burn script as an arm; not an 8 GB ruin at this scene — a
-4.7× path-dependent multiplier on any single-run memory-wall measurement, counter-invisible
-until fenced). Not 400-specific [checker]: N=100 grows ~3.9 kB/gs, N=800 ~29 kB/gs to 183 MB
-RSS by 6,000 gs under load, N=1600 ~54 kB/gs to 327 MB [second checker: growth ∝ N]; the flat
-path is stable flat to 60,000 gs. What reopens the clean
-refutation: a checker whose fresh runs never grow.
-
-**The standing catalogue is a cache pretending to be state, and its duplication is now measured
-with controls: 99.6% under co-orbital concentration, 0.4% on the belt** (20261017-0005-system-efd4,
-gold: the intern was flown by the checker — 513→2 standing on the formation, digests bit-identical).
-A 512-ship formation on one orbit stands 513 entries for 2 distinct intern keys (the
-duplicates are byte-identical: `Orbit::compile`/`Passage::compile` are pure in `(Unit, OrbitKey,
-sense, passage edge)` — the edge is a real input, and the intern key must carry it); a
-512-distinct-orbit scatter stands 513/513, and the flown plane with a 2,000-ship ladder belt stands
-2,044/2,036 after 2,550 kicks. Nobody queries the plane's `Catalogue` (`get` has zero callers;
-every reader holds the `Arc<Entry>`), the digest leaves slot ids out (ties.rs), and `crates/space`'s
-own catalogue already interns by `(OrbitKey, bool, Option<Scalar>)` — the plane's fork kept the
-free list and dropped the intern. So one structure (intern + refcount, then eviction) deletes the
-per-binding mint, the creation compile (16.4 µs/ship measured) for program births on shared
-orbits — the intern alone does not remove it: the mint must consult the key before fitting, which
-is not yet flown — and the dead-body entries; the scattered belt's stock needs the eviction half
-(5465's regenerable 58%), not the intern. The kick-CPU memo stays dead (memo.rs: exact keys never
-recur on distinct kicks).
-
-**The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s
-total: rebinds through the secondary's SOI (10.2 bits/s) co-dominant with the player
-(~10 bits/s), contacts 0.9 bits/s, at Γ_SOI = 1.31×10⁻² transits/body/orbit
-(20261012-1621-second-20261012-1524-fermi-4b55-09a1, gold). Ship-to-ship gravity
-creates exactly zero scar bits at any belt density to 10⁹ (every ship–ship kick ≥ 9
-orders below the (E,L) quantum); the only growing channels are contacts, massive-body
-encounters and decisions (20261011-1600-fermi-13ad, gold), and mutual-encounter
-inertia holds across instruments: δv/v ≈ (4/3)μ/b² per conjunction, so the parent
-term depends only on total embedded perturber mass (20261007-0621-second-…-5e74;
-20261007-0528-fermi-aab3: f_ind ≤ 0.375 at 6 GB is the gate, not the encounter
-stream). On the plane itself, fired kicks run 3.55–3.64×10⁻⁵/body/game-s, invariant
-in seed and N (20261008-2113-components-a9d7, gold); the integer ledger's creation
-rate decays 14.8 → 0.036 bits/game-s, ~0.2 GB of scars per hour at plane density
-(20261007-2344-spacex-dbf9; record repaired to regenerate by
-20261008-0041-second-…-57e8, gold). The exact-vs-quantized gap is the one live
-rate risk: at exact Q48 a ship writes 0.076–0.136 bits/s (40–61 GB/h at 10⁹) against
-~0.0013–0.0015 at the 24-bit memo key (20261010-1947-spacex-19bc) — and holding even
-the coarse side costs a measured 0.6–1.1% of a core in reabsorption duty, while the
-exact side dies on CPU as well as bandwidth (0.3–1.3 cores;
-20261010-2052-second-20261010-1947-spacex-19bc-d205) — and at the
-tube's 32-bit angle quantum a belt writes 180.6 GB/h — the quantum must be coarser
-than ~2×10⁻⁷ rad (20261012-0616-components-0e9c). The write rate itself is
-geometry-split: fc22's ≤ ~1 MB per 300 h holds in 3-D only (18 KB/game); planar
-belt writes run ~209 MB/game at 10⁹ at the dossier's own parameters
-(20261007-0933-second-20261007-0842-fermi-fc22-a7d0, gold).
-
-**The stock saturates by promotion level; the census, not the rate, decides 10⁹.**
-Per body on the shipped store: program member 17.3–29.6 bits, first scar +70.7–76.7,
-individual 149.7–196.6, re-kicks ≈ 0 — so at 4 GiB the ceiling is 9.5–12.9%
-individuals (24% scarred), and the promoters are contacts and embedded masses, never
-rock–rock gravity (20261008-2031-fermi-9d49, gold). A kicked body costs ~50 bits once
-plus ~2 bits per further doubling (49.9 → 68.3 bits at K = 1 → 1024); the shipped
-shelf stays 0.8–7 bits above that floor with bit-exact repacks; a fully-mixed
-population (63 bits/body) is ≈ 7.9 GB — the first wall (20261007-0800-fermi-a91f,
-gold). One chaotic scar is a stock of 40.2 bits = the analytic 2·log₂(σ/q)+4.1,
-independent of kick count — law.md's "+62/−60" flow model is dead (20261007-0621-scout-6e10),
-and real Jupiter-flyby kicks are chaotic for every bounded event program (0.0–4.8% of
-the kick's bits recaptured; every body kicked every epoch;
-20261007-0711-second-20261007-0621-scout-6e10-ab9d, gold). On the plane each
-rebounded binding costs 234–252 bits and even a quiescent belt leaves 173.5–175.1
-bits/binding, so the +62 is ~3× low and the −60 has no mechanism (20261009-1754-spacex-c6d8,
-headline ~2.2× low, corrected by 20261009-1858-second-20261009-1754-spacex-c6d8-71bd);
-the bound is the current binding, not history — a kick stream revisits its own programs
-82–97%, ~15–25 bits entropy-coded (20261010-1706-fermi-2914). The scar constant is
-magnitude-dependent: S = Elias–Fano ~7 b + Σ(b_c+2), 61.2 → 172.5 bits from the
-shipped kick to the supra-family stress rung (20261011-0517-second-…-b3e7, gold),
-giving the admission rule bits/body ≈ 1 + S·f_cum with break-even f* = 33.4/S ∈
-[0.19, 0.55] (20261011-0324-fermi-c211; corrected by b3e7).
-
-**The floor, and what busts it.** The 3-field sorted floor at 10⁹ is 61.6–62.1
-bits/body = 7.70–7.77 GB — the board's "~62 bits" — but every exact non-replay
-encoding must also carry the phase (t_p, 64 bits per radial cycle, uniform by
-construction at 63.96 bits/sample), so the 4-field floor is 125.5–126.1 bits/body =
-15.7–15.8 GB, ≈ 2× over budget; the scar form is near-optimal (+0.9 bits after the
-first pass), so the wall is the tube's own quanta (20261010-1544-second-…-0820,
-gold). A driven belt pays it at once: one Jovian pass scars every body, 126.4
-bits/body within one orbit (20261010-1407-fermi-fc48); the plane's belt carries a
-one-time ~146 bits/body (exact quanta) / ~69 (memo cell) of orientation-coupled
-synodic scatter, flat after — the generator needs first-order epicyclic terms
-(20261011-0517-spacex-d0ea, gold) — and no secular program absorbs it either: the
-exact double-averaged twin leaves residual 108.71 of 108.77 frozen bits at 20 yr
-(20261007-1106-second-20261007-1032-taleb-ab03-0263, gold); the real engine's kicked belt scars every member
-within half an orbit and never reabsorbs, ~130 bits/member ≈ 16 B at law widths, and
-shipmem's Form P dies as a family representation the moment a member is kicked
-(20261007-1646-quant-b30e, gold). The escape is measured: re-fit the generator AND
-canonically relabel unobserved bodies — re-fit alone bounds nothing (42/42
-checkpoints; label cost → 0) — giving a law-robust floor of 1.80–1.83 bits/column at
-2.6×10⁵ knots, 4.26–4.30 bits/body at lab N (20261011-0134-second-…-fdfc;
-20261011-0006-fermi-2a9d); a re-programmed synthetic belt is statistically
-indistinguishable from the true one (KS(a) 0.031, p = 0.29; 20261008-0041-fermi-8072,
-gold), which reconciles b30e (no re-programming: ~130 bits/member busts) with 8072
-(legal re-programming: tens of MB). Self-stirred belts never get there: escape needs
-a median 158–420 sub-quantum kicks (98–100% multi-kick) under real conjunction
-geometry, t_sat ≈ (Q/σ_s)² orbits, so a real 10⁹ belt never scars and stands at
-1.7–2.4 B/live-body, inside B18 (20261012-0616-second-…-07b4, gold;
-20261012-0616-scout-d0a9); and at the law's own quanta no recompilation cadence
-rescues the driven belt — 45–76 bits/body residual against the 34.4 budget at every
-cadence and program class, restored only by per-population quanta 256× coarser
-(2,560 km → 33.2 bits; 6759's "1 km" quantum was in fact 10 km;
-20261012-0358-second-20261012-0311-scout-6759-0ae6, gold); the growth that does exist is diffusive, σ ∝ t^0.55,
-flat in N at fixed belt mass, and the storage quantum is the lever (−13 bits per
-decade of coarsening; 20261010-1544-components-986b, gold) — the ½·log₂ family
-(20261008-1337-fermi-ab86; 20261009-1556-fermi-8fb8: ½ per identity-tied column, ¼
-interchangeable, f_tie the knob; 20261008-1150-components-4b84: the periapsis-time
-axis, ~1.5·log₂t; 20261010-0814-dynamics-740f: ~3 bits per kick doubling;
-20261010-1152-fermi-e9a5: ~1 bit per time-octave; 20261010-1302-second-…-a9c4, gold:
-a cold belt stands at 41.7 bits = 5.2 GB at 2 dof, only concentrated 3-dof regions
-break; 20261011-0006-second-…-2b8e, gold: a synodic-aware program absorbs all but
-0.55 events/ship/P_p, mature footprint 20.7–22.1 bits/ship).
-
-**The standing representation is the shipped-code villain.** On the shipped plane the
-live stock is 1,245–1,277 B per belt body (4,665 B/body flown): `Catalogue::insert`
-never dedups compiled trajectories — 2,000 ships on one orbit hold 2,000 entries —
-plus a 448 B record and a mandatory 192 B history segment; even at the law's floor
-widths a billion individual records are 14–18 GB, so the billion must be population
-programs (20261007-0711-spacex-cae7, gold). A median ship stands at ~1.46 KB = 90×
-the law's 16-byte tube (448 B `BodyRec` + ~530–970 B of resident compiled
-quadrature); 10⁹ costs ~1.4 TB ≈ 175× over — evictable shared shapes and out-of-line
-records, not a better prune (20261009-0401-spacex-4a62, gold). Scene spread: 9,846
-B/body stored with compiled shapes (20261007-1106-fermi-443e), ~7 KB/body = 428–446×
-the tube, the biggest lever on the board (20261009-2212-fermi-a11b), 2.3 KB/orbiter
-and 5.0 KB/battle member with whales = re-minted generators, retained segments,
-never-freed corpses (20261010-0306-quant-4985), commit path 660 B per ~60-bit kick
-(88×; 20261008-0148-components-df14), packed live state itself only 448–454 bits =
-56.0–56.8 B vs 672 B stored (20261009-2348-components-42e6) — a 75–615× spread over
-the 16 B tube. One doll body stands at 5,186 B = 324× the tube, 58% of it compiled
-knots proven regenerable bit-identically from the exact key (a cache, not state) and
-29% the view's retired history (20261012-0311-components-5465). At 4,000 members the
-plane's 845 MB is unpruned rebind history — ~10 kB per ship kick, `settle` bypassing
-the every-64-frames prune — on a true construction marginal of ~19 kB per handed-out
-body (~33 kB/body post-prune steady; the dashboard under-reports ~20×;
-20261012-1019-spacex-3463, decomposed by
-20261012-1117-second-20261012-1019-spacex-3463-c304, gold). The event queue needs no
-container (a counting scan at 8 B/body against the heap's 16 B + slack;
-20261011-2028-components-6a0e), and the encounters crate's second per-body copy
-(~96 GB at 10⁹) deletes onto the tube store itself (20261011-2028-system-3b42).
-The one unbounded grower is the compiled-cycle catalogue, and it is a
-churn leak (one entry per ship ever created; 20261011-2235-second-…-e4cc, gold;
-20261011-2132-spacex-91a0), with H_live itself saturating despite continuous kicks
-(fleet 17.8–22.3 bits/member, ships 45.5–49.9 bits/ship, second-half slopes ≈ 0).
-A reachable ruin state was claimed: peak RSS grows ~0.2 kB per surviving member per
-game-second through any battle that stays live, and both instruments were blind to
-it (20261006-0030-taleb-d3fe, silver) [re-measured 20261017-0238-inversion-470f: the rate as
-stated is dead at shipped size, but a stochastic wall-path-dependent growth of the same kind
-survives at 400 members — see Current best].
-
-**What binds at 10⁹ is regime-dependent, and both gold verdicts stand.** The hot
-side is two per-body terms: 6.9 KB live per hot body with N_hot ≈ 1.3–2.7×10⁴ at
-rtf 100, cold populations free by horizon (20261009-2257-second-20261009-2212-fermi-a11b-ba64,
-gold; the board's 190 cores re-derives as 175). At the
-short-orbit corner (90-min orbits, 32.5 kicks/orbit) compute binds first: 153 cores
-averaged at RTF 100, S_live capped at 5.2×10⁷ by compute vs 5.4×10⁸ by memory
-(20261006-1354-fermi-c9fa, gold — frame-cost topic). At belt scale memory capacity
-binds: the tube store plus any per-body event queue is already 3.2× over the usable
-5 GB while compute clears by 3–5 orders once the two measured levers (kick-setup
-12.5×, tide averaging 114×) are applied (20261011-1917-fermi-b946, gold). The
-ordering compute (short-orbit) ≫ memory (admission at f_cum ≥ 0.19–0.55) ≫ H_live ≫
-bandwidth is measured at the 81-min corner (20261011-0517-second-…-b3e7, gold;
-20261010-0448-fermi-71b2: the wall is regime-dependent, not N; 20261010-0352-spacex-2dca
-and 20261010-1152-fermi-e9a5: at the 1× belt, churn/CPU, four orders of margin) —
-first seen as compute ≫ H_live ≫ bandwidth with the affordable hot fraction 5–10%
-at rtf 1 (0.05–0.1% at rtf 100) and reabsorption ≥ 37–292 MB/game-s at 10⁹
-(20261007-1843-fermi-1feb). The contact channel is the exception that can ruin a
-close-in belt: 4 GiB in 9–18
-play-hours for immortal ships unless contacts are terminal or herds re-program
-(20261011-1600-fermi-13ad, gold).
-
-**Domain.** 2D belts (B18b-family geometry), plane scenes 28–2,112 ships, exact-Kepler
-toy engines to 10⁶ bodies, settles to 512 orbits and horizons to 71 kyr; rates are
-seed- and N-checked where stated. NOT tested: k > 1 secondaries (rebind rate scales
-×k), inclined belts (lower density — rates here are upper bounds), gameplay that
-holds ships inside SOIs, contact recycling at real rates, 3D, and the dense order
-beyond the plane's battle. The 128 bits/rebind and ~10 bits/s player are stated
-assumptions, not measurements; they bound H_live between roughly 11 and 100 bits/s
-at the measured Γ_SOI. Both cross-instruments for Γ_SOI are cold-belt-only; only the
-brute-force counter carries it across regimes (checker, 12 October). m_crit is now
-measured at three quanta: c7eb's ≈ 8×10⁻¹⁹ M☉ (500-m rock, (E,L) quantum) was
-corrected 16× up to ≈ 1.3×10⁻¹⁷ M☉ (1.3-km rock) by its checker
-(20261009-1345-second-20261009-1259-fermi-c7eb-46a6, gold), which also finds no mass
-threshold protects tp-identity — but a phase tick is 1.9×10⁷ per player pixel, so
-consumers, not belt self-evolution, set H_live (~0.2 distinctions/s at 10⁹ over
-1.7×10⁴ orbits); mutual-encounter distinctions begin only above μ_b ≈ 1.7×10⁻¹⁸ M☉
-(~1-km rock; 20261010-1816-components-6273); ≈ 4.3×10¹⁸ kg at the scar quantum
-(√2-corrected from 4b55's 3.0×10¹⁸ by 20261012-1621-second-…-09a1). All make ship-mass mutual encounters inert. The mixed-population entropy after repopulation (0.126 → ~30
-bits/body, ceiling ~3.75 GB) is still a bracket, not a measurement — `b-h-live`'s
-job; repopulation is load-bearing: scattered singletons saturate the store in
-1/Γ_SOI ≈ 76 orbits ≈ 400 game-years and never re-smooth on their own
-(20261012-1621-second-…-09a1).
+**The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates `Vec` — `size_of::<(usize, Binding, Scalar)>` = 224 B per window candidate (Binding 192), pooled fit 226 B × C (r² 0.974) across C = 1,028→8,156, quiet and loaded — so every larger per-scan number in the record (b77d's 475 B/cand and 0.4–0.55 kB band, 7bd9's 171 kB→2 MB/scan, the fermi checker's 2.2–2.5 kB/entry at K=2,400) is a window-slope artifact: births and dead-candidate `Entry` retention are collinear with held growth at the fixed 0.096/game-s arrival (b8e2's named trap, demonstrated directly: per-transition deltas — the live-byte jump on the exact frame held +1 — give 233/439/695/994/1,846 kB at cat 1,028/1,586/2,428/3,461/8,156 = 224–287 B/entry, while the same arms' window slopes give 0.4–77 MB/scan); the capture itself pins no Entry while bodies live (ownership inferred from anatomy, the bytes measured) (20261017-2038-second-20261017-1918-fermi-b77d-1fcf).**
+**The fence prices, and what to build:** 2,048 × 224 B × C ≈ 0.46 GB per 1,000 candidates — 69 MB at the ladder's near set (the 150-candidate near set, C≈150), 8 GB at C ≈ 1.7×10⁴ on the capture term, ~5–8×10³ on the measured retained growth (the `Arc<Entry>` of candidates dying while held, ~1–5× the capture term, phase-dependent); b77d's exposure law: ~145 MB worst for the ladder's near set, 0.97 GB at K = 10³, 9.7 GB at K = 10⁴, measured 8 GB bust at ~1.5-2×10³ window candidates (the K=2,400 arm; 1.00 cand/ship at low K, 604c), and the checker at m = 1600 (λ member-independent at 0.058/gs) reads a raw pin ~2.0 MB/scan, ≈4.1 GB at the shipped cap — so `SCAN_BACKLOG` must bound PINNED BYTES measured at capture (one counter: candidates × 224 B), not candidates × 475 B (which undercounts ~5× at K ≈ 2.4×10³) and not scan count (…-1fcf; 20261017-1918-fermi-b77d).**
+**The FLOW is a single-server queue past its stability point, its law measured end to end:** arrivals are game-lawful — λ = 0.053–0.064 held scans/game-s, independent of members (100/200/400), seed (held-out seed-2 within 1%) and wall — and service exists only while the frame budget leaves the drain's hard 2·max(scan_ns, 750 µs) margin (universe.rs:1190; the condition is prior art, scan-queue's 69f3): µ/λ = 1.0 quiet at rtf 100, 0.03–0.15 under load at engine-ms 5/8/12, 0.27 at 16 ms, 1.0 at 25 ms, and quiet rtf 600 grows with no machine load at all (held 53 by gs 950) — load, the player's pace and the budget are one utilization knob, so 470f's "machine-load-dependent" bimodality is utilization-dependence; growth is linear at λ·pin with digest(quiet) = digest(load6) bit-for-bit at the same cut (Linux/x86, 8 vCPU, load via 6 pinned spinners, bench pinned to 2 cpus; 20261017-1918-dynamics-b8e2).**
+**pin(m), quiet-subtracted over the same game-time window:** 84–100 / 204–214 / 313–464 kB per scan at m = 100/200/400 across three regens (m100/m200 stable ±3%, m400 wall-dependent), exponent 0.92–1.13 over ×4 ≈ m^0.9; the raw slope is collinear with churn (quiet drift −3.9 MB at m100, +5.4 MB at m400, ±4-5 MB per window), so 4b8c's 84-112 kB/scan (89–100 at 100 members, 112 at 200, checker ms 0.5 arm) and 7bd9's 171 kB/scan (≈400 B/candidate by measurement — the 216 B tuple guess does not close: 428 bodies × 216 B = 92 kB; 415/541/409 B per catalogue candidate on the 400-member, K=1,000-loaded and K=1,000-quiet arms, against ~428 B by counting GlobalAlloc; declining 146→88 as the fleet dissolves) were one under-subtracted estimator — one queue resolves the 13 October-17 conflict (…-b8e2).**
+**The count-latch is a bounded attractor, first direct observation** (RUIN_BACKLOG=48, engine-ms 8, load6): held grows at 0.051/gs to the cap at gs ~880–930, then pins at 47–48 for the next 3,188 presented gs while scans_out resumes 4 → 195 (answers paid inside the frame budget) and live memory never again exceeds its engagement value (37.4 MB → max 37.8, 18.7 at end as the fleet dissolves) — bounded, the game pays in presented time, not memory, and no bulk free occurs at the cap; the shipped 2048-cap's plateau is 2048 × pin(m) = 0.17–0.21 / 0.42–0.44 / 0.64–0.95 GB at m = 100/200/400 (worst case, battle alive), 2048 × 171 kB ≈ 0.35 GB at 7bd9's 400-member scene (~0.18 GB late; ~1.5 GB at 604c's formation candidate counts) — a count cap cannot fence bytes: answer-before-enqueue on held bytes + next pin (20261017-1918-dynamics-b8e2 [checker, 20261017-1918]; 20261017-1330-library-7bd9).**
+**The mechanism is wall-owned cleanup, knob-controlled:** the held scans drain only while the frame's wall budget has `2·max(scan_ns, 750 µs)` left, and the history prune runs only at `frame_to`'s start so `settle` bypasses it (c304's ~10 kB/ship-kick; 4,751 ship items; the catch-up settle spike at cut 27,500 game-s is +21.9 MB at m100, +117.6/117.9 at m400/"m800", digests equal); dose-response at members 400, rtf 100: engine-ms 50 → held 0, RSS flat 45.7 MB; 5.0 → marginal (≤1 held on a quiet box; held 8→83, RSS +8 MB under ambient load — 470f's bimodality reproduced by knob); 0.5 → the game crawls (77.5 vs 1,610 game-s presented) and memory grows; digests identical across all three budgets (`2713edb5639d7a16…`) — wall-path only, law innocent; `prune()` is unconditional (universe.rs:1082; 470f's prune-starvation lead dead) and `held_scans()` (universe.rs:299) existed unread — the growth was counter-invisible, not uncounted; the play-phase channel is one scan per resolved player item (universe.rs:772 → `Held::capture`, each pinning `binding_at(j, t)` for every window candidate): 4.5 kB/game-s ≈ 84 kB per held scan at just 100 members (universe.rs:77's "about 10 KB each" is 8× low), and 470f's 220.9 MB peak ≈ `SCAN_BACKLOG`(2048) × ~105 kB/scan — the cap, not a leak (never engaged here, held ≤ 172; latch ETA 26,629 nominal gs, ≈21,000 presented — the load arm undershoots ~1.3× — at the 0.096 scans/gs two checker flights reproduce, against their ~20,000-gs drop) (20261017-1330-inversion-4b8c; 7bd9's checker).**
+**The growth class, attributed and bounded:** at 400 members the same flight (same seed, args, binary, quiet machine) either peaks at ~44 MB or grows ~11 kB of live Rust allocations per game-s (checker: 9.0 kB/gs long-run; the ~11 is the first-6,000-gs window) to 220.9 MB / 83,768 live allocations by 20,000 game-s, frees ~78k in one bulk drop (the 78k-allocation bulk drop) and leaves peak RSS at 206 MB forever — 5 of 15 quiet seed-1 coast flights took the growing path, load flips it (9/9 under 9-way concurrent load, seeds 1 and 5; second checker: 8/8 under 8-way, 8/8 with the counting allocator removed, 2/4 quiet; 20 of 22 fresh flights grew), growth ∝ N — not 400-specific [checker]: N=100 ~3.9 kB/gs, N=800 ~29 kB/gs to 183 MB RSS by 6,000 gs, N=1600 ~54 kB/gs to 327 MB), the flat path is stable flat to 60,000 gs, and every shipped counter is flat throughout (bytes_per_body a constant 5.9 kB/body) — peak memory is not a canonical outcome: a 4.7× path-dependent multiplier on any single-run memory-wall measurement; attribution (7bd9 — one flight per arm on top of 470f's 37, quotes 5/5 byte-identical — a 13-s flight pair, 400 members, coast, rtf 100, 3,600 frames): quiet flat at live 14.6 MB, under 6-way pinned load live grows 24.0→96.4 MB at 13.1 kB/gs (470f's rate) with held_scans 10→433 in lockstep and handouts 0 throughout, so `SCAN_BACKLOG = 2048`'s force-answer is the bulk drop — 171 kB + 73 live allocations per held scan, the capture being the candidates Vec (encounter.rs:174-195); outside the author's 400-only range, at 1,600 members with births mid-flight the pin reaches ~2 MB/scan (93 scans, 225 MB in 1,200 frames); growth is per-scan × capture, NOT per-body: at ladder scenes the candidates are the player's doll (c439's near set, O(1) in N), so the 10⁶ headline survives with a bounded ~0.1–0.2 GB pin; d3fe's clean ruin rate is otherwise dead on main — fleets dissolve by ~3,000 game-s at every size flown (the fleet-slice bill one-time, events 17.6→~2/gs at dissolution), the shipped 48-member plane flat over 40,000 game-s, the 3,000-body belt flat (20261017-0238-inversion-470f + checkers; probe `ruin_probe.rs`, the player's own loop unpaced at rtf 100, seeds 1–3; 20261017-1330-library-7bd9).**
+**The trigger is oversubscription, not the scene:** at ambient loadavg 9-14 on 8 vCPU every scene's drain freezes at the same arrival rate 0.0966-0.0968 held/game-s (the LADDER included: held 375/431 quiet/7-way, pin 63-71 kB at the near set, RSS +6.9 kB/game-s; the regen run at ambient 9.25-13.79, run 1 at load 0.4-1.2), while at load ≤ ~8 with a core free only the crowd froze — bimodal: the regen's quiet C1 drained (held_max 1; its ~4.4 ms answer makes the drain margin ~9-10 ms exceed room; the ladder's 1.5 ms margin needs preemption eating >10.5 ms of a frame); the per-candidate pin holds flat only up to ~10³ window entries — superlinear above (the checker's K=2,400: 5.0-5.8 MB/scan at 2,294 catalogue entries ≈ 2.2-2.5 kB/entry), so 4b8c's and 7bd9's per-scan numbers reconcile as one constant only at low populations; b77d's own first reading "the ladder cannot starve" was an insufficient-load artifact, killed by the regen rerun (20261017-1918-fermi-b77d; print-only probe on shipped `nladder`, coast rtf 100 seed 1 threads 1; [20261017-1918-fermi: flown under load — the ladder holds, the crowd's fence bust is the open defect]).**
+**The paced player loop, flown:** K = 1,000 quiet drained / loaded froze (held_max 290 on the committed re-flight; 359–405 across reruns — 470f's bimodality); K ≥ 1,600 froze in every arm presenting ≥ 130 game-s (quiet, ambient 2.5–5.6); K = 4,000 loaded presented 25.8 game-s and never accumulated (crawl starves arrivals); K = 10⁴ presented 5–10 game-s — the warm per-frame gather costs 66.8–74.1 ms p50 (≈ 7 µs/member, linear in K): the view, not the FLOW, is the crowd's first wall at 10⁴ (twelve arms, K = 1e3–1e4 × quiet/7-spinner loaded, paced, plus K = 4e3/1e4 unpaced; the `flowcrowd` example via the run's work/patch.diff) (…-1fcf).**
+**The standing catalogue is a cache pretending to be state, its duplication measured with controls: 99.6% under co-orbital concentration, 0.4% on the belt** (20261017-0005-system-efd4, gold): a 512-ship formation on one orbit stands 513 entries for 2 distinct intern keys (the duplicates are byte-identical: `Orbit::compile`/`Passage::compile` are pure in `(Unit, OrbitKey, sense, passage edge)` — the edge is a real input, and the intern key must carry it); a 512-distinct-orbit scatter stands 513/513, and the flown plane with a 2,000-ship ladder belt stands 2,044/2,036 after 2,550 kicks; nobody queries the plane's `Catalogue` (`get` has zero callers, every reader holds the `Arc<Entry>`), the digest leaves slot ids out, and `crates/space`'s own catalogue already interns by `(OrbitKey, bool, Option<Scalar>)` — the plane's fork kept the free list and dropped the intern; one structure (intern + refcount, then eviction) deletes the per-binding mint, the creation compile (16.4 µs/ship measured) for program births on shared orbits (the intern alone does not remove it: the mint must consult the key before fitting, not yet flown) and the dead-body entries; the scattered belt's stock needs the eviction half (5465's regenerable 58%), not the intern; the intern was flown by the checker — 513→2 standing on the formation, digests bit-identical; the kick-CPU memo stays dead (memo.rs: exact keys never recur on distinct kicks).**
+**The rate is small, measured, and not the problem:** at 10⁹ bodies H_live ≈ 21 bits/s total — rebinds through the secondary's SOI (10.2 bits/s) co-dominant with the player (~10 bits/s), contacts 0.9 bits/s, at Γ_SOI = 1.31×10⁻² transits/body/orbit (20261012-1621-second-…-09a1, gold); ship-to-ship gravity creates exactly zero scar bits at any belt density to 10⁹ (every ship–ship kick ≥ 9 orders below the (E,L) quantum; the only growing channels are contacts, massive-body encounters and decisions — 20261011-1600-fermi-13ad, gold), and mutual-encounter inertia holds across instruments: δv/v ≈ (4/3)μ/b² per conjunction, so the parent term depends only on total embedded perturber mass (20261007-0621-second-…-5e74; aab3: f_ind ≤ 0.375 at 6 GB is the gate, not the encounter stream); on the plane, fired kicks run 3.55–3.64×10⁻⁵/body/game-s, invariant in seed and N (a9d7, gold); the integer ledger's creation rate decays 14.8 → 0.036 bits/game-s, ~0.2 GB of scars per hour at plane density (dbf9; repaired by 20261008-0041-second-…-57e8, gold); the one live rate risk is the exact-vs-quantized gap: at exact Q48 a ship writes 0.076–0.136 bits/s (40–61 GB/h at 10⁹) against ~0.0013–0.0015 at the 24-bit memo key (19bc), whose reabsorption duty costs a measured 0.6–1.1% of a core while the exact side dies on CPU as well as bandwidth (0.3–1.3 cores; …-d205) — and at the tube's 32-bit angle quantum a belt writes 180.6 GB/h, so the quantum must be coarser than ~2×10⁻⁷ rad (0e9c); the write rate is geometry-split: fc22's ≤ ~1 MB per 300 h holds in 3-D only (18 KB/game), planar belt writes run ~209 MB/game at 10⁹ at the dossier's own parameters (…-a7d0, gold).**
+**The stock saturates by promotion level; the census, not the rate, decides 10⁹:** per body on the shipped store — program member 17.3–29.6 bits, first scar +70.7–76.7, individual 149.7–196.6, re-kicks ≈ 0 — so at 4 GiB the ceiling is 9.5–12.9% individuals (24% scarred), and the promoters are contacts and embedded masses, never rock–rock gravity (9d49, gold); a kicked body costs ~50 bits once plus ~2 bits per further doubling (49.9 → 68.3 bits at K = 1 → 1024), the shipped shelf staying 0.8–7 bits above that floor with bit-exact repacks; a fully-mixed population (63 bits/body) is ≈ 7.9 GB — the first wall (a91f, gold); one chaotic scar is a stock of 40.2 bits = the analytic 2·log₂(σ/q)+4.1, independent of kick count — law.md's "+62/−60" flow model is dead (6e10) — and real Jupiter-flyby kicks are chaotic for every bounded event program (0.0–4.8% of the kick's bits recaptured, every body kicked every epoch; …-ab9d, gold); on the plane each rebounded binding costs 234–252 bits and even a quiescent belt leaves 173.5–175.1 bits/binding (c6d8, corrected by …-71bd), the bound being the current binding, not history — a kick stream revisits its own programs 82–97%, ~15–25 bits entropy-coded (2914); the scar constant is magnitude-dependent: S = Elias–Fano ~7 b + Σ(b_c+2), 61.2 → 172.5 bits from the shipped kick to the supra-family stress rung (20261011-0517-second-…-b3e7, gold), giving the admission rule bits/body ≈ 1 + S·f_cum with break-even f* = 33.4/S ∈ [0.19, 0.55] (c211; corrected by b3e7).**
+**The floor, and what busts or escapes it:** the 3-field sorted floor at 10⁹ is 61.6–62.1 bits/body = 7.70–7.77 GB (the board's "~62 bits"), but every exact non-replay encoding must also carry the phase (t_p, 64 bits per radial cycle, uniform by construction at 63.96 bits/sample), so the 4-field floor is 125.5–126.1 bits/body = 15.7–15.8 GB, ≈ 2× over budget — the scar form is near-optimal (+0.9 bits after the first pass), so the wall is the tube's own quanta (…-0820, gold); a driven belt pays it at once: one Jovian pass scars every body, 126.4 bits/body within one orbit (fc48); the plane's belt carries a one-time ~146 bits/body (exact quanta) / ~69 (memo cell) of orientation-coupled synodic scatter, flat after — the generator needs first-order epicyclic terms (d0ea, gold) — and no secular program absorbs it (the exact double-averaged twin leaves residual 108.71 of 108.77 frozen bits at 20 yr; …-0263, gold); the real engine's kicked belt scars every member within half an orbit and never reabsorbs, ~130 bits/member ≈ 16 B at law widths — shipmem's Form P dies as a family representation the moment a member is kicked (b30e, gold); the escape is measured: re-fit the generator AND canonically relabel unobserved bodies (re-fit alone bounds nothing, 42/42 checkpoints; label cost → 0) for a law-robust floor of 1.80–1.83 bits/column at 2.6×10⁵ knots, 4.26–4.30 bits/body at lab N (20261011-0134-second-…-fdfc; 2a9d), and a re-programmed synthetic belt is statistically indistinguishable from the true one (KS(a) 0.031, p = 0.29; 8072, gold), reconciling b30e (no re-programming: ~130 bits/member busts) with 8072 (legal re-programming: tens of MB); self-stirred belts never get there: escape needs a median 158–420 sub-quantum kicks (98–100% multi-kick) under real conjunction geometry, t_sat ≈ (Q/σ_s)² orbits — a real 10⁹ belt never scars and stands at 1.7–2.4 B/live-body, inside B18 (20261012-0616-second-…-07b4, gold; d0a9); no recompilation cadence rescues the driven belt at the law's own quanta — 45–76 bits/body residual against the 34.4 budget at every cadence and program class, restored only by per-population quanta 256× coarser (2,560 km → 33.2 bits; 6759's "1 km" quantum was in fact 10 km, Q_A = 6.6846×10⁻⁸ AU; …-0ae6, gold); the growth that does exist is diffusive, σ ∝ t^0.55, flat in N at fixed belt mass, and the storage quantum is the lever (−13 bits per decade of coarsening; 986b, gold) — the ½·log₂ family: ½ per identity-tied column, ¼ interchangeable, f_tie the knob (8fb8), the periapsis-time axis ~1.5·log₂t (4b84), ~3 bits per kick doubling (740f), ~1 bit per time-octave (e9a5), a cold belt at 41.7 bits = 5.2 GB at 2 dof with only concentrated 3-dof regions breaking (20261010-1302-second-…-a9c4, gold), and a synodic-aware program absorbing all but 0.55 events/ship/P_p, mature footprint 20.7–22.1 bits/ship (20261011-0006-second-…-2b8e, gold).**
+**The standing representation is the shipped-code villain:** on the shipped plane the live stock is 1,245–1,277 B per belt body (4,665 B/body flown) — `Catalogue::insert` never dedups compiled trajectories (2,000 ships on one orbit hold 2,000 entries), plus a 448 B record and a mandatory 192 B history segment; even at the law's floor widths a billion individual records are 14–18 GB, so the billion must be population programs (cae7, gold); a median ship stands at ~1.46 KB = 90× the 16-byte tube (448 B `BodyRec` + ~530–970 B of resident compiled quadrature), 10⁹ ≈ 1.4 TB ≈ 175× over — evictable shared shapes and out-of-line records, not a better prune (4a62, gold); scene spread: 9,846 B/body stored with compiled shapes (443e), ~7 KB/body = 428–446× the tube — the biggest lever on the board (a11b) —, 2.3 KB/orbiter and 5.0 KB/battle member with whales = re-minted generators, retained segments, never-freed corpses (4985), commit path 660 B per ~60-bit kick (88×; df14), packed live state itself only 448–454 bits = 56.0–56.8 B vs 672 B stored (42e6) — a 75–615× spread over the 16 B tube; one doll body stands at 5,186 B = 324× the tube, 58% of it compiled knots proven regenerable bit-identically from the exact key (a cache, not state) and 29% the view's retired history (5465); at 4,000 members the plane's 845 MB is unpruned rebind history — ~10 kB per ship kick, `settle` bypassing the every-64-frames prune — on a true construction marginal of ~19 kB per handed-out body (~33 kB/body post-prune steady; the dashboard under-reports ~20×; 3463, decomposed by …-c304, gold); the event queue needs no container (a counting scan at 8 B/body against the heap's 16 B + slack; 6a0e), and the encounters crate's second per-body copy (~96 GB at 10⁹) deletes onto the tube store itself (3b42); the one unbounded grower is the compiled-cycle catalogue, a churn leak (one entry per ship ever created; …-e4cc, gold; 91a0), while H_live itself saturates despite continuous kicks (fleet 17.8–22.3 bits/member, ships 45.5–49.9 bits/ship, second-half slopes ≈ 0).**
+**What binds at 10⁹ is regime-dependent, and both gold verdicts stand; the domain:** the hot side is two per-body terms — 6.9 KB live per hot body with N_hot ≈ 1.3–2.7×10⁴ at rtf 100 (the board's 190 cores re-derives as 175; …-ba64, gold); at the short-orbit corner (90-min orbits, 32.5 kicks/orbit) compute binds first: 153 cores averaged at RTF 100, S_live capped at 5.2×10⁷ by compute vs 5.4×10⁸ by memory (20261006-1354-fermi-c9fa, gold); at belt scale memory capacity binds — the tube store plus any per-body event queue is already 3.2× over the usable 5 GB while compute clears by 3–5 orders once the two measured levers (kick-setup 12.5×, tide averaging 114×) are applied (b946, gold); the ordering compute (short-orbit) ≫ memory (admission at f_cum ≥ 0.19–0.55) ≫ H_live ≫ bandwidth is measured at the 81-min corner (20261011-0517-second-…-b3e7, gold; 71b2, 2dca, e9a5; first seen as compute ≫ H_live ≫ bandwidth with the affordable hot fraction 5–10% at rtf 1, 0.05–0.1% at rtf 100, reabsorption ≥ 37–292 MB/game-s — 1feb); the contact channel is the exception that can ruin a close-in belt: 4 GiB in 9–18 play-hours for immortal ships unless contacts are terminal or herds re-program (13ad, gold). Domain: 2D belts (B18b-family geometry), plane scenes 28–2,112 ships, exact-Kepler toy engines to 10⁶ bodies, settles to 512 orbits and horizons to 71 kyr; rates are seed- and N-checked where stated; NOT tested: k > 1 secondaries (rebind rate scales ×k), inclined belts (lower density — rates here are upper bounds), gameplay that holds ships inside SOIs, contact recycling at real rates, 3D, and the dense order beyond the plane's battle; the 128 bits/rebind and ~10 bits/s player are stated assumptions, not measurements (they bound H_live between roughly 11 and 100 bits/s at the measured Γ_SOI); both cross-instruments for Γ_SOI are cold-belt-only — only the brute-force counter carries it across regimes (checker, 12 October); m_crit ≈ 1.3×10⁻¹⁷ M☉ (1.3-km rock; c7eb's ≈ 8×10⁻¹⁹ M☉, 500-m rock, corrected 16× up by …-46a6, gold, which also finds no mass threshold protects tp-identity) — but a phase tick is 1.9×10⁷ per player pixel, so consumers, not belt self-evolution, set H_live (~0.2 distinctions/s at 10⁹ over 1.7×10⁴ orbits); mutual-encounter distinctions begin only above μ_b ≈ 1.7×10⁻¹⁸ M☉ (~1-km rock; 6273), ≈ 4.3×10¹⁸ kg at the scar quantum (√2-corrected from 4b55's 3.0×10¹⁸ by …-09a1) — all make ship-mass mutual encounters inert; the mixed-population entropy after repopulation (0.126 → ~30 bits/body, ceiling ~3.75 GB) is still a bracket, not a measurement — `b-h-live`'s job; repopulation is load-bearing: scattered singletons saturate the store in 1/Γ_SOI ≈ 76 orbits ≈ 400 game-years and never re-smooth on their own (…-09a1).**
 
 ## Refuted
-- **"The per-candidate pin is superlinear above ~10³ entries" (fermi-b77d's checker arm) and b77d's 475 B/candidate**: the true capture pin is flat 226 B × C (r² 0.974, per-transition deltas over cat 1,028–8,156); the superlinear window slopes alias birth churn collinear with held growth (20261017-2038-second-…-1fcf).
+- **"The per-candidate pin is superlinear above ~10³ entries" (fermi-b77d's checker arm) and b77d's 475 B/candidate / 0.4-0.55 kB band**: the true capture pin is flat 226 B × C (r² 0.974, per-transition deltas over cat 1,028–8,156); the superlinear window slopes alias birth churn collinear with held growth (20261017-2038-second-…-1fcf).
 - **"8 GB busts at ~8,500 window candidates" (b77d) and "at ~2×10³" (its checker)**: measured 0.46 GB per 1,000 candidates at the 2,048 cap — bust at ≈ 1.7×10⁴ on the capture term, ~5–8×10³ on retained growth (same run).
-
-- **"The bimodality is machine-load-dependent" (470f) and "the trigger is the wall-budget path, not the
-  game state" as far as it goes**: the trigger class is frame-budget utilization — load, the player's own
-  pace (rtf) and engine-ms flip the same ρ; quiet rtf 600 grows with no load, and engine-ms 25 restores
-- **Both 13:30 pins as absolute numbers** (4b8c's "112 kB at m200", 7bd9's "171 kB at m400"):
-  quiet-subtracted same-window pins are 204–214 kB at m200 and 313–464 kB at m400 (regen-dependent;
-  the raw estimator is collinear with churn (±4-5 MB per window) and under-measures wherever quiet drift
-  is negative (20261017-1918-dynamics-b8e2).
-- **"`SCAN_BACKLOG` bounds the backlog" as a memory fence at scale**: the cap bounds counts; its byte
-  price is 2048 × pin(m), 0.64–0.95 GB at m400 and ~4 GB at formation scale — a count cap cannot fence bytes
-  (20261017-1918-dynamics-b8e2; arithmetic on 7bd9's m1600 pin).
-
-- **"The growth path's mechanism is unknown (prune-starvation a lead)"** (the page's own open
-  lead): knob-controlled and decomposed — the held-scan drain condition and the settle prune
-  bypass, both wall-owned; the digest is invariant across the whole dose-response
-  (20261017-1330-inversion-4b8c).
-- **"`SCAN_BACKLOG` bounds the backlog at about 10 KB each" (universe.rs:77):** measured 84–100
-  kB per held scan at 100 members and 112 at 200 (checker); ~105 at 400 is inferred from 470f's
-  peak, not slope-measured (the 400 arm's play phase is too short); the bound is concentration's,
-  not the comment's (20261017-1330-inversion-4b8c).
-- **470f's "prune starvation" mechanism lead, and universe.rs:77's "about 10 KB each" for a held scan**:
-  prune is unconditional (universe.rs:1082); the accumulator is the held-scans queue, and the measured pin
-  is 171 kB/scan on the 400-member plane (capture ≈ population × ~400 B by measurement — the 216 B tuple
-  guess does not close — declining to ~90 kB as the fleet dissolves; 20261017-1330-library-7bd9, checker).
-- **"The growth is counter-invisible" as a missing counter**: `held_scans()` existed (universe.rs:299);
-- **"Load is the FLOW's multiplier" (fermi-b77d's own pre-registered framing)**: at crowd
-  scale the freeze is bimodal, not load-owned, in the unpaced loop (the author's quiet C1 and
-  loaded C froze at the same 0.0966-0.0969 held/game-s arrival; the checker's regen C1 —
-  quiet, no spinners — drained, held_max 1: 2 of 3 quiet crowd flights froze). What load DOES own
-  is the trigger on margin-marginal scenes — oversubscription (loadavg ≥ ncpu) freezes even
-  the ladder (20261017-1918-fermi-b77d, dose-response across two regimes).
-- **"The ladder's drain cannot starve short of already-unplayable frames" (fermi-b77d's
-  first reading, and 7bd9's checker caveat resolved too strongly)**: at loadavg 9-14 on
-  8 vCPU the game crawls AND accumulates — held 375/431 at the full arrival rate, RSS
-  +6.9 kB/game-s, both symptoms of the one wall-owned-cleanup disease (4b8c's dose-response
-  extended to the ladder scene); the bounded part is the PIN (~145 MB worst at the near
-  set), not the starvation (20261017-1918-fermi-b77d).
-- "A reachable ruin state: peak RSS grows ~0.2 kB per surviving member per game-second
-  through any battle that stays live" (d3fe, silver): at shipped size (48 members) and on the
-  belt plane, dead on main at 4–7× the flown horizon — fleets dissolve by ~3,000 game-s, the
-  slice bill is one-time, RSS +0.001 kB/gs over 40,000 game-s in every flat run. NOT refuted as
-  a class: 5-of-15 runs at 400 members grow ~11 kB/gs of live allocations to a 221 MB peak
-  (bulk-freed at 20,000 gs, peak RSS retained) with every shipped counter flat, trigger
-  wall-path, un-isolated (20261017-0238-inversion-470f).
-
-- "H_live at 10⁹ ≈ 5×10³ bits/s with rebinds 36.5/s and the player nil" — a 10³
-  text slip on a 2.2× sign-flipped-Newton bug; truth 0.0798 rebinds/s, player
-  co-dominant (20261012-1621-second-20261012-1524-fermi-4b55-09a1).
-- Per-ship scarring by mutual encounters at ship mass: δv per encounter ~10⁻¹⁷ v_K
-  against q_v = 10⁻⁵, twelve orders of margin (20261012-1524-fermi-4b55, P4,
-  reproduced by its checker); exactly zero gravitational scar bits to 10⁹ density
-  (20261011-1600-fermi-13ad, gold).
-- Counting encounter-certificate events as H_live: overstates by ~5 orders
-  (20261012-1524-fermi-4b55, decomposition).
-- law.md's "+62 bits per kick, −60 per reabsorption" as a flow: a scar is a bounded
-  stock (40.2 bits = 2·log₂(σ/q)+4.1, independent of kick count, 33× overcount at 24
-  kicks; 20261007-0621-scout-6e10; ~2× optimistic on the plane,
-  20261009-1754-spacex-c6d8).
-- "Distinctions per game-second ≈ event rate": the ~6×10⁴ kicks/game-second create
-  ≈ 0 bits; re-kicks are free (20261008-2031-fermi-9d49, gold;
-  20261008-2113-components-a9d7, gold).
-- The uniform-tube memory plan: fully-mixed ≈ 7.9 GB at 63 bits/body
-  (20261007-0800-fermi-a91f); the flat 16-B tube store alone is 14.9 GiB = 1.9× over
-  (20261009-1259-fermi-c7eb); the exact 4-field floor 15.7 GB ≈ 2× over
-  (20261010-1544-second-…-0820, gold).
-- "History is never reabsorbed; live state grows ~4 B/body/game-second and fills
-  8 GB in ~2 game-s" (20261008-2206-spacex-d031, lead): the plane's light-cone prune
-  reaches steady state, creation = reabsorption (20261007-0711-spacex-cae7;
-  20261009-0401-spacex-4a62; 20261011-2235-second-…-e4cc, golds).
-- fc22's "H_live writes ≤ ~1 MB per 300 h" for planar belts — every belt the
-  engine ships: ~209 MB/game at 10⁹, ~200× (holds in 3-D at 18 KB/game;
-  20261007-0933-second-20261007-0842-fermi-fc22-a7d0, gold).
-- 6759's "~67 bits after one orbit at 1 km quanta": the quantum was 10 km
-  (Q_A = 6.6846×10⁻⁸ AU); the headline was 10× optimistic
-  (20261012-0358-second-…-0ae6, gold).
-- d80d's "99.9% of a weak-drive resonance belt is program-regenerable": a horizon
-  artifact; 1.8% depart permanently at ~40 bits each
-  (20261012-1438-second-20261012-1340-scout-d80d-b2fd).
-- 3463's "marginal memory ~330 kB per handed-out body, growing with body count":
-  unpruned rebind history (~10 kB/ship-kick) on a ~19 kB construction marginal
-  (20261012-1117-second-20261012-1019-spacex-3463-c304, gold).
-- "The secular program absorbs the belt's drift": the exact double-averaged twin
-  explains none of it (residual 108.71 of 108.77 bits at 20 yr;
-  20261007-1106-second-…-0263, gold).
-- Return-based scar reabsorption as the balancer: 10⁻⁶ of creation; the layer grows
-  only log in t (20261006-1029-components-21c3).
+- **"The bimodality is machine-load-dependent" (470f) and "the trigger is the wall-budget path, not the game state", as far as it goes**: the trigger class is frame-budget utilization — load, the player's own pace (rtf) and engine-ms flip the same ρ; quiet rtf 600 grows with no load, and engine-ms 25 restores µ/λ = 1.0 (20261017-1918-dynamics-b8e2).
+- **Both 13:30 pins as absolute numbers** (4b8c's "112 kB at m200", 7bd9's "171 kB at m400"): quiet-subtracted same-window pins are 204–214 kB at m200 and 313–464 kB at m400 (regen-dependent); the raw estimator is collinear with churn (±4-5 MB per window) and under-measures wherever quiet drift is negative (…-b8e2).
+- **"`SCAN_BACKLOG` bounds the backlog" as a memory fence at scale**: the cap bounds counts; its byte price is 2048 × pin(m), 0.64–0.95 GB at m400 and ~4 GB at formation scale — a count cap cannot fence bytes (…-b8e2; arithmetic on 7bd9's m1600 pin).
+- **"The growth path's mechanism is unknown (prune-starvation a lead)"** (the page's own open lead): knob-controlled and decomposed — the held-scan drain condition and the settle prune bypass, both wall-owned; the digest is invariant across the whole dose-response (20261017-1330-inversion-4b8c).
+- **"`SCAN_BACKLOG` bounds the backlog at about 10 KB each" (universe.rs:77)**: measured 84–100 kB per held scan at 100 members and 112 at 200 (checker); ~105 at 400 is inferred from 470f's peak, not slope-measured; the bound is concentration's, not the comment's (…-4b8c).
+- **470f's "prune starvation" mechanism lead, and universe.rs:77's "about 10 KB each" for a held scan**: prune is unconditional (universe.rs:1082); the accumulator is the held-scans queue, and the measured pin is 171 kB/scan on the 400-member plane (capture ≈ population × ~400 B by measurement — the 216 B tuple guess does not close — declining to ~90 kB as the fleet dissolves; 20261017-1330-library-7bd9, checker).
+- **"The growth is counter-invisible" as a missing counter**: `held_scans()` existed (universe.rs:299) unread — no memory instrument read the standing count (7bd9's checker).
+- **"Load is the FLOW's multiplier" (fermi-b77d's own pre-registered framing)**: at crowd scale the freeze is bimodal, not load-owned, in the unpaced loop (the author's quiet C1 and loaded C froze at the same 0.0966-0.0969 held/game-s arrival; the checker's regen C1 — quiet, no spinners — drained, held_max 1: 2 of 3 quiet crowd flights froze). What load DOES own is the trigger on margin-marginal scenes — oversubscription (loadavg ≥ ncpu) freezes even the ladder (20261017-1918-fermi-b77d, dose-response across two regimes).
+- **"The ladder's drain cannot starve short of already-unplayable frames" (fermi-b77d's first reading, and 7bd9's checker caveat resolved too strongly)**: at loadavg 9-14 on 8 vCPU the game crawls AND accumulates — held 375/431 at the full arrival rate, RSS +6.9 kB/game-s, both symptoms of the one wall-owned-cleanup disease (4b8c's dose-response extended to the ladder scene); the bounded part is the PIN (~145 MB worst at the near set), not the starvation (…-b77d).
+- **"m400 = m800" as pin saturation (4b8c's arm identity)**: the CLI clamp — `--members` clamps at 400 (xtask/src/universe/mod.rs:40; `--members 800 --describe` prints "1 fleet(s) of 400 members"), so the 800 arm is the 400 arm; the pin's N-scaling is sub-linear on real arms (…-4b8c's checker).
+- "A reachable ruin state: peak RSS grows ~0.2 kB per surviving member per game-second through any battle that stays live" (d3fe, silver): at shipped size (48 members) and on the belt plane, dead on main at 4–7× the flown horizon — fleets dissolve by ~3,000 game-s, the slice bill is one-time, RSS +0.001 kB/gs over 40,000 game-s in every flat run. NOT refuted as a class: 5-of-15 runs at 400 members grow ~11 kB/gs of live allocations to a 221 MB peak (bulk-freed at 20,000 gs, peak RSS retained) with every shipped counter flat, trigger wall-path, un-isolated (20261017-0238-inversion-470f).
+- "H_live at 10⁹ ≈ 5×10³ bits/s with rebinds 36.5/s and the player nil" — a 10³ text slip on a 2.2× sign-flipped-Newton bug; truth 0.0798 rebinds/s, player co-dominant (20261012-1621-second-…-09a1).
+- Per-ship scarring by mutual encounters at ship mass: δv per encounter ~10⁻¹⁷ v_K against q_v = 10⁻⁵, twelve orders of margin (20261012-1524-fermi-4b55, P4, reproduced by its checker); exactly zero gravitational scar bits to 10⁹ density (20261011-1600-fermi-13ad, gold).
+- Counting encounter-certificate events as H_live: overstates by ~5 orders (20261012-1524-fermi-4b55, decomposition).
+- law.md's "+62 bits per kick, −60 per reabsorption" as a flow: a scar is a bounded stock (40.2 bits = 2·log₂(σ/q)+4.1, independent of kick count, 33× overcount at 24 kicks; 20261007-0621-scout-6e10; ~2× optimistic on the plane, 20261009-1754-spacex-c6d8).
+- "Distinctions per game-second ≈ event rate": the ~6×10⁴ kicks/game-second create ≈ 0 bits; re-kicks are free (20261008-2031-fermi-9d49, gold; 20261008-2113-components-a9d7, gold).
+- The uniform-tube memory plan: fully-mixed ≈ 7.9 GB at 63 bits/body (20261007-0800-fermi-a91f); the flat 16-B tube store alone is 14.9 GiB = 1.9× over (20261009-1259-fermi-c7eb); the exact 4-field floor 15.7 GB ≈ 2× over (20261010-1544-second-…-0820, gold).
+- "History is never reabsorbed; live state grows ~4 B/body/game-second and fills 8 GB in ~2 game-s" (20261008-2206-spacex-d031, lead): the plane's light-cone prune reaches steady state, creation = reabsorption (20261007-0711-spacex-cae7; 20261009-0401-spacex-4a62; 20261011-2235-second-…-e4cc, golds).
+- fc22's "H_live writes ≤ ~1 MB per 300 h" for planar belts — every belt the engine ships: ~209 MB/game at 10⁹, ~200× (holds in 3-D at 18 KB/game; 20261007-0933-second-20261007-0842-fermi-fc22-a7d0, gold).
+- 6759's "~67 bits after one orbit at 1 km quanta": the quantum was 10 km (Q_A = 6.6846×10⁻⁸ AU); the headline was 10× optimistic (20261012-0358-second-…-0ae6, gold).
+- d80d's "99.9% of a weak-drive resonance belt is program-regenerable": a horizon artifact; 1.8% depart permanently at ~40 bits each (20261012-1438-second-20261012-1340-scout-d80d-b2fd).
+- 3463's "marginal memory ~330 kB per handed-out body, growing with body count": unpruned rebind history (~10 kB/ship-kick) on a ~19 kB construction marginal (20261012-1117-second-20261012-1019-spacex-3463-c304, gold).
+- "The secular program absorbs the belt's drift": the exact double-averaged twin explains none of it (residual 108.71 of 108.77 bits at 20 yr; 20261007-1106-second-…-0263, gold).
+- Return-based scar reabsorption as the balancer: 10⁻⁶ of creation; the layer grows only log in t (20261006-1029-components-21c3).
 
 ## Open directions
-
-1. **Fly the byte fence** (the named gold experiment): answer-before-enqueue on a held-bytes budget at
-   formation scale under load (m400 and the 1,600-member formation scene of 7bd9's checker), against the
-   2048 count cap: peak live, digest equality, and the presented-time price at the fence. ~20 lines, no
-   law change (20261017-1918-dynamics-b8e2).
-
-1. **Game-owned cleanup (the fix this names):** the prune on a game-s cadence (not only
-   `frame_to`'s start — `settle` bypasses it, c304's half), and the held scans answered or
-   *dropped* at a game-s cadence — their answer feeds only the count/log/hash
-   (universe.rs:206), so a canonical drop (by tick, not by wall) keeps digests defined and
-   deletes both the 2048-cap memory term and the catch-up spike. Scan answers are hashed, so the
-   drop schedule must be canonical (a law-visible-none decision, like the comb cures).
-2. **A byte-sized fence, now measured** (fermi-b77d + second author): the capture term is 224 B × candidates (one counter at capture), the retention tail needs direction 1's game-s-cadence drop; the 2,048-count cap prices at 0.46 GB per 1,000 candidates.
-3. **Flown (second author): the paced crowd rung** — the freeze is deterministic at K ≥ 1,600 (quiet), the crawl starves arrivals at K = 4,000 loaded, and at K = 10⁴ the view's 74 ms/frame gather is the first wall (0 FLOW arrivals). Still open: the burn arm (thrust changes the item rate) and the belt's window occupancy at 10⁵–10⁶.
-   Scene class still open: 0739's standing formations drained quiet while every crowd froze —
-   the drain's viability is scene-owned, and this run flew the crowd family only.
+1. **Fly the byte fence** (b8e2's named gold experiment): answer-before-enqueue on a held-bytes budget at formation scale under load (m400 and the 1,600-member formation scene of 7bd9's checker), against the 2048 count cap: peak live, digest equality, and the presented-time price at the fence. ~20 lines, no law change. Moves the board's live-set row (~10²–10³): deletes the 0.46 GB/1,000-candidate cap term.
+2. **Game-owned cleanup (the fix the mechanism names — the page's direction 1):** the prune on a game-s cadence (not only `frame_to`'s start — `settle` bypasses it, c304's half), and the held scans answered or *dropped* at a game-s cadence — their answer feeds only the count/log/hash (universe.rs:206), so a canonical drop (by tick, not by wall) keeps digests defined and deletes both the 2048-cap (the 2,048-count cap) memory term and the catch-up spike. Moves the live-set row and p99 (the freeze is a smoothness event too).
+3. **The retention tail's law:** the `Arc<Entry>` of candidates dying while held (~1–5× the capture term, phase-dependent) — measure it at the game-s cadence and fold it into the fence's byte budget — the tail is what direction 1's answer-or-drop must bound (crowd-scale live-set precision).
+4. **Scene classes of the drain:** 0739's standing formations drained quiet while every crowd froze — the drain's viability is scene-owned, and this page flew the crowd family only; the belt's window occupancy at 10⁵–10⁶ is unflown (sizes the fence per scene).
+5. **The burn arm of the paced crowd rung** (thrust changes the item rate) — completes the K ladder; also the view's gather at K ≥ 10⁴ (74 ms/frame) is the crowd's first wall and is owned by the view page.
+6. **The mixed-population entropy bracket** (0.126 → ~30 bits/body, ~3.75 GB): measure it — `b-h-live`'s job; decides admission, the live-set row at 10⁹.
+7. **The catalogue's eviction half + mint-consults-key-before-fitting** (efd4's unflown half): deletes the per-binding mint at program births on shared orbits and the dead-body entries; the scattered belt's stock needs the eviction half (5465's regenerable 58%). Live-set row.
 
 ## Contradictions
-
-- None: the 13:30 conflict is resolved (one queue; both mechanisms stand, both pins corrected); the
-  residual uncertainty is the pin's phase dependence (early-flight pins are worst-case; late-flight ~90-115 kB).
+- None: the 13:30 conflict is resolved (one queue; both mechanisms stand, both pins corrected); the residual uncertainty is the pin's phase dependence (early-flight pins are worst-case; late-flight ~90-115 kB).
 
 ## Runs
 - 20261012-1524-fermi-4b55 (silver): H_live term decomposition — rebinds,
@@ -585,3 +179,4 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
 - 20261017-1918-fermi-b77d (fermi): the pin law ~450 B/candidate/held-scan on four scenes and two load regimes (third instrument; reconciles 4b8c's and 7bd9's per-scan numbers); oversubscription freezes every scene including the ladder (+6.9 kB/gs, pin 63-71 kB near-set); the count-fence's byte bound 0.97 MB × candidates/1000 busts 8 GB at ~8,500 window candidates — bound pinned bytes; my own "cannot starve" first reading killed by the regen rerun. The 4b8c/7bd9 conflict folded (both entries kept). [Checker: deliberate 9-way load reproduces run 2 (held 422, 76 kB/scan, 0.0966/gs, monotone); N=1e4 pins 67 kB/scan (near-set holds downward); K=2,400 pins 5-6 MB/scan — the sub-kB law dies superlinearly and the fence busts 8 GB at ~2×10³ candidates.]
 - 20261007-0933-second-20261007-0842-fermi-fc22-a7d0 (gold): fc22's ≤ 1 MB holds in 3-D only; planar belts (all shipped ones) write ~209 MB/game at 10⁹.
 - 20261017-2038-second-20261017-1918-fermi-b77d-1fcf (this run, second author on fermi-b77d): the pin measured in real bytes at capture — 226 B × C (r² 0.974), the candidates Vec; the superlinear window pins are birth-churn aliasing; fence 0.46 GB/1,000 cands; the view (74 ms/frame), not the FLOW, is the crowd's wall at 10⁴.
+- second-checker (20261017-0238-inversion-470f): 20 of 22 fresh flights grew (8/8 under 8-way load, 8/8 with the counting allocator removed — not an instrument artifact — and 2/4 quiet).
