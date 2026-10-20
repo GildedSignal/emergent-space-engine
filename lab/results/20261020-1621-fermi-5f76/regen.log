@@ -1,0 +1,62 @@
+patch already applied; continuing
+=== five arms flown; analysis:
+== A1: kicks=107965 items=[0, 0, 42414, 5526, 176] item=11.35 KB/kick base=2.05 KB/gs
+   ship:    156543.7 KB total, /ship-item(items[2]=42414) = 3.7 KB, /kick = 1.45 KB, calls/item=224925.2
+   player:  1068744.1 KB total, /player-item(items[3]=5526) = 193.4 KB, realloc-share=80%, calls/item=232.9
+            (author-denominator items[4]=176: 6072 KB — the 8994 author error)
+   player >2KiB census: 751910.3 KB = 70% of player term; rungs:
+      bucket    2048:  11532 calls x mean   3263 =  37623.7 KB  (mean/352=9.27, /384=8.50)
+      bucket    4096:  11480 calls x mean   6528 =  74937.1 KB  (mean/352=18.55, /384=17.00)
+      bucket    8192:  11438 calls x mean  13055 = 149318.4 KB  (mean/352=37.09, /384=34.00)
+      bucket   16384:   5708 calls x mean  28657 = 163571.7 KB  (mean/352=81.41, /384=74.63)
+      bucket   32768:   5693 calls x mean  57344 = 326459.4 KB  (mean/352=162.91, /384=149.33)
+   ship >2KiB census: 84969.7 KB = 54% of ship term
+== A2: kicks=123076 items=[0, 0, 67158, 5434, 48204] item=10.13 KB/kick base=2.61 KB/gs
+   ship:    188651.2 KB total, /ship-item(items[2]=67158) = 2.8 KB, /kick = 1.53 KB, calls/item=347799.9
+   player:  1051339.4 KB total, /player-item(items[3]=5434) = 193.5 KB, realloc-share=79%, calls/item=238.4
+            (author-denominator items[4]=48204: 22 KB — the 8994 author error)
+   player >2KiB census: 744554.2 KB = 71% of player term; rungs:
+      bucket    2048:  16938 calls x mean   2841 =  48120.8 KB  (mean/352=8.07, /384=7.40)
+      bucket    4096:  11292 calls x mean   6275 =  70854.9 KB  (mean/352=17.83, /384=16.34)
+      bucket    8192:  11253 calls x mean  12547 = 141195.8 KB  (mean/352=35.64, /384=32.67)
+      bucket   16384:   5616 calls x mean  28672 = 161019.9 KB  (mean/352=81.45, /384=74.67)
+      bucket   32768:   5607 calls x mean  57344 = 321527.8 KB  (mean/352=162.91, /384=149.33)
+      bucket   65536:     16 calls x mean 114688 =   1835.0 KB  (mean/352=325.82, /384=298.67)
+   ship >2KiB census: 67023.0 KB = 36% of ship term
+== A3: kicks=124294 items=[0, 0, 59161, 5401, 72005] item=10.18 KB/kick base=2.56 KB/gs
+   ship:    181548.1 KB total, /ship-item(items[2]=59161) = 3.1 KB, /kick = 1.46 KB, calls/item=310051.0
+   player:  1074392.2 KB total, /player-item(items[3]=5401) = 198.9 KB, realloc-share=79%, calls/item=250.3
+            (author-denominator items[4]=72005: 15 KB — the 8994 author error)
+   player >2KiB census: 741800.4 KB = 69% of player term; rungs:
+      bucket    2048:  11253 calls x mean   3328 =  37451.3 KB  (mean/352=9.45, /384=8.67)
+      bucket    4096:  11251 calls x mean   6656 =  74888.2 KB  (mean/352=18.91, /384=17.33)
+      bucket    8192:  11212 calls x mean  13312 = 149254.1 KB  (mean/352=37.82, /384=34.67)
+      bucket   16384:   5607 calls x mean  28659 = 160690.2 KB  (mean/352=81.42, /384=74.63)
+      bucket   32768:   5572 calls x mean  57343 = 319516.7 KB  (mean/352=162.91, /384=149.33)
+   ship >2KiB census: 74494.9 KB = 41% of ship term
+== A4: kicks=152031 items=[0, 0, 113939, 4858, 70090] item=8.41 KB/kick base=2.90 KB/gs
+   ship:    331040.2 KB total, /ship-item(items[2]=113939) = 2.9 KB, /kick = 2.18 KB, calls/item=718641.3
+   player:  941591.0 KB total, /player-item(items[3]=4858) = 193.8 KB, realloc-share=79%, calls/item=238.4
+            (author-denominator items[4]=70090: 13 KB — the 8994 author error)
+   player >2KiB census: 670013.2 KB = 71% of player term; rungs:
+      bucket    2048:  15236 calls x mean   2842 =  43295.2 KB  (mean/352=8.07, /384=7.40)
+      bucket    4096:  10169 calls x mean   6276 =  63822.6 KB  (mean/352=17.83, /384=16.34)
+      bucket    8192:  10138 calls x mean  12550 = 127232.5 KB  (mean/352=35.65, /384=32.68)
+      bucket   16384:   5069 calls x mean  28660 = 145276.9 KB  (mean/352=81.42, /384=74.64)
+      bucket   32768:   5032 calls x mean  57343 = 288550.9 KB  (mean/352=162.91, /384=149.33)
+      bucket   65536:     16 calls x mean 114688 =   1835.0 KB  (mean/352=325.82, /384=298.67)
+   ship >2KiB census: 65325.6 KB = 20% of ship term
+== A5: kicks=172860 items=[0, 0, 219277, 3734, 208271] item=7.21 KB/kick base=2.17 KB/gs
+   ship:    515823.3 KB total, /ship-item(items[2]=219277) = 2.4 KB, /kick = 2.98 KB, calls/item=1203021.8
+   player:  724468.6 KB total, /player-item(items[3]=3734) = 194.0 KB, realloc-share=79%, calls/item=238.5
+            (author-denominator items[4]=208271: 3 KB — the 8994 author error)
+   player >2KiB census: 521439.1 KB = 72% of player term; rungs:
+      bucket    2048:  11864 calls x mean   2841 =  33709.7 KB  (mean/352=8.07, /384=7.40)
+      bucket    4096:   7921 calls x mean   6277 =  49723.1 KB  (mean/352=17.83, /384=16.35)
+      bucket    8192:   7889 calls x mean  12552 =  99025.4 KB  (mean/352=35.66, /384=32.69)
+      bucket   16384:   3945 calls x mean  28656 = 113049.6 KB  (mean/352=81.41, /384=74.62)
+      bucket   32768:   3908 calls x mean  57343 = 224096.3 KB  (mean/352=162.91, /384=149.33)
+      bucket   65536:     16 calls x mean 114688 =   1835.0 KB  (mean/352=325.82, /384=298.67)
+   ship >2KiB census: 61287.9 KB = 12% of ship term
+build: NO HEADER
+=== compare with dossier.md's table (A1..A5 rows)

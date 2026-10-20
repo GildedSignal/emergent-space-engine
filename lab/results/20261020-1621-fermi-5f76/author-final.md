@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261020-1621-fermi-5f76/`: `predictions.md` (pre-registered, P1–P5 held / P6 half-held), `dossier.md`, `regen.sh` (verified end-to-end from a clean tree, 102 s), `work/patch.diff` (8994's instrument + the `ES_SEED` knob), `data/` (5 logs + CSVs), and the folded `wiki/budget-1e9.md`.
+
+**The claim:** 8994's one-seed allocation constants are laws — the player-item scratch is 193.4–199.0 KB/item across three seeds and three decades of K (0.1% K-spread, ladder top exactly 57,344 B everywhere), the census now counts its mechanism as **two array-builds per player item** (one 56-KiB-capped doubling ladder, one short, plus ~225 small calls = the unexplained "1.7×" decomposed) — while the ship term's per-kick marginal *rises* with K (1.45→2.99 KB/kick, 10⁴→10⁵), re-basing the 10⁹ bandwidth row to 10–42% of 60 GB/s: still closing, still no pooling mandated.
