@@ -1,0 +1,43 @@
+rung N=100000 (100028 bodies), burn, rtf 1000, 24 s of wall time, engine budget 12 ms; build 4.27 s, peak footprint 232 MB (now 232 MB)
+frames after 1 s: 1380  engine ms p50 2.344 p90 11.426 p99 37.673 max 796.669; over 12 ms: 56; frames behind: 67, worst lag 15.537 s; events/frame p50 30 p99 333 max 16059; scans held max 1086
+game 22295.5 s after the first second: kicks 135164 (6.061e-5/body/game-s), events 173278 (7.770e-5/body/game-s), stats {opens 451, boundaries 34172, handoffs 1, lost 11, refused 0, slices 3490}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 232 MB at the build's end, 975 MB at the flight's end (now 975 MB); 2293 B a body from the build; dashboard bytes/body 1415; view gather 4660.8 ms cold, 2021.5 ms warm (100048 seen); catalogue 100076 entries
+stages (µs per frame, calls per frame, ns per call), over the 1380 frames:
+  rekey (all deadlines)                       70.0     1.00      69990
+    position walk (root_state_raw)           591.6   121.02       4888
+  apply (whole)                              733.4   123.01       5963
+  requeue                                     80.5   260.46        309
+  process (whole)                           5181.9   123.00      42128
+    fit: bind_surface (kicks, hand-outs)    2264.8    97.87      23141
+  take_due                                     0.8    51.23         16
+  prune                                       76.7     1.00      76721
+  encounters: capture (cheap half)           874.9     1.99     440324
+  encounters: held scans answered            410.8     1.93     213178
+  item: kick (Wisdom-Holman)                1130.4    24.58      45993
+  item: kick (clock)                        3157.0    72.44      43582
+  item: kick at a changeover level           387.5     0.89     433999
+  item: boundary                             505.0    24.76      20393
+  item: open                                   4.7     0.32      14593
+  item: crash                                  0.0     0.01       4192
+  fleet: battle run_to                         5.2     2.53       2048
+  fleet: advance (whole item)                  7.4     2.53       2909
+  hand-out (a member made a body)              0.4     0.00     119438
+    hand-out: pull planets and moons           0.0     0.00        130
+    hand-out: bind (the member as a tube)       0.1     0.00      33656
+    hand-out: first plan (replan)              0.3     0.00      77217
+    fit again: the coarser word (bind_surface)       3.2     0.02     174595
+frames over the budget (first 12): [64, 161, 858, 863, 868, 873, 878, 883, 888, 893, 898, 903]; the player's doll (frame, doll): [(0, 2), (191, 0)]
+worst frames (frame, ms, events, lag s): (893, 796.67, 16059, 0.000) (888, 775.25, 15590, 0.000) (883, 745.06, 15093, 0.000) (898, 645.22, 13068, 0.000) (908, 351.09, 7111, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=1000 frames=1440 build_s=4.27 foot_build_mb=232 foot_end_mb=975 b_per_body=2293 p50_ms=2.344 p99_ms=37.673 max_ms=796.669 over=56 lag_s=15.537 kicks_per_body_gs=6.061e-5 events_per_body_gs=7.770e-5 refusals=0 dead=0 held_max=1086 view_ms=2021.5 truncated=false wall_s=21.6
+wave probe: 1380 frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):
+  f 893    796.7 ms items 16059 kicks 16058 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 794.2, 0.0] | process (whole) 698.2 ms; item: kick (clock) 697.6 ms;   fit: bind_surface (kicks, hand-outs) 294.2 ms; apply (whole) 82.0 ms;   position walk (root_state_raw) 56.5 ms
+  f 888    775.2 ms items 15590 kicks 15589 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 773.6, 0.0] | process (whole) 679.9 ms; item: kick (clock) 679.3 ms;   fit: bind_surface (kicks, hand-outs) 286.3 ms; apply (whole) 80.1 ms;   position walk (root_state_raw) 55.1 ms
+  f 883    745.1 ms items 15093 kicks 15092 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 742.9, 0.0] | process (whole) 653.3 ms; item: kick (clock) 652.6 ms;   fit: bind_surface (kicks, hand-outs) 273.5 ms; apply (whole) 76.7 ms;   position walk (root_state_raw) 53.0 ms
+  f 898    645.2 ms items 13068 kicks 13065 opens 0 bounds 3 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 644.3, 0.0] | process (whole) 566.2 ms; item: kick (clock) 565.5 ms;   fit: bind_surface (kicks, hand-outs) 237.1 ms; apply (whole) 66.8 ms;   position walk (root_state_raw) 45.9 ms
+  f 908    351.1 ms items 7111 kicks 7110 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 350.3, 0.0] | process (whole) 307.7 ms; item: kick (clock) 306.9 ms;   fit: bind_surface (kicks, hand-outs) 128.9 ms; apply (whole) 36.3 ms;   position walk (root_state_raw) 25.0 ms
+wave probe: the heaviest three frames by events (the wave's crest):
+  f 893    796.7 ms items 16059 kicks 16058 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 794.2, 0.0] | process (whole) 698.2 ms; item: kick (clock) 697.6 ms;   fit: bind_surface (kicks, hand-outs) 294.2 ms; apply (whole) 82.0 ms
+  f 888    775.2 ms items 15590 kicks 15589 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 773.6, 0.0] | process (whole) 679.9 ms; item: kick (clock) 679.3 ms;   fit: bind_surface (kicks, hand-outs) 286.3 ms; apply (whole) 80.1 ms
+  f 883    745.1 ms items 15093 kicks 15092 opens 0 bounds 1 slices 0 items_by_class [0, 0, 0, 1, 0] ms_by_class [0.0, 0.0, 0.0, 742.9, 0.0] | process (whole) 653.3 ms; item: kick (clock) 652.6 ms;   fit: bind_surface (kicks, hand-outs) 273.5 ms; apply (whole) 76.7 ms
+wave probe: frames where one player item carried >500 nested kicks: 11 (the disease's gulp signature); player top-level items total 2742
+around the worst frame: (f885 11.9ms ev192 k192) (f886 11.9ms ev240 k138) (f887 11.9ms ev201 k201) (f888 775.2ms ev15590 k15589) (f889 11.9ms ev199 k174) (f890 11.9ms ev202 k202) (f891 11.9ms ev224 k161) (f892 11.9ms ev191 k191) (f893 796.7ms ev16059 k16058) (f894 11.9ms ev200 k175) (f895 12.0ms ev204 k204) (f896 11.9ms ev271 k139) (f897 11.9ms ev215 k215) (f898 645.2ms ev13068 k13065) (f899 11.9ms ev223 k198) (f900 11.9ms ev219 k219) (f901 11.9ms ev242 k179)

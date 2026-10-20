@@ -1,0 +1,269 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..7fd8e42a 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -21,6 +21,22 @@ extern "C" {
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
++    // The lab's boxes are Linux, where proc_pid_rusage does not exist: the resident set and its
++    // high-water mark stand in for the phys footprint and its lifetime peak (this run's stub).
++    if cfg!(target_os = "linux") {
++        let (mut now, mut peak) = (0u64, 0u64);
++        if let Ok(status) = std::fs::read_to_string("/proc/self/status") {
++            for line in status.lines() {
++                let kb = |l: &str| l.trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1000;
++                if let Some(v) = line.strip_prefix("VmRSS:") {
++                    now = kb(v);
++                } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                    peak = kb(v);
++                }
++            }
++        }
++        return (now, peak);
++    }
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+     let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+@@ -46,15 +62,48 @@ fn main() {
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
+-    let frames = (seconds * 60.0) as usize;
++    // This run's print-only instrument (off = the shipped output): ES_WAVE_PROBE keeps a per-frame
++    // decomposition (stats and stage deltas) and prints the worst frames; ES_RSS_CAP_MB stops the
++    // flight early (the lab's 2 GB box cap) without touching the engine.
++    let probe = std::env::var("ES_WAVE_PROBE").map_or(false, |v| v != "0" && !v.is_empty());
++    let rss_cap_mb: f64 = std::env::var("ES_RSS_CAP_MB").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
++    // ES_IDENT (this run): the canonical-cut identity mode. The burn is scheduled at a FIXED game tick
++    // (not frame 60's wall-derived one), the flight runs as the arms do, then the universe is settled to
++    // a fixed cut H and digested — the same bits whatever the frames were, whatever the budget was. The
++    // value is the game-seconds past the schedule tick for H; "noflight" settles straight from the build
++    // (the schedule-free reference).
++    // The value: game-seconds past the schedule tick for H ("30000"), or `noflight[:<seconds>]` to
++    // settle straight from the build at the same H (the schedule-free reference).
++    let ident = std::env::var("ES_IDENT").ok().filter(|v| !v.is_empty()).map(|g| match g.strip_prefix("noflight") {
++        Some(rest) => (false, rest.strip_prefix(':').and_then(|s| s.parse().ok()).unwrap_or(30000.0)),
++        None => (true, g.parse().unwrap_or(30000.0)),
++    });
++    const T_SCHED: i64 = 203_000_000;
++    struct WaveRow {
++        f: usize,
++        ms: f64,
++        ev: u64,
++        d: emergent_universe::universe::Stats,
++        stages: Vec<(usize, u64, u64)>,
++    }
++    let mut wave_rows: Vec<WaveRow> = Vec::new();
++    let (mut rss_capped,) = (false,);
++    let frames = if ident.is_some_and(|i| !i.0) { 0 } else { (seconds * 60.0) as usize };
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+     let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    if ident.is_some() {
++        // The decision at a canonical tick, taken whenever the engine gets there (docs/law.md, "Ties"):
++        // the log is the same whatever the frames were.
++        let _ = p.u.schedule(T_SCHED, word(1, 8));
++    }
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+-    println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
+-    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
++    if ident.is_none() {
++        println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
++    }
++     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+     let (mut held_max, mut truncated) = (0usize, false);
+@@ -69,7 +118,7 @@ fn main() {
+             break;
+         }
+         if f == 60 {
+-            if burn {
++            if burn && ident.is_none() {
+                 let t = p.u.now;
+                 let _ = p.u.input(t, word(1, 8));
+             }
+@@ -77,6 +126,7 @@ fn main() {
+             let _ = emergent_universe::prof::take();
+         }
+         let start = Instant::now();
++        let pre_stats = p.u.stats;
+         let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
+         let took = start.elapsed();
+         let (ns, calls) = emergent_universe::prof::take();
+@@ -86,7 +136,21 @@ fn main() {
+                 stage_calls[k] += calls[k];
+             }
+         }
++        if probe && f >= 60 {
++            let d = p.u.stats;
++            wave_rows.push(WaveRow {
++                f,
++                ms: took.as_secs_f64() * 1e3,
++                ev: frame.events,
++                d: emergent_universe::universe::Stats { kicks: d.kicks - pre_stats.kicks, opens: d.opens - pre_stats.opens, boundaries: d.boundaries - pre_stats.boundaries, handoffs: d.handoffs - pre_stats.handoffs, lost: d.lost - pre_stats.lost, refused: d.refused - pre_stats.refused, slices: d.slices - pre_stats.slices, encounters: d.encounters - pre_stats.encounters, decisions: d.decisions - pre_stats.decisions, leavers: d.leavers - pre_stats.leavers, dissolved: d.dissolved - pre_stats.dissolved, cost_ns: std::array::from_fn(|k| d.cost_ns[k].saturating_sub(pre_stats.cost_ns[k])), items: std::array::from_fn(|k| d.items[k].saturating_sub(pre_stats.items[k])) },
++                stages: (0..emergent_universe::prof::N).filter(|&k| ns[k] > 0).map(|k| (k, ns[k], calls[k])).collect(),
++            });
++        }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if rss_cap_mb > 0.0 && f % 16 == 0 && footprint().0 as f64 / 1e6 > rss_cap_mb {
++            rss_capped = true;
++            break;
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+@@ -99,6 +163,20 @@ fn main() {
+             break;
+         }
+     }
++    if let Some((_, past_s)) = ident {
++        // The canonical cut: settle to a fixed H (the schedule tick plus the given game-seconds), then
++        // the digest — schedule, budget and threads must all give the same string. `stats` beside it:
++        // the counters the digest's chain feeds on.
++        let h = T_SCHED + (past_s / TICK_SECONDS) as i64;
++        let t_settle = Instant::now();
++        p.u.settle(h);
++        let s = &p.u.stats;
++        println!(
++            "ident: h={h} digest={} settle_s={:.1} kicks {} opens {} boundaries {} handoffs {} lost {} refused {} slices {} encounters {} contacts {} decisions {} held_now {} inputs {} frames_ran {ran}",
++            p.u.digest(), t_settle.elapsed().as_secs_f64(), s.kicks, s.opens, s.boundaries, s.handoffs, s.lost, s.refused, s.slices, s.encounters, p.u.contacts, s.decisions, p.u.held_scans(), p.u.inputs.len()
++        );
++        return;
++    }
+     let (now2, rss2) = footprint();
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+@@ -160,4 +238,52 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    if rss_capped {
++        println!("flight stopped early by ES_RSS_CAP_MB={rss_cap_mb:.0}");
++    }
++    if probe {
++        let mut by_ms: Vec<&WaveRow> = wave_rows.iter().collect();
++        by_ms.sort_by(|a, b| b.ms.partial_cmp(&a.ms).unwrap());
++        println!("wave probe: {} frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):", wave_rows.len());
++        for r in by_ms.iter().take(5) {
++            let mut st: Vec<(u64, &str)> = r.stages.iter().map(|(k, ns, _)| (*ns, emergent_universe::prof::NAMES[*k])).collect();
++            st.sort_by(|a, b| b.0.cmp(&a.0));
++            let top: Vec<String> = st.iter().take(5).map(|(ns, name)| format!("{name} {:.1} ms", *ns as f64 / 1e6)).collect();
++            println!(
++                "  f {} {:>8.1} ms items {} kicks {} opens {} bounds {} slices {} items_by_class {:?} ms_by_class {:?} | {}",
++                r.f, r.ms, r.ev, r.d.kicks, r.d.opens, r.d.boundaries, r.d.slices, r.d.items,
++                r.d.cost_ns.map(|c| (c as f64 / 1e6 * 10.0).round() / 10.0),
++                top.join("; ")
++            );
++        }
++        let line = |r: &WaveRow| {
++            let mut st: Vec<(u64, &str)> = r.stages.iter().map(|(k, ns, _)| (*ns, emergent_universe::prof::NAMES[*k])).collect();
++            st.sort_by(|a, b| b.0.cmp(&a.0));
++            let top: Vec<String> = st.iter().take(4).map(|(ns, name)| format!("{name} {:.1} ms", *ns as f64 / 1e6)).collect();
++            format!(
++                "  f {} {:>8.1} ms items {} kicks {} opens {} bounds {} slices {} items_by_class {:?} ms_by_class {:?} | {}",
++                r.f, r.ms, r.ev, r.d.kicks, r.d.opens, r.d.boundaries, r.d.slices, r.d.items,
++                r.d.cost_ns.map(|c| (c as f64 / 1e6 * 10.0).round() / 10.0),
++                top.join("; ")
++            )
++        };
++        // This run's cure lines: the wave's crest by events (under the cure the wave is many ship items
++        // per frame, not one player item), and the gulp signature's count — frames whose single player
++        // item carried more than 1000 nested kicks.
++        let mut by_ev: Vec<&WaveRow> = wave_rows.iter().collect();
++        by_ev.sort_by(|a, b| b.ev.cmp(&a.ev));
++        println!("wave probe: the heaviest three frames by events (the wave's crest):");
++        for r in by_ev.iter().take(3) {
++            println!("{}", line(r));
++        }
++        let mega = wave_rows.iter().filter(|r| r.d.items[3] >= 1 && r.d.kicks > 500).count();
++        let player_items = wave_rows.iter().map(|r| r.d.items[3]).sum::<u64>();
++        println!("wave probe: frames where one player item carried >500 nested kicks: {mega} (the disease's gulp signature); player top-level items total {player_items}");
++        if let Some(w) = by_ms.first() {
++            let lo = w.f.saturating_sub(8);
++            let hi = w.f + 8;
++            let trace: Vec<String> = wave_rows.iter().filter(|r| r.f >= lo && r.f <= hi).map(|r| format!("(f{} {:.1}ms ev{} k{})", r.f, r.ms, r.ev, r.d.kicks)).collect();
++            println!("around the worst frame: {}", trace.join(" "));
++        }
++    }
+ }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..97d9ff94 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -81,6 +81,21 @@ const SCAN_BACKLOG: usize = 2048;
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
++/// This run's env-gated cure (off unless set: the shipped behaviour is untouched). `ES_ROOT_STREAM=1`:
++/// when the player lives in the root doll, the ships its scan must wait for ([`Universe::pull_ships`])
++/// are resolved as their own budgeted items before the player's item runs, instead of one item pulling
++/// them all (a burst the budget never sees). `ES_ROOT_STREAM=naive` is the negative control: the pull is
++/// skipped and the scan mints without waiting, the bits be damned.
++fn root_stream() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_ROOT_STREAM").is_ok_and(|v| v == "1"));
++    *V
++}
++
++fn root_stream_naive() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_ROOT_STREAM").is_ok_and(|v| v == "naive"));
++    *V
++}
++
+ /// The encounter hash chain's next link.
+ fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+     let mut h = blake3::Hasher::new();
+@@ -767,7 +782,11 @@ impl Universe {
+             // the size of the root's whole wave of kicks, inside one item and outside the budget). Ships read only the sources, and the
+             // player reads no ship: resolving the player's item before theirs changes no bit.
+             let in_root = self.bodies.doll(i) == 0;
+-            self.pull_ships(key, !in_root);
++            // `ES_ROOT_STREAM=naive` (this run's negative control): in root, pull nothing and mint on
++            // stale bindings — the freeze vanishes too, and the canonical cut should NOT hold.
++            if !(root_stream_naive() && in_root) {
++                self.pull_ships(key, !in_root);
++            }
+             let t_enc = crate::prof::t();
+             self.encounters_for_player();
+             crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
+@@ -1004,9 +1023,23 @@ impl Universe {
+                 deferred.push(e);
+                 continue;
+             }
+-            // The next item is started only if what such an item has cost lately is left (a frame overran by the one item it started
+-            // with a few microseconds to spare: up to 1.4 ms through the root's wave of kicks); the first item of a frame always runs.
+-            let class = if e < self.bodies.len() { self.info[e].kind as usize } else { 4 };
++            // ES_ROOT_STREAM=1 (this run's cure; off = shipped): the popped item is the player's, in the
++            // root doll, and its scan mints only once every ship with a smaller key is resolved
++            // (`pull_ships` inside the item, a burst the budget never sees). Instead of pulling them
++            // inside the player's item, resolve the earliest such ship now, as its own item behind this
++            // same budget gate — the same items in the same key order, spread over as many frames as the
++            // budget wants. Ships read only the sources and the player reads no ship, so the order change
++            // is bit-free; the player's item (and the scan, whose mint those ships are) runs in this same
++            // loop the iteration after the last of them resolves, and `pull_ships` then finds nothing due.
++            let stream = if root_stream() && Some(e) == self.player && self.bodies.doll(e) == 0 {
++                self.ship_ticks.peek().filter(|&(ts, j)| {
++                    let k = (ts.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, j);
++                    self.key_of(e).is_some_and(|pk| k < pk)
++                }).map(|(_, j)| j)
++            } else {
++                None
++            };
++            let class = stream.map_or(if e < self.bodies.len() { self.info[e].kind as usize } else { 4 }, |_| 2);
+             if budget.spent_before(done, if done == 0 { 0 } else { self.item_ns[class] + FRAME_TAIL_NS }) {
+                 overflow = dl <= target;
+                 break;
+@@ -1019,7 +1052,9 @@ impl Universe {
+                 continue;
+             }
+             let t_item = Instant::now();
+-            if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
++            if let Some(j) = stream {
++                self.resolve_entity(j);
++            } else if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                 self.resolve_wave(e, target);
+             } else {
+                 self.resolve_entity(e);

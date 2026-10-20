@@ -1,0 +1,43 @@
+rung N=10000 (10028 bodies), burn, rtf 1000, 20 s of wall time, engine budget 12 ms; build 0.45 s, peak footprint 27 MB (now 27 MB)
+frames after 1 s: 1140  engine ms p50 2.314 p90 10.728 p99 11.926 max 13.082; over 12 ms: 2; frames behind: 77, worst lag 16.667 s; events/frame p50 32 p99 256 max 336; scans held max 1069
+game 18167.2 s after the first second: kicks 38963 (2.139e-4/body/game-s), events 70798 (3.886e-4/body/game-s), stats {opens 381, boundaries 27960, handoffs 1, lost 11, refused 0, slices 3493}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 27 MB at the build's end, 76 MB at the flight's end (now 76 MB); 2413 B a body from the build; dashboard bytes/body 1465; view gather 449.1 ms cold, 203.3 ms warm (10048 seen); catalogue 10076 entries
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                       28.1     1.00      28059
+    position walk (root_state_raw)           364.1    56.64       6429
+  apply (whole)                              402.7    59.01       6824
+  requeue                                     26.0   133.16        196
+  process (whole)                           2511.0    59.00      42558
+    fit: bind_surface (kicks, hand-outs)    1180.4    34.11      34604
+  take_due                                     1.0    62.14         16
+  prune                                       57.7     1.00      57677
+  encounters: capture (cheap half)            47.9     2.37      20219
+  encounters: held scans answered            482.8     2.37     204020
+  item: kick (Wisdom-Holman)                1154.0    24.41      47280
+  item: kick (clock)                         402.2     8.72      46110
+  item: kick at a changeover level           444.2     1.01     441891
+  item: boundary                             507.2    24.53      20677
+  item: open                                   4.8     0.33      14550
+  item: crash                                  0.0     0.01       4103
+  fleet: battle run_to                         5.8     3.06       1901
+  fleet: advance (whole item)                  8.3     3.06       2699
+  hand-out (a member made a body)              0.5     0.00     120150
+    hand-out: pull planets and moons           0.0     0.00        132
+    hand-out: bind (the member as a tube)       0.2     0.00      34571
+    hand-out: first plan (replan)              0.3     0.00      76395
+    fit again: the coarser word (bind_surface)       3.5     0.02     167397
+frames over the budget (first 12): [64, 73]; the player's doll (frame, doll): [(0, 2), (190, 0)]
+worst frames (frame, ms, events, lag s): (64, 13.08, 248, 11.984) (73, 12.51, 181, 1.159) (904, 11.94, 244, 16.667) (889, 11.94, 243, 0.697) (150, 11.94, 52, 14.004)
+ladder: n=10000 bodies=10028 flight=burn rtf=1000 frames=1200 build_s=0.45 foot_build_mb=27 foot_end_mb=76 b_per_body=2413 p50_ms=2.314 p99_ms=11.926 max_ms=13.082 over=2 lag_s=16.667 kicks_per_body_gs=2.139e-4 events_per_body_gs=3.886e-4 refusals=0 dead=0 held_max=1069 view_ms=203.3 truncated=false wall_s=5.6
+wave probe: 1140 frames; the worst five, decomposed (frame, ms, top-level items, kicks, opens, boundaries, slices, items[planet moon ship player fleet], ms by class):
+  f 64     13.1 ms items 248 kicks 42 opens 0 bounds 147 slices 59 items_by_class [0, 0, 0, 30, 59] ms_by_class [0.0, 0.0, 0.0, 12.8, 0.5] | process (whole) 10.5 ms; item: kick (Wisdom-Holman) 7.2 ms;   fit: bind_surface (kicks, hand-outs) 5.8 ms; item: boundary 3.3 ms; apply (whole) 1.2 ms
+  f 73     12.5 ms items 181 kicks 54 opens 0 bounds 75 slices 53 items_by_class [0, 0, 3, 25, 53] ms_by_class [0.0, 0.0, 0.6, 11.3, 0.6] | process (whole) 10.2 ms; item: kick (Wisdom-Holman) 7.3 ms;   fit: bind_surface (kicks, hand-outs) 5.5 ms; item: boundary 2.9 ms; apply (whole) 0.8 ms
+  f 904     11.9 ms items 244 kicks 244 opens 0 bounds 0 slices 0 items_by_class [0, 0, 244, 0, 0] ms_by_class [0.0, 0.0, 11.7, 0.0, 0.0] | item: kick (clock) 10.5 ms; process (whole) 10.5 ms;   fit: bind_surface (kicks, hand-outs) 4.4 ms; apply (whole) 1.1 ms;   position walk (root_state_raw) 0.9 ms
+  f 889     11.9 ms items 243 kicks 243 opens 0 bounds 0 slices 0 items_by_class [0, 0, 243, 0, 0] ms_by_class [0.0, 0.0, 11.7, 0.0, 0.0] | item: kick (clock) 10.5 ms; process (whole) 10.5 ms;   fit: bind_surface (kicks, hand-outs) 4.3 ms; apply (whole) 1.1 ms;   position walk (root_state_raw) 0.9 ms
+  f 150     11.9 ms items 52 kicks 23 opens 4 bounds 0 slices 25 items_by_class [0, 0, 0, 27, 25] ms_by_class [0.0, 0.0, 0.0, 11.8, 0.2] | process (whole) 10.9 ms; item: kick at a changeover level 10.4 ms;   fit: bind_surface (kicks, hand-outs) 9.6 ms; encounters: capture (cheap half) 0.7 ms; item: kick (Wisdom-Holman) 0.5 ms
+wave probe: the heaviest three frames by events (the wave's crest):
+  f 60     11.5 ms items 336 kicks 76 opens 0 bounds 54 slices 206 items_by_class [0, 0, 6, 99, 206] ms_by_class [0.0, 0.0, 0.3, 10.1, 1.6] | process (whole) 8.3 ms; item: kick (Wisdom-Holman) 7.1 ms;   fit: bind_surface (kicks, hand-outs) 2.0 ms; item: boundary 1.3 ms
+  f 360     10.9 ms items 334 kicks 76 opens 0 bounds 258 slices 0 items_by_class [0, 0, 332, 1, 0] ms_by_class [0.0, 0.0, 10.6, 0.0, 0.0] | process (whole) 8.0 ms; item: boundary 5.3 ms; item: kick (Wisdom-Holman) 2.7 ms; apply (whole) 2.6 ms
+  f 1003     11.4 ms items 333 kicks 77 opens 0 bounds 256 slices 0 items_by_class [0, 1, 332, 0, 0] ms_by_class [0.0, 0.0, 11.1, 0.0, 0.0] | process (whole) 8.5 ms; item: boundary 5.4 ms; item: kick (Wisdom-Holman) 2.7 ms; apply (whole) 2.6 ms
+wave probe: frames where one player item carried >500 nested kicks: 0 (the disease's gulp signature); player top-level items total 2698
+around the worst frame: (f60 11.5ms ev336 k76) (f61 11.5ms ev129 k22) (f62 11.6ms ev131 k25) (f63 11.6ms ev125 k21) (f64 13.1ms ev248 k42) (f65 10.7ms ev113 k16) (f66 10.6ms ev113 k22) (f67 11.3ms ev104 k18) (f68 11.3ms ev128 k41) (f69 11.4ms ev106 k20) (f70 10.6ms ev140 k49) (f71 10.7ms ev97 k19) (f72 11.2ms ev118 k40)
