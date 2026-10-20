@@ -1,0 +1,23 @@
+== P1: the cold point prices a miss-read (both-sided control)
+  miss-read from 23a6's cold lump: 4.33 us/body  | a0a1's law 4.17-4.5  | inside law: True (ratio to band edges 0.96-1.04)
+== P2: the memo's dirty-per-kick ratio delta, from the warm point
+  uniform inter-answer gap 732 gs -> kicks/body/gap 0.0358
+  c_check=0.00 warm mean 0.041: miss 0.95% -> delta 0.266
+  c_check=0.00 warm best 0.030: miss 0.69% -> delta 0.194
+  c_check=0.02 warm mean 0.041: miss 0.48% -> delta 0.136
+  c_check=0.02 warm best 0.030: miss 0.23% -> delta 0.065
+  fitted band delta in [0.05, 0.3] (letter: < 0.5) ; registered alternative delta=1 with clustered gaps
+== P3: the published mean skip is the warm+cold mixture
+  warm-only skip 99.1% ; mixture over 41 answers 96.9% vs published 97.55% (|diff| 0.65 pp)
+== P4: the 1e9 extension is cadence-bound; the total is not
+  delta=0.05: era staleness 7% ; single warm-at-era answer 286 s = 4.1x budget ; per-era read bill (cadence-invariant) 295 s = 4.2x budget = 0.08 h
+  delta=0.30: era staleness 34% ; single warm-at-era answer 1,455 s = 20.9x budget ; per-era read bill (cadence-invariant) 1,773 s = 25.4x budget = 0.49 h
+  delta=1.00: era staleness 74% ; single warm-at-era answer 3,225 s = 46.2x budget ; per-era read bill (cadence-invariant) 5,909 s = 84.7x budget = 1.64 h
+  closure: 38 answers/era x 41 s = 1,563 s (must land on the delta~0.27 branch above)
+== P5: the single-doll 1e9 era ledger (rtf 400, budget 69.75 s = 19.4 ms-equivalents)
+  capture ALL-walks: 96/era (1e5 upper bound) - 180/era (counted 3e5) x 267 s = 7.1-13.4 h/era = 368-690x budget, each ONE 267-s frame on the player's item
+  kick comb (a31c): 12.75 h/era = 658x ; boundary comb deleted (kept: 2.39 h)
+  answer reads with the bound: 0.08-0.49 h/era = 4.2-25.4x budget
+  TOTAL 20.0-26.6 h/era = 1,030-1,374x budget ; answer share 0.3-2.5% ; capture share 27-67% ; kick share 64-48%
+== P6: the capture walk already busts the frame below every flown rung
+  0.267 us/body x N > 12 ms at N > 4.49e+04 ; measured anchor 28.9 ms at 1e5 -> 0.289 us/body (band 0.25-0.30)

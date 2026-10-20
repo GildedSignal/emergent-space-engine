@@ -1,0 +1,120 @@
+== patch check (read-only run: expect empty or absent) ==
+empty/absent (read-only run, disclosed)
+== fresh Readwise export + quote verification (the held-out property) ==
+fetched fresh: 770 docs, 4590 highlights, 9 pages
+[BYTE-IDENTICAL] 1023288364 | The Black Swan | Nassim Nicholas Taleb
+[BYTE-IDENTICAL] 537557761 | The Great Mental Models | Shane Parrish, Rhiannon Beaubien
+[BYTE-IDENTICAL] 746334999 | This Is How People Lazier Than You Are Making Millions | Anthony Vicino
+[BYTE-IDENTICAL] 517641395 | Five Simple Notions that Solve Problems | Farnam Street
+[BYTE-IDENTICAL] 666298219 | We Are Legion | Dennis Taylor
+5/5 byte-identical
+== the composition (every dossier number) ==
+== P1: the cold point prices a miss-read (both-sided control)
+  miss-read from 23a6's cold lump: 4.33 us/body  | a0a1's law 4.17-4.5  | inside law: True (ratio to band edges 0.96-1.04)
+== P2: the memo's dirty-per-kick ratio delta, from the warm point
+  uniform inter-answer gap 732 gs -> kicks/body/gap 0.0358
+  c_check=0.00 warm mean 0.041: miss 0.95% -> delta 0.266
+  c_check=0.00 warm best 0.030: miss 0.69% -> delta 0.194
+  c_check=0.02 warm mean 0.041: miss 0.48% -> delta 0.136
+  c_check=0.02 warm best 0.030: miss 0.23% -> delta 0.065
+  fitted band delta in [0.05, 0.3] (letter: < 0.5) ; registered alternative delta=1 with clustered gaps
+== P3: the published mean skip is the warm+cold mixture
+  warm-only skip 99.1% ; mixture over 41 answers 96.9% vs published 97.55% (|diff| 0.65 pp)
+== P4: the 1e9 extension is cadence-bound; the total is not
+  delta=0.05: era staleness 7% ; single warm-at-era answer 286 s = 4.1x budget ; per-era read bill (cadence-invariant) 295 s = 4.2x budget = 0.08 h
+  delta=0.30: era staleness 34% ; single warm-at-era answer 1,455 s = 20.9x budget ; per-era read bill (cadence-invariant) 1,773 s = 25.4x budget = 0.49 h
+  delta=1.00: era staleness 74% ; single warm-at-era answer 3,225 s = 46.2x budget ; per-era read bill (cadence-invariant) 5,909 s = 84.7x budget = 1.64 h
+  closure: 38 answers/era x 41 s = 1,563 s (must land on the delta~0.27 branch above)
+== P5: the single-doll 1e9 era ledger (rtf 400, budget 69.75 s = 19.4 ms-equivalents)
+  capture ALL-walks: 96/era (1e5 upper bound) - 180/era (counted 3e5) x 267 s = 7.1-13.4 h/era = 368-690x budget, each ONE 267-s frame on the player's item
+  kick comb (a31c): 12.75 h/era = 658x ; boundary comb deleted (kept: 2.39 h)
+  answer reads with the bound: 0.08-0.49 h/era = 4.2-25.4x budget
+  TOTAL 20.0-26.6 h/era = 1,030-1,374x budget ; answer share 0.3-2.5% ; capture share 27-67% ; kick share 64-48%
+== P6: the capture walk already busts the frame below every flown rung
+  0.267 us/body x N > 12 ms at N > 4.49e+04 ; measured anchor 28.9 ms at 1e5 -> 0.289 us/body (band 0.25-0.30)
+== the five lessons ==
+# Five lessons — the answer channel's 1e9 bill under the bound, and the ledger it sits in
+
+Each quote byte-identical by Readwise id (verify_quotes.py, fresh export, 5/5).
+
+## 1. The bound buys where the pain lands, not how much — Taleb, The Black Swan (id 1023288364)
+
+> "The same property in reverse applies to our unhappiness. It is better to lump all your
+> pain into a brief period rather than have it spread out over a longer one."
+
+**Mechanism.** Every kick dirties the memo once; an answering policy only chooses the
+batch shape. The per-era read bill is cadence-invariant: each dirtied body is re-read
+exactly once at the next answer that covers it (δ·λ·era·c_read per body = 295–1,773 s at
+1e9 for δ∈[0.05,0.30]). 23a6's measured wins are exactly lump-shape wins: settle 17×/8×,
+cap-forced answers 2.25 µs/body, warm answers 0.041 µs — the total never moved.
+**Change.** Adopt the bound for the flown rungs (1e5–1e6) as a freeze-and-lump fix; book
+zero 1e9 credit for it. The 41 s inference is one of ~38 payments/era whose sum is
+1,563 s = 22× the era budget (closure: the δ=0.266 branch reproduces it to 0.5%).
+**Cheapest test.** One flight with the per-answer skip series logged at gaps: the sum of
+misses × 4.33 µs must equal the channel's read time to a few percent, at any fence/cadence
+arm — cadence-invariance is the assertion.
+
+## 2. The memo is a map; its staleness is the kick stream — Parrish & Beaubien, The Great Mental Models (id 537557761)
+
+> "We do have to remember though, that a map captures a territory at a moment in time.
+> Just because it might have done a good job at depicting what was, there is no guarantee
+> that it depicts what is there now or what will be there in the future."
+
+**Mechanism.** The memo's miss fraction at gap Δt is 1−e^{−δλΔt}: the territory's change
+rate (λ = 4.889e-5 kicks/body/gs, measured) filtered by the map's resolution (the `same`
+predicate). 23a6's two points pin both halves with zero new constants: the cold lump
+prices a miss-read at 4.33 µs/body (inside a0a1's 4.17–4.5 law), the warm point pins
+δ ∈ [0.065, 0.266] (uniform-gap reading; clustered gaps ⇒ δ→1 — the band is closed, the
+constant is not).
+**Change.** 23a6's named open ("the memo's invalidation rate, unmeasured directly") is
+now a band: at era cadence the memo is 7–34% stale (74% if δ=1), so the warm-at-era
+answer is 286–1,455 s = 4.1–20.9× the 69.75 s budget — never 41 s.
+**Cheapest test.** The same per-answer skip series: mean miss vs λ·gap decides δ vs the
+clustered-gap alternative in one flight.
+
+## 3. The ledger never grows past its biggest term — Vicino (id 746334999)
+
+> "This theory simply states that a system will never grow beyond its biggest constraint
+> or bottleneck."
+
+**Mechanism.** At 1e9, single doll, one thread, the era ledger is 20.0–26.6 h against a
+69.75 s budget (1,030–1,374×): kick comb 12.75 h (48–64%), capture ALL-walks 7.1–13.4 h
+(27–67%), answer reads with the bound 0.08–0.49 h (0.3–2.5%). The two walks on the
+player's item and the kick comb ARE the ledger; every memo/kick lever moves ≤ 3% of it.
+**Change.** The next flying rung stays b57f's tier/hull (it deletes both walks) and the
+partition/stagger (the kick comb, 686f's sentence); no further bound tuning is a 1e9 move.
+**Cheapest test.** The rank census b57f already named, plus one count: ALL-walks per era
+at 1e5 vs 3e5 (96 upper-bound vs 180 counted) — if the count scales with N the ledger
+re-ranks and the tier is urgent at every rung, not just 1e9.
+
+## 4. The 1e9 answer looked like the same nail — Farnam Street (id 517641395)
+
+> "to a man with a hammer, every problem looks like a nail."
+
+**Mechanism.** The bound hit 100× at the flown rungs, so the 1e9 channel read as the same
+nail and its warm cost was quoted forward (41 s < era budget) without the one quantity
+that decides it — the invalidation rate, which the same two measured points now price at
+4.1–20.9× the budget. The instrument's gap (732 gs) silently became the 1e9 cadence.
+**Change.** Whenever a warm/memo cost is quoted forward, pre-register the cadence and gap
+distribution it was measured at; a warm number without its gap is not a 1e9 number.
+**Cheapest test.** None needed beyond lesson 2's flight; the rule is the fix (the checker
+should reject any forward-quoted warm cost that lacks its gap).
+
+## 5. Deleting a term moves the bottleneck, never removes it — Taylor, We Are Legion (id 666298219)
+
+> "You would think that 3D printers would have solved the scarcity problem. In fact, the
+> technology had just moved the bottleneck."
+
+**Mechanism.** Land the tier (delete both walks) and the ledger's constraint moves to the
+kick comb, 12.75 h/era — still 658× the budget. Land the bound and the stagger too, and
+the answer reads' residual (0.08–0.49 h) still sits at 4–25×. No sequence of per-term
+fixes lands a single-doll 1e9 inside 1,030×; the exit is the representation — the doll
+partition plus threads (686f's own conclusion, re-derived on the newest constants).
+**Change.** Don't spend a freeze window on any single term of this ledger; sequence the
+tier + partition as one adoption decision, and judge it on the era wall, not per-term
+speeds. (Re-quoted from 7bd9 for a different decision: there the fence's channel, here
+the adopt-order.)
+**Cheapest test.** After any tier arm lands, recompute this ledger from the same
+page-cited constants: the constraint must have moved to the kick comb; if it has not,
+the tier arm changed a law, not a form.
+== regen complete ==
