@@ -1,0 +1,418 @@
+diff --git a/crates/universe/examples/keep_probe2.rs b/crates/universe/examples/keep_probe2.rs
+new file mode 100644
+index 00000000..f4dacc7c
+--- /dev/null
++++ b/crates/universe/examples/keep_probe2.rs
+@@ -0,0 +1,186 @@
++//! The keep probe, id-attributed: `lab/wiki/history-demand` od 2 — the 2 emitters the shipped view
++//! loses at every mid-flight gather, attributed (dead bodies skipped by design, or crossings
++//! dropped by a failed search), and the `ES_VIEW_CLAMP=1` fix (on `eval → None`, clamp the probe to
++//! the oldest retained binding) flown beside the shipped arm. Scene and loop are `keep_probe`'s
++//! (the shipped ladder scene, 12 ms engine budget, 60 fps at a real-time factor, one
++//! `gather_cached` every `every` frames). Instruments: per-gather completeness with **per-id
++//! attribution** (alive-but-missing is the certificate that matters), the `binding_at` census,
++//! retained segments and depth, RSS, the engine digest and a strict hash of the whole view.
++//! The `drop ...` lines on stdout are the in-view census: every emitter that left a gather, why.
++//!
++//! cargo run --release -p emergent-universe --example keep_probe2 [-- <N> <coast|burn> [<wall s> [<rtf> [<gather every F frames>]]]]
++
++use emergent_universe::body::{keepcensus, BodyStore};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, View, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::collections::{HashMap, HashSet};
++use std::time::{Duration, Instant};
++
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/statm").ok().and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()).map(|p| p as f64 * 4096.0 / 1e6)).unwrap_or(0.0)
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    if sorted.is_empty() { return 0.0; }
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// A strict hash of everything a player would see: every seen row's identity, direction, distance,
++/// colour shift, age and closing — equal views hash equal, any lost or shifted emitter differs.
++fn view_hash(v: &View) -> String {
++    let mut h = blake3::Hasher::new();
++    for s in &v.seen {
++        h.update(format!("{} {:.9e} {:.9e} {:.9e} {:.9e} {:.9e} {:.9e} {:.9e}\n", s.id, s.direction[0], s.direction[1], s.light_seconds, s.shift, s.age, s.closing, s.angular_radius).as_bytes());
++    }
++    format!("{:.16}", h.finalize())
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10000);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(5.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(6000.0);
++    let every: usize = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(2).max(1);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let legs = std::env::var("ES_KEEP_LEGS").unwrap_or_else(|_| "2".into());
++    let clamp = std::env::var("ES_VIEW_CLAMP").unwrap_or_else(|_| "0".into());
++    keepcensus::ON.store(true, std::sync::atomic::Ordering::Relaxed);
++    emergent_universe::view::dropcensus::ON.store(true, std::sync::atomic::Ordering::Relaxed);
++
++    let rss0 = rss_mb();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let bodies = p.u.n_bodies();
++    let mut cache = ViewCache::default();
++    let (mut gathers, mut seen_max, mut worst_seen, mut losses) = (0usize, 0usize, usize::MAX, 0usize);
++    let mut first_loss: Option<(usize, usize, usize)> = None;
++    let mut max_ids: HashSet<usize> = HashSet::new();
++    let mut miss_count: HashMap<usize, usize> = HashMap::new();
++    let mut alive_missing_gathers = 0usize;
++    let mut alive_missing_ids: HashSet<usize> = HashSet::new();
++    let (mut g_calls, mut g_nones) = (0u64, 0u64);
++    let mut g_ms: Vec<f64> = Vec::new();
++    let mut g_reads: Vec<f64> = Vec::new();
++    let mut truncated = false;
++    let t_first = p.u.now;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(50) {
++            truncated = true;
++            break;
++        }
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros(12_000)) }, i64::MAX);
++        if f >= 60 && (f - 60) % every == 0 {
++            let (c0, n0, _, _) = keepcensus::read();
++            let tg = Instant::now();
++            let v = gather_cached(&p.u, &p.names, &mut cache);
++            let ms = tg.elapsed().as_secs_f64() * 1e3;
++            let (c1, n1, _, _) = keepcensus::read();
++            g_calls += c1 - c0;
++            g_nones += n1 - n0;
++            g_ms.push(ms);
++            if let Some(v) = &v {
++                let ids: HashSet<usize> = v.seen.iter().map(|s| s.id).collect();
++                let seen = ids.len();
++                if seen > seen_max {
++                    seen_max = seen;
++                    max_ids = ids.clone();
++                }
++                if seen < worst_seen {
++                    worst_seen = seen;
++                }
++                // Attribution: every id the fullest view had that this one lacks, split by whether
++                // the body is still alive (a search drop) or dead (skipped by design).
++                let mut alive_miss_here = 0usize;
++                for id in max_ids.difference(&ids) {
++                    *miss_count.entry(*id).or_insert(0) += 1;
++                    if *id < bodies && p.u.bodies().alive(*id) {
++                        alive_miss_here += 1;
++                        alive_missing_ids.insert(*id);
++                    }
++                }
++                if alive_miss_here > 0 {
++                    alive_missing_gathers += 1;
++                }
++                if seen < seen_max {
++                    losses += 1;
++                    first_loss.get_or_insert((f, seen, seen_max));
++                }
++                g_reads.push(cache.readouts as f64);
++                gathers += 1;
++            } else {
++                losses += 1;
++                first_loss.get_or_insert((f, 0, seen_max));
++            }
++        }
++        if !p.u.rec(p.player).alive {
++            break;
++        }
++    }
++    let final_view = gather_cached(&p.u, &p.names, &mut cache);
++    let (final_seen, hash) = final_view.as_ref().map_or((0, String::new()), |v| (v.seen.len(), view_hash(v)));
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let mut segs = 0usize;
++    let mut depth: Vec<f64> = Vec::new();
++    for i in 0..bodies {
++        let b = p.u.bodies().bindings_of(i);
++        segs += b.len();
++        if let Some(first) = b.first() {
++            depth.push((p.u.now - first.event_time) as f64 * TICK_SECONDS);
++        }
++    }
++    depth.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    // Facts for every id that was ever missing: alive, kind of miss (persistent vs transient), the
++    // retained history under it. Fleet ids (>= 1_000_000) are listed with their member identity.
++    let mut miss_facts: Vec<String> = Vec::new();
++    let mut persistent: Vec<(usize, usize)> = miss_count.iter().map(|(k, v)| (*k, *v)).collect();
++    persistent.sort_by_key(|(k, _)| *k);
++    for (id, count) in &persistent {
++        if *id < bodies {
++            let bs = p.u.bodies();
++            let floor = bs.bindings_of(*id).first().map(|b| b.event_time).unwrap_or_else(|| bs.event_time(*id));
++            miss_facts.push(format!(
++                "id {id}: missing {count}/{gathers} gathers, alive {}, event_time {:.0} gs back, floor {:.0} gs back, hist {}",
++                bs.alive(*id), (p.u.now - bs.event_time(*id)) as f64 * TICK_SECONDS, (p.u.now - floor) as f64 * TICK_SECONDS, bs.history_len(*id)
++            ));
++        } else {
++            miss_facts.push(format!("id {id} (fleet {}): missing {count}/{gathers} gathers", id - 1_000_000));
++        }
++    }
++    let (calls, nones, min_t, none_min_t) = keepcensus::read();
++    let (e_calls, e_nones) = (calls - g_calls, nones - g_nones);
++    let gs = |t: i64| if t == i64::MAX { f64::NAN } else { (p.u.now - t) as f64 * TICK_SECONDS };
++    let mut ms = g_ms.clone();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    println!(
++        "keep_probe2 legs={legs} clamp={clamp} N={n} ({bodies} bodies) {flight} rtf={rtf} every={every} seconds={seconds}; frames ran, game {game_s:.0} s, truncated={truncated}, digest {:.12}",
++        p.u.digest()
++    );
++    println!(
++        "view: gathers {gathers}, seen max {seen_max} worst {worst_seen} final {final_seen}, losses {losses} (first: {first_loss:?}); gather ms p50 {:.2} p99 {:.2} max {:.2}; readouts/gather p50 {:.0} max {:.0}; viewhash {hash}",
++        pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), pct(&g_reads, 0.5), pct(&g_reads, 1.0)
++    );
++    println!(
++        "attr: {gathers} gathers, alive-missing in {alive_missing_gathers} (ids {:?}); {} ids ever missing: {}",
++        alive_missing_ids.iter().copied().collect::<Vec<_>>(),
++        miss_count.len(),
++        miss_facts.join(" | ")
++    );
++    println!(
++        "census: binding_at calls {calls} (gather {g_calls}, engine {e_calls}), nones {nones} (gather {g_nones}, engine {e_nones}); deepest request {:.0} gs back, deepest none {:.0} gs back",
++        gs(min_t), gs(none_min_t)
++    );
++    println!(
++        "memory: rss {rss0:.0} -> {:.0} MB; segments {segs} ({:.2}/body, {:.2}/live-body); retained depth p50 {:.0} s p99 {:.0} s max {:.0} s; dashboard bytes/body {}",
++        rss_mb(), segs as f64 / bodies as f64, segs as f64 / depth.len().max(1) as f64, pct(&depth, 0.5), pct(&depth, 0.99), pct(&depth, 1.0), p.u.bytes_per_body()
++    );
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..8d877cdb 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -150,14 +150,11 @@ impl BodyStore for PlainBodies {
+         gone
+     }
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
+-        let r = &self.recs[i];
+-        if t >= r.b.event_time {
+-            return Some(r.b.clone());
++        let r = self.binding_at_inner(i, t);
++        if keepcensus::ON.load(std::sync::atomic::Ordering::Relaxed) {
++            keepcensus::call(t, r.is_none());
+         }
+-        let h = &self.history[i];
+-        // Segments are contiguous and ascending in `until`: the first with `until > t`.
+-        let k = h.partition_point(|s| s.until <= t);
+-        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
++        r
+     }
+     fn event_time(&self, i: usize) -> Tick {
+         self.recs[i].b.event_time
+@@ -197,6 +194,19 @@ impl BodyStore for PlainBodies {
+     }
+ }
+ 
++impl PlainBodies {
++    fn binding_at_inner(&self, i: usize, t: Tick) -> Option<Binding> {
++        let r = &self.recs[i];
++        if t >= r.b.event_time {
++            return Some(r.b.clone());
++        }
++        let h = &self.history[i];
++        // Segments are contiguous and ascending in `until`: the first with `until > t`.
++        let k = h.partition_point(|s| s.until <= t);
++        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
++    }
++}
++
+ /// The body's tube record (the law's 16 bytes).
+ pub fn tube_bytes() -> usize {
+     size_of::<Tube>()
+@@ -211,3 +221,36 @@ pub fn check_dolls(store: &dyn BodyStore, dolls: usize) -> Res<()> {
+     }
+     Ok(())
+ }
++
++/// A lab census of [`BodyStore::binding_at`] (print-only, off unless turned on): calls, the `None`
++/// returns (history pruned under a reader's feet), and the deepest tick requested (`lab/wiki/history-demand`).
++pub mod keepcensus {
++    use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
++
++    pub static ON: AtomicBool = AtomicBool::new(false);
++    static CALLS: AtomicU64 = AtomicU64::new(0);
++    static NONES: AtomicU64 = AtomicU64::new(0);
++    static MIN_T: AtomicI64 = AtomicI64::new(i64::MAX);
++    static NONE_MIN_T: AtomicI64 = AtomicI64::new(i64::MAX);
++
++    pub fn reset() {
++        CALLS.store(0, Ordering::Relaxed);
++        NONES.store(0, Ordering::Relaxed);
++        MIN_T.store(i64::MAX, Ordering::Relaxed);
++        NONE_MIN_T.store(i64::MAX, Ordering::Relaxed);
++    }
++
++    /// `(calls, nones, the deepest tick requested, the deepest tick that returned None)`.
++    pub fn read() -> (u64, u64, i64, i64) {
++        (CALLS.load(Ordering::Relaxed), NONES.load(Ordering::Relaxed), MIN_T.load(Ordering::Relaxed), NONE_MIN_T.load(Ordering::Relaxed))
++    }
++
++    pub(crate) fn call(t: crate::num::Tick, missed: bool) {
++        CALLS.fetch_add(1, Ordering::Relaxed);
++        MIN_T.fetch_min(t, Ordering::Relaxed);
++        if missed {
++            NONES.fetch_add(1, Ordering::Relaxed);
++            NONE_MIN_T.fetch_min(t, Ordering::Relaxed);
++        }
++    }
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..0af6f8f7 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1218,10 +1218,20 @@ impl Universe {
+     /// Key body `i` in `prunable` at the earliest tick its oldest retired binding could be forgotten (never before `after`), or take it
+     /// out when it holds one or none.
+     fn key_prune(&mut self, i: usize, after: Tick) {
+-        let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(2 * self.light_distance(i) + (1 << 26)).max(after));
++        let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(self.keep_ticks(i)).max(after));
+         let _ = self.prunable.set(i, at.map(Scalar::integer));
+     }
+ 
++    /// History retention behind the present: `legs` light distances plus a fixed margin. The shipped law is 2 legs; a lab
++    /// dial (`ES_KEEP_LEGS`, read once, unpinned exactly the shipped expression) flies the demand-measured keep
++    /// (the view reads one leg per gather; `lab/wiki/history-demand`).
++    fn keep_ticks(&self, i: usize) -> Tick {
++        static LEGS: std::sync::LazyLock<u64> = std::sync::LazyLock::new(|| {
++            std::env::var("ES_KEEP_LEGS").ok().and_then(|s| s.parse().ok()).filter(|l| *l >= 1).unwrap_or(2)
++        });
++        (*LEGS as Tick) * self.light_distance(i) + (1 << 26)
++    }
++
+     /// Forget history the view can no longer need: older than twice the body's light distance (plus a
+     /// margin) behind the present, and older than the oldest item any body still has to resolve. Only the bodies whose oldest
+     /// binding could go by now are visited (`prunable`, by that tick: a body is visited once when it can be shortened, not every
+@@ -1244,7 +1254,7 @@ impl Universe {
+             if at.fixed(0).unwrap_or(i128::MAX) > self.now as i128 {
+                 break;
+             }
+-            let keep = 2 * self.light_distance(i) + (1 << 26);
++            let keep = self.keep_ticks(i);
+             if self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26))) > 0 {
+                 // what a reader can still ask for shrank: so does where the body is registered
+                 self.radial.rebuild(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), self.bodies.bindings_of(i).iter());
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..5ff1ea24 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -12,7 +12,7 @@
+ //! with each `rate = dτ/dt` derived from the doll clocks (the potential and speed at each level of
+ //! the chain), so gravitational redshift, Doppler shift and time dilation arrive as one number.
+ //! The direction in the observer's frame is the aberrated one. Light is straight in the root frame
+-//! (no lensing yet).
++use crate::ctx::Ctx;
+ use crate::body::Kind;
+ use crate::num::{to_f64, Tick};
+ use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
+@@ -236,6 +236,47 @@ fn crossing(reads: &mut u64, eval: &mut dyn FnMut(Tick) -> Option<At>, t_now: Ti
+     None
+ }
+ 
++/// [`state_rate`] for one emitter, with the lab clamp (`ES_VIEW_CLAMP=1`): when the probe `t` falls
++/// below what the body's (or its doll chain's) retained history can still read, evaluate at the
++/// oldest readable tick instead of failing — the probe was below the crossing anyway
++/// (`lab/wiki/history-demand` od 2). Off, it is `state_rate` verbatim (bit for bit).
++fn eval_maybe_clamped(ctx: &Ctx, i: usize, t: Tick, clamped: bool) -> Option<([f64; 2], [f64; 2], f64)> {
++    match state_rate(ctx, i, t) {
++        Ok(s) => Some(s),
++        Err(_) if clamped => {
++            let mut probe = t;
++            for _ in 0..8 {
++                let floor = chain_floor(ctx, i)?;
++                if floor <= probe {
++                    return None; // the failure is not a below-history probe: keep the shipped answer
++                }
++                probe = floor;
++                if let Ok(s) = state_rate(ctx, i, probe) {
++                    return Some(s);
++                }
++            }
++            None
++        }
++        Err(_) => None,
++    }
++}
++
++/// The oldest tick at which body `i`'s whole doll chain can still be read: the largest
++/// oldest-retained event-time up the chain (a probe below any level's floor fails the whole read).
++fn chain_floor(ctx: &Ctx, i: usize) -> Option<Tick> {
++    let mut floor: Option<Tick> = None;
++    let mut cur = i;
++    for _ in 0..8 {
++        let b = ctx.bodies.bindings_of(cur).first().cloned()?;
++        floor = Some(match floor {
++            None => b.event_time,
++            Some(g) => g.max(b.event_time),
++        });
++        cur = ctx.dolls[b.doll as usize].centre?;
++    }
++    floor
++}
++
+ fn rest(kind: Kind, id: usize, doll_name: &str) -> (f64, f64) {
+     // (temperature, luminosity): painted for now; the emergent version is starlight scattered.
+     match kind {
+@@ -329,14 +370,25 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+     // Bodies: where each tube crosses the past light cone.
++    let drop_on = dropcensus::ON.load(std::sync::atomic::Ordering::Relaxed);
++    let clamped = std::env::var("ES_VIEW_CLAMP").as_deref() == Ok("1");
+     let mut reads = 0u64;
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
++            if drop_on && i != p && !u.bodies().alive(i) {
++                dropcensus::dead(i, u.info[i].kind, u.info[i].from, u.bodies().event_time(i));
++            }
+             continue;
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| eval_maybe_clamped(&ctx, i, t, clamped).map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else {
++            if drop_on {
++                let floor = ctx.bodies.bindings_of(i).first().map(|b| b.event_time).unwrap_or_else(|| ctx.bodies.event_time(i));
++                dropcensus::none(i, u.info[i].kind, floor, guess, t_now, ctx.bodies.event_time(i));
++            }
++            continue;
++        };
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -479,3 +531,22 @@ pub fn clock_text(s: f64) -> String {
+         format!("{} d {} h", (s / 86_400.0).floor(), ((s % 86_400.0) / 3600.0).floor())
+     }
+ }
++
++/// A lab census of the two ways an emitter can leave a gather: found dead (skipped by design at the
++/// top of the body loop) or dropped by a failed crossing search (`eval` → `None`). One line per
++/// event, print-only, off unless turned on (`lab/wiki/history-demand` od 2: attribution).
++pub mod dropcensus {
++    use std::sync::atomic::AtomicBool;
++    pub static ON: AtomicBool = AtomicBool::new(false);
++
++    fn gs(t: crate::num::Tick) -> String {
++        format!("{:.0} gs", t as f64 * crate::view::TICK_SECONDS)
++    }
++    pub(crate) fn dead(i: usize, kind: crate::body::Kind, from: Option<(u16, u16)>, event_time: crate::num::Tick) {
++        println!("drop dead id={i} kind={kind:?} from={from:?} event_time={:.0} gs", event_time as f64 * crate::view::TICK_SECONDS);
++    }
++    pub(crate) fn none(i: usize, kind: crate::body::Kind, floor: crate::num::Tick, guess: crate::num::Tick, t_now: crate::num::Tick, event_time: crate::num::Tick) {
++        let back = |t: crate::num::Tick| gs(t_now - t);
++        println!("drop none id={i} kind={kind:?} floor={} guess={} event_time={}", back(floor), back(guess), back(event_time));
++    }
++}
