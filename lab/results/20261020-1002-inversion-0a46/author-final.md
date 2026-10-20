@@ -1,0 +1,4 @@
+Working...
+Regen proves out end-to-end (21 s cached, ~4 min cold; anchor 860.6 — inside the family's flight-to-flight band). All artifacts are in place: `predictions.md` (pre-registered before the 10:15–10:21 flights), `dossier.md`, `regen.sh`, `work/patch.diff` + 4 CSVs + `eras.py`, and the folded `wiki/nladder.md`.
+
+**Claim:** the nladder "wave" every 1e9 composition prices once is a **standing comb** — the belt's own clock stream arrives at ~1.1 events/body every ~14k game-s, undecayed through four eras (60k game-s, two seeds, two rungs, and bit-for-bit on coast with no player, kick rate = λ to the digit) — so ca63's 13.2 h/wave at 1e9 is a per-14k-gs *recurring* floor, while the freeze that rides it is a separate alternating channel (718/42/339/12 ms across four identical-arrival eras) whose clean eras measure the same arrivals at 12–17 µs/event versus 47–50 in freeze eras: a 3× served-path lever the 1e9 ledger has never split.
