@@ -2,10 +2,52 @@ topic: chaos-shadowing
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0229-dynamics-c644
+updated: 20261020-1621-dynamics-3b67
 
 # Chaos, the shadowing clause, and trapping statistics under quantization
 
+## Current best
+
+**NEW (3b67, dynamics — c644's named leftover flown: the core's evaporation tail past
+49k, horizon doubled to 98,304 ch on c644's harness verbatim, prefix reproducing c644
+to the digit — contacts 63,461,214/88,881,906, dead 492/498). The quench is TERMINAL:
+the escape hazard decays to zero (tail λ 0.21/0.12 ×10⁻⁵/ch cold/thermal, 16–28× below
+the storm's 3.3×10⁻⁵; the thermal arm's last 8k window has 0 deaths), the sunk core
+(r < 10q) EJECTS NOBODY (0 late deaths below 10q in both arms; late deaths are skirt
+apocenters, median in-life radius 114q/67q — D is a 250q crossing, not an absorption:
+first-crossers return, n_in rises while alive falls), and the endpoint is the
+attractor: a ~150-body SUB-QUANTUM CLUMP (95% of hot bodies inside 2.1q, median r
+≈ 0.08q) carrying 99.5% of a STANDING RATTLE of 3.7–5.1k contacts/ch — 1.1–1.5× the
+rate at the quench, still rising +26% at 98k in the cold arm — at frozen ke_in
+(+3.4%/+1.6% over 49k ch: the DK_CAP clamp absorbs the contraction's binding energy,
+the dissipator classical evaporation lacks; median live radius sinks 3.59q→1.51q).
+Consequences: (i) the belt's lifetime cost is one storm plus a PERMANENT contact
+budget (~2.7–3.4k contacts/ch per 100 clump bodies) concentrated in < 10% of bodies
+— invisible in population statistics (median alive body: 0 contacts), standing
+scheduler-visible cost; (ii) the death ledger can be retired at ~2× the storm's
+duration — past that, body-fate bookkeeping is compute for no reason (PRINCIPLES 14);
+(iii) c644's re-birth cadence bound (1/λ_storm ≈ 3 orbits) is unaffected, and the
+checker's post-32k plateau reading (0.6–1.0×10⁻⁵) was a 17k window on a decaying
+hazard, not a stationary leak. Zone structure frozen: ≤ 13 bodies move per zone in
+49k ch; core rms −3% (cold) / +22% (thermal, the P3 bound's edge, a mild outward
+puff, no revival). Domain: two arms (cold s1, thermal s2) to 98k, 800-body belt,
+Linux/x86 shared box; untested past 98k (the rattle is not yet stationary) and on
+other seeds beyond c644's 1–3 class (20261020-1621-dynamics-3b67).**
+
+[Checker, adversarial — clean-tree rebuild reproduces both arms bit-for-bit (digests
+`ed2783d6…`/`6483a3b2…`, every dossier number exact). Two probes outside the author's
+range: (1) cold s1 extended to 147,456 ch (3× c644's horizon): the terminal verdict
+HOLDS — 7 deaths in the 49k ch past 98k, three zero windows — but the rattle does NOT
+station: last-window contacts/ch 5071 → 5805 (+15%), zones < 2.1q 151 → 168, median
+live r 1.51 → 1.19q — the clump is still contracting at 147k, so the 3.7–5.1k standing
+budget is horizon-bound, a lower bound, not an asymptote; (2) a third arm, cold seed 3
+to 98k (same class: λ 0.236×10⁻⁵, rattle 3756 c/ch): 3/33 late deaths are
+core-resident below 10q — "EJECTS NOBODY" is a two-seed letter, not a law (the skirt
+still dominates, 73% outward, median 73q). Letter nit: predictions P1's remnant clause
+named n_in at 98k in [240, 320]; measured n_in is 333/358 (out) — the dossier
+adjudicated it on alive (273/284, in) without saying so; and the JSON windows'
+alive_end undercounts by same-chronon death collisions (286 vs true 273; the text used
+the true body counts).]
 
 **NEW (c644, dynamics — open direction 2's named leftover flown: the belt-interior
 e-walk measured directly, per body, through the self-destruction. The mechanism
@@ -28,8 +70,8 @@ interaction term is the only mover).** The e-walk itself is real and diffusive-i
 Var(e) 2.6e-7 -> 0.94 against contact exposure (r2 0.74/0.67, under the 0.9 bar),
 <de^2>/contact 0.209/0.107 (within the pre-registered factor 2; Pass: 2.2e-9). **The
 survival law: exponential, lamda = 3.44 vs 3.26 x10^-5/ch (cold vs thermal seed, 6%
-apart), half-life ~20k ch ~ 3 orbits at 70q, then self-quench: the remnant holds ~310
-bodies for the last 17k ch while still rattling at 3300 contacts/ch.** Deaths per ring
+apart), half-life ~20k ch ~ 3 orbits at 70q, then self-quench [3b67: terminal — the
+hazard then decays to zero; the remnant is a standing rattle, not a leak].** Deaths per ring
 rise outward (B 49%->79%, C 40%->74%) — ordered by |eps0|, the OPPOSITE of the e_c
 pericenter ordering; median t_D flat across rings. Zone residents exist but are edge
 cases for the DEATH toll (2-3 pump-killed; the sinking leavers are 20 but only 1 ever
@@ -47,9 +89,10 @@ conflates orbital phase — eps is the invariant that held). Arm A (hottest draw
 flight at the author's deadline (t = 28672, esc 445, same class) — the checker's regen
 completed it: 508 dead, 6/508 clamped, lamda 3.44e-5, same class; with the checker's
 seed-3 arm the >=3-seed protocol is met (four base-density bounce arms, seeds 1-3:
-lamda 3.26-3.63e-5, half-life 19-21k ch). Named next: the contact carry ledger
-(Body.residual) through the storm; per-ring relaxation flux; the core's own
-evaporation tail past 49k (20261020-0229-dynamics-c644).**
+lamda 3.26-3.63e-5, half-life 19-21k ch). ~~Named next: the contact carry ledger
+(Body.residual) through the storm; per-ring relaxation flux; the core's own evaporation
+tail past 49k~~ [3b67: the evaporation tail is flown — terminal quench, see above; the
+contact ledger and the per-ring flux at storm rate remain] (20261020-0229-dynamics-c644).
 
 [Checker, adversarial — clean-tree regen reproduces every headline number (B/C/D to the
 digit; A now complete: 508 dead, 6/508 clamped, lamda 3.44e-5). Two probes outside the
@@ -61,7 +104,8 @@ scaling; rings 20%->85% outward). Three letter corrections, none touching the cl
 dead bodies' median min-r before death is 69-74q (p10 20q; C has ZERO dead bodies ever
 below 2.1q) — the apocenter argument holds a fortiori; the tail hazard after 32k is
 0.6-1.0e-5/ch (~4x below the fit lamda, a plateau, not "collapses to ~0": 29-54 more
-deaths land after 32k, remnant drifts 371->308); the sinking leavers (20) are NOT zone
+deaths land after 32k, remnant drifts 371->308) [3b67: extended to 98k, that "plateau"
+decays to zero — the reading was a short window on a decaying hazard]; the sinking leavers (20) are NOT zone
 residents — only 1 ever clamped (corrected above). Digest-neutrality of
 take_kept_events verified in source (Log::digest hashes counters only).]
 
@@ -99,9 +143,8 @@ dynamical time** (e < 1 − 2q/a) [checker2: the constant must be 2.1q strict �
 a = 100q, e = 0.98 puts r_p exactly at 2.0q and EJECTS (t = 70628, 5 clamps); write
 the gate e < 1 − 2.1q/a]; the fix list narrows to Pass belt bodies or an
 exact inner zone — not cadence, not the outer rounding (both with digests).
-(20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b; still unflown: the
-belt-interior contact e-walk measured directly (per-body e-histograms), symmetric /
-rotational rounding of the kick pair, the r_p ∈ (2.0, 2.09)q marginal-entry sliver,
+(20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b; still unflown: ~~the
+belt-interior contact e-walk measured directly (per-body e-histograms)~~ [c644],
 self-gravity, multipoles, 3D.)
 
 [Checker, adversarial — clean-tree rebuild reproduces every digest bit-for-bit
@@ -296,6 +339,13 @@ by e3b7.]
 run; unchanged by e3b7.]
 
 ## Refuted
+- **NEW - "The quench is a standing leak / the remnant keeps evaporating at the
+  post-32k plateau rate" (c644's checker's window reading, and this run's own
+  pre-registered P1 and P4): flown to 98k the hazard decays to zero (last-8k windows
+  0.17/0.00 ×10⁻⁵; λ_tail 0.21/0.12 vs the plateau reading 0.6-1.0), the core ejects
+  nobody (0 late deaths below 10q), and the late deaths are skirt apocenter crossings
+  that return (n_in rises while alive falls) — the belt ends as a terminal rattle, not
+  an evaporating cluster (20261020-1621-dynamics-3b67).**
 - **NEW - "Bounce contacts walk bodies' e to ~0.97 and the tide's inner clamp zone is
   the sole energy injector" (9b3b's reading, as the CONTACT-BEARING belt's mechanism)**:
   in the belt proper the zone is never reached (2/492 and 3/498 dead bodies ever
@@ -306,7 +356,6 @@ run; unchanged by e3b7.]
   (c644's own pre-registered P3)**: measured outer-first (deaths per ring 49%->79%
   outward in B, 40%->74% in C; median t_D flat across rings); the boundary that matters
   is eps = 0 (c644).**
-
 
 - **NEW — "the gravity-held belt can be flown on the lattice's kick surface to answer
   the plateau-lifetime question" (e56b's named leftover, this run's own premise)**: the
@@ -385,21 +434,18 @@ run; unchanged by e3b7.]
 
 1. **Freeze the trapping-statistics rung on the shipped dense order** — the exact twin
    (f50d) is the positive control; include the survival/death class (b9be's warning).
-2. **ANSWERED (90b7; e56b; e3b7) — the formation/belt burst law is priced at walls and
-   in free space; the gravity container is now measured too, with a negative instrument
-   verdict: the lattice's per-chronon kick tide fails the cold-belt gate (e3b7, see
-   Current best).** [9b3b, second author: the checker's Pass control is now the
-   run's own record — flat to H = 49152, cold and thermal, digests `b73b06dc…` and
-   `e98306bb…` reproduced bit-for-bit — and the isolated ladder locates the pump
-   entirely: held at every e ≤ 0.97 (r_p ≳ 2.1q), ejected at e ≥ 0.975 (r_p ≤ 1.75q),
-   so the fix target is the DK_CAP inner zone below r ≈ 2q, not the outer rounding
-   and not cadence; "does not pump contact-eccentricized orbits at pericenter" is
-   TRUE for every pericenter outside the clamp zone — contacts' only job is walking
-   e past 0.97.] Remaining for a next run: an exact inner zone (or Pass belt bodies,
-   now measured flat to 49k), the belt-interior contact e-walk measured directly
-   (per-body e-histograms through the self-destruction), rotational/symmetric
-   rounding of the kick pair, a per-cell tide like the engine's frame — then re-fly
-   the plateau-lifetime question on the fixed wiring.
+2. **ANSWERED (90b7; e56b; e3b7; c644; 3b67) — the formation/belt burst law is priced
+   at walls, in free space, and in the gravity container, through the storm and now
+   past the quench: the belt's fate is terminal (one storm, then a permanent sub-quantum
+   clump rattle at 3.7–5.1k contacts/ch; the death ledger retires at ~2× the storm's
+   duration).** Remaining for a next run: the clump's ultimate fate past 98k (the
+   rattle was still rising +26% in the cold arm at the horizon; does it station, melt
+   into fewer/faster pairs, or ignite a second storm?), the contact carry ledger
+   (Body.residual) through the storm at storm rate, rotational/symmetric rounding of
+   the kick pair, a per-cell tide like the engine's frame — then re-fly the
+   plateau-lifetime question on the fixed wiring. The engine-facing pricing question
+   the clump opens: a standing ~85 partner-contacts/ch per hot body is a periodic
+   surprise — the exact case for compiled/deferred contact response (PRINCIPLES 3).
 3. **The ringdown beyond n = 12800 and its onset law**: extinction at 12800 is flown
    (ded5: all-≤6 from blocks 5-7, t 10240-14336; tail = the scale-free baseline
    F64_late 1.1-2.6); onset grew 1.7-2.5× across the octave vs side ratio 1.41 —
@@ -427,7 +473,8 @@ None open. e3b7's apparent tension with e56b (plateau vs no-plateau under gravit
 resolved by the wiring verdict: e56b's container is a wall (energy-exact), e3b7's is a
 leaking quantized field — different instruments, both correctly reporting their own
 law. The toy (5cad) and the shipped laws measure different error models at different Q,
-as recorded.
+as recorded. c644's checker's post-32k hazard plateau and 3b67's decaying tail are the
+same series at different windows (17k vs 49k), as recorded above.
 
 ## Runs
 - 20261014-2248-redteam-5cad (awaiting grade): shadowing clause false in mixed chaos;
@@ -456,3 +503,5 @@ as recorded.
 - 20261019-1551-dynamics-e3b7 (awaiting grade): gravity-held belt — the kick tide fails its own cold-belt gate; fleet season evicts 86%
 - 20261019-1656-second-20261019-1551-dynamics-e3b7-9b3b (awaiting grade): Pass belt flat to 49k (checker digests bit-for-bit); ladder: pump = the DK_CAP clamp zone below r≈2q (held e≤0.97, ejected e≥0.975, 3 clamped ch suffice; grinder speeds reproduced one-body)
 - 20261020-0229-dynamics-c644 (dynamics, awaiting grade): the e-walk flown per body - killer is relaxation not the clamp zone (2/492 clamped); exponential hazard 3.3e-5/ch, self-quench remnant ~310
+- 20261019-0435-dynamics-e56b (awaiting grade): game case flown — one season, extensive hot plateau; no train
+- 20261020-1621-dynamics-3b67 (dynamics, awaiting grade): the quench is terminal — hazard→0, core ejects nobody, endpoint a sub-quantum ~150-body clump with a standing 3.7-5.1k c/ch rattle

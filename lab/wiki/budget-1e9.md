@@ -2,11 +2,46 @@ topic: budget-1e9
 status: open
 closed-by:
 valid-while:
-updated: 20261020-1002-fermi-8994
+updated: 20261020-1621-fermi-5f76
 
 # The assembled 10⁹ ledger: the board's interlocking budget, composed on measured laws
 
 ## Current best
+
+**NEW (5f76, fermi — od 6(c) closed: the one-seed allocation constants are LAWS across three
+seeds and three decades of K, and the census now counts od 6(a)'s mechanism: TWO array-builds
+per player item, one capped — the "~56-KiB pull ladder" is half the story).** 8994's instrument
+verbatim plus one disclosed knob (`ES_SEED`, default 1 = shipped; the example hard-codes seed
+1), five coast arms (seeds 1/2/3 at K=10⁴; seed 2 at 3×10⁴ and 10⁵; rtf 2000, 12 ms, 18 s
+wall each; A1 reproduces 8994's D1 to 0.1% on kicks, item 11.35 KB/kick, base 2.04 KB/game-s):
+**player-scope 193.4 / 193.8 / 199.0 KB per player item (seeds 1/2/3) and 193.8 / 193.8 / 194.0
+across K = 10⁴/3×10⁴/10⁵ at seed 2 — a 3-seed, 3-decade law**; the ladder top is **57,344 B
+exactly in every arm**. The rung census decomposes the constant 8994 left at "1.7
+full-ladder-equivalents": per player item, **2.07–2.12 doubling-ladder starts reach rungs 1–3
+(means 2,842–3,328 → 6,276–6,656 → 12,550–13,312 B) and 1.03–1.06 reach the cap rungs
+(28,658 → 57,344)** — two array-builds per item (one full ladder ≈ 109 KB traffic ≈ 1.9× top,
+one short dying by rung 3 ≈ 23–29 KB; seed 2 adds a rung-1-only third start, top unchanged),
+plus **~225 sub-2-KiB calls (≈ 1.4 per pulled body, 54–62 KB/item, 28–31%)**; realloc share
+79–80% everywhere. **The one K-sensitive constant is the ship term: per ship-item it falls
+(3.7 → 2.3 KB, 10⁴ → 10⁵) but per fired kick it RISES (1.45 → 1.53 at 10⁴ seeds; 2.18 at
+3×10⁴; 2.99 KB/kick at 10⁵) — the "1.6 KB/kick stream marginal" is the bottom of a K-rising
+range, and the 10⁹ byte row re-bases to 10–42% of 60 GB/s at λ = 4–8.4×10⁻⁵ (was 11–23%;
+checker: the rise CONTINUES at the next decade — 3.88 KB/kick at 3×10⁵ seed 2, band top
+33 GB/s = 54%, still closing but with no measured saturation: cite the range, never the
+point): still no pooling subsystem mandated.**
+The player term's 10⁹
+reading is unchanged (0.097 items/game-s × 194 KB ≈ 19 KB/game-s, negligible). Base 2.0–2.9
+KB/game-s coast; the mixture per kick dilutes with K (11.35 → 7.23, reproducing the checker's
+6.31 at 10⁵). Predictions pre-registered: P1–P5 held, P6 half-held (>2KiB share 69–72% under
+its ≥75% letter; one family, exact top). Caveats: "two array-builds" is a rung-count, not a
+function name (od 6(a)'s backtrace narrows to naming two arrays); the law is COAST-scoped —
+under burn (checker, seed 2, K=10⁴) the same player term reads 311 KB/item, realloc 92%,
+ladders running PAST the cap to 3,670,016 B (8994's rare chains, reproduced), so the
+194 KB/item sentence never crosses the burn line; the ship per-kick trend rises through the
+checker's 3×10⁵ arm with no saturation measured; rtf-2000 cadence is budget-fed (kicks per
+body-game-s reads ~1.9×10⁻⁴ here vs a9d7's rtf-100 λ 3.6×10⁻⁵ — all comparisons within
+instrument). (20261020-1621-fermi-5f76; regen ~2 min from clean tree, verified; one box,
+x86→M1 orders only.)
 
 **NEW (8994, fermi — od 6's deciding instrument flown: the allocation wave is MARGINAL, and the
 naive-vs-marginal gap was a third thing neither side priced).** Scope-attributed counting
@@ -199,6 +234,16 @@ All anchors x86→M1 page-cited; orders of magnitude
 - **"The rest is a flight base" (f623's reading of its naive-vs-marginal gap)**: the gap is the
   player item's scratch (87% of item traffic from 11.5% of items); the frame
   base is 2.0–2.2 KB/game-s coast, 8.6% of bytes (20261020-1002-fermi-8994).
+- **"A ~56-KiB-topped pull ladder" (8994's singular reading of the player item's scratch) as
+  the per-item structure**: the rung census counts TWO array-builds per player item — one
+  doubling ladder to the 57,344-B cap (1.03–1.06/item) and one short ladder dying by rung 3
+  (≈1.04/item; seed 2 adds a rung-1-only third start) — plus ~225 sub-2-KiB calls at 54–62
+  KB/item; the "1.7 full-ladder-equivalents" was this mixture, not one ladder's tail
+  (20261020-1621-fermi-5f76; three seeds, three decades of K, top exact everywhere).
+- **"The stream's own marginal is ~1.6 KB/kick" (8994, seeded at K=10⁴) as a K-flat constant**:
+  per fired kick the ship term RISES with K — 1.45–1.53 at 10⁴, 2.18 at 3×10⁴, 2.99 KB/kick at
+  10⁵ (per ship-item it falls, 3.7→2.3) — so the 10⁹ byte row's band widens to 10–42% of
+  60 GB/s; the closure verdict survives, the cited constant does not (20261020-1621-fermi-5f76).
 - **"The mint's heap-call anatomy is Binding 192 + Segment 208 + Entry 288" (9edc's
   `size_of` reading) as a description of the allocation stream**: the measured per-kick
   family is {88, 240, 304, 352, 384², 704, 832} B at ~9–10 calls/kick (76–79% of ≤2 KiB
@@ -271,12 +316,15 @@ All anchors x86→M1 page-cited; orders of magnitude
    marginal (item-scope), the excess is the player item's bounded scratch (194 KB/item,
    checker-corrected; doll-scaled only in its rare burn chains), and the
    burn's late tail is the one base-carried wave (the held-scan era). What remains:**
-   (a) a backtrace instrument to name which function inside the player's item owns the
-   ~352-B-entry Vec (pull_ships vs the neighbourhood scan) — the census cannot; (b) the
-   one-line `with_capacity` on the pull's bound (halves the player term, deletes ~0.3–1.2 M
-   realloc calls/flight) if cc9d's read-set fix does not subsume it; (c) one more seed
-   (8994 is one seed; checker flew K = 10⁵ coast and 3×10⁴ burn, but no other seed) before the
-   194 KB/item and ~244–366 B/body chain constants are cited as laws.
+   (a) a backtrace instrument to name the TWO array-builds the census now counts (one capped
+   56-KiB ladder, one short, rungs 1–3 — 5f76; pull_ships vs the neighbourhood scan vs a
+   re-pull): the census counts them, it cannot name them; (b) the one-line `with_capacity`
+   on the pull's bound (now aimed at BOTH arrays — halves the ladder traffic, deletes
+   ~0.3–1.2 M realloc calls/flight) if cc9d's read-set fix does not subsume it; ~~(c) one
+   more seed before the constants are cited as laws~~ **closed by 5f76: 193.4/193.8/199.0
+   KB/item at seeds 1/2/3 and 0.1% K-spread at seed 2 — law-grade; the ship per-kick marginal
+   is the one K-rising constant (1.45→2.99 KB/kick, 10⁴→10⁵), carried as a range, not a
+   point.**
 
 ## Contradictions
 
@@ -308,3 +356,4 @@ All anchors x86→M1 page-cited; orders of magnitude
 - 20261019-1817-fermi-d4ff (fermi, silver): the belt's own stream bounded — closure survives with contacts ≤ +0.006 cores at 10⁹ (checker-corrected); conjunction law checker-cut to ~3×10²/game-s; wake-up N≈3×10⁷; C≈5×10⁴ contact tail; "inert belt" census reading refuted (λ cross-checked 1.30× — stands).
 - 20261019-1906-second-20261019-1817-fermi-d4ff-f876 (second, on d4ff): Γ = 6.21/root/game-s flat (propagation, 1,182 events); TP bar 422/game-s; author's 84.09 reproduced as θ-mixing (83.3); checker's anchor table 4–8× high as pair events.
 - 20261019-2339-fermi-f623 (fermi, silver): allocator 0.6–1.7 cores, bytes 23–48% of 60 GB/s marginal; per-kick churn law 17.6–19.3 allocs + 12.3–12.7 KB naive; family {88,240,304,352,384²,704,832}; no machine floor forces the mint deletion; the naive-vs-marginal OLS split flagged unstable by its checker (resolved by 8994).
+- 20261020-1621-fermi-5f76 (fermi): od 6(c) closed — the player constant is law-grade (193.4/193.8/199.0 KB/item, seeds 1/2/3; 0.1% across K, top exactly 57,344 B), the census counts TWO array-builds per player item (one capped ladder, one short) plus ~225 small calls (30%); the ship per-kick marginal RISES with K (1.45→2.99 KB/kick, 10⁴→10⁵) — the 10⁹ byte row re-bases to 10–42% of 60 GB/s, still closing.

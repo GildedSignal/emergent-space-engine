@@ -25,22 +25,22 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [order-boundary](order-boundary.md) | open | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
 | [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [scan-queue](scan-queue.md) | open | 12 | **The composition is flown and the doll bound is earned at every scale flown [checker2: the "10⁹ |
-| [budget-1e9](budget-1e9.md) | open | 14 | **NEW (8994, fermi — od 6's deciding instrument flown: the allocation wave is MARGINAL, and the |
 | [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
+| [budget-1e9](budget-1e9.md) | open | 15 | **NEW (5f76, fermi — od 6(c) closed: the one-seed allocation constants are LAWS across three |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [promotion](promotion.md) | open | 18 | **NEW (4f59, components — od 1(b) priced on the shipped window law, both unflown arms flown): the |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [allocator-ratchet](allocator-ratchet.md) | open | 20 | (no current best yet) |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
-| [chaos-shadowing](chaos-shadowing.md) | open | 26 | (no current best yet) |
+| [chaos-shadowing](chaos-shadowing.md) | open | 28 | **NEW (3b67, dynamics — c644's named leftover flown: the core's evaporation tail past |
 | [representation-premises](representation-premises.md) | open | 32 | **NEW (039d, premise red-team — direction 5's named tail measured: the chord occlusion law |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [view](view.md) | open | 60 | # The view: the observer's past light cone, lensing, kinked tubes |
 | [kick-cadence](kick-cadence.md) | open | 64 | **NEW (cca6, second author on 3b88 — the named gold experiment flown: the wall's |
-| [frame-cost](frame-cost.md) | open | 80 | **The crash search is retired behind its inverse, flight-proven: the verified structural |
+| [frame-cost](frame-cost.md) | open | 81 | **NEW (7fd3, system — the whole-system census: the mint's consumers are counted, and both |
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
-| [nladder](nladder.md) | open | 182 | **NEW (a0a1, taleb — the encounter channel's two O(N) walks typed per body: capture ON the critical path, answer unpayable by construction, and the uncarrried bound's skip ceiling is 99.8%).** Anatomy instrument (env-gat |
+| [nladder](nladder.md) | open | 183 | **NEW (23a6, second author on a0a1 — the checker's named gold experiment flown whole: the dropped bound is EXACT and ~100x on the warm answer walk, and it still reopens nothing).** The bound (ce694696's per-body remember |

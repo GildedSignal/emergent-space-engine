@@ -2,11 +2,46 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261016-1740-second-20261016-1637-system-ff42-b583
+updated: 20261020-1621-system-7fd3
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
+
+**NEW (7fd3, system — the whole-system census: the mint's consumers are counted, and both
+deletion candidates die; the kick's unnamed core is the FIT, not the compile).** Print-only
+census (`ES_MINT_CENSUS`, relaxed atomics beside the same paths; the shipped digest path
+untouched) on the standing belt (`nladder 10000/30000 coast 60 1800`, rtf 1800, ≈3.7 doll
+intervals): every fired kick's `rebind` mints a compiled trajectory (mints 203,485 /
+247,760; +16.4% over fired kicks + births at 10⁴ — the boundary-exit and hand-off
+rebinds), the rebind is 86% of the kick item's wall (41.2/44.0 µs per kick, 28.7/30.0 µs
+per rebind), and **inside the rebind the compile is only 26% (7.6/7.8 µs): the fit
+(`fit_key`, the witness inversions, `at_radius`, residual, word choice) is the unnamed
+74%.** [Checker: the 26% contradicts standing measurements — a765 holds compile at 84-87% of
+the rebind and this page's own d4f1 entry 0.85-0.90; unresolved (scene/era/instrument);
+adjudication on a765's arm is the named experiment to gold.] The store is NOT a one-reader
+cache: **19.96 / 19.53 external reads per mint** (`Trajectory::state` walks; `at_radius` ≈
+0.003), and **retained history answers 1.05 / 0.66 reads per mint at a 100% hit rate
+(213,940/213,940; 164,410/164,410)** [checker: at 10⁵ coast the hit rate is 99.97% (21 misses
+in 71,531) and reads/mint 28.6; the burn arm holds all ratios] — so 225d's "kick mint = the
+memory ratchet's outright deletion target" is dead **as read-time recompile** (it would
+multiply compiles ~20×) on the flyable path, and any last-only pruning of the *segments*
+breaks a measured reader; the lazy/bounded-cache store lever (b9ae's knots→0 flown
+digest-identical; 0757's bounded cache, gold — both on the mint-knots page this run did not
+cite) is untouched by this census. [Checker attribution probe: the readers are NOT the crash
+bisection (probes 0.2-0.4/mint) — they are the general event/readout traffic (~5-6 per kick
+path, ~13-25 outside it); the call-site split stays open.] Predictions P2/P3 killed at their
+pre-registered criteria, P1 half-killed (compile ≥ 50% of rebind: measured 26%), P5 held
+with the excess named. Consequences: (1) the kick's next 10× is the fit, not the compile —
+the jet's retirement killed the cheap cycle update; the cheap exact fit (reusing the
+previous binding's key when the state is inside its basin) is the untried half of the same
+bill; (2) readers, not the mint, are the census's next cut (20 readers unattributed:
+boundary predicates, view gather, `state_of` secondaries, planning); (3) the history reads'
+owner is an inference (likely `secondaries(d, t)` reading a body bound later than t), not
+measured — attribution is the follow-up. Domain: coasting belt, Linux/x86, orders of
+magnitude only; a burn arm adds readouts (ff42's crash search), which raises reads/mint,
+against the deletion (20261020-1621-system-7fd3; regen ~4 min; predictions pre-registered).**
+
 
 **The crash search is retired behind its inverse, flight-proven: the verified structural
 guess with the window sized by the offset's own law fires 100% and falls back never
@@ -167,6 +202,11 @@ fired kick because `rebind` resets `Binding.impact`.
 - (unchanged) The stack's lazy-tier gate regression and the frame-cost page's merge
   conflict are the integrator's to resolve; this run's page proposal folds into whichever
   side stands.
+- (checker, 7fd3) The compile share of the rebind: 7fd3's 26% (belt, direct clocks) against
+  a765's 84-87% and d4f1's compile/bind 0.85-0.90 — scene, era or instrument; one census run
+  on a765's arm settles it. And 7fd3's "deletion dead" must be read as read-time recompile
+  only: the mint-knots page (same day, uncited by 7fd3) holds b9ae's flown lazy store and
+  0757's gold bounded cache standing.
 
 ## Runs
 - 20261006-1135-autoresearch-eb29 (silver): deleting `bind_in`'s residual decode is bit-identical; made kick −9.5%.
@@ -249,3 +289,4 @@ fired kick because `rebind` resets `Binding.impact`.
 - 20261014-1631-second-20261014-1511-quant-7226-2ae0 (gold): the guarded AB-IQI policy passes the frozen rule (worst 11–18, probes −62…−64%, flying leaver −34…−35%, digests identical at every layer); composed with the warm start, readouts −78…−83%, worst 11–12; the kill table regenerates from the patch.
 - 20261016-1637-system-ff42 (this run, awaiting grade): the crash search and `at_radius` are one mechanism — the verified-guess wiring is tick-exact 36/36, 2.0× mean (3.2–4.9× where it verifies, ~40% fallback named with its cure); `next_exit`'s Cycle branch is the same lever unclaimed.
 - 20261016-1740-second-20261016-1637-system-ff42-b583 (this run): the windowed guess retires the crash search — 100% fire, 0 fallbacks (155 synthetic + 2,723 flight searches), leaver kick −46…−48%, digests identical; policy layer's domain empty on main's scenes.
+- 20261020-1621-system-7fd3 (this run, awaiting grade): the mint census — 20 reads/mint, history hits 1.05/mint at 100%; compile 26% of the rebind, the fit is the 74%.
