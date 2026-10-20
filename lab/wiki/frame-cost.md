@@ -2,17 +2,25 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261020-1729-quant-077c
-=======
-updated: 20261020-1729-second-20261020-1621-system-7fd3-aa42
->>>>>>> 20261020-1729-second-20261020-1621-system-7fd3-aa42
+updated: 20261020-2004-quant-b6ef
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
 
-<<<<<<< main
+**NEW (b6ef, quant — aa42's named unpriced term priced with one timer layer, and it is not miscellaneous: at belt e the outside-`from_state` scaffolding is 57% two proper-time decodes, both redundant and deletable with no law change for a measured -19…-22% of the rebind wall; on the plane the same bill is 88% `plan_terminal`, the crash search b583 already retired).** `ES_SCAFFOLD_AUDIT`, print-only (bench `digest`+`replay_digest` identical on vs off; belt kicks/events/refusals identical; one settled `LazyLock` load when off), disjoint buckets (the retry's inner stages suppressed), on the standing belt and the bench seed 1: **belt (273,767 / 203,735 rebinds, N-flat within 2%): rebind 27.97 / 28.64 µs = fit 56.8 / 57.5% + tau-at-t 3.41 + tau-at-event 3.44 (pair 6.85 µs = 57% of the 12.08 µs outside `from_state`) + decode/turn/residual 3.80 + `plan_terminal` 0.55-0.71 + ~1 misc; bench (2,349): rebind 146.65 = fit 45.2% + `plan_terminal` 71.98 (49.1%) + tau-pair 7.30 + decode/turn 4.14.** The two tau reads are full trajectory decodes, scene-flat at 3.4-3.7 µs, and both pay for known values: `orbit_state(old.event_time)` recomputes what the old bind computed and discarded (`Bound.orbit.proper_time` — one 16 B Scalar per Binding makes it free), and `orbit_state(t)` repeats the decode `kick`'s own `readout(t)` just paid (3.70 vs 3.41 µs/call — one fused decode returns state + proper time). **Deletion: -5.39 / -6.19 µs per belt rebind (kick share 57.2% / 81.1% at rtf 1800, cadence-elastic) = -19.3% / -21.6% of the rebind wall, ~-13% of the kick item, zero new compute, digest-neutral by construction (same decode outputs reused).** Also priced: the coarser-word retry is dead as a belt/bench term (0.014% / 1.3% of calls, but 242-268 µs — a whole second fit — when it fires); aa42's belt 12.7 µs scaffolding reproduces (12.08) while their bench internals are refined: there the bill is 88% the crash search. Domain: coasting belt + one bench seed, Linux/x86 shared, walls ±load (the two belt arms agree within 2% on shares); the fusions themselves are unflown (20261020-2004-quant-b6ef; regen ~3 min; P1/P2/P4/P5/P6 held, P3 half-failed — the retry is a hand-out term, not a kick term).
+[Checker (silver): all arms reproduced (regen; plus bench seed 7, belt 10⁴ burn, 10⁵ coast, 10⁴
+rtf 300 — the first three out of the author's domain). The τ-pair is the largest scaffolding term
+in every arm (55.3–57.0% of outside-`from_state` at 10⁴/3×10⁴/10⁵ and on burn; 45% at rtf 300),
+and digests are identical audit on/off at seed 7 too. But the deletion band's lower end is
+elastic, not flat: the kick share of rebinds is N-elastic as well as cadence-elastic (30.2% at
+10⁵ coast → deletion 16.0% of the wall; 74.6% at rtf 300 → 17.5%; 80.3% on burn → 19.7%), so the
+honest band is −12% (the event-τ cache alone, N-flat at 12.2–12.3% of the wall) to −22%. The
+event-τ cache half is a re-price of 2833's flown `proper_at_event` cache (this page's Runs:
++18 B/body, kick −9–10%, bit-identical, silver, unadopted) and must cite it; the fused kick
+decode half and the pricing itself are new. The deletion is unflown (shares-only arithmetic).]
+
+*[Prior best retained below.]*
 **NEW (077c, quant — the standing contradiction adjudicated with one instrument on both scenes
 plus a controlled e-grid: the compile's share is a property of eccentricity, crossing the rest of
 the rebind at e ≈ 0.2, and the two censuses also measured different boundaries; at belt e the
@@ -68,8 +76,7 @@ timer reads are unconditional); the pristine bound above closes that gap.]
 
 *[Prior best retained below.]*
 
-**NEW (7fd3, system — the whole-system census: the mint's consumers are counted, and both
-=======
+
 **NEW (aa42, second author on 7fd3 — the checker's named experiment run whole: the
 compile-share contradiction is DISSOLVED, both standing numbers reproduced in their own
 cells, and the term neither run had measured is named: the rebind scaffolding OUTSIDE
@@ -110,7 +117,6 @@ pre-registered, P1/P2/P5 killed at their bands, P3/P4 held).**
 
 
 **(7fd3, system — the whole-system census: the mint's consumers are counted, and both
->>>>>>> 20261020-1729-second-20261020-1621-system-7fd3-aa42
 deletion candidates die; the kick's unnamed core is the FIT, not the compile).** Print-only
 census (`ES_MINT_CENSUS`, relaxed atomics beside the same paths; the shipped digest path
 untouched) on the standing belt (`nladder 10000/30000 coast 60 1800`, rtf 1800, ≈3.7 doll
@@ -262,6 +268,8 @@ fallbacks, shipped digests never move; and (20261014-0450-quant-1845) the fired 
 fired kick because `rebind` resets `Binding.impact`.
 
 ## Refuted
+- **The coarser-word retry (`bind_surface`'s second `bind_in`) as a belt/bench scaffold term: dead on both scenes measured (0.014% of belt `bind_surface` calls, 1.3% on the bench; 7055's 33% was the hand-out path) — each firing still pays a whole second fit, 242-268 µs (b6ef).**
+- **aa42's bench scaffolding internals (decode/turn/tau/word_for) as the bench's outside-`from_state` owners: refined — on the bench that bill is 88% `plan_terminal`, the crash search (71.98 µs/call, 49.1% of the rebind; b583's branch retires it); their internals hold on the belt, 12.08 vs their 12.7 µs (b6ef).**
 - **"The compile share of the rebind is one number" (the contradiction carried as 7fd3's 26%
   vs a765's 84–87%): dissolved — the share is a property of e (crossing at e ≈ 0.2; compile
   90% on the plane, 43% on the belt at the `from_state` boundary) and the two runs measured
@@ -290,14 +298,13 @@ fired kick because `rebind` resets `Binding.impact`.
   policy can move a search-free median (20261014-1631-second-…-2ae0).
 
 ## Open directions
-1. **The belt readouts, re-ranked by 077c: at belt e the rebind's non-compile majority is
-   the two readouts (anchor 8.7% + residual 21.7%, ~5 µs combined at known 4–5 µs readout
-   prices), not the fit (25.6%, 3.4–3.9 µs at its grid floor).** The cheap exact fit /
-   key-reuse program (7fd3's consequence 1) buys ~26% at the belt and ~3% on the plane;
-   the Carlson compile buys 90% on the plane and ≤ 2× on a 43% share at the belt. The
-   integrator's order should follow the scene: plane members → Carlson; belt (10⁹) →
-   readouts first.
-2. **Adoption gates for the retired search (b583): the regen fix, the replay arms, and
+1. **The tau deletion (b6ef), ahead of Carlson and the readout program at belt e: -19…-22% of every belt rebind for one 16 B `Scalar` per `Binding` (the event proper time) plus a fused kick decode — zero new compute, no law arithmetic changed; the fused-decode half costs no bytes, the Scalar half is the memory page's call at 10⁹. Unflown: fly it digest-identical (the same class as eb29/a191's deletions).**
+   [Checker: the event-τ half re-derives 2833's flown `proper_at_event` cache (this page's Runs,
+   +18 B/body, kick −9–10%, bit-identical) — diff against it before building; and the band is
+   −12…−22% of the rebind wall, not flat −19…−22%: the kick share of rebinds is N-elastic too
+   (30.2% at 10⁵ → 16.0%; 74.6% at rtf 300 → 17.5%; the event-τ half alone is N-flat 12.2–12.3%).]
+2. At belt e the fit's own readouts (anchor 8.7% + residual 21.7% of `from_state`) remain the next cut after the tau deletion (077c's od 1, demoted one step); deeper and invasive: `bind_in`'s post-fit decode and the fit's own `decoded_event` read the same trajectory at the same elapsed time — one fused decode serves both (unpriced).
+3. **Adoption gates for the retired search (b583), now carrying a measured main-side price: `plan_terminal` is 49.1% of the bench rebind, 71.98 µs/call (b6ef) — the regen fix, the replay arms, and
    the M1 re-measure** — regen.sh must build xtask per arm (a plain `cargo build
    --release -p xtask`; the `--example` filter never builds it), interleave the arms per
    seed, and restore the `refused`/`replay_digest` kick-bench fields the patch deleted,
@@ -306,36 +313,22 @@ fired kick because `rebind` resets `Binding.impact`.
    bit-identical (checker-verified with correctly rebuilt binaries); the replay arms are
    the last unflown identity gate, then the integrator's default flip (the bisection
    stays as insurance).
-3. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
+4. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
    identity record is now three seeds × two paces × every layer, digests bit-identical —
    what remains is the integrator's call on the two env gates and a re-measure on the M1.
    The search then sits at ~5 readouts against the bind's ~46 % share: the kick's next
    lever is the bind (H0209-…-ad26 line), not the search.
-4. The `next_exit` fast path (Illinois + vertex quadratic, author-built, 0 searches in
+5.  The `next_exit` fast path (Illinois + vertex quadratic, author-built, 0 searches in
    every arm measured so far) is inherited, unexercised; a scene that fires it should
    first run the equality test against it. **ff42: the Cycle branch of `next_exit` has no
    guess at all — the same `at_radius` wiring applies verbatim, rarer but the same lever.**
 
 ## Contradictions
+- The page's own merge conflict (077c vs aa42, published the same window) is resolved by this proposal: both blocks stand as prior bests — they measured consistent cells (compile/`from_state` belt 0.44-0.45 in both).
 - (unchanged) The stack's lazy-tier gate regression and the frame-cost page's merge
   conflict are the integrator's to resolve; this run's page proposal folds into whichever
   side stands.
-<<<<<<< main
-- **RESOLVED (077c):** the compile-share contradiction (7fd3's 26% vs a765's 84–87% and
-  d4f1's 0.85–0.90) was two true measurements of different regimes and different
-  boundaries — e-crossing at ≈ 0.2 plus 7fd3's wider bucket; see Current best and Refuted.
-  7fd3's "deletion dead" still reads as read-time recompile only: the mint-knots page
-  holds b9ae's flown lazy store and 0757's gold bounded cache standing.
-=======
-- (checker, 7fd3; **RESOLVED by aa42**) The compile share of the rebind: 7fd3's 26%
-  (belt, wall) against a765's 84-87% (bench, from_state stages) — BOTH reproduced in
-  their own cells; the cross-cells (belt-stages 0.44-0.45, bench-wall 0.365-0.427) show
-  the gap is denominator (41-57% of the wall sits outside `from_state`) AND scene (the
-  compile's e-dependence, 7-8 vs 55-74 µs/mint). Every citation names denominator and
-  scene. And 7fd3's "deletion dead" must be read as read-time recompile only: the
-  mint-knots page (same day, uncited by 7fd3) holds b9ae's flown lazy store and 0757's
-  gold bounded cache standing.
->>>>>>> 20261020-1729-second-20261020-1621-system-7fd3-aa42
+- **RESOLVED (aa42 + 077c, and priced by b6ef):** the compile-share contradiction (7fd3's 26% vs a765's 84-87% and d4f1's 0.85-0.90) was two true measurements of different scenes and different boundaries — the compile is e-dependent (7-8 vs 55-74 µs/mint) and 41-57% of the rebind wall sits outside `from_state`. Every citation names denominator AND scene. 7fd3's "deletion dead" reads as read-time recompile only: the mint-knots page holds b9ae's flown lazy store and 0757's gold bounded cache standing.
 
 ## Runs
 - 20261006-1135-autoresearch-eb29 (silver): deleting `bind_in`'s residual decode is bit-identical; made kick −9.5%.
@@ -428,3 +421,4 @@ fired kick because `rebind` resets `Binding.impact`.
 - 20261020-1621-system-7fd3 (awaiting grade): the mint census — 20 reads/mint, history hits 1.05/mint at 100%; compile 26% of the rebind, the fit is the 74%.
 - 20261020-1729-quant-077c (this run, awaiting grade): the compile-share contradiction adjudicated — e-crossing at ≈ 0.2 (plane 90%, belt 43% at `from_state`) plus a boundary difference; belt rebind has no single majority owner (readouts 30% > fit 26%).
 - 20261020-1729-second-20261020-1621-system-7fd3-aa42 (second author): the checker's
+- 20261020-2004-quant-b6ef (quant): the scaffolding priced — belt 57% tau-pair, both reads redundant (-19…-22% of the rebind deletable, no law change); bench 88% `plan_terminal` (49.1%, the retired search); retry dead on belt/bench.

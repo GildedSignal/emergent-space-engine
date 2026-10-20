@@ -2,9 +2,48 @@ topic: allocator-ratchet
 status: open
 closed-by:
 valid-while:
-updated: 20261020-0440-taleb-f1ca
+updated: 20261020-2004-taleb-c1ad
 
 # The allocator's rollback feedback: a one-way ratchet on the forecast margin
+
+## Current best
+
+**NEW (c1ad, taleb — f1ca's named close built and flown: v5, the per-region publish floor
+with merge-capping, on both publishers).** For region r the binding s0 of any future clash
+that can assert r (or a region inheriting its parts) is: starts of live truths keyed at
+windows r's strides still span; for r's lineage's live truths, the truth's start or the
+least stride-start of a live region still spanning that window (a stride spans ≤
+stride_max windows — the bound that keeps a far laggard from recoupling everything); r's
+own verified, oldest snapshot and least live-ancestor verified. `publish_floors()` caps
+the frontier advance AND the gated coalesce; `cap_final()` re-caps inherited fin_parts at
+every merge/rollback (`regroup` purges no member truths — the merged child inherits the
+other parent's high parts with a stale-truth lineage). NOT capped by the global frontier:
+capping by `front` re-couples to the laggard's verified (measured: v5 at 74% of shipped
+under crush with the cap, 92% without — the cap was the residual coupling). **Measured
+(one binary, env arms; battle = galaxy 8704/24, rate 2400, margin 0.5, seeds 11-25 odd;
+crush = 12 concurrent battle draws): shipped fires 1/8 (s21, fin_hi 544 > s0 512), v4 0/8,
+v5 0/8 and 0/12 crush; crush medians shipped 387, v4 256 (66%), v5 355 (92%); quiet battle
+present v5 1280-1792 against shipped's 1280-1536 (same window); equality law shut on all
+257 v5 RB lines (every m ≤ 0, out=[] always); quiet control clean in every arm.** The
+author's pre-registered 3× v5/v4 crush band FAILED (1.39×: v4 only fell to 66% in this
+window, not f1ca's 43-vs-529 class — window-owned); the decoupling's honest number is 92%
+of shipped against v4's 66%. v5's exactness needs one assumption v4 did not: `affected` =
+the descendants closure (measured shut, e517/c749 + 257 here); the stride-span bound is
+config-true (an unbounded-stride config invalidates lscan). The deterministic-laggard
+scene (mixed class, shipped in the patch) does not laggard on this box — the crush stays
+the laggard protocol (20261020-2004-taleb-c1ad).
+  [Checker c1ad: the safety half reproduced and extended — regen window shipped 1/8
+  (s17), v4/v5 0/8, equality law shut on 111+42 RB; fresh seeds 41-47 shipped 1/4 (s41),
+  v5 0/4; 2× scale (galaxy 17408/48, beyond the author's range) shipped 3/4 fires, v5
+  0/4 at present 512. But the decoupling claim is falsified outside the battle class:
+  the heterogeneous family stalls under v5 deterministically — clumps present 0 (shipped
+  and v4 both 2695, s11+s13), mixed present 0 (shipped and v4 both 2698, s11×2+s13;
+  1080 deadline misses), streams 1024 vs shipped 2698 — a slow region's floor pins the
+  whole scene's present, so "a laggard pins only its lineage" dies at the present level;
+  v5 as shipped is killed as a configuration on multi-cluster scenes (the v4 control
+  isolates v5's floor, not the gate). Reproduction defect: work/patch.diff contains every
+  file diff twice, so the clean-tree regen the runner ran fails at apply; the numbers
+  reproduce from work/fix.diff (byte-identical to the first half).]
 
 **NEW (f1ca, taleb — 541d's named next experiment built: the disarm channel as an
 exactly-safe publish floor, v4).** Under `stride_gate`, the frontier advance publishes up
@@ -26,7 +65,7 @@ publisher that fires), and the gate starves (s11: 43 vs shipped 529; s19/s21/s23
 44-100%). The close's shape is now: a **per-region floor** (deepest restorable tick among
 truths that can still touch this lineage, with merge-capping) or a scheduler that refuses
 to let one region pin the engine's finality; the global floor is exact but
-load-min-coupled (20261020-0440-taleb-f1ca).**
+load-min-coupled (20261020-0440-taleb-f1ca). [Built and flown by c1ad above.]
   [Checker f1ca: reproduced — 0 fires on every gated draw incl. the checker's fresh seeds
   37/39/41, where shipped fired 3/8 in one window with the exact signature
   (fin_hi > s0 = front: 1136>1104, 960>912, 784>768) and v4 ran clean on all three at
@@ -62,8 +101,9 @@ finalize-round base staleness, or a merge path raising fin_hi without a decision
   under 8-way crush every gate draw at final lead 0 and 1/14 near-stalled (present 72 vs 529
   shipped same seed+window, finality pinned F=32) — the disarm channel the gate needs is
   load-coupled on the battle class too.]
-**NEW (c749, dynamics — od 5's named next step done: the fire's internal state on the
-game's own fleet battle, e517's instrument verbatim on bf83's harness).** Six fires
+
+**NEW (c749, dynamics — od 5's named next step done: the fire's internal state on
+the game's own fleet battle, e517's instrument verbatim on bf83's harness).** Six fires
 pooled over two executions whose incidence moved with the wall clock (execution 1: 3/8
 at galaxy 8704/24 fleets margin 0.5, 0/6 at 4352/12, 0/2 at margin 2.0, replicates of
 fired seeds clean; execution 2: 2/8 at 8704, 1/6 at 4352 — a seed of bf83's 4/62 class)
@@ -98,7 +138,7 @@ confirmed operationally: 2–13 fully quiet publishes (A ≤ 0 at every pair) be
 blind fire, one (margin 0.25) whose fatal pair appears in no armed line at all.
 Adversarial: min_region 8 holds containment (161 RBs, out= shut); galaxy 12288/36
 fleets 0/4 fires — incidence is not monotone in scale.)**
-**NEW (e517, second author on fd35 — the positive side reproduced, direction 7 closed
+**(e517, second author on fd35 — the positive side reproduced, direction 7 closed
 both ways):** the finality assert's FIRING is a pure state property at certify time.
 On 01e7's selfchurn harness (finpol) with fd35's print-only instrument plus one field
 (`out=`: affected ids outside the clash lineages' descendants), 18 protocol draws
@@ -109,7 +149,7 @@ non-fatal realized clashes sat at D = 0 (m = 0) — zero exceptions on realized
 clashes. (Checker: PRE `D > 0` without fire is NOT excluded in general — it is the
 armed state; at window 32 it is common, 114–116 `D = 32` lines per draw with 0
 fires. The law is: fire ⇒ D = violation on the fatal pair; realized non-fatal ⇒
-m = 0.)
+m = 0.)**
 **Armed precedes fire** (fd35's P5, the named experiment): every firing draw shows
 HAZ `A > 0` from publish 8–12 (presented t = 0.41, scene start) — an armed lead of
 the whole scene start (~32 chronons, 51–449 publishes). Violations on this family
@@ -120,7 +160,9 @@ s0 = 1376 (D = viol still exact) — the invariant is D = viol, not one window.
 events (mo = 0), fires included — rollback's union-find `affected` coincided with
 PRE's descendants closure on every realized clash, which is why D never misses
 (containment); its exactness is the measured equality, with the derivation still
-open (direction 7).
+open (direction 7). [c1ad note: v5's exactness buys exactly this measured closure —
+the assumption is now load-bearing for a built fix, the derivation is the page's
+highest-value open.]**
 **Armed ≠ incidence**: all 9 survivor draws were armed too (95–99% of their
 publishes; fired draws 85–99%) without firing — armed is the possibility state;
 whether a clash realizes on an armed pair stays the wall-clock race. Cost note for
@@ -307,10 +349,24 @@ as a complete rule by the churn class above).
    exact (publish up to the deepest restorable tick floor0), fires 3/8→0/8 at 51-100% of
    shipped present in quiet windows; NOT yet the close: under crush the global floor is
    min-coupled (a never-accepting region pins frontier=0=floor0 and the gate starves
-   while shipped hides the laggard behind the unsafe coalesce). Next: the per-region
-   floor with merge-capping, or the scheduler refusing to let one region pin finality;
-   541d's second unsafe publisher (the coalesce, fin_hi > s0 = front) is now measured
-   too — both shipped publishers are dead.]**
+   while shipped hides the laggard behind the unsafe coalesce). 541d's second unsafe
+   publisher (the coalesce, fin_hi > s0 = front) is now measured too — both shipped
+   publishers are dead.]**
+   **[c1ad, 20261020: v5 built and flown — the per-region floor with merge-capping on
+   both publishers, exact modulo the measured descendants closure, 0 fires on 20 draws
+   (battle 0/8 twice + crush 0/12) where shipped fired 1/8, and 92% of shipped's crush
+   present against v4's 66% (the starvation decoupled; the author's 3× band failed —
+   v4 never starved that hard in this window). Remaining before this closes: (a) the
+   descendants-closure derivation (now load-bearing for a built fix — out= shut on
+   2,714+257 RBs, never derived); (b) the stride-span bound is config-true (lscan
+   assumes ≤ stride_max windows per stride); (c) fresh seeds/scales and the churn
+   class under v5 (this run's crush is one window); (d) the overhead at 10⁶ regions
+   (O(truths + lineage edges) per finalize, unmeasured at scale).]**
+   [Checker c1ad: (c) is answered and it kills v5 as shipped — fresh seeds/scales clean
+   and fire-free, but clumps/mixed stall at present 0 and streams at 38% of shipped
+   where v4 runs clean (see Current best); the next candidate must bound the self-pin
+   (a region's own genesis truths stay scannable by its own strides) before the family
+   re-flies.]
 2. Window/stride granularity as the race margin (01e7's lead): window 32 survived
    rb 79–114 at 9/9 pooled draws across three windows where window 16 crashed at
    rb ≥ 57; the margin `fin_hi − s0` scales with the grid. More draws per arm before
@@ -346,7 +402,8 @@ as a complete rule by the churn class above).
    The fix's test is the state certificate (armed ≤ 0 ∧ D ≤ 0), not Monte Carlo.
    What is left for a next run: the *geometry* derivation of why `alone_at` and
    `certify` pin the same contact tick (fd35's lens note) — the soundness argument
-   the fix will be written against.
+   the fix will be written against. [c1ad: and now IS written against — v5's floor is
+   that argument's first customer; the derivation is open direction 1(a).]
 
 ## Contradictions
 
@@ -382,3 +439,4 @@ as a complete rule by the churn class above).
 - 20261018-0932-dynamics-c749 (dynamics, awaiting grade): the fire's state on the game's
 - 20261020-0143-taleb-da23 (taleb, awaiting grade): the stride gate built: fires 7/8 → 1/10 on the battle protocol, ~15-40% present cost, equality law held; one survivor fire names the last hole.
 - 20261020-0440-taleb-f1ca (taleb, awaiting grade): the disarm channel built (v4, publish
+- 20261020-2004-taleb-c1ad (taleb, awaiting grade): v5 built and flown — per-region publish floors + merge-capping: 0 fires on 20 draws (shipped 1/8 same window), crush present 92% of shipped vs v4's 66%.
