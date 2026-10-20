@@ -1,0 +1,132 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..364082bc 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,10 +14,37 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "linux")]
++mod linux_mem {
++    /// (resident now, its peak) in bytes, from /proc: this example's macOS footprint probe has no
++    /// counterpart here, so the resident size stands in (disclosed: compressed pages are not counted).
++    pub fn footprint() -> (u64, u64) {
++        let mut now = 0u64;
++        let mut peak = 0u64;
++        if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++            for line in s.lines() {
++                if let Some(v) = line.strip_prefix("VmRSS:") {
++                    now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                    peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++            }
++        }
++        (now, peak)
++    }
++}
++
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    linux_mem::footprint()
++}
++
++#[cfg(not(target_os = "linux"))]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
++#[cfg(not(target_os = "linux"))]
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..c30646b9 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -13,7 +13,7 @@ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+-use std::sync::{Arc, Mutex, OnceLock};
++use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
+@@ -132,7 +132,14 @@ impl Scan {
+         let (t, body) = (self.t, self.body);
+         let Ok((x, v)) = self.me.cartesian(t) else { return out };
+         let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
++        static CONE_PROBE: LazyLock<bool> = LazyLock::new(|| std::env::var_os("ES_CONE_PROBE").is_some());
++        let probe = *CONE_PROBE;
++        // The census (probe only; no bit of the answer changes): the triangle-inequality certificate
++        // |d| > |w| + near proves no encounter is possible for that pair (the same linear relative
++        // motion the predicate itself tests), so a candidate with it can never be read by the answer.
++        let (mut skipped, mut min_slack, mut max_hit_ratio) = (0u64, f64::INFINITY, 0f64);
+         for (j, other, reach) in &self.candidates {
++            let mut ratio = None;
+             let found = (|| -> Res<Option<bool>> {
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
+@@ -141,15 +148,36 @@ impl Scan {
+                 let q_exp = reach.exponent() as i32 - 20;
+                 let (di, wi) = (integers(d, q_exp)?, integers(w, q_exp)?);
+                 let near = reach.scale(ENCOUNTER_LOG2)?.fixed(-q_exp)?;
++                if probe {
++                    let (dn, wn) = ((di[0] as f64).hypot(di[1] as f64), (wi[0] as f64).hypot(wi[1] as f64));
++                    let nearf = near.max(1) as f64;
++                    min_slack = min_slack.min((dn - wn) / nearf);
++                    if dn > wn + nearf {
++                        skipped += 1;
++                    } else {
++                        ratio = Some(dn / (wn + nearf));
++                    }
++                }
+                 if !hit(di, wi, near) {
+                     return Ok(None);
+                 }
+                 Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
+             })();
++            if probe {
++                if matches!(found, Ok(Some(_))) && ratio.is_none() {
++                    eprintln!("cone_probe VIOLATION body={body} j={j}: an encounter the triangle certificate skipped");
++                }
++                if let (Some(r), Ok(Some(_))) = (ratio, &found) {
++                    max_hit_ratio = max_hit_ratio.max(r);
++                }
++            }
+             if let Ok(Some(contact)) = found {
+                 out.push(Encounter { a: body, b: *j, t, contact });
+             }
+         }
++        if probe {
++            eprintln!("cone_scan body={body} t={t} doll={} cands={} skip_cert={skipped} hits={} min_slack_near={min_slack:.3} max_hit_ratio={max_hit_ratio:.5}", self.me.doll, self.candidates.len(), out.len());
++        }
+         out
+     }
+ }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..0c4281ff 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -688,6 +688,9 @@ impl Universe {
+     /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
+     /// with `children_only`, the items of the ships of a planet's doll only.
+     fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
++        static PULL_PROBE: std::sync::LazyLock<bool> =
++            std::sync::LazyLock::new(|| std::env::var_os("ES_CONE_PROBE").is_some());
++        let mut pulled = 0usize;
+         loop {
+             let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
+             let Some((t, i)) = ticks.peek() else { break };
+@@ -696,6 +699,10 @@ impl Universe {
+             }
+             self.resolve_body(i);
+             self.requeue(i);
++            pulled += 1;
++        }
++        if *PULL_PROBE {
++            eprintln!("pull_wave t={} children_only={children_only} pulled={pulled}", key.0);
+         }
+     }
+ 
