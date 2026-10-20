@@ -1,0 +1,71 @@
+{
+  "digest": "f39609ee5c9b4fbddd38939aa4e24e3b538ba84e5acd36d2a91eaef52f94a40b",
+  "frames": 1800,
+  "kick_us": {
+    "median": 35.904,
+    "p99": 59.471000000000004,
+    "samples": 365
+  },
+  "kick_us_all": {
+    "median": 191.966,
+    "p99": 391.56100000000004,
+    "samples": 1142
+  },
+  "kick_us_leavers": {
+    "median": 205.987,
+    "p99": 398.935,
+    "samples": 777
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-20T20:29:38Z",
+    "unix": 1792528178,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-20T20:29:37Z",
+    "unix": 1792528177,
+    "when": "before"
+  },
+  "memo": {
+    "cycle_rebinds": 1109,
+    "exact_hit_rate": 0.0,
+    "exact_shapes": 1109,
+    "quantized_hit_rate": 0.9603246167718665,
+    "quantized_shapes": 44
+  },
+  "refused": 0,
+  "replay_digest": "e952291bbff8318b4955e8a6bb5ef814d252418b6f900a7b52fd218a98c5c93c",
+  "rtf_target": 100.0,
+  "samples": 1142,
+  "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+  "seed": 1,
+  "wall_seconds": 0.626836823
+}
+scaffold audit (kick-bench): rebind calls 2349, bind_surface calls 2397 (every caller), rebind wall 143.04 µs/call, bind_surface wall 71.41 µs/call
+  fit (Rebinding::from_state/ending_at)          calls     2397    63.22 µs/call   45.1% of rebind   88.5% of bind_surface
+  pre-fit conversions (units/time/edge)          calls     2397     0.03 µs/call    0.0% of rebind    0.0% of bind_surface
+  post-fit tube/entry/plunge                     calls     2397     0.12 µs/call    0.1% of rebind    0.2% of bind_surface
+  decode+turn+residual (new binding)             calls     2397     4.06 µs/call    2.9% of rebind    5.7% of bind_surface
+  word_for                                       calls     2397     0.22 µs/call    0.2% of rebind    0.3% of bind_surface
+  retry bind_in (coarser word)                   calls       32   264.88 µs/call    2.5% of rebind    5.0% of bind_surface
+  tau read: orbit_state(t)                       calls     2349     3.56 µs/call    2.5% of rebind    4.9% of bind_surface
+  tau read: orbit_state(event_time)              calls     2349     3.60 µs/call    2.5% of rebind    4.9% of bind_surface
+  retire+construct+retain                        calls     2349     0.13 µs/call    0.1% of rebind    0.2% of bind_surface
+  plan_terminal                                  calls     2349    70.36 µs/call   49.2% of rebind   96.6% of bind_surface
+  kick readout(t) (decode identical to tau read) calls     2331     3.79 µs/call    2.6% of rebind    5.2% of bind_surface
+  sum of bind_in+word stages                            0    71.18 µs/call  (bind_surface inner sum; outside it: the rebind's tau/retire/term)
+  outside bind_surface (in rebind)                      0    77.66 µs/call   54.3% of rebind

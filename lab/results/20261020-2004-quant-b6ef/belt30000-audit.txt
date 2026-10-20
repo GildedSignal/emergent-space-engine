@@ -1,0 +1,21 @@
+rung N=30000 (30028 bodies), coast, rtf 1800, 60 s of wall time, engine budget 12 ms; build 1.33 s, peak footprint 74 MB (now 74 MB)
+frames after 1 s: 3540  engine ms p50 5.664 p90 11.903 p99 11.946 max 15.451; over 12 ms: 6; frames behind: 420, worst lag 25.944 s; events/frame p50 119 p99 601 max 1118; scans held max 310
+game 99309.5 s after the first second: kicks 266652 (8.942e-5/body/game-s), events 507983 (1.703e-4/body/game-s), stats {opens 566, boundaries 240361, handoffs 15, lost 10, refused 0, slices 389}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 74 MB at the build's end, 162 MB at the flight's end (now 162 MB); 2377 B a body from the build; dashboard bytes/body 1432; view gather 1356.7 ms cold, 667.3 ms warm (30046 seen); catalogue 30076 entries
+frames over the budget (first 12): [614, 980, 1558, 1587, 2768, 3565]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (614, 15.45, 404, 19.562) (1587, 14.74, 367, 19.656) (1558, 13.30, 318, 19.612) (980, 13.15, 342, 9.196) (3565, 12.66, 340, 3.804)
+ladder: n=30000 bodies=30028 flight=coast rtf=1800 frames=3600 build_s=1.33 foot_build_mb=74 foot_end_mb=162 b_per_body=2377 p50_ms=5.664 p99_ms=11.946 max_ms=15.451 over=6 lag_s=25.944 kicks_per_body_gs=8.942e-5 events_per_body_gs=1.703e-4 refusals=0 dead=0 held_max=310 view_ms=667.3 truncated=false wall_s=27.4
+scaffold audit (nladder N=30000 coast): rebind calls 269498, bind_surface calls 269546 (every caller), rebind wall 28.27 µs/call, bind_surface wall 20.50 µs/call
+  fit (Rebinding::from_state/ending_at)          calls   269546    16.07 µs/call   56.8% of rebind   78.4% of bind_surface
+  pre-fit conversions (units/time/edge)          calls   269546     0.03 µs/call    0.1% of rebind    0.1% of bind_surface
+  post-fit tube/entry/plunge                     calls   269546     0.13 µs/call    0.5% of rebind    0.7% of bind_surface
+  decode+turn+residual (new binding)             calls   269546     3.82 µs/call   13.5% of rebind   18.6% of bind_surface
+  word_for                                       calls   269546     0.21 µs/call    0.7% of rebind    1.0% of bind_surface
+  retry bind_in (coarser word)                   calls       37   242.34 µs/call    0.1% of rebind    0.2% of bind_surface
+  tau read: orbit_state(t)                       calls   269498     3.46 µs/call   12.2% of rebind   16.9% of bind_surface
+  tau read: orbit_state(event_time)              calls   269498     3.48 µs/call   12.3% of rebind   17.0% of bind_surface
+  retire+construct+retain                        calls   269498     0.09 µs/call    0.3% of rebind    0.5% of bind_surface
+  plan_terminal                                  calls   269498     0.55 µs/call    1.9% of rebind    2.7% of bind_surface
+  kick readout(t) (decode identical to tau read) calls   155801     3.70 µs/call    7.6% of rebind   10.4% of bind_surface
+  sum of bind_in+word stages                            0    20.29 µs/call  (bind_surface inner sum; outside it: the rebind's tau/retire/term)
+  outside bind_surface (in rebind)                      0     7.58 µs/call   26.8% of rebind

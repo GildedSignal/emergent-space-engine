@@ -1,0 +1,324 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..22bb0bab 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,24 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux has no `proc_pid_rusage`: VmRSS (now) and VmHWM (peak) from /proc/self/status carry the same
++/// two numbers (resident, without the compressed pages a Mac account holds; disclosed, not equal).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -54,6 +74,7 @@ fn main() {
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
++    emergent_universe::scaffold::reset();
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+@@ -160,4 +181,5 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    emergent_universe::scaffold::report(&format!("nladder N={n} {flight}"));
+ }
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..d08b9db9 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -223,14 +223,18 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>,
+ 
+ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
+     let t_fit = crate::prof::t();
++    let t_bs = crate::scaffold::t();
+     let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
+     crate::prof::add(crate::prof::FIT, t_fit);
+     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
+     // at most one quantum of the new word) and bind again.
++    let t_word = crate::scaffold::t();
+     let (len, vel) = word_for(&bound.entry)?;
++    crate::scaffold::add(crate::scaffold::WORD, t_word);
+     let (cur_len, cur_vel) = (exact.length_exponent as i32, exact.velocity_exponent as i32);
+     if len <= cur_len && vel <= cur_vel {
++        crate::scaffold::add(crate::scaffold::BINDSURF, t_bs);
+         return Ok(bound);
+     }
+     let (nl, nv) = (len.max(cur_len), vel.max(cur_vel));
+@@ -242,8 +246,12 @@ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<S
+         velocity_exponent: nv as i16,
+     };
+     let t_again = crate::prof::t();
++    let t_retry = crate::scaffold::t();
++    crate::scaffold::retry_window(t_retry);
+     let again = bind_in(coarser, t, clock_exp, edge, unit, surface);
++    crate::scaffold::retry_done(t_retry);
+     crate::prof::add(crate::prof::FIT2, t_again);
++    crate::scaffold::add(crate::scaffold::BINDSURF, t_bs);
+     again
+ }
+ 
+@@ -258,12 +266,17 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
++    let t_pre = crate::scaffold::t();
+     let input = in_tube_units(exact, unit)?;
+     let time = unit.to_tube(time_of(t, clock_exp)?)?;
+     let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
++    crate::scaffold::add(crate::scaffold::PRE, t_pre);
++    let t_fit = crate::scaffold::t();
+     let fit = if let Some(surface) = surface {
+         Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
+     } else { Rebinding::from_state(input, time, edge)? };
++    crate::scaffold::add(crate::scaffold::FIT, t_fit);
++    let t_tube = crate::scaffold::t();
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+@@ -272,6 +285,8 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+         let at = time_of(peri, clock_exp)?.add(unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+         i64::try_from(at).map_err(|_| Error::Refused("terminal clock"))?;
+     }
++    crate::scaffold::add(crate::scaffold::TUBE, t_tube);
++    let t_turn = crate::scaffold::t();
+     let units = (exact.length_exponent, exact.velocity_exponent);
+     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
+     // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
+@@ -284,6 +299,7 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+         position: [exact.position[0] as i128 - tp[0], exact.position[1] as i128 - tp[1]],
+         velocity: [exact.velocity[0] as i128 - tv[0], exact.velocity[1] as i128 - tv[1]],
+     };
++    crate::scaffold::add(crate::scaffold::TURN, t_turn);
+     Ok(Bound { units, entry, tube, residual, turn, orbit })
+ }
+ 
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..f53d81ac 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -13,6 +13,7 @@ pub mod observe;
+ pub mod prof;
+ pub mod radial;
+ pub mod scenario;
++pub mod scaffold;
+ pub mod step;
+ pub mod thrust;
+ pub mod universe;
+diff --git a/crates/universe/src/scaffold.rs b/crates/universe/src/scaffold.rs
+new file mode 100644
+index 00000000..c2fb3c75
+--- /dev/null
++++ b/crates/universe/src/scaffold.rs
+@@ -0,0 +1,111 @@
++//! Print-only scaffold audit: the price of every stage of a rebind outside `Rebinding::from_state`
++//! (the frame-cost page's named unpriced term). Off (default): every helper is one relaxed load of a
++//! settled `LazyLock`; nothing else runs, the engine is what it was. On (`ES_SCAFFOLD_AUDIT=1`):
++//! wall nanoseconds and call counts accumulate in relaxed atomics beside the same paths, and
++//! `report` prints them. It computes no value the engine reads: digests cannot move.
++//!
++//! Buckets are disjoint by construction: the coarser-word retry's inner stages are suppressed while
++//! it runs (the retry window), so `RETRY` carries the whole second `bind_in`.
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::sync::LazyLock;
++use std::time::Instant;
++
++pub const FIT: usize = 0; // `Rebinding::from_state` / `ending_at` (the fit incl. the compile)
++pub const PRE: usize = 1; // `bind_in`'s unit/time/edge conversions before the fit
++pub const TUBE: usize = 2; // `bind_in`'s peri/tube/entry/plunge block after the fit
++pub const TURN: usize = 3; // `bind_in`'s decode + turn + residual
++pub const WORD: usize = 4; // `bind_surface`'s `word_for`
++pub const RETRY: usize = 5; // `bind_surface`'s second `bind_in` (the coarser word), whole
++pub const TAU_T: usize = 6; // `Work::rebind`: `old.orbit_state(t)`
++pub const TAU_EV: usize = 7; // `Work::rebind`: `old.orbit_state(old.event_time)`
++pub const RETIRE: usize = 8; // `Work::rebind`: proper-time add, retired push, binding build, plan retain
++pub const TERM: usize = 9; // `Work::rebind`: `plan_terminal`
++pub const REBIND: usize = 10; // `Work::rebind` whole
++pub const BINDSURF: usize = 11; // `bind_surface` whole (every caller: rebinds, births, hand-outs)
++pub const KICK_READ: usize = 12; // `Work::kick`: `readout(t)` before the rebind (the same decode as TAU_T)
++pub const N: usize = 13;
++
++pub const NAMES: [&str; N] = [
++    "fit (Rebinding::from_state/ending_at)",
++    "pre-fit conversions (units/time/edge)",
++    "post-fit tube/entry/plunge",
++    "decode+turn+residual (new binding)",
++    "word_for",
++    "retry bind_in (coarser word)",
++    "tau read: orbit_state(t)",
++    "tau read: orbit_state(event_time)",
++    "retire+construct+retain",
++    "plan_terminal",
++    "rebind (whole)",
++    "bind_surface (whole, all callers)",
++    "kick readout(t) (decode identical to tau read)",
++];
++
++static ON: LazyLock<bool> = LazyLock::new(|| std::env::var("ES_SCAFFOLD_AUDIT").is_ok_and(|v| v != "0" && !v.is_empty()));
++static NS: [AtomicU64; N] = [const { AtomicU64::new(0) }; N];
++static CALLS: [AtomicU64; N] = [const { AtomicU64::new(0) }; N];
++static PAUSED: AtomicBool = AtomicBool::new(false);
++
++pub fn on() -> bool {
++    *ON
++}
++
++#[inline]
++pub fn t() -> Option<Instant> {
++    on().then(Instant::now)
++}
++
++#[inline]
++pub fn add(stage: usize, t0: Option<Instant>) {
++    if let Some(t0) = t0 {
++        if PAUSED.load(Ordering::Relaxed) {
++            return;
++        }
++        NS[stage].fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++        CALLS[stage].fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// Suppress the inner-stage buckets while the retry's `bind_in` runs (RETRY itself is timed outside).
++#[inline]
++pub fn retry_window(t0: Option<Instant>) {
++    if t0.is_some() {
++        PAUSED.store(true, Ordering::Relaxed);
++    }
++}
++
++#[inline]
++pub fn retry_done(t0: Option<Instant>) {
++    if let Some(t0) = t0 {
++        PAUSED.store(false, Ordering::Relaxed);
++        add(RETRY, Some(t0));
++    }
++}
++
++/// Zero every counter (call between an example's build and its flight, so build-time bindings do not pollute).
++pub fn reset() {
++    for s in 0..N {
++        NS[s].store(0, Ordering::Relaxed);
++        CALLS[s].store(0, Ordering::Relaxed);
++    }
++}
++
++/// Print the bill: calls, µs per call, and each stage's share of the rebind wall and of `bind_surface`.
++pub fn report(scene: &str) {
++    if !on() {
++        return;
++    }
++    let (ns, calls): (Vec<u64>, Vec<u64>) = (0..N).map(|s| (NS[s].load(Ordering::Relaxed), CALLS[s].load(Ordering::Relaxed))).unzip();
++    let rebind_ns = ns[REBIND];
++    let bs_ns = ns[BINDSURF];
++    println!("scaffold audit ({scene}): rebind calls {}, bind_surface calls {} (every caller), rebind wall {:.2} µs/call, bind_surface wall {:.2} µs/call", calls[REBIND], calls[BINDSURF], rebind_ns as f64 / calls[REBIND].max(1) as f64 / 1e3, bs_ns as f64 / calls[BINDSURF].max(1) as f64 / 1e3);
++    for s in 0..N {
++        if calls[s] > 0 && s != REBIND && s != BINDSURF {
++            println!("  {:<46} calls {:>8}  {:>7.2} µs/call  {:>5.1}% of rebind  {:>5.1}% of bind_surface", NAMES[s], calls[s], ns[s] as f64 / calls[s] as f64 / 1e3, 100.0 * ns[s] as f64 / rebind_ns.max(1) as f64, 100.0 * ns[s] as f64 / bs_ns.max(1) as f64);
++        }
++    }
++    let inner: u64 = ns[PRE] + ns[FIT] + ns[TUBE] + ns[TURN] + ns[WORD] + ns[RETRY];
++    println!("  {:<46} {:>8}  {:>7.2} µs/call  (bind_surface inner sum; outside it: the rebind's tau/retire/term)", "sum of bind_in+word stages", 0, inner as f64 / calls[BINDSURF].max(1) as f64 / 1e3);
++    let outside: u64 = ns[TAU_T] + ns[TAU_EV] + ns[RETIRE] + ns[TERM];
++    println!("  {:<46} {:>8}  {:>7.2} µs/call  {:>5.1}% of rebind", "outside bind_surface (in rebind)", 0, outside as f64 / calls[REBIND].max(1) as f64 / 1e3, 100.0 * outside as f64 / rebind_ns.max(1) as f64);
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..227a19e3 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -354,11 +354,19 @@ impl Work<'_, '_> {
+ 
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
++        let t_rb = crate::scaffold::t();
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let t_tau = crate::scaffold::t();
++        let tau_t = old.orbit_state(t)?;
++        crate::scaffold::add(crate::scaffold::TAU_T, t_tau);
++        let t_tauev = crate::scaffold::t();
++        let tau_ev = old.orbit_state(old.event_time)?;
++        crate::scaffold::add(crate::scaffold::TAU_EV, t_tauev);
++        let tau = tau_t.proper_time.sub(tau_ev.proper_time)?;
++        let t_retire = crate::scaffold::t();
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+@@ -376,7 +384,11 @@ impl Work<'_, '_> {
+         };
+         self.new_entry = Some(bound.entry.clone());
+         self.rec.plan.retain(|item| item.what != What::Crash);
++        crate::scaffold::add(crate::scaffold::RETIRE, t_retire);
++        let t_term = crate::scaffold::t();
+         self.plan_terminal(t)?;
++        crate::scaffold::add(crate::scaffold::TERM, t_term);
++        crate::scaffold::add(crate::scaffold::REBIND, t_rb);
+         Ok(bound)
+     }
+ 
+@@ -404,7 +416,9 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let t_rd = crate::scaffold::t();
+         let st = self.rec.b.readout(t)?;
++        crate::scaffold::add(crate::scaffold::KICK_READ, t_rd);
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..53c0c722 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -55,6 +55,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
++    emergent_universe::scaffold::reset();
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
+@@ -107,5 +108,6 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+     }))?);
++    emergent_universe::scaffold::report("kick-bench");
+     Ok(u8::from(refused != 0))
+ }
