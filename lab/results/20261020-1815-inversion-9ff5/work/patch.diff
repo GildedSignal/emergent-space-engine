@@ -1,0 +1,186 @@
+diff --git a/crates/universe/examples/longflight.rs b/crates/universe/examples/longflight.rs
+new file mode 100644
+index 00000000..5c82fc65
+--- /dev/null
++++ b/crates/universe/examples/longflight.rs
+@@ -0,0 +1,180 @@
++//! The long flight (lab run 20261020-1815-inversion-9ff5): the ladder's belt flown past every
++//! flown horizon (the record stops at ~9.5 eras / 267k game-s; the ladder itself flew 2k gs).
++//! Same scene and loop as `nladder` (seed 1, 48 fleet members, `frame_to`, 12 ms budget), no 55 s
++//! cap, plus: a counting global allocator (live Rust bytes, the instrument 470f needed to see the
++//! FLOW's growth), /proc RSS, and one CSV line a wall second (game-s, per-kind stats deltas,
++//! worst frame, held, catalogue). Print-only relative to the shipped loop; no engine change.
++//!
++//! cargo run --release -p emergent-universe --example longflight -- <N> <coast|burn> <wall seconds> <rtf>
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::time::{Duration, Instant};
++
++static LIVE: AtomicU64 = AtomicU64::new(0);
++static PEAK: AtomicU64 = AtomicU64::new(0);
++struct Counting;
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc(l);
++        if !p.is_null() {
++            let n = LIVE.fetch_add(l.size() as u64, Relaxed) + l.size() as u64;
++            PEAK.fetch_max(n, Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        System.dealloc(p, l);
++        LIVE.fetch_sub(l.size() as u64, Relaxed);
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
++        let q = System.realloc(p, l, n);
++        if !q.is_null() {
++            let d = n as i64 - l.size() as i64;
++            if d >= 0 {
++                let t = LIVE.fetch_add(d as u64, Relaxed) + d as u64;
++                PEAK.fetch_max(t, Relaxed);
++            } else {
++                LIVE.fetch_sub((-d) as u64, Relaxed);
++            }
++        }
++        q
++    }
++}
++#[global_allocator]
++static A: Counting = Counting;
++
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmRSS:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<f64>().ok()))
++        })
++        .map(|kb| kb / 1024.0)
++        .unwrap_or(0.0)
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(60.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1800.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let seed: u64 = std::env::var("ES_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let guard_mb: f64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(1700.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let t0 = Instant::now();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    eprintln!(
++        "longflight N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s wall, budget {budget_ms} ms; build {build:.2} s, live {:.0} MB, rss {:.0} MB",
++        LIVE.load(Relaxed) as f64 / 1e6,
++        rss_mb()
++    );
++    let mut held_max = 0usize;
++    let mut last = p.u.stats;
++    let mut alive = true;
++    let (mut worst_ms, mut worst_ev, mut worst_gs) = (0.0f64, 0u64, 0i64);
++    let mut lag_max = 0.0f64;
++    let mut truncated = "";
++    // per-window state, printed every 60 frames (1 wall second)
++    let (mut w_kicks, mut w_bounds, mut w_events, mut w_over, mut w_ship_ns, mut w_all_ns) = (0u64, 0u64, 0u64, 0usize, 0u64, 0u64);
++    let (mut w_worst_ms, mut w_worst_ev, mut w_worst_at) = (0.0f64, 0u64, 0usize);
++    let t_first_stats = p.u.now;
++    println!("win,gs,kicks,boundaries,opens,handoffs,events,worst_ms,worst_ev,over,ship_us,all_us,held,cat_live,bpb,live_mb,rss_mb,dead,lag_s");
++    let mut dead_total = 0usize;
++    for f in 0..frames {
++        if rss_mb() > guard_mb {
++            truncated = "rss-guard";
++            break;
++        }
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) },
++            i64::MAX,
++        );
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        let s = p.u.stats;
++        let ev = frame.events;
++        w_kicks += s.kicks - last.kicks;
++        w_bounds += s.boundaries - last.boundaries;
++        w_events += ev;
++        w_all_ns += took as u64 * 1_000;
++        w_ship_ns += s.cost_ns[2].saturating_sub(last.cost_ns[2]);
++        if took > budget_ms {
++            w_over += 1;
++        }
++        if took > w_worst_ms {
++            w_worst_ms = took;
++            w_worst_ev = ev;
++            w_worst_at = f;
++        }
++        if took > worst_ms {
++            worst_ms = took;
++            worst_ev = ev;
++            worst_gs = p.u.now;
++        }
++        let lag = (frame.target - frame.presented) as f64 * TICK_SECONDS;
++        lag_max = lag_max.max(lag);
++        held_max = held_max.max(p.u.held_scans());
++        last = s;
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++        if (f + 1) % 60 == 0 {
++            dead_total = (0..bodies).filter(|i| !p.u.rec(*i).alive).count();
++            let gs = (p.u.now - t_first_stats) as f64 * TICK_SECONDS;
++            println!(
++                "{},{:.0},{},{},{},{},{},{:.2},{},{},{:.0},{:.0},{},{},{},{:.1},{:.1},{},{:.3}",
++                f / 60,
++                gs,
++                w_kicks,
++                w_bounds,
++                s.opens - 0,
++                s.handoffs,
++                w_events,
++                w_worst_ms,
++                w_worst_ev,
++                w_over,
++                w_ship_ns as f64 / 1e3,
++                w_all_ns as f64 / 1e3,
++                p.u.held_scans(),
++                p.u.catalogue_live(),
++                p.u.bytes_per_body(),
++                LIVE.load(Relaxed) as f64 / 1e6,
++                rss_mb(),
++                dead_total,
++                lag_max
++            );
++            (w_kicks, w_bounds, w_events, w_over, w_ship_ns, w_all_ns) = (0, 0, 0, 0, 0, 0);
++            (w_worst_ms, w_worst_ev, w_worst_at) = (0.0, 0, 0);
++        }
++    }
++    let s = p.u.stats;
++    let game_s = (p.u.now - t_first_stats) as f64 * TICK_SECONDS;
++    eprintln!(
++        "END frames={} gs={game_s:.0} kicks={} boundaries={} opens={} handoffs={} lost={} refused={} slices={} encounters={} leavers={} dissolved={}; worst {worst_ms:.1} ms (ev {worst_ev}, gs {worst_gs}), lag_max {lag_max:.2} s, held_max {held_max}, dead {dead_total}, player alive {alive}, live {:.0} MB peak-live {:.0} MB rss {:.1} MB, truncated={truncated}, wall {:.1} s",
++        frames, s.kicks, s.boundaries, s.opens, s.handoffs, s.lost, s.refused, s.slices, s.encounters, s.leavers, s.dissolved,
++        LIVE.load(Relaxed) as f64 / 1e6,
++        PEAK.load(Relaxed) as f64 / 1e6,
++        rss_mb(),
++        t_start.elapsed().as_secs_f64()
++    );
++}

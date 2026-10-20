@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables: `dossier.md`, `predictions.md` (pre-registered 18:25, before the decisive flight), `regen.sh` (re-flies all three arms + both analyses, ~7 min), `wiki/nladder.md` (fold-in), instruments and raw CSVs in `work/`; the example is saved as the tree patch and the wiki on main is untouched.
+
+**The claim:** flying the horizon no run had touched — 34 eras / 954k game-s of the shipped 5e4 belt, 3.6× the record's longest flight and 475× the N1 gate's own 20-s flight — the belt's era wall is permanent (3.72 events/body/era flat ±2%, so the page's "decays −26% by era 8" is really shear + spread of an invariant mass), live memory does **not** grow with play (242.8 MB ±0.4 baseline, the pre-registered ratchet kill-bar fired), comb concentration self-softens −73% then floors at ~27% (the stagger only needs ~10–12 eras of coverage), and the held-scan answer channel ages out entirely by era 15.
