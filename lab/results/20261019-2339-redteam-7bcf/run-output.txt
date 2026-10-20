@@ -1,0 +1,37 @@
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261019-2339-redteam-7bcf/seen_flux.py:79: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+  kk = float(kof(u_[0], u_[1], 1.0, 0.0)); k0 = float(kof(u0[0], u0[1], 1.0, 0.0))
+c1-gauss-b0.5-s0.03    bulk 0.01572  mix-quad 0.01037  one-sample 0.2745  per-ship 2.22e-16
+c2-gauss-b0.9-s0.03    bulk 0.01572  mix-quad 0.01037  one-sample 0.2771  per-ship 2.22e-16
+c3-gauss-b0.99-s0.03   bulk 0.01571  mix-quad 0.01037  one-sample 0.2783  per-ship 8.882e-16
+c4-ring-b0.9-w0.05     bulk 0.00747  mix-quad 6.661e-16  moment-1gauss 2.598e-05  one-sample 0.2123  per-ship 2.22e-16
+c5-ring-b0.9-w0.15     bulk 0.06511  mix-quad 6.661e-16  moment-1gauss 0.002255  one-sample 0.7105  per-ship 4.441e-16
+c6-bimodal-b0.9        bulk 0.02283  mix-quad 0.003426  one-sample 0.3022  per-ship 3.331e-16
+c7-gauss-b0.5-s0.10    bulk 0.09098  mix-quad 0.03319  one-sample 1.109  per-ship 2.22e-16
+{
+ "per-ship": {
+  "p99_flux_error": 8.881784197001252e-16,
+  "two_path_max_rel_diff": 8.985315709694156e-15,
+  "ops_per_fleet_frame": 6800
+ },
+ "one-sample": {
+  "p99_flux_error": 1.1092288593839545,
+  "two_path_max_rel_diff": 8.985315709694156e-15,
+  "ops_per_fleet_frame": 19
+ },
+ "mix-quad": {
+  "p99_flux_error": 0.03319472853220773,
+  "two_path_max_rel_diff": 8.985315709694156e-15,
+  "ops_per_fleet_frame": 4320
+ }
+}
+c1-gauss-b0.5-s0.03    cv_head 0.120 (1885-law 0.161)  cv_trans 0.120  median one-sample 0.184
+c2-gauss-b0.9-s0.03    cv_head 0.120 (1885-law 0.700)  cv_trans 0.120  median one-sample 0.197
+c3-gauss-b0.99-s0.03   cv_head 0.120 (1885-law 78716162.169)  cv_trans 0.121  median one-sample 0.246
+c4-ring-b0.9-w0.05     cv_head 0.141 (1885-law 0.860)  cv_trans 0.141  median one-sample 0.071
+c5-ring-b0.9-w0.15     cv_head 0.420 (1885-law 12.057)  cv_trans 0.420  median one-sample 0.144
+c6-bimodal-b0.9        cv_head 0.201 (1885-law 0.000)  cv_trans 0.182  median one-sample 0.248
+c7-gauss-b0.5-s0.10    cv_head 0.414 (1885-law 0.574)  cv_trans 0.439  median one-sample 0.560
+d-obs-frame: {'p99_bulkrel_sub': 0.6433808708822399, 'cv_k4_head': 4.053422686835729}
+d-1e6-truth-c1-gauss-b0.5-s0.03 {'p99_readout_err_1e6': 0.00011714915343152832, 'max_readout_err_1e6': 0.00011728047974579603}
+d-1e6-truth-c5-ring-b0.9-w0.15 {'p99_readout_err_1e6': 8.881784197001252e-16, 'max_readout_err_1e6': 1.1102230246251565e-15}
+d-1e6-truth-c7-gauss-b0.5-s0.10 {'p99_readout_err_1e6': 0.0003814477110839487, 'max_readout_err_1e6': 0.00038184870406365867}
