@@ -1,0 +1,86 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.18s
+=== d1e5: ES_ITEM_PROBE=1
+game 17935.5 s after the first second: kicks 128613 (7.169e-5/body/game-s), events 160126 (8.925e-5/body/game-s), stats {opens 378, boundaries 27661, handoffs 1, lost 11, refused 0, slices 3473}; refusals held 0, dead 0, alive(player) true
+worst frames (frame, ms, events, lag s): (914, 871.35, 16121, 0.000) (909, 862.94, 15925, 0.000) (919, 811.16, 13350, 0.000) (905, 803.68, 15109, 0.000) (929, 498.58, 7370, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=1000 frames=1200 build_s=4.89 foot_build_mb=237 foot_end_mb=500 b_per_body=2348 p50_ms=2.957 p99_ms=25.021 max_ms=871.353 over=22 lag_s=15.698 kicks_per_body_gs=7.169e-5 events_per_body_gs=8.925e-5 refusals=0 dead=0 held_max=1083 view_ms=2129.9 truncated=false wall_s=22.5
+=== c1e5: ES_ITEM_PROBE=1 ES_ROOT_STREAM=1
+game 13267.1 s after the first second: kicks 99485 (7.497e-5/body/game-s), events 124050 (9.348e-5/body/game-s), stats {opens 320, boundaries 20750, handoffs 1, lost 11, refused 0, slices 3494}; refusals held 0, dead 0, alive(player) true
+worst frames (frame, ms, events, lag s): (65, 14.32, 248, 11.984) (111, 14.09, 184, 0.622) (150, 12.28, 70, 14.326) (931, 12.01, 239, 16.667) (887, 12.01, 238, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=1000 frames=1200 build_s=4.47 foot_build_mb=237 foot_end_mb=425 b_per_body=2349 p50_ms=4.652 p99_ms=11.981 max_ms=14.316 over=6 lag_s=16.667 kicks_per_body_gs=7.497e-5 events_per_body_gs=9.348e-5 refusals=0 dead=0 held_max=1073 view_ms=2213.1 truncated=false wall_s=19.0
+=== n1e5: ES_ITEM_PROBE=1 ES_ROOT_STREAM=naive
+game 14473.9 s after the first second: kicks 91058 (6.289e-5/body/game-s), events 116859 (8.072e-5/body/game-s), stats {opens 330, boundaries 21992, handoffs 1, lost 11, refused 0, slices 3478}; refusals held 0, dead 0, alive(player) true
+worst frames (frame, ms, events, lag s): (195, 14.99, 237, 6.337) (190, 12.82, 109, 11.098) (81, 12.15, 59, 10.525) (181, 12.08, 44, 14.407) (978, 12.05, 220, 13.472)
+ladder: n=100000 bodies=100028 flight=burn rtf=1000 frames=1200 build_s=6.12 foot_build_mb=237 foot_end_mb=410 b_per_body=2348 p50_ms=4.725 p99_ms=11.978 max_ms=14.986 over=6 lag_s=15.779 kicks_per_body_gs=6.289e-5 events_per_body_gs=8.072e-5 refusals=0 dead=0 held_max=1084 view_ms=2452.7 truncated=false wall_s=21.1
+=== d2e5 (2e5): ES_ITEM_PROBE=1
+game 18192.2 s after the first second: kicks 228988 (6.293e-5/body/game-s), events 260821 (7.167e-5/body/game-s), stats {opens 381, boundaries 27960, handoffs 1, lost 11, refused 0, slices 3491}; refusals held 0, dead 0, alive(player) true
+worst frames (frame, ms, events, lag s): (894, 1906.10, 32389, 0.000) (899, 1710.85, 33007, 0.000) (889, 1617.47, 31091, 0.000) (904, 1386.29, 26879, 0.000) (914, 769.22, 15001, 0.000)
+ladder: n=200000 bodies=200028 flight=burn rtf=1000 frames=1200 build_s=9.02 foot_build_mb=471 foot_end_mb=1002 b_per_body=2342 p50_ms=2.496 p99_ms=88.810 max_ms=1906.099 over=20 lag_s=14.891 kicks_per_body_gs=6.293e-5 events_per_body_gs=7.167e-5 refusals=0 dead=0 held_max=1089 view_ms=4312.5 truncated=false wall_s=38.0
+=== c2e5 (2e5): ES_ITEM_PROBE=1 ES_ROOT_STREAM=1
+game 13101.9 s after the first second: kicks 90319 (3.446e-5/body/game-s), events 114600 (4.373e-5/body/game-s), stats {opens 318, boundaries 20502, handoffs 1, lost 11, refused 0, slices 3460}; refusals held 0, dead 0, alive(player) true
+worst frames (frame, ms, events, lag s): (184, 16.27, 241, 8.920) (65, 15.21, 251, 11.823) (117, 14.42, 184, 0.622) (93, 13.41, 246, 1.359) (133, 12.55, 112, 9.242)
+ladder: n=200000 bodies=200028 flight=burn rtf=1000 frames=1200 build_s=9.27 foot_build_mb=471 foot_end_mb=638 b_per_body=2342 p50_ms=4.824 p99_ms=11.987 max_ms=16.269 over=7 lag_s=16.667 kicks_per_body_gs=3.446e-5 events_per_body_gs=4.373e-5 refusals=0 dead=0 held_max=1217 view_ms=4430.7 truncated=false wall_s=31.3
+=== n2e5 (2e5): ES_ITEM_PROBE=1 ES_ROOT_STREAM=naive
+game 14086.3 s after the first second: kicks 96621 (3.429e-5/body/game-s), events 121955 (4.328e-5/body/game-s), stats {opens 325, boundaries 21473, handoffs 1, lost 11, refused 0, slices 3535}; refusals held 0, dead 0, alive(player) true
+worst frames (frame, ms, events, lag s): (68, 15.57, 244, 10.692) (171, 15.35, 240, 4.400) (76, 13.89, 181, 1.153) (124, 13.19, 176, 9.888) (162, 12.72, 45, 14.326)
+ladder: n=200000 bodies=200028 flight=burn rtf=1000 frames=1200 build_s=8.91 foot_build_mb=471 foot_end_mb=661 b_per_body=2342 p50_ms=4.985 p99_ms=11.984 max_ms=15.569 over=7 lag_s=16.270 kicks_per_body_gs=3.429e-5 events_per_body_gs=4.328e-5 refusals=0 dead=0 held_max=1088 view_ms=4145.4 truncated=false wall_s=30.0
+=== d1e5c (coast control)
+game 14647.4 s after the first second: kicks 105229 (7.182e-5/body/game-s), events 129313 (8.826e-5/body/game-s), stats {opens 32, boundaries 22695, handoffs 0, lost 11, refused 0, slices 1357}; refusals held 0, dead 0, alive(player) true
+worst frames (frame, ms, events, lag s): (907, 11.97, 232, 13.034) (1044, 11.97, 229, 14.381) (1017, 11.97, 233, 14.932) (1185, 11.97, 233, 13.094) (1029, 11.97, 232, 14.443)
+ladder: n=100000 bodies=100028 flight=coast rtf=1000 frames=1200 build_s=4.42 foot_build_mb=237 foot_end_mb=444 b_per_body=2348 p50_ms=4.502 p99_ms=11.968 max_ms=11.972 over=0 lag_s=15.610 kicks_per_body_gs=7.182e-5 events_per_body_gs=8.826e-5 refusals=0 dead=0 held_max=127 view_ms=2107.2 truncated=false wall_s=18.3
+
+===== census (awk -f work/sum.awk <arm>.err) =====
+--- d1e5
+worst_player_item: t=2873480016 pull=866.7 fleet=0.000 ho=0.000 scan=0.240 proc=0.019 fleet_kicks=0
+max fleet_ms=0.087 ho_ms=0.641 scan_ms=6.042 proc_ms=2.698 | nested fleet_kicks_total=8
+pulls: root calls=462 (>0: 414) pulled_total=105486 max=16120 | child calls=2333 (>0: 148) pulled_total=7041
+worst_frame_item: frame_items target=2873678595 by_class=[0, 0, 0, 1, 0] max_item=(class=3 e=100027 ns=867026943)
+max_item_ns=867026943
+ships_frame: frame_items target=2149554597 by_class=[0, 1, 331, 0, 0] max_item=(class=2 e=100038 ns=149509)
+--- c1e5
+worst_player_item: t=335544320 pull=6.9 fleet=0.013 ho=0.000 scan=0.108 proc=0.831 fleet_kicks=0
+max fleet_ms=0.089 ho_ms=0.611 scan_ms=0.231 proc_ms=2.546 | nested fleet_kicks_total=8
+pulls: root calls=405 (>0: 0) pulled_total=0 max=0 | child calls=2326 (>0: 147) pulled_total=7039
+worst_frame_item: frame_items target=335782348 by_class=[0, 0, 2, 4, 15] max_item=(class=3 e=100027 ns=7850877)
+max_item_ns=7850877
+ships_frame: frame_items target=1075116940 by_class=[0, 0, 332, 1, 0] max_item=(class=2 e=100038 ns=144879)
+--- n1e5
+worst_player_item: t=268435456 pull=9.6 fleet=0.012 ho=0.000 scan=0.063 proc=0.211 fleet_kicks=0
+max fleet_ms=0.083 ho_ms=0.676 scan_ms=0.421 proc_ms=1.866 | nested fleet_kicks_total=8
+pulls: root calls=0 (>0: 0) pulled_total=0 max=0 | child calls=2323 (>0: 145) pulled_total=6977
+worst_frame_item: frame_items target=270460262 by_class=[0, 0, 0, 3, 6] max_item=(class=3 e=100027 ns=9912147)
+max_item_ns=9912147
+ships_frame: frame_items target=1074520307 by_class=[0, 1, 332, 0, 0] max_item=(class=2 e=100038 ns=145035)
+--- d2e5
+worst_player_item: t=2856942910 pull=1900.9 fleet=0.000 ho=0.000 scan=0.314 proc=0.195 fleet_kicks=0
+max fleet_ms=0.079 ho_ms=0.621 scan_ms=12.150 proc_ms=1.808 | nested fleet_kicks_total=8
+pulls: root calls=465 (>0: 380) pulled_total=203896 max=33006 | child calls=2326 (>0: 147) pulled_total=7039
+worst_frame_item: frame_items target=2858367376 by_class=[0, 0, 0, 1, 0] max_item=(class=3 e=200027 ns=1901448857)
+max_item_ns=1901448857
+ships_frame: frame_items target=2147778406 by_class=[0, 1, 331, 0, 0] max_item=(class=2 e=200038 ns=145067)
+--- c2e5
+worst_player_item: t=268435456 pull=8.8 fleet=0.012 ho=0.000 scan=0.055 proc=0.196 fleet_kicks=0
+max fleet_ms=0.110 ho_ms=0.637 scan_ms=0.388 proc_ms=2.118 | nested fleet_kicks_total=8
+pulls: root calls=403 (>0: 0) pulled_total=0 max=0 | child calls=2326 (>0: 148) pulled_total=7041
+worst_frame_item: frame_items target=268729294 by_class=[0, 0, 3, 6, 16] max_item=(class=3 e=200027 ns=9071761)
+max_item_ns=9071761
+ships_frame: frame_items target=1076403545 by_class=[0, 0, 332, 1, 0] max_item=(class=2 e=200038 ns=144762)
+--- n2e5
+worst_player_item: t=67108864 pull=6.8 fleet=0.008 ho=0.000 scan=0.295 proc=0.017 fleet_kicks=0
+max fleet_ms=0.084 ho_ms=0.631 scan_ms=0.849 proc_ms=1.350 | nested fleet_kicks_total=9
+pulls: root calls=0 (>0: 0) pulled_total=0 max=0 | child calls=2322 (>0: 146) pulled_total=6978
+worst_frame_item: frame_items target=67868059 by_class=[0, 0, 27, 2, 42] max_item=(class=3 e=200027 ns=7201668)
+max_item_ns=7201668
+ships_frame: frame_items target=2148433766 by_class=[0, 0, 331, 1, 0] max_item=(class=3 e=200027 ns=240729)
+--- d1e5c
+worst_player_item: t=1073741824 pull=9.6 fleet=0.000 ho=0.000 scan=0.103 proc=0.016 fleet_kicks=0
+max fleet_ms=0.010 ho_ms=0.000 scan_ms=0.263 proc_ms=0.058 | nested fleet_kicks_total=0
+pulls: root calls=0 (>0: 0) pulled_total=0 max=0 | child calls=1511 (>0: 755) pulled_total=45476
+worst_frame_item: frame_items target=1076971527 by_class=[0, 0, 21, 1, 0] max_item=(class=3 e=100027 ns=9767027)
+max_item_ns=9767027
+ships_frame: frame_items target=3026515959 by_class=[0, 0, 236, 0, 0] max_item=(class=2 e=66447 ns=58970)
+
+===== e9a1's own .err files on its branch (root pulls) =====
+arm_1e5_burn: root calls=467 (>0: 382) pulled_total=103219 max=16054
+arm_2e5_burn: root calls=467 (>0: 379) pulled_total=203292 max=32937
+arm_100000_coast20: root calls=0 (>0: 0) pulled_total=0 max=0

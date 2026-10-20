@@ -1,0 +1,232 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..364082bc 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,10 +14,37 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "linux")]
++mod linux_mem {
++    /// (resident now, its peak) in bytes, from /proc: this example's macOS footprint probe has no
++    /// counterpart here, so the resident size stands in (disclosed: compressed pages are not counted).
++    pub fn footprint() -> (u64, u64) {
++        let mut now = 0u64;
++        let mut peak = 0u64;
++        if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++            for line in s.lines() {
++                if let Some(v) = line.strip_prefix("VmRSS:") {
++                    now = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                    peak = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++                }
++            }
++        }
++        (now, peak)
++    }
++}
++
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    linux_mem::footprint()
++}
++
++#[cfg(not(target_os = "linux"))]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
++#[cfg(not(target_os = "linux"))]
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..3629c884 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -81,6 +81,29 @@ const SCAN_BACKLOG: usize = 2048;
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
++/// This run's print-only probe (`ES_ITEM_PROBE=1`; off = the shipped behaviour and bits): one line per
++/// player item (the wall time and counts of its un-budgeted edges — the fleet loop, the hand-out loop,
++/// the ship pull, the scan — plus the item's own process) and one per frame (the top-level items by
++/// class and the worst of them), so a wave frame's cost is attributed by measurement, not by elimination.
++fn item_probe() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var_os("ES_ITEM_PROBE").is_some());
++    *V
++}
++
++/// ee4d's gold cure (`ES_ROOT_STREAM=1`; off = shipped bits untouched), carried verbatim for the
++/// reconciliation flight: the ships the player's scan waits for are resolved as their own budgeted
++/// items before the player's item runs, instead of the item pulling them (or what they wait on) whole.
++fn root_stream() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_ROOT_STREAM").is_ok_and(|v| v == "1"));
++    *V
++}
++
++/// ee4d's negative control (`ES_ROOT_STREAM=naive`): in root, pull nothing and mint on stale bindings.
++fn root_stream_naive() -> bool {
++    static V: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_ROOT_STREAM").is_ok_and(|v| v == "naive"));
++    *V
++}
++
+ /// The encounter hash chain's next link.
+ fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+     let mut h = blake3::Hasher::new();
+@@ -688,6 +711,7 @@ impl Universe {
+     /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
+     /// with `children_only`, the items of the ships of a planet's doll only.
+     fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
++        let mut pulled = 0usize;
+         loop {
+             let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
+             let Some((t, i)) = ticks.peek() else { break };
+@@ -696,6 +720,10 @@ impl Universe {
+             }
+             self.resolve_body(i);
+             self.requeue(i);
++            pulled += 1;
++        }
++        if item_probe() {
++            eprintln!("pull_wave t={} children_only={children_only} pulled={pulled}", key.0);
+         }
+     }
+ 
+@@ -725,26 +753,40 @@ impl Universe {
+             self.pull(&moons, key);
+             self.lanes.moons = moons;
+         }
++        let probe = kind == Kind::Player && item_probe();
++        let (mut f_calls, mut f_slices, mut f_kicks) = (0u64, 0u64, 0u64);
++        let (mut f_ns, mut h_calls, mut h_ns) = (0u64, 0u64, 0u64);
+         if kind == Kind::Player {
+             // The player's neighbourhood check reads every body of its doll: the members a frame hands out
+             // before the player's tick must exist, so the fleets run to the tick before it (never to it:
+             // a hand-out at the player's own tick comes after the player in the order of ids, and a
+             // frame never runs past the presented time, which the digest's cut relies on).
++            let t_fleet = Instant::now();
+             for f in 0..self.fleets.len() {
+                 while self.fleets[f].live() && self.fleets[f].tick() < key.0 - 1 {
++                    let (s0, k0) = (self.stats.slices, self.stats.kicks);
+                     self.resolve_fleet(f, key.0 - 1);
++                    f_calls += 1;
++                    f_slices += self.stats.slices - s0;
++                    f_kicks += self.stats.kicks - k0;
+                 }
+             }
++            f_ns = t_fleet.elapsed().as_nanos() as u64;
+             // ...and so must the members already handed out, each made before the player reads the doll.
++            let t_ho = Instant::now();
+             while self.handouts.front().is_some_and(|(_, l)| l.tick < key.0) {
+                 self.resolve_handout();
++                h_calls += 1;
+             }
++            h_ns = t_ho.elapsed().as_nanos() as u64;
+             // ...and the ships with an item before the player's: after the player's own item (below), which reads none of them.
+         }
+         let rec = self.bodies.rec(i);
+         let t_process = crate::prof::t();
+         let item = if crate::prof::ENABLED { rec.plan.first().map(|it| (it.what, rec.ext.is_some())) } else { None };
++        let t_proc = Instant::now();
+         let upd = step::process(&self.ctx(), i, rec);
++        let proc_ns = t_proc.elapsed().as_nanos() as u64;
+         crate::prof::add(crate::prof::PROCESS, t_process);
+         if let Some((what, clock)) = item {
+             use crate::prof::*;
+@@ -767,10 +809,29 @@ impl Universe {
+             // the size of the root's whole wave of kicks, inside one item and outside the budget). Ships read only the sources, and the
+             // player reads no ship: resolving the player's item before theirs changes no bit.
+             let in_root = self.bodies.doll(i) == 0;
+-            self.pull_ships(key, !in_root);
++            let t_pull = Instant::now();
++            // `ES_ROOT_STREAM=naive` (ee4d's negative control, carried verbatim): in root, pull nothing
++            // and mint on stale bindings.
++            if !(root_stream_naive() && in_root) {
++                self.pull_ships(key, !in_root);
++            }
++            let pull_ns = t_pull.elapsed().as_nanos() as u64;
+             let t_enc = crate::prof::t();
++            let t_scan = Instant::now();
+             self.encounters_for_player();
++            let scan_ns = t_scan.elapsed().as_nanos() as u64;
+             crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
++            if probe {
++                eprintln!(
++                    "player_item t={} fleets={f_calls} fleet_slices={f_slices} fleet_kicks={f_kicks} fleet_ms={:.3} ho_calls={h_calls} ho_ms={:.3} pull_ms={:.3} scan_ms={:.3} proc_ms={:.3}",
++                    key.0,
++                    f_ns as f64 / 1e6,
++                    h_ns as f64 / 1e6,
++                    pull_ns as f64 / 1e6,
++                    scan_ns as f64 / 1e6,
++                    proc_ns as f64 / 1e6
++                );
++            }
+         }
+     }
+ 
+@@ -985,6 +1046,8 @@ impl Universe {
+         self.target = target;
+         self.rekey();
+         let start = self.resolved;
++        let probe = item_probe();
++        let (mut by_class, mut max_item_ns, mut max_item) = ([0u64; 5], 0u64, (5usize, usize::MAX));
+         let mut done = 0u64;
+         let mut deferred: Vec<usize> = Vec::new();
+         let mut overflow = false;
+@@ -1006,7 +1069,24 @@ impl Universe {
+             }
+             // The next item is started only if what such an item has cost lately is left (a frame overran by the one item it started
+             // with a few microseconds to spare: up to 1.4 ms through the root's wave of kicks); the first item of a frame always runs.
+-            let class = if e < self.bodies.len() { self.info[e].kind as usize } else { 4 };
++            // ES_ROOT_STREAM=1 (ee4d's gold cure, carried verbatim; off = shipped): the popped item is
++            // the player's, in the root doll, and its scan mints only once every ship with a smaller
++            // key is resolved (`pull_ships` inside the item, a burst the budget never sees). Instead of
++            // pulling them inside the player's item, resolve the earliest such ship now, as its own
++            // item behind this same budget gate — the same items in the same key order, spread over as
++            // many frames as the budget wants. Ships read only the sources and the player reads no
++            // ship, so the order change is bit-free; the player's item (and the scan, whose mint those
++            // ships are) runs in this same loop the iteration after the last of them resolves, and
++            // `pull_ships` then finds nothing due.
++            let stream = if root_stream() && Some(e) == self.player && self.bodies.doll(e) == 0 {
++                self.ship_ticks.peek().filter(|&(ts, j)| {
++                    let k = (ts.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, j);
++                    self.key_of(e).is_some_and(|pk| k < pk)
++                }).map(|(_, j)| j)
++            } else {
++                None
++            };
++            let class = stream.map_or(if e < self.bodies.len() { self.info[e].kind as usize } else { 4 }, |_| 2);
+             if budget.spent_before(done, if done == 0 { 0 } else { self.item_ns[class] + FRAME_TAIL_NS }) {
+                 overflow = dl <= target;
+                 break;
+@@ -1019,7 +1099,9 @@ impl Universe {
+                 continue;
+             }
+             let t_item = Instant::now();
+-            if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
++            if let Some(j) = stream {
++                self.resolve_entity(j);
++            } else if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                 self.resolve_wave(e, target);
+             } else {
+                 self.resolve_entity(e);
+@@ -1027,8 +1109,18 @@ impl Universe {
+             let ns = t_item.elapsed().as_nanos() as u64;
+             let m = &mut self.item_ns[class];
+             *m = if ns >= *m { ns } else { *m - *m / 64 };
++            if probe {
++                by_class[class] += 1;
++                if ns > max_item_ns {
++                    max_item_ns = ns;
++                    max_item = (class, stream.unwrap_or(e));
++                }
++            }
+             done = self.resolved - start;
+         }
++        if probe && done > 0 {
++            eprintln!("frame_items target={target} by_class={by_class:?} max_item=(class={} e={} ns={max_item_ns})", max_item.0, max_item.1);
++        }
+         // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
+         let mut horizon = target;
+         if let Some((dl, _)) = self.queue.as_ref().and_then(|q| q.peek()) {
