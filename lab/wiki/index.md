@@ -7,6 +7,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 |---|---|---|---|
 | [entry](entry.md) | open | 0 | (no current best yet) |
 | [fleet-doll-speed](fleet-doll-speed.md) | open | 1 | **The letter's interior law (representation.md L23, law.md L50, frame.rs L14–19: the |
+| [mint-knots](mint-knots.md) | open | 1 | **The kick-cost row and the memory row of the scoreboard are one line item: the |
 | [history-demand](history-demand.md) | open | 2 | **NEW (c8d5, spacex — open direction 1 flown: the one-leg keep is flight-proven complete and |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
@@ -28,7 +29,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [library-directions](library-directions.md) | open | 14 | **The scan pin's fix is composed and it is a trigger-and-expiry change, not a cost |
 | [read-stream](read-stream.md) | open | 14 | **[20261018-1237-components-271c] The compile node's last unpriced arithmetic slices (od 2's |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
-| [promotion](promotion.md) | open | 17 | **NEW (396d, spacex — the player-seam flight, promotion od 1's unflown arm, flown at K = 10⁴ and 3×10⁴):** |
+| [promotion](promotion.md) | open | 18 | **NEW (4f59, components — od 1(b) priced on the shipped window law, both unflown arms flown): the |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [allocator-ratchet](allocator-ratchet.md) | open | 20 | (no current best yet) |
 | [handoff](handoff.md) | open | 21 | **[The galaxy program's production half is measured on the corrected, regenerating |
@@ -42,4 +43,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
-| [nladder](nladder.md) | open | 177 | **NEW (0a46, inversion — the premise beneath every wave composition is inverted: the |
+| [nladder](nladder.md) | open | 178 | **NEW (8365, second author on 0a46 — the checker's named gold experiment flown whole, |

@@ -2,11 +2,47 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261019-1452-spacex-396d
+updated: 20261020-1116-components-4f59
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
 ## Current best
+
+**NEW (4f59, components — od 1(b) priced on the shipped window law, both unflown arms flown): the
+in-band scan's true content is O(1) bodies at every flyable rung and the phase/along-orbit axis is
+sound and 21–24× on the read — but it is a resident's lever, not a crosser's.** Instrument:
+`seamscan` example (print-only, shipped `plane_extra` belt, scanner = median-periapsis doll-0 ship,
+exact readouts; T = radial.rs's own sound window with per-body terms). Engine arms: the shipped
+tier BAILs at N = 10⁴ and 10⁵ (reads every body; bare `binding_at` walk 49–105 ns/body) while
+T = 1 at both (ρ/r = 0.0066, ω = 0.0032 rad = 0.05% of 2π — the belt is encounter-sparse: the
+walk overreads N/T ≈ 10⁴–10⁵×); the phase filter F = 4.7%/4.2% of N, **zero misses at both
+rungs** (window |Δθ| ≤ ω_j + 2·c(e_j), c = e + 2·asin(e/(1+√(1−e²))) per phase.rs:39–41; kept-e
+median 0.11 — the e-smearing, not the drift, sets the resident window). Offline 10⁶ (same window
+law, periapsis-phase family): belt mix F = 11.4% (the e ≤ 0.4 tail's 2c ≈ 1.6 rad dominates);
+**cold belt (e = 0) F = 0.11% — 100× tighter, the zone collapses to ω (396d's named unflown arm,
+held)**; **crosser (0.03 c, 396d's player): T = 21% of the belt itself — the drift term v·h =
+1.6 AU makes the truth a fifth of N, so no index saves a fast crosser at the belt's interval h;
+the lever there is h (linear), not the axis.** A θ-sorted index serves the window in 0.18 µs vs
+2.9 ms brute at 10⁶; per-body caps are the design constraint (class caps read more: 2.0× at the
+belt mix, 178× on the cold belt, where they destroy the 100× collapse — 193,110 vs 1,085,
+measured "e-graded" column). [checkers: reproduced bit-for-bit (counts identical across the
+author's raws, the runner's regen and two checker reruns); the formation arm flown (10⁴-ship crowd
+on the scanner's own orbit, same laws): kept whole, 0 misses — the axis does NOT reproduce the
+pairwise tier's concentration ruin (taleb-09b5's invariant holds at the observer; checker2: crowd
+alone T = 15, F = 9,968, misses = 0; beside the 10⁶ belt T = 37, F = 123,699 — linear in the
+crowd, not quadratic); crosser sweep 0.001/0.003/0.01 c (checker2): T = 0.065/0.51/4.5% — the
+lever dies linearly in v·h; index 0.06 µs at 10⁷ (checker2). Domain boundary: a hot belt
+(e-bulk ≈ 0.3) floods F to 42% of M for T = 23 (checker2; checker1 measured 49% for T = 4) — the
+21–24× is the flown belt's cold e-bulk, and the cut is e-bulk-bound everywhere. The engine arm's
+e readout 2^48/k − 1 is exact to the belt's own 2^-10 e-draw grid (|e_key − e_apsides| ≈ 9.7e-4
+at every percentile, n = 9,715; `key.k` is the mantissa of 1/(1+e), orbit.rs:33 — an earlier
+"e/(1−e)" reading here was wrong). The standing anchor at Δt > 0 (the author's named unflown
+check, checker2): with the stored n (the design's closed-form prediction) 0 misses to Δt = 0.25 P
+— sound; the example's bare-2c static form loses 7/14 of the truth at 0.05 P and 15/15 at 0.25 P,
+so the stored n is required and sufficient.] Unflown now: the answer channel downstream of |F|
+(20261020-1116-components-4f59; predictions 4/6 held, P3's F/T ratio missed because T = 1 — the
+dilution, not the ratio, is the story).
+
 **NEW (396d, spacex — the player-seam flight, promotion od 1's unflown arm, flown at K = 10⁴ and 3×10⁴):**
 crossing the belt turns **every** player scan inside the belt's *registered radial hull* into a
 full-universe walk, the hull is ~2.5× wider than the density band (walks r = 1.62 → 5.17 AU over
@@ -154,13 +190,14 @@ at rtf 100, and a held scan pins candidates × 216 B).** The census's own number
 binary at form=0 (201.1 / 199.5 candidates at 10⁴ / 10⁵, zero bails): the O(1) verdict is a property of
 the ladder's population (locals capped at 300, none in the player's band, the belt in another doll), not
 of the filter. [20261017-0739: the tier beside a 10⁵ belt is off (0 bails, 387 candidates) — the "200
-ships" crossing is population-pair-dependent, as 0552's checker measured.] [396d: the seam flight — the
-player itself inside the belt's band — is now flown; see Current best. The 0552 crossing (200 ships
+ships" crossing is population-pair-dependent, as 0552's checker measured.] [396d: the seam flight —
+the player itself inside the belt's band — is now flown; see Current best. The 0552 crossing (200 ships
 beside a belt switching the scans to walks) and the seam are the same law read from two sides: the
 registration's width defeats the 1-D filter at the population's own band.] Fixes to price: the bail's
 numerator in bodies (dedup) and its threshold local to the window's population; a phase axis for
 co-orbital crowds (taleb-09b5's rank-along-orbit invariant, the encounters gold, applied to the
-observer); the comb channel is kick-cadence's.
+observer); the comb channel is kick-cadence's. [4f59: the phase axis is now priced at the seam — see
+Current best.]
 
 Provenance (checker): the plane-scale fallback and the `bodies/4 + 64` mechanism are scan-queue's
 priors (cdf0 20261016-1120: Home's doll trips the N-relative rule exactly at the plane's flown N,
@@ -216,6 +253,11 @@ lever; ÷8 = the mint-budget lever; delete = the event-stream lever; burn-10⁹ 
 kick cadence's mint bill plus bytes/body, no separate read-stream term.
 
 ## Refuted
+- **"The phase axis is the seam's fix" (this page's own od 1(b) letter, unqualified): half-right —
+  it is a resident's fix (21–24× at the flown mix, 100× on a cold belt, zero misses) and a
+  non-fix for the crosser the seam actually flies (T = 21% of the belt at 0.03 c: the window is
+  drift-bound, v·h = 1.6 AU; the binding term is the scan interval, not the candidate axis)
+  (20261020-1116-components-4f59).**
 - **"The shipped answer on a rigid keys fleet is empty" (b083's checker's idealization, and
   b083's caveat iii read hopefully)**: flown, the answer is a residual (a scene-dependent
   fraction of the window — 47–53% on the author's rings, 19% at K=3·10⁴, 50% at e = 0.3,
@@ -293,7 +335,16 @@ kick cadence's mint bill plus bytes/body, no separate read-stream term.
    phase compare, or an e-graded registration that bins by periapsis-class rather than the hull).
    Unflown now: the seam's answer channel at 10⁵-10⁶ (frame ruin by arithmetic, ~4.4 µs × N a
    scan), and the seam under a cold (e ≈ 0) population, where the zone should collapse to the
-   band.]
+   band.] [4f59: (b) is now PRICED — sound (0 misses, engine + every checker arm), 21–24×
+   resident, 100× cold, crosser-bounded by h; the local bail (a) is superseded (the second axis
+   answers what the bail approximated); the cold arm is flown (the zone collapses to ω); the
+   formation arm is flown (a 10⁴ crowd on the scanner's orbit is kept whole, 0 misses, linear —
+   no pairwise-tier ruin at the observer); the Δt > 0 standing-index anchor is flown offline
+   (checker2: sound to Δt = 0.25 P with the stored n, unsound by 0.05 P without it — the n term
+   is required); remaining: the note-time anchor cost (one readout + inverse-Kepler per binding
+   change, the mean-longitude anchor halving the 2c widening), the answer channel at 10⁵–10⁶
+   downstream of the filter (|F| exact `hit` tests — now the priced-next question), and the
+   interval-h lever for crossers (a shorter scan interval shrinks the window linearly).]
 2. The comb channel of the formation scene (1,000 ships at one period: 128 events a frame, p99
    52.5 ms) is kick-cadence's page, not this one; the formation matrix is the ready instrument.
    [20261017-0739: the comb owns the over-budget frames (91.7-99.7% at K = 200-10⁴, and 95.1% at
@@ -331,7 +382,9 @@ as a domain note, not a conflict: 0552's "200 ships beside a 10⁴ belt switch t
 full walks" and 396d's "no over frames from the seam's own walks at 10⁴-3×10⁴" measure
 different channels of the same bail (0552: the candidate/answer bill in a formation's tight
 frames; 396d: the capture bill in a burn's idle-rich frames) — the bail's cost is
-frame-context-dependent, the bail itself is not.
+frame-context-dependent, the bail itself is not. (4f59 adds none: its T = 1 at flyable N and
+396d's "the zone is honest work for a 1-D index" agree — the bail is honest work for the
+SHIPPED 1-D index; the truth it approximates is O(1).)
 
 ## Runs
 - 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger):
@@ -351,3 +404,4 @@ frame-context-dependent, the bail itself is not.
 - 20261018-0431-scout-b083 (scout, awaiting grade): the phase axis lands on the answer
 - 20261018-0722-second-20261018-0431-scout-b083-5f36 (second author): the tier
 - 20261019-1452-spacex-396d (spacex, awaiting grade): the player-seam flown — walks = N over the
+- 20261020-1116-components-4f59 (components, awaiting grade): the phase axis priced — sound (0 misses, N = 10⁴/10⁵

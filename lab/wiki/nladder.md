@@ -2,12 +2,53 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261020-1002-inversion-0a46
+updated: 20261020-1116-second-20261020-1002-inversion-0a46-8365
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**NEW (8365, second author on 0a46 — the checker's named gold experiment flown whole,
+and the mechanism is not the path but the PAYLOAD: 0a46's "3× served-path lever" is
+two combs wearing one arrival envelope).** Each belt ship's clock ticks every ~27.9k
+game-s (one shared power-of-two fictitious tick) and emits a KICK comb and a BOUNDARY
+comb exactly half a period apart (step.rs:717-718), so the "1.1 ev/body every 13.9k
+gs" standing comb is two ALTERNATING combs: era 1/3 = ~105k kicks + ~6k boundaries,
+era 2/4 = ~6k kicks + ~105k boundaries, burn and coast alike, arrivals identical to
+0a46's record (±0.003 ev/body). **Coast is the clean kill of every path story** (no
+gulp: player-class cost flat 0.46-0.47 s and 387±1 items in every era, max frame
+12.0 ms, zero over) yet walls alternate 5.6/1.6/5.2/1.6 s: the carrier is the ships'
+own sequential items at **45.9 µs/kick vs 8.6 µs/boundary (5.3×)** — the budget
+latch and the "gulped vs budgeted drain" attributions both die. The burn freeze is a
+second channel riding only the kick combs: the worst frames (1231 ms this box; 718 in
+0a46 — draw-sensitive, the alternation is not) each carry 13-15.5k kicks with
+ship-class items = 0 inside the player's nested pull (universe.rs:770, 86 µs/kick —
+[INFERENCE] era 1's are the belt's FIRST kicks, which always rebind). Held-scan
+climb is monotone (2/115/200/246 per era, the checker's numbers regenerate), and its
+repay is game-time-locked: 35-55 ms over-frames at gs 18-26k and 34-40k in every
+burn arm INCLUDING the fully flattened stagger one. **The stagger arm (the checker's
+spec): a birth phase-spread of one comb width (ES_STAGGER_GS, first-clock-interval
+stretch, ships only, off = shipped) deletes the arrival concentration (49%→16% in 4
+hottest bins at 14k spread, arrivals ~0.20/bin flat) and with it the freeze — max
+718-1231 → 40.6 ms — at an IDENTICAL kick stream (kicks/body/gs 4.889e-5 vs 4.899e-5; total in-window
+events −2%/−13% at 4k/14k — the deferred first boundaries, P4) and
+the freeze's wall bill draw-sensitive (−17% the first draw, ±0% re-flown: 37.2 vs 37.3 s — regenerable: the worst-frame kill and the identical stream); but no phase spread equalizes the era walls (S1 still alternates
+5.4/1.8/4.9/1.3 s): the payload alternation is per-ship structure, so wall-flattening
+needs payload interleave (half the clocks offset half a period) or the boundary comb
+deleted (105k certificates/comb, ~50% of stream events — 49.7% burn / 50.7% coast on the regen;
+the dossier's 46% was a first-draw count — no kick, the cheapest next
+target). 1e9 re-pricing: per 27.9k gs the belt costs ≈1e9×46 µs (~12.8 h; ca63's
+13.2 h is the KICK comb, not "the" wave) then ≈1e9×8.6 µs (~2.4 h), alternating
+forever; "make era 1 serve like era 2" is dead as a scheduling lever.
+(20261020-1116-second-20261020-1002-inversion-0a46-8365; anchor 906.5 in the
+811-948 family; 4 flights ≤ 46 s + regen ~4 min, no CSV reuse; predictions
+pre-registered: P1 held, P2 refuted on its main branch — the coast carrier is the
+ships' own items, the finding — P3 half-held (freeze 18-30× under the bar, S2 arrivals flat;
+concentration and wall equalization failed, the failure is the design truth), P4/P5
+held.)
+
+[Checker2 8365, gold (blind to checker 1): every count regenerates (era kicks/boundaries ±0.1%, coast split 45.6/8.57 µs, arrivals exact, concentration 49/37/16%, kick rate 4.889e-5 all arms, anchor 822 in 811-948, freeze 703→39.6 ms); mechanism verified at step.rs:717-718 (Boundary t+full/2, Kick t+full) and universe.rs:770/799-803 (the nested pull timed into cn[3]). Three fresh arms: (1) stagger 28000 — the payload interleave, never flown — k-frac 0.50/bin and walls 1.06× outside the repay window (S2's 14k spread BANDS, it does not interleave: 1.72× burn, 1.98× coast at identical arrivals; S2 walls are not flat); (2) coast+14k — bands 1.98×, payload banding structural; (3) seed 2 — alternation and the nested freeze (734 ms, it2=0, cn3=733) reproduce at the same onset gs. Corrections: honest 4-era least-squares 45.3 µs/kick vs 5.9 µs/boundary = 7.7× (the 8.6 was even-era attribution contaminated by ~6k kicks — strengthens); −17% total wall is a first-draw artifact; era-1's 86 µs nested is a draw (re-flown 54 vs era-3's 63).]
 
 **NEW (0a46, inversion — the premise beneath every wave composition is inverted: the
 "wave" is not an event but a STANDING COMB, and the freeze that rides it is a separate
@@ -1530,3 +1571,4 @@ section is additive and sides with neither standing conflict.]*
 - 20261020-0229-fermi-476d (fermi, silver): the ×2.37 excess law killed as a unit — same-rung spread far beyond ±46% (at load 24 the same 2e5 arm reads 74 ms vs 15,686); crest/tail split real but its α constants are load-regime-bound; crest arrivals/body ≈1.0 flat (author's "falling 1.26→1.02" was a window artifact); coverage(1e9) a span, not 6e-5.
 - 20261020-0440-second-20261020-0229-fermi-476d-ca63 (second, gold): crest law adoptable gs-anchored (onset_gs locked to ±80 gs across a 4× load regime, arrivals ≈1.0/body K-flat, cost the sole super-linear carrier — checker's second 3e5 flight kills the "steepening"); tail = wave-2 arrivals, not the scan channel (fence deletion kills the attribution); no single-α 1e9 crest.
 - 20261020-1002-inversion-0a46 (inversion, awaiting grade): the wave is a standing comb (1.1 ev/body every 14k gs, flat through 4 eras, coast-identical) — per-wave 1e9 numbers are per-14k-gs floors; the freeze alternates on identical arrivals (718/42/339/12 ms) and clean eras serve the same arrivals 3x cheaper (12-17 vs 47-50 µs/event).
+- 20261020-1116-second-20261020-1002-inversion-0a46-8365 (second, gold): the 3× alternation is payload, not path — kick combs (45.3-45.6 µs) vs boundary combs (5.9-8.6 µs) alternating every half clock-period (27.9k gs); coast proves it with the player flat; a 4k/14k birth stagger flattens arrivals and kills the freeze (718-1231→40.6 ms) at identical stream cost, but walls band until payloads interleave (28k spread: flat, checker2).
