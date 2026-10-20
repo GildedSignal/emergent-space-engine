@@ -1,0 +1,4 @@
+Working...
+All deliverables are complete and verified. The run folder holds the pre-registered predictions, the compiler with its audits, a tested `regen.sh`, the dossier, and the compiled page; `lab/wiki/` itself is untouched.
+
+**Claim:** The `nladder` wiki page is compiled back under every budget — 1,751 lines / 1,423-line Current best (201,305 bytes) becomes 178 lines / 15-line Current best (52,141 bytes, 9.8×), with all 100 runs kept one line each (grades refreshed from their branches, 15 mid-sentence lines completed from their own dossiers), 29 superseded claims moved to Refuted with their refuting runs, 8 open directions ranked by board row, and no supported number lost (30/30 audited sample in-page, the rest behind cited runs; `lab/wiki.py index` itself accepts the page: `open, 101 runs`, no over-budget flag).
