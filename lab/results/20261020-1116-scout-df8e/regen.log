@@ -1,0 +1,30 @@
+== build (root /home/glmlab/actions-runner/_work/emergent-space-engine/lab-3) ==
+binary: /home/glmlab/lab-target-3/release/examples/nladder
+== flight off1 ==
+== flight on1 ==
+== flight on2 ==
+== flight half ==
+== flight off2 ==
+== analysis ==
+
+== off1: frames 1500, p50 5.91 p99 275.24 worst 815.6 ms, over12 169, events tot 448940 (4.489/body), ev/frame p99 7001 max 16581, lag 31.24 s
+   comb: 34 bins of 1500 gs, peak/mean 7.61, busiest-29% share 0.75, peak bin at 14250 gs
+   eras (worst ms, events, lag): {0: (315.0, 67905, 31.2), 1: (815.6, 148426, 0.0), 2: (526.3, 147502, 0.0), 3: (605.2, 94800, 0.0)}
+
+== off2: frames 1500, p50 5.49 p99 269.09 worst 842.3 ms, over12 170, events tot 448853 (4.489/body), ev/frame p99 6976 max 16416, lag 32.28 s
+   comb: 34 bins of 1500 gs, peak/mean 7.61, busiest-29% share 0.75, peak bin at 14250 gs
+   eras (worst ms, events, lag): {0: (323.0, 68362, 32.3), 1: (842.3, 148521, 0.0), 2: (520.0, 147211, 0.0), 3: (586.1, 94461, 0.0)}
+
+== on1: frames 1500, p50 5.96 p99 251.33 worst 887.3 ms, over12 160, events tot 448803 (4.488/body), ev/frame p99 8094 max 17591, lag 32.20 s
+   comb: 34 bins of 1500 gs, peak/mean 7.59, busiest-29% share 0.75, peak bin at 14250 gs
+   eras (worst ms, events, lag): {0: (609.2, 76186, 32.2), 1: (887.3, 138491, 0.0), 2: (471.8, 147179, 0.0), 3: (598.0, 96512, 0.0)}
+
+== on2: frames 1500, p50 5.51 p99 269.81 worst 804.7 ms, over12 163, events tot 448728 (4.487/body), ev/frame p99 7112 max 16413, lag 31.56 s
+   comb: 34 bins of 1500 gs, peak/mean 7.61, busiest-29% share 0.75, peak bin at 14250 gs
+   eras (worst ms, events, lag): {0: (320.2, 68358, 31.6), 1: (804.7, 147905, 0.0), 2: (521.0, 147831, 0.0), 3: (581.7, 94336, 0.0)}
+
+== half: frames 1500, p50 5.46 p99 266.61 worst 811.9 ms, over12 169, events tot 448853 (4.489/body), ev/frame p99 7342 max 16507, lag 32.04 s
+   comb: 34 bins of 1500 gs, peak/mean 7.57, busiest-29% share 0.75, peak bin at 14250 gs
+   eras (worst ms, events, lag): {0: (749.4, 83648, 32.0), 1: (811.9, 133162, 0.0), 2: (518.2, 147480, 0.0), 3: (611.6, 94266, 0.0)}
+
+determinism on1==on2: False (56105 vs 56112 bytes)

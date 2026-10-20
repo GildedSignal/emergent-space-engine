@@ -1,0 +1,79 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..91d388c5 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,17 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// The Linux stand-in (the lab's cloud box): VmHWM is the peak resident size, VmRSS the current one.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let read = |key: &str| -> Option<u64> {
++        let s = std::fs::read_to_string("/proc/self/status").ok()?;
++        let l = s.lines().find(|l| l.starts_with(key))?;
++        l.split_whitespace().nth(1)?.parse().ok()
++    };
++    (read("VmRSS:").unwrap_or(0) * 1024, read("VmHWM:").unwrap_or(0) * 1024)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -87,6 +100,10 @@ fn main() {
+             }
+         }
+         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if std::env::var_os("ES_FRAME_CSV").is_some() {
++            // Lab probe, print-only: one line a frame (frame, engine ms, events, presented game-s, lag s).
++            println!("csv,{},{:.4},{},{:.3},{:.4}", f, took.as_secs_f64() * 1e3, frame.events, frame.presented as f64 * TICK_SECONDS, (frame.target - frame.presented) as f64 * TICK_SECONDS);
++        }
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..12ff339e 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -629,7 +629,25 @@ impl Work<'_, '_> {
+             let st = self.rec.b.readout(t)?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+-            self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
++            // Lab probe, env-gated (off = shipped bits): every clock is born at s = 0, so a belt sharing one
++            // doll's constants mints its stream in synchrony (the standing comb). A golden-ratio carry along
++            // the body id translates body i's whole event train by frac(i·φ) of one gap — the deterministic
++            // jitter (Knuth's Fibonacci hash): exact integers, nothing stored, `dt_carry` is carry arithmetic.
++            let dt_carry = match std::env::var("ES_CLOCK_SPREAD").as_deref() {
++                Err(_) => 0,
++                // The discriminator arm: every body translated by the same half gap (moves the crest iff the carry reaches the stream).
++                Ok("half") => {
++                    let gap = ds.fixed(-(self.ctx.dolls[d as usize].clock_exp() as i32) + 16)? as i128;
++                    -(gap >> 1) as i64
++                }
++                Ok(_) => {
++                    let frac = ((self.i as u128) * 0x9E37_79B9_7F4A_7C15u128) >> 64; // frac(i·φ) in Q64
++                    let gap = ds.fixed(-(self.ctx.dolls[d as usize].clock_exp() as i32) + 16)? as i128; // one gap, 2^-16 ticks (TICK_FRACTION)
++                    let off = (((frac as i128) * gap) >> 64) as i64;
++                    -off
++                }
++            };
++            self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry, ds, c, b });
+         }
+         self.project(t)?;
+         let st = self.rec.b.readout(t)?;
