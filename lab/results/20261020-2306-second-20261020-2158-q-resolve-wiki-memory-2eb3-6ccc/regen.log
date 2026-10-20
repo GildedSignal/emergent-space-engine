@@ -1,0 +1,22 @@
+wiki: 20261020-2158-q-resolve-wiki-memory-2eb3 merged wiki-memory.md
+wiki: 20261020-2306-second-20261020-2158-q-resolve-wiki-memory-2eb3-6ccc merged wiki-memory.md
+wiki: 20261020-2158-q-resolve-wiki-memory-2eb3 merged wiki-memory.md
+PASS  S0: patched index() on the current corpus is byte-identical to the shipped index
+PASS  S1a: 87d0's raw +92/-9 patch fails git apply --check at pristine HEAD (its index hunk)  [error: patch failed: lab/wiki.py:83; error: lab/wiki.py: patch does not apply]
+PASS  S1c: the merged patch (work/patch.diff) applies cleanly to pristine HEAD wiki.py
+PASS  S1b: exactly the index hunk rejects (the hand-merged one); the other four apply  [rejects=['wiki.py.rej']]
+PASS  S2a: landed page has exactly 3 Runs lines, one per id {de18, 87d0, 2eb3}  [3 lines, per id {'20261016-1835-inversion-de18': 1, '20261016-2327-taleb-87d0': 1, '20261020-2158-q-resolve-wiki-memory-2eb3': 1}]
+PASS  S2b: the graded wordings stand (de18 silver, 87d0 gold) — the stale variants are gone  [de18: - 20261016-1835-inversion-de18 (silver): shipped apply() com... | 87d0: - 20261016-2327-taleb-87d0 (gold): residual closed: real pag...]
+PASS  S2c: body above ## Runs is byte-identical to what the shipped publish landed
+PASS  S2d: zero marker lines of all three kinds, no UNMERGED banner
+PASS  S2e: index row is '| open | 3 |' with neither flag  [| [wiki-memory](wiki-memory.md) | open | 3 | **Resolved to budget (thi]
+PASS  S3: second apply of the same run leaves the page byte-identical (the skip)
+PASS  S3b: index row unchanged after the no-op re-publish
+PASS  S4a: 4 Runs lines, one per id (6ccc appended), still 0 markers, flags clear  [4 lines, per id {'20261016-1835-inversion-de18': 1, '20261016-2327-taleb-87d0': 1, '20261020-2158-q-resolve-wiki-memory-2eb3': 1, '20261020-2306-second-20261020-2158-q-resolve-wiki-memory-2eb3-6ccc': 1}]
+PASS  S4b: the corrected 2eb3 line ('silver') REPLACED 'awaiting grade', not added beside it  [['- 20261020-2158-q-resolve-wiki-memory-2eb3 (silver): the conflict flag was a substring false positive; page folded to budget by hand; the publish-path hazard measured.']]
+PASS  S4c: no id carried by either side was lost across both publishes
+PASS  S5: control — the shipped publisher re-adds the stale lines (6 lines: de18×3, 87d0×2, 2eb3×1)  [6 lines, per id {'20261016-1835-inversion-de18': 3, '20261016-2327-taleb-87d0': 2, '20261020-2158-q-resolve-wiki-memory-2eb3': 1}]
+PASS  S5b: control lands the page HEAD carries today (the replay is the real publish)
+PASS  S6: >=25 of 40 pages carry duplicate run ids today; the id-keyed fold clears every page and loses no id  [29/40 pages dup (391 dup lines), 1194->803 lines, problems=[]]
+
+17/17 checks pass
