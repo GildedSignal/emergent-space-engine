@@ -1,0 +1,47 @@
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+   Compiling emergent-shipmem v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/shipmem)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 50.07s
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+   Compiling emergent-shipmem v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/shipmem)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 43.55s
+== digest neutrality (patched vs pristine; the end-state digest must match bit for bit) ==
+  default  state_digest_match=True replay_digest pristine=ebbdc6c4b0b57daf patched=147eced6f9b36808 (build-sensitive: stable per binary, shifts with any crates/space codegen change; the end-state digest is the physics identity) refused=0 kicks(made/leavers)=23/10
+  fleet    state_digest_match=True replay_digest pristine=0f2a4da37a6ea4bb patched=d2dc55120faf5361 (build-sensitive: stable per binary, shifts with any crates/space codegen change; the end-state digest is the physics identity) refused=0 kicks(made/leavers)=365/8723
+  seed3    state_digest_match=True replay_digest pristine=0e52330e23cbe825 patched=977664bd9a480511 (build-sensitive: stable per binary, shifts with any crates/space codegen change; the end-state digest is the physics identity) refused=0 kicks(made/leavers)=365/681
+
+== per-mint span coverage: panels landed in / compiled panels ==
+-- arm default (105 mints)
+  cycle    mints=    83 knots=    1106 never-landed= 83.8% cov_median= 20.0% cov_p90= 40.0% ge0.9=0
+  passage  mints=    22 knots=    3392 never-landed= 98.7% cov_median=  0.7% cov_p90=  2.7% ge0.9=0
+           big(>=100kn): 22 mints, 3392 knots, cov_median=  0.7% cov_max=  5.0%
+-- arm fleet (18967 mints)
+  cycle    mints= 18291 knots= 1002553 never-landed= 90.0% cov_median= 14.3% cov_p90= 55.6% ge0.9=0
+           big(>=100kn): 3025 mints, 399440 knots, cov_median=  5.1% cov_max= 26.2%
+  passage  mints=   676 knots=  101571 never-landed= 93.5% cov_median=  0.7% cov_p90= 21.2% ge0.9=0
+           big(>=100kn): 676 mints, 101571 knots, cov_median=  0.7% cov_max= 27.7%
+-- arm seed3 (2448 mints)
+  cycle    mints=  2354 knots=   95309 never-landed= 89.7% cov_median= 20.0% cov_p90= 60.0% ge0.9=0
+           big(>=100kn): 185 mints, 28150 knots, cov_median=  4.3% cov_max=  7.2%
+  passage  mints=    94 knots=   14131 never-landed= 93.6% cov_median=  0.7% cov_p90= 20.9% ge0.9=0
+           big(>=100kn): 94 mints, 14131 knots, cov_median=  0.7% cov_max= 25.9%
+
+== top-decile lifetime mints (most readouts) ==
+  cycle    median touches=50 median coverage=20.0%
+  passage  median touches=165 median coverage=23.8%

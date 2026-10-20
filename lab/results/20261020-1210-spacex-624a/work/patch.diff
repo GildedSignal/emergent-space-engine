@@ -1,0 +1,285 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..8cadff2d 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -223,6 +223,96 @@ pub struct OrbitShape {
+     word_root: bool,
+     clock_shift: u32,
+     clock_factor: [Scalar; 2],
++    /// Print-only census id (lab measurements); `u64::MAX` when untracked.
++    pub(crate) census: u64,
++}
++
++/// Print-only census of minted knot vectors: which panels the readouts land in
++/// between a mint and its discard. Never read by the law; changes no arithmetic.
++pub mod mint_census {
++    use std::collections::HashSet;
++    use std::sync::{LazyLock, Mutex, PoisonError};
++
++    pub struct MintRec {
++        pub class: &'static str,
++        pub knots: usize,
++        pub crossings: usize,
++        pub span_psi: i128,
++        pub tail: usize,
++        pub touched: HashSet<usize>,
++        pub touches: u64,
++        pub tail_touches: u64,
++        pub min_psi: i128,
++        pub max_psi: i128,
++    }
++
++    fn table() -> &'static Mutex<Vec<MintRec>> {
++        static T: LazyLock<Mutex<Vec<MintRec>>> =
++            LazyLock::new(|| Mutex::new(Vec::new()));
++        &T
++    }
++
++    pub fn mint(
++        class: &'static str,
++        knots: usize,
++        span_psi: i128,
++        crossings: usize,
++    ) -> u64 {
++        let mut t = table().lock().unwrap_or_else(PoisonError::into_inner);
++        t.push(MintRec {
++            class,
++            knots,
++            crossings,
++            span_psi,
++            tail: 0,
++            touched: HashSet::new(),
++            touches: 0,
++            tail_touches: 0,
++            min_psi: i128::MAX,
++            max_psi: i128::MIN,
++        });
++        (t.len() - 1) as u64
++    }
++
++    pub fn set_tail(id: u64, tail: usize) {
++        if id == u64::MAX {
++            return;
++        }
++        if let Ok(mut t) = table().lock() {
++            if let Some(r) = t.get_mut(id as usize) {
++                r.tail = tail;
++            }
++        }
++    }
++
++    pub fn touch(id: u64, panel: usize, psi: i128) {
++        if id == u64::MAX {
++            return;
++        }
++        if let Ok(mut t) = table().lock() {
++            if let Some(r) = t.get_mut(id as usize) {
++                r.touched.insert(panel);
++                r.touches += 1;
++                r.min_psi = r.min_psi.min(psi);
++                r.max_psi = r.max_psi.max(psi);
++            }
++        }
++    }
++
++    pub fn touch_tail(id: u64) {
++        if id == u64::MAX {
++            return;
++        }
++        if let Ok(mut t) = table().lock() {
++            if let Some(r) = t.get_mut(id as usize) {
++                r.tail_touches += 1;
++            }
++        }
++    }
++
++    pub fn take() -> Vec<MintRec> {
++        std::mem::take(&mut *table().lock().unwrap_or_else(PoisonError::into_inner))
++    }
+ }
+ impl OrbitShape {
+     pub fn key(&self) -> ShapeKey {
+@@ -306,6 +396,7 @@ impl OrbitShape {
+             word_root: !key.compactness.is_zero() && delta >= ONE / 4,
+             clock_shift: 55.max(65 - gmax.leading_zeros()),
+             clock_factor: [t_numerator.div(floor2)?, tau_numerator.div(floor2)?],
++            census: u64::MAX,
+         })
+     }
+     pub(crate) fn x(&self, psi: i128) -> i128 {
+@@ -507,6 +598,12 @@ impl OrbitShape {
+             band += 1;
+         }
+         s.append(PI)?;
++        s.census = mint_census::mint(
++            "cycle",
++            s.knots.len(),
++            s.knots.last().unwrap().psi as i128,
++            s.crossings.len(),
++        );
+         Ok(s)
+     }
+ }
+@@ -765,6 +862,7 @@ impl Orbit {
+             .knots
+             .partition_point(|k| k.psi as i128 <= psi)
+             .saturating_sub(1);
++        mint_census::touch(self.shape.census, i, psi);
+         let base = &self.shape.knots[i];
+         let sum = base.sum.add(self.shape.quad(base.psi as i128, psi)?)?;
+         Ok((
+@@ -775,9 +873,20 @@ impl Orbit {
+     /// Direct table read, including velocity; no quadrature or root solve.
+     pub fn crossing_state(&self, index: usize, cycles: u64, outbound: bool) -> Result<OrbitState> {
+         let k = self.shape.knots.get(index).ok_or(Error::Range)?;
++        mint_census::touch(self.shape.census, index, k.psi as i128);
+         self.read(cycles, k.psi as i128, outbound, k.sum)
+     }
+     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
++        let (psi, sum) = self.outbound_at_raw(target)?;
++        let i = self
++            .shape
++            .knots
++            .partition_point(|k| k.psi as i128 <= psi)
++            .saturating_sub(1);
++        mint_census::touch(self.shape.census, i, psi);
++        Ok((psi, sum))
++    }
++    fn outbound_at_raw(&self, target: Scalar) -> Result<(i128, Integral)> {
+         let s = &self.shape;
+         let mut lo_i = 0;
+         let mut hi_i = s.knots.len();
+@@ -1047,6 +1156,12 @@ impl Passage {
+             band += 1;
+         }
+         shape.append(shape.cut(x))?;
++        shape.census = mint_census::mint(
++            "passage",
++            shape.knots.len(),
++            shape.knots.last().unwrap().psi as i128,
++            shape.crossings.len(),
++        );
+         let mut passage = Self {
+             orbit: Orbit::from_shape(key, Arc::new(shape))?,
+             outer_radius,
+@@ -1075,6 +1190,7 @@ impl Passage {
+                 x = next;
+             }
+         }
++        mint_census::set_tail(passage.orbit.shape.census, passage.tail.len());
+         Ok(passage)
+     }
+     pub fn key(&self) -> OrbitKey {
+@@ -1089,6 +1205,7 @@ impl Passage {
+             return Err(Error::Range);
+         }
+         let i = self.tail.partition_point(|k| k.0 >= x).saturating_sub(1);
++        mint_census::touch_tail(self.orbit.shape.census);
+         let (base, sum) = self.tail[i];
+         let sum = sum.add(self.tail_quad(x, base)?)?;
+         Ok((
+@@ -1126,6 +1243,7 @@ impl Passage {
+                 .tail
+                 .partition_point(|k| self.orbit.time(k.1).is_ok_and(|v| v <= t))
+                 .saturating_sub(1);
++            mint_census::touch_tail(self.orbit.shape.census);
+             let (base, sum) = self.tail[i];
+             if i + 1 == self.tail.len() {
+                 self.tail_read(base, sum)?
+diff --git a/crates/space/src/quadrature_tests.rs b/crates/space/src/quadrature_tests.rs
+index 5487247f..a31e0a1c 100644
+--- a/crates/space/src/quadrature_tests.rs
++++ b/crates/space/src/quadrature_tests.rs
+@@ -154,3 +154,22 @@ fn native_panels_obey_the_real_two_point_remainder_and_integer_rounding_allowanc
+         }
+     }
+ }
++
++#[test]
++fn mint_census_full_walk_control() {
++    // The instrument must be able to pass: one full-period walk touches
++    // (nearly) every compiled panel of the mint it walked.
++    let key = OrbitKey::bound(Scalar::integer(16).scale(18).unwrap(), (1 << 48) / 10).unwrap();
++    let orbit = Orbit::compile(key).unwrap();
++    let period = orbit.period().unwrap();
++    for j in 0..512i128 {
++        let t = period.mul(Scalar::raw(j, -9).unwrap()).unwrap();
++        orbit.signed_state(t).unwrap();
++    }
++    let recs = mint_census::take();
++    let r = recs.last().unwrap();
++    assert_eq!(r.class, "cycle");
++    assert!(r.knots > 4, "expected a real table, got {} knots", r.knots);
++    let coverage = r.touched.len() as f64 / (r.knots - 1) as f64;
++    assert!(coverage > 0.85, "full walk covered only {coverage}");
++}
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..245e682f 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -8,6 +8,57 @@ use emergent_universe::{body::What, step, Budget, Kind};
+ use serde_json::json;
+ use std::collections::HashSet;
+ use std::time::Instant;
++use emergent_space::orbit::mint_census::{self, MintRec};
++
++/// Per-mint span coverage: which fraction of the compiled knot panels the
++/// readouts ever landed in between the mint and its discard.
++fn census_json() -> serde_json::Value {
++    let recs = mint_census::take();
++    let mut rows = Vec::new();
++    let mut classes = serde_json::Map::new();
++    for class in ["cycle", "passage"] {
++        let rs: Vec<&MintRec> = recs.iter().filter(|r| r.class == class).collect();
++        if rs.is_empty() {
++            continue;
++        }
++        let mut cov: Vec<f64> = rs
++            .iter()
++            .filter(|r| r.knots > 1)
++            .map(|r| r.touched.len() as f64 / (r.knots - 1) as f64)
++            .collect();
++        cov.sort_by(f64::total_cmp);
++        let at = |p: f64| cov.get(((cov.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied().unwrap_or(1.0);
++        let mut knots: Vec<usize> = rs.iter().map(|r| r.knots).collect();
++        knots.sort_unstable();
++        let mut touches: Vec<u64> = rs.iter().map(|r| r.touches).collect();
++        touches.sort_unstable();
++        let walked = rs.iter().filter(|r| r.touches > 0).count();
++        classes.insert(
++            class.into(),
++            json!({
++                "mints": rs.len(),
++                "walked": walked,
++                "knots_median": knots[knots.len() / 2],
++                "knots_max": *knots.last().unwrap(),
++                "coverage_median": at(0.5), "coverage_p10": at(0.1), "coverage_p90": at(0.9),
++                "frac_ge_0p9": cov.iter().filter(|c| **c >= 0.9).count() as f64 / cov.len() as f64,
++                "frac_le_0p5": cov.iter().filter(|c| **c <= 0.5).count() as f64 / cov.len() as f64,
++                "touches_median": touches[touches.len() / 2],
++                "with_tail": rs.iter().filter(|r| r.tail > 0).count(),
++                "tail_touches_total": rs.iter().map(|r| r.tail_touches).sum::<u64>(),
++            }),
++        );
++    }
++    for (id, r) in recs.iter().enumerate() {
++        rows.push(json!({
++            "id": id, "class": r.class, "knots": r.knots, "crossings": r.crossings,
++            "touched": r.touched.len(),
++            "coverage": if r.knots > 1 { r.touched.len() as f64 / (r.knots - 1) as f64 } else { 1.0 },
++            "touches": r.touches, "tail": r.tail, "tail_touches": r.tail_touches,
++        }));
++    }
++    json!({"classes": classes, "rows": rows})
++}
+ 
+ /// The shapes the rebinds of the replayed kicks asked for, under the exact key and under the law's
+ /// quantized 12+12-bit memo key (docs/law.md: the cycle memo). A distinct kick is counted once.
+@@ -103,6 +154,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "mint_census": census_json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
