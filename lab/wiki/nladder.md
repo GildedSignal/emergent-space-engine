@@ -2,12 +2,93 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261020-1116-second-20261020-1002-inversion-0a46-8365
+<<<<<<< main
+updated: 20261020-1210-library-a31c
+=======
+updated: 20261020-1210-taleb-9ed1
+>>>>>>> 20261020-1210-taleb-9ed1
 
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+<<<<<<< main
+**NEW (a31c, library — the page's two named exits are held by five verbatim
+lessons, and the composition between them is new: after the boundary comb is
+deleted, the 1e9 era wall is ONE term).** Composition on the page's own constants
+(45.9 µs/kick, 8.6 µs/boundary, era 27.9k gs, rtf 400): kick comb 12.75 h/era =
+658x the 69.75 s era budget; boundary comb 2.39 h = 123x; at the scoreboard's
+~50 ns kick-item floor the kick comb is 50 s = 0.72x budget — the deletion
+(−50% of stream events, 49.7/50.7%) buys 1.2x on the era wall and halves the
+alternation (era-2/4 walls lose ≈0.90 s at 1e5; walls halve, NOT flatten — the
+28k interleave stays the equalizer: the two exits are complementary terms, not
+alternatives). Code anchors: step.rs:717-718 (the comb inserts); kick_clock
+(step.rs:663-676) already crash-checks every kick without the leave;
+boundary_clock (725-739) = surface + leave + anchor stamp; universe.rs:1327
+hashes rec.anchor into the digest, so DIGEST IDENTITY IS UNPASSABLE for the
+deletion arm (the r2/r8 criterion class) — the gate is behaviour on the
+moved-anchor arm: leaves detected within one full step, cut_digest invariant
+across schedules. The five lessons (lessons.md, 5/5 byte-identical against a
+fresh 770-book / 4,590-highlight export): Ries "larger batches feel efficient" →
+adopt the 28k payload interleave, delete the shared-phase convenience;
+Hoffmann "produce an even coffee bed, and do no more" → the interleave's form is
+half-period evenness (band spreads rejected) and the boundary comb is deleted;
+Kahneman "deploy attention when needed" → certificates ride the kicks that can
+change them, never a metronome; FS Power Laws' declining exponent → the
+remaining 918x (45.9 µs → ~50 ns) is representation (the walk → kernels port),
+not more per-kick polishing of the banked class; Darwin's memorandum-at-once →
+the anchor-digest difference is pre-registered (predictions.md P3d), never left
+for the checker to find. No flight: the composition, the anchors and the quotes
+regenerate (regen.sh ~10 s cached); the named flying rung is the env-gated
+boundary-deletion arm plus the interleave-as-birth-default, gated on
+cuts/leaves/walls. (20261020-1210-library-a31c, library.)
+
+[Checker a31c, silver: every number regenerates (regen.sh exit 0, output byte-identical; the 5 quotes re-verified byte-identical by independent grep of the raw export JSONs; compose arithmetic hand-checked; all four code anchors verified verbatim in-tree); predictions.md (12:17:09) precedes verify_quotes.py (12:18:21) and compose.py (12:18:50). Three corrections: (1) digest identity is unpassable by a SECOND path the paragraph misses — universe.rs:1330-1336 hashes every plan item's kind (`What::Boundary => 300`), so the deletion moves digests even with the anchor restamped at kicks; (2) the gate list is incomplete: `Kick.lead` and `Kick.boundary` (both set in kick_clock from the anchor and the mid-interval) are consumed by observe.rs `partial()` — the readout ramp credits from `k.boundary` / `event_time − k.lead` — so stamping the anchor at kicks changes the observed state between events (lead full/2 → full); the flying rung needs a readout check beside leaves/crashes/cut_digest/walls; (3) "halves the alternation" is imprecise: the boundary-era wall halves (1.6 → ≈0.7 s at 1e5) while the wall ratio grows, and the 0.72× floor fit is rtf-400-only (rtf 1000: 1.79× budget). Novelty is the composition and the pre-registered criterion guard — 8365 already held the 12.8 h/2.4 h pricing, the ~50% event share and "cheapest next target"; gold needs the deletion arm flown.]
+=======
+**NEW (9ed1, taleb — the stagger's kill is re-flown beyond its birth rung and splits in two: the
+kick-comb kill is a LAW, the freeze is a HYDRA).** Arms: the shipped burn scene at 1e5/2e5/3e5,
+seed 1/2, load-16, 8 eras (120k gs), all fence-gated ES_SCAN_TTL_S=16 (ca63's gate, disclosed law
+change; without it 2e5+ exceeds the 2 GB cap: 1,887 MB at 1e5 unfenced), stagger ES_STAGGER_GS=14000
+(8365's gate). **Kick combs: deleted at EVERY rung — era-1 max 714.9/1,568.6/2,430.4 ms off vs
+11.9/12.0/12.0 ms staggered (= the 12 ms budget, K-flat), 49.6 µs/kick inside the unstaggered
+mega-frames (the freeze is pure batch, not price), seed 2 same (83.7 overall), under load-16 no
+batch over 1,852 events (vs 14,362+ idle off; worst frame 351.5 ms is drain at ~215 µs/ev), and
+no re-concentration through era 8 (full-period hottest 1k-gs bin decays 21.6→14.9%).** **But the
+worst frame does not stay killed: the scan-answer channel regrows it — reliably at 3e5 (1,225.0 ms,
+3/3 draws incl. TTL=8), draw-stochastic below (1e5: 43.7/40.3/442.9 ms over three draws; 2e5:
+91.6/847.8 at seed 1, no bite at seed 2; era 2, the boundary comb's repay window), and at 3e5 the
+worst frame is ONE held-scan
+answer — 100 events, k=4, en=178 encounters, ~1 ms class-attributed, 1.2 s wall ≈ 6.9 ms/encounter
+vs ~0.1 in normal answer frames — so the walk, [INFERENCE] ∝ doll population at answer time, not
+the events. TTL=8 does NOT delete it (1,280.4 ms, held_max 205→141) and unstaggered era-2's worst
+is a 28k-boundary batch at only 375 ms: the staggered arm is 3.3× WORSE there.** So 8365's "with it
+the freeze — max 718-1231 → 40.6 ms" overclaims: the combs die at every rung, but the answer
+channel can still eat a 0.4–0.8 s freeze at 1e5/2e5 (one draw in three each) and reliably 1.2 s
+at 3e5 (2.4 s off / 1.2 s on). Adoption unchanged in kind (the stagger kills the combs at no
+stream cost: 4.889e-5 kicks/body/gs both arms at 1e5) but the next freeze target is NAMED: the exact
+player-neighbourhood check's answer (encounter.rs) — incremental answering or the unwired encounter
+tiers, not more arrival spread; at 1e9 a walk ∝ doll population is the allocator's true ruin.
+(20261020-1210-taleb-9ed1; 11 flights ≤ 96 s wall + build 15 s + regen ~12 min; predictions
+pre-registered 12:24 before all decisive flights: P1-P4, P6, P8 held, **P5's kill bar fired (A6
+1,225 ≥ 800 — the finding), P7 failed its letter (351.5 > 300) without the kill bar; anchor A0
+(714.9, fence off) flown before predictions, disclosed there; patch = 8365's CSV+stagger + ca63's
+fence + an env-gated wall cap, off = shipped bits).**
+
+[Checker 9ed1, silver: regen exit 0 — every deterministic number reproduces (era-1 max 11.9/12.0
+ms, kick rate 4.889e-5/4.890e-5, A9 decay 21.6→14.9% exact, unstaggered 753.6/1,651.0/2,436.8 vs
+author 727.5/1,568.6/2,430.4, A6 en=178 object 1,273.5 ms vs 1,225.0, TTL=8 1,272.4) — but the
+author's 1e5/2e5 maxima (43.7/91.6) are single draws of a fat-tailed channel: the checker's replica
+of A2 gives 40.3 ms while the runner's regen of the same arm hit 442.9 ms (en=71). Four fresh
+adversarial arms: (1) A2 replica 40.3 ms (no bite); (2) spread halved to 7k — the KICK kill survives
+(era-1 max 11.9 ms, hottest bin 47%) and the one 410 ms frame is the answer again (en=63); (3)
+TTL=32 at 2e5 — held_max 343, rss 1,056 MB, no bite in one draw; (4) cross-rung pricing: when the
+answer bites, the bill is 4.2–4.4 µs/BODY at every rung (442.9/1e5, 847.8/2e5, 1,273.5/3e5; ms/en
+6.2/5.7/7.15 vs 0.1–1 normal) — the walk is O(N) in the belt, so the [INFERENCE] is measured, and
+at 1e9 one such answer is ~4 ks in one frame. The channel is not new (e28f: 0.39 s/scan at 10⁵ on
+the 16 Oct tree; d7bc's hidden answer bill; 96f6/acf2's O(K) capture walk) — new is its dominance
+under the stagger, its 3/3 reliability at 3e5, and the TTL-proof en=178 object.]
+>>>>>>> 20261020-1210-taleb-9ed1
 
 **NEW (8365, second author on 0a46 — the checker's named gold experiment flown whole,
 and the mechanism is not the path but the PAYLOAD: 0a46's "3× served-path lever" is
@@ -1572,3 +1653,5 @@ section is additive and sides with neither standing conflict.]*
 - 20261020-0440-second-20261020-0229-fermi-476d-ca63 (second, gold): crest law adoptable gs-anchored (onset_gs locked to ±80 gs across a 4× load regime, arrivals ≈1.0/body K-flat, cost the sole super-linear carrier — checker's second 3e5 flight kills the "steepening"); tail = wave-2 arrivals, not the scan channel (fence deletion kills the attribution); no single-α 1e9 crest.
 - 20261020-1002-inversion-0a46 (inversion, awaiting grade): the wave is a standing comb (1.1 ev/body every 14k gs, flat through 4 eras, coast-identical) — per-wave 1e9 numbers are per-14k-gs floors; the freeze alternates on identical arrivals (718/42/339/12 ms) and clean eras serve the same arrivals 3x cheaper (12-17 vs 47-50 µs/event).
 - 20261020-1116-second-20261020-1002-inversion-0a46-8365 (second, gold): the 3× alternation is payload, not path — kick combs (45.3-45.6 µs) vs boundary combs (5.9-8.6 µs) alternating every half clock-period (27.9k gs); coast proves it with the player flat; a 4k/14k birth stagger flattens arrivals and kills the freeze (718-1231→40.6 ms) at identical stream cost, but walls band until payloads interleave (28k spread: flat, checker2).
+- 20261020-1210-library-a31c (library, silver): the two exits ranked in composition — the deletion halves the boundary-era wall (1.2x on the 1e9 wall), the kick item alone carries it (658x over; 0.72x at the 50 ns floor), digest identity unpassable (anchor + plan-item hash); unflown.
+- 20261020-1210-taleb-9ed1 (silver asked): the stagger's kick-comb kill scales (era-1 max = budget at 1e5-3e5, seed, load, 8 eras) but the freeze regrows via one scan answer: 44→92→1,225 ms, TTL-proof, worse than unstaggered era-2 at 3e5.

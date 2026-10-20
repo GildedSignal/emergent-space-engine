@@ -7,7 +7,6 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 |---|---|---|---|
 | [entry](entry.md) | open | 0 | (no current best yet) |
 | [fleet-doll-speed](fleet-doll-speed.md) | open | 1 | **The letter's interior law (representation.md L23, law.md L50, frame.rs L14–19: the |
-| [mint-knots](mint-knots.md) | open | 1 | **The kick-cost row and the memory row of the scoreboard are one line item: the |
 | [history-demand](history-demand.md) | open | 2 | **NEW (c8d5, spacex — open direction 1 flown: the one-leg keep is flight-proven complete and |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
@@ -15,6 +14,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [wiki-memory](wiki-memory.md) | open **conflict to resolve** | 3 | **The residual is closed and the heal is flight-proven on the real pages, before and |
 | [binet-cells](binet-cells.md) | open | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
+| [mint-knots](mint-knots.md) | open **conflict to resolve** | 4 | <<<<<<< main |
 | [calendar](calendar.md) | open | 5 | **NEW (6b9a, components — the apparatus itself is measured on shipped code, and the |
 | [contact-speed](contact-speed.md) | open | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
 | [replay-gate](replay-gate.md) | open | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
@@ -43,4 +43,4 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [kick-jet](kick-jet.md) | open | 81 | **5ade's third "exact duplicate" is built, and the exactness premise is half-refuted while the |
 | [memory-h-live](memory-h-live.md) | open | 113 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates |
 | [encounters](encounters.md) | open | 138 | **[20261019-1906-scout-f2f1, scout] Open direction 3 (the page's named scout gap) is closed: the |
-| [nladder](nladder.md) | open | 178 | **NEW (8365, second author on 0a46 — the checker's named gold experiment flown whole, |
+| [nladder](nladder.md) | open **conflict to resolve** | 180 | <<<<<<< main |
