@@ -25,13 +25,17 @@
 //! - `b = 30·c`: the refinement passes from `d²` to `d` (Sundman's `dt ∝ r`) at about `R_H/30`;
 //! - `Δs = T/f'(c)`, rounded down to a power of two, `T` the step far from every secondary (**each body's own clock**,
 //!   14 October; [`constants`]): the longest that resolves the three timescales that force the body,
-//!   `T = min(2^−k_s·P, 2^−k_f·P_D, 2^−k·P_j over the secondaries j it can meet)`:
-//!   - its own orbit: `P` its radial period, `k_s = Config::smooth_log2` (the lab's smooth frontier: 16 a period);
-//!   - the frame's fall: the origin falls toward every secondary (the indirect term, a uniform field, the same at every body of
-//!     the doll), so every body is forced at the period `P_D` of the doll's shortest secondary; `k_f = Config::forcing_log2` = 2
-//!     is the cheapest measured to keep a belt's error an offset (`examples/cadence.rs`: at `k_f` = 1, or with no such term, a
-//!     belt about Cinder, Home and the Giant aliases Cinder's 88 days and its eccentricity walks, growth exponent 1.0-1.1);
-//!   - a passage: `P_j` the period of a secondary its orbit can meet (`k = Config::step_log2`, the price B13 is measured at).
+//!   `T = min(2^−k_s·P, P_j/N_j over every secondary, 2^−k_p·P_j over the secondaries it can meet)`:
+//!   - its own orbit: `P` its radial period, `k_s = step_log2 + Config::smooth_octaves` = 4 (the lab's smooth frontier: 16 a period);
+//!   - the frame's fall: the origin falls toward every secondary `j` (the indirect term, a uniform field, the same at every body
+//!     of the doll), so every body is forced at `j`'s period `P_j`, with an amplitude `ε_j = μ_j·(Q/a_j)²` of the host's pull at
+//!     its apoapsis `Q` (one dimensionless number per secondary: it grows outward, as the frame's wobble does against a weaker
+//!     pull). It gets the smooth regime's error: `2^k_s·√(ε_j/ε_s)` steps a period (the split is second order; `ε_s = 2^-10`, the
+//!     Jupiter of the lab's belts), and at least `2^k_f` (`k_f = step_log2 + Config::forcing_octaves` = 2: at 2 a period, or with
+//!     no such term, a belt about Cinder, Home and the Giant aliases Cinder's 88 days and its eccentricity walks, growth
+//!     exponent 1.0-1.1; at 4 it is an offset, `examples/cadence.rs`);
+//!   - a passage: `P_j` the period of a secondary its orbit can meet, `k_p = Config::step_log2 + PASSAGE_OCTAVES` (the price B13
+//!     passes at: 64/64 at 2^8, where every ship of the doll at 2^7 per Cinder's period gave 60/64).
 //!     Which secondaries a body can meet is one dimensionless number per secondary: the gap between the radial ranges of the two
 //!     orbits in the secondary's Hill radii, against `2√3` (Gladman's bound: orbits further apart never meet).
 //!
@@ -57,6 +61,12 @@ pub const B_OVER_C: i64 = 30;
 pub const FLOOR_FACTOR: i64 = 10;
 /// `U_P + c` is held at least at `c/2^GUARD_LOG2` (a guard beyond the useful range, see the module docs).
 pub const GUARD_LOG2: i32 = 3;
+/// A ship of the root doll whose orbit can meet a secondary takes `2^(step_log2 + PASSAGE_OCTAVES)` steps per its period: the
+/// clock's passage price (B13, 14 October: 64/64 flybys at 2^8 a planet period, at every phase of the first step; 59-60 at 2^7,
+/// by the phase). The planets' dolls keep `2^step_log2` per own period (their split resolves a passage by its levels).
+pub const PASSAGE_OCTAVES: i32 = 1;
+/// The perturbation of the lab's smooth frontier (2^k_s steps a period hold a belt under a Jupiter, `μ ≈ 10⁻³`): `ε_s = 2^-10`.
+pub const SMOOTH_EPS_LOG2: i32 = -10;
 /// Fractional bits of a carried physical time, in ticks.
 const TICK_FRACTION: i32 = 16;
 
@@ -191,15 +201,18 @@ pub fn phase(id: usize) -> u16 {
 /// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(Δs, c, b)`.
 ///
 /// `own` is the body's tube when it has its own clock (a ship), None for the doll's clock (the player, and every body under
-/// `Config::own_clock = false`). The step far from every secondary is `T = min(2^-k_s·P, 2^-k_f·P_D, 2^-k·P_j)` over the
-/// secondaries `j` the tube can meet (module docs): the gap between the tube's radial range `[q, Q]` and the secondary's
-/// `[q_j, Q_j]` is under `2√3·R_H,j`. A tube without a period can meet every secondary.
+/// `Config::own_clock = false`). The step far from every secondary is the longest that resolves its own period, the frame's fall
+/// toward every secondary and the passage of every secondary it can meet (module docs): it can meet `j` when the gap between the
+/// tube's radial range `[q, Q]` and the secondary's `[q_j, Q_j]` is under `2√3·R_H,j`. A tube without a period meets them all.
 pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, own: Option<&Binding>) -> Res<(Scalar, Scalar, Scalar)> {
     let host = ctx.dolls[d as usize].unit.mu;
-    let (k, k_s) = (ctx.cfg.step_log2, ctx.cfg.smooth_log2);
+    let k = ctx.cfg.step_log2;
+    let (k_s, k_f, k_p) = (k + ctx.cfg.smooth_octaves, k + ctx.cfg.forcing_octaves, k + PASSAGE_OCTAVES);
     let mine = own.map(span).transpose()?.flatten();
     let reach = Scalar::integer(12).sqrt()?; // 2√3
-    let (mut c, mut floor, mut shortest, mut met) = (Scalar::ZERO, Scalar::ZERO, None::<Scalar>, None::<Scalar>);
+    let (mut c, mut floor, mut shortest) = (Scalar::ZERO, Scalar::ZERO, None::<Scalar>);
+    let (mut met, mut forced) = (None::<Scalar>, None::<Scalar>);
+    let least = |slot: &mut Option<Scalar>, x: Scalar| *slot = Some(slot.map_or(x, |y: Scalar| y.min(x)));
     for &j in &ctx.sources[d as usize] {
         if j == except {
             continue;
@@ -209,26 +222,34 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, own: Option<&Binding
         let hill = s.axis.mul(cbrt(s.gm.div(host.mul(Scalar::integer(3))?)?)?)?;
         c = c.add(s.gm.div(hill)?)?;
         floor = floor.add(s.gm.div(s.axis)?)?;
-        shortest = Some(shortest.map_or(s.period, |p| p.min(s.period)));
-        let meets = match (own, mine) {
-            (None, _) => false,
-            (Some(_), None) => true,
-            (Some(_), Some((q, apo, _, _))) => q.sub(s.apo)?.max(s.peri.sub(apo)?) < reach.mul(hill)?,
-        };
-        if meets {
-            met = Some(met.map_or(s.period, |p| p.min(s.period)));
+        least(&mut shortest, s.period);
+        match (own, mine) {
+            (None, _) => {}
+            (Some(_), None) => least(&mut met, s.period.scale(-k_p)?),
+            (Some(_), Some((q, apo, _, _))) => {
+                if q.sub(s.apo)?.max(s.peri.sub(apo)?) < reach.mul(hill)? {
+                    least(&mut met, s.period.scale(-k_p)?);
+                }
+                // The frame's fall toward j: ε_j = μ_j·(Q/a_j)² of the host's pull at the apoapsis, at j's period, given the error
+                // of the smooth regime: 2^k_s·√(ε_j/ε_s) steps a period, at least 2^k_f.
+                let x = apo.div(s.axis)?;
+                let eps = s.gm.div(host)?.mul(x.mul(x)?)?;
+                let n = Scalar::power_of_two(i16::try_from(k_s - SMOOTH_EPS_LOG2 / 2).map_err(|_| Error::Refused("range"))?).mul(eps.sqrt()?)?;
+                let n = n.max(Scalar::power_of_two(i16::try_from(k_f).map_err(|_| Error::Refused("range"))?));
+                least(&mut forced, s.period.div(n)?);
+            }
         }
     }
     let Some(shortest) = shortest else { return Err(Error::Refused("a doll without a source has no clock")) };
     let step = match (own, mine) {
         (None, _) => shortest.scale(-k)?,
-        (Some(_), None) => met.unwrap_or(shortest).scale(-k)?,
+        (Some(_), None) => met.expect("a tube without a period meets every secondary"),
         (Some(_), Some((_, _, _, p))) => {
-            let mine = p.scale(-k_s)?.min(shortest.scale(-ctx.cfg.forcing_log2)?);
-            match met {
-                Some(m) => mine.min(m.scale(-k)?),
-                None => mine,
+            let mut step = Some(p.scale(-k_s)?);
+            for x in [forced, met].into_iter().flatten() {
+                least(&mut step, x);
             }
+            step.expect("set")
         }
     };
     let c = c.max(floor.mul(Scalar::integer(FLOOR_FACTOR))?);

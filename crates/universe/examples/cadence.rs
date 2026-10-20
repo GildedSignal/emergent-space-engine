@@ -1,7 +1,7 @@
 //! Each body's own clock (14 October): the N ladder's belt (`scenario::ladder_ship`, the same births) about the plane's star
 //! and its three planets, run by the clock of 7 October (`own_clock = false`: 2^step_log2 steps per period of the doll's shortest
-//! secondary, Cinder; the reference) and by each body's own clock at `k_s` (`smooth_log2`: 2^k_s steps per its own period, finer
-//! where it can meet a secondary). Reports, per run: kicks per body per game-second (the ships' steps: a kick and a boundary each), the steps per own period each body is given
+//! secondary, Cinder; the reference) and by each body's own clock at `k_s` (2^k_s steps per its own period) and `k_f` (at least 2^k_f
+//! per period of every secondary: the frame's fall), finer where it can meet a secondary (`crate::ext::constants`). Reports, per run: kicks per body per game-second (the ships' steps: a kick and a boundary each), the steps per own period each body is given
 //! (its constants), and against the reference the belt's error at log-spaced times: |Δa|/a and |Δe| of the osculating orbit about
 //! the star, and |Δx|/a, as the median and worst over the bodies, with the growth exponent of the worst-so-far over the last four
 //! octaves of time (0: an offset that does not grow; 0.5: a walk; 1: a drift). With `giant`, the Giant alone (a control: the same
@@ -112,11 +112,13 @@ fn main() {
     let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(16);
     let years: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(20.0);
     // `k_s` or `k_s:k_f` (k_f: steps per period of the doll's shortest secondary, the frame's forcing; -60 is none).
-    let ks: Vec<(i32, i32)> = args.get(3).map_or(vec![(4, Config::default().forcing_log2)], |s| {
+    let d = Config::default();
+    let (k_s0, k_f0) = (d.step_log2 + d.smooth_octaves, d.step_log2 + d.forcing_octaves);
+    let ks: Vec<(i32, i32)> = args.get(3).map_or(vec![(k_s0, k_f0)], |s| {
         s.split(',')
             .map(|k| match k.split_once(':') {
                 Some((a, b)) => (a.parse().unwrap(), b.parse().unwrap()),
-                None => (k.parse().unwrap(), Config::default().forcing_log2),
+                None => (k.parse().unwrap(), k_f0),
             })
             .collect()
     });
@@ -134,7 +136,7 @@ fn main() {
         reference.wall
     );
     for &(k, kf) in &ks {
-        let law = run(Config { smooth_log2: k, forcing_log2: kf, ..Config::default() }, n, &ticks, giant_only);
+        let law = run(Config { smooth_octaves: k - d.step_log2, forcing_octaves: kf - d.step_log2, ..d }, n, &ticks, giant_only);
         let mut spp = law.steps_per_period.clone();
         let near = spp.iter().filter(|&&x| x > 2f64.powi(k + 1) * 1.01).count();
         let (mut da, mut de, mut dx) = (Vec::new(), Vec::new(), Vec::new());

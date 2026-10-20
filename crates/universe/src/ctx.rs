@@ -34,16 +34,16 @@ pub struct Config {
     pub turn_log2: i32,
     /// A body farther than this from the star (root units) has left the system.
     pub leave_log2: i32,
-    /// Kicks per radial period, as a power of two: of a tube of a planet's doll; for a ship of the root doll, of the period of
-    /// every secondary its orbit can meet (the passage regime, [`crate::ext::constants`]); for the player, of the doll's
-    /// shortest secondary.
+    /// Kicks per radial period, as a power of two: of a tube of a planet's doll; for the player, of the doll's shortest secondary;
+    /// for a ship of the root doll, one octave more of the period of every secondary its orbit can meet (the passage regime,
+    /// [`crate::ext::constants`], [`crate::ext::PASSAGE_OCTAVES`]).
     pub step_log2: i32,
-    /// Kicks per the ship's own radial period, as a power of two, for a ship of the root doll (the smooth regime and the floor of
-    /// the passage regime, [`crate::ext::constants`]).
-    pub smooth_log2: i32,
-    /// Steps per period of the doll's shortest secondary, as a power of two, for a ship of the root doll on its own clock: the
-    /// frame's fall toward every secondary (the indirect term) forces every body of the doll at that period ([`crate::ext::constants`]).
-    pub forcing_log2: i32,
+    /// Octaves of a root ship's own clock against `step_log2`: `2^(step_log2 + smooth_octaves)` steps per its own radial period
+    /// (the smooth regime, [`crate::ext::constants`]: 16 a period at the default).
+    pub smooth_octaves: i32,
+    /// And at least `2^(step_log2 + forcing_octaves)` steps per period of every secondary of the doll (the frame's fall toward it:
+    /// 4 a period at the default).
+    pub forcing_octaves: i32,
     /// Each ship of the root doll on its own clock (its own period, the secondaries it can meet, a phase from its id); false is
     /// the clock of 7 October (every ship of the doll on the doll's shortest secondary, phase zero), kept as the reference.
     pub own_clock: bool,
@@ -52,7 +52,7 @@ pub struct Config {
 }
 impl Default for Config {
     fn default() -> Self {
-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, smooth_log2: 4, forcing_log2: 2, own_clock: true, thrust_quantum_log2: 6 }
+        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, smooth_octaves: -3, forcing_octaves: -5, own_clock: true, thrust_quantum_log2: 6 }
     }
 }
 
