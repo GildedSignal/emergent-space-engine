@@ -5,12 +5,13 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 ## Focus (Julien, 30 September)
 
 "the only goal is the engine/compiler to work with GR natively". **AI and factions are off the plan:** no lens works on decisions, factions or agents until Julien brings them back. The plane flies (docs/plane.md, H0210), and work goes by its measured bottleneck.
-**The live questions, in order of the gap (13 October; Julien: "tackle what's the furthest behind … without just asymptoting"; the scoreboard is in [HANDOFF](../docs/HANDOFF.md); the [wiki](wiki/index.md) holds what is known, read it before choosing):**
-- **bodies in the flyable engine: 28 against 10⁹** (the furthest gap; a build is in flight: Sonnet's N ladder, `wt/nladder`). Lab runs here: which term breaks first as the plane grows (per-frame walks, rekey, the queue, memory per live body), measured on shipped code at 10³-10⁶; and the smallest promotion between a compact body and a live one;
-- **encounter work at 10⁹: ~10³-10⁴ cores** (`encounters`, `coorbital-cert`): what cuts it by 10³ (the cells' setup, the skin, what never needs a pair test at all);
-- **the kick: 75-160 µs against a ~50 ns floor** (`kick-jet`, `frame-cost`): the jet is retired; the cheapest exact kick on the shipped representation, and how many kicks a body really needs per orbit;
-- **memory at 10⁹** (`memory-h-live`, `belt`): within ~2× of the floor in the worst case; only what the ladder shows breaking;
-- **not here:** the burn's stutter above L8 (GPT's `burst` job tonight, gate T1) and the high-γ clock (merged): no lens re-measures them.
+**The live questions (20 October; Julien: "We need to find OOM improvements in micro and macro").** Every run names the scoreboard row it moves (HANDOFF's table) and the multiplier it measures or expects; a lever under 2× on its row is not worth a run unless it unblocks a larger one. Read the [wiki](wiki/index.md) first; never re-measure a closed or settled number.
+- **Macro, kicks per body (~10³ at stake):** the star's doll kicks every body on one grid, ~9,000 kicks per belt orbit; the gates hold at 8-16 per the body's own orbit (`kick-cadence`), zero-kick secular phasors are killed for the belt (14.5%, 6 October), and every resolved kick fires (`fermi-0659`: the velocity word's quantum is far below any behaviour). Questions: the per-body step as a certificate (the interval over which the description reproduces the law) chosen by dimensionless numbers per regime, on the shipped plane; desynchronised grids; which bodies must stay fine (resonances, encounters) and what fraction they are.
+- **Macro, live set and memory (~10²-10³):** with rare kicks, a body is live only around its events; price the live set and its residency under a per-body cadence, and the smallest demotion back to the compact store (GPT's table cache halved bytes a body, bit for bit; records never demote yet).
+- **Macro, families and formations (~10² in memory, ~10 in kicks):** a group's reference motion plus each member's small relative state, refined per member until it deviates; the fleet doll's contracted tide is exact at every speed (`scout-4c79`). How long a member's certificate lasts against its separation, in the plane's own fleets and belts.
+- **Micro, the kick's cost (~10-10²):** the shared cell shape (`cell-rebind`: the compile 99.7% deleted, exact state kept), lazy panels (`spacex-624a`: 90% of minted panels never read), then the fit that remains (58 µs a rebind).
+- **Micro, per-body state (~10):** the schedule's 156 B a body against the id-derived calendar's 0 (`calendar`, `components-6b9a`); the history retention ratchet (`system-c7a6`).
+- **Not here:** prune horizons, held-scan pins and frame bookkeeping below 2× on a row; the burn (GPT); the clock (merged).
 
 The list of 29 September below is background: the pivot (H0200 onwards) answered most of it.
 
