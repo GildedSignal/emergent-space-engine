@@ -1,0 +1,45 @@
+patch already applied
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/engine)
+   Compiling emergent-shipmem v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/shipmem)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 30.30s
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.30s
+bench-s1.log: mints 1467 rebinds 1333
+  compile/rebind-WALL   0.428   (7fd3's metric)
+  compile/from_state    0.865   (a765's metric: compile/(fit+compile+tail))
+  us/mint: compile  63.39  fit_key  4.36  fs_tail  5.52  fs_total  73.28
+  rebind wall 162.87 us  -> outside-from_state  82.22 us (50.5% of the wall)
+  reads/mint  35.59  history hits/mint 0.151 (hit rate 221/221)
+bench-s42.log: mints 1349 rebinds 1241
+  compile/rebind-WALL   0.394   (7fd3's metric)
+  compile/from_state    0.842   (a765's metric: compile/(fit+compile+tail))
+  us/mint: compile  53.00  fit_key  4.45  fs_tail  5.49  fs_total  62.94
+  rebind wall 146.17 us  -> outside-from_state  77.76 us (53.2% of the wall)
+  reads/mint  35.25  history hits/mint 0.131 (hit rate 177/177)
+bench-s7.log: mints 1737 rebinds 1625
+  compile/rebind-WALL   0.367   (7fd3's metric)
+  compile/from_state    0.851   (a765's metric: compile/(fit+compile+tail))
+  us/mint: compile  54.29  fit_key  4.32  fs_tail  5.18  fs_total  63.79
+  rebind wall 158.28 us  -> outside-from_state  90.09 us (56.9% of the wall)
+  reads/mint  37.34  history hits/mint 0.153 (hit rate 265/265)
+bench-s1b.log: mints 1467 rebinds 1333
+  compile/rebind-WALL   0.430   (7fd3's metric)
+  compile/from_state    0.866   (a765's metric: compile/(fit+compile+tail))
+  us/mint: compile  63.19  fit_key  4.36  fs_tail  5.45  fs_total  73.01
+  rebind wall 161.59 us  -> outside-from_state  81.25 us (50.3% of the wall)
+  reads/mint  35.59  history hits/mint 0.151 (hit rate 221/221)
+belt-10000.log: mints 204073 rebinds 203864
+  compile/rebind-WALL   0.265   (7fd3's metric)
+  compile/from_state    0.452   (a765's metric: compile/(fit+compile+tail))
+  us/mint: compile   7.33  fit_key  4.01  fs_tail  4.86  fs_total  16.21
+  rebind wall  27.74 us  -> outside-from_state  11.51 us (41.5% of the wall)
+  reads/mint  19.96  history hits/mint 1.051 (hit rate 214433/214433)
+belt-30000.log: mints 275507 rebinds 275298
+  compile/rebind-WALL   0.254   (7fd3's metric)
+  compile/from_state    0.438   (a765's metric: compile/(fit+compile+tail))
+  us/mint: compile   6.95  fit_key  4.03  fs_tail  4.89  fs_total  15.87
+  rebind wall  27.35 us  -> outside-from_state  11.47 us (41.9% of the wall)
+  reads/mint  18.55  history hits/mint 0.866 (hit rate 238543/238543)
