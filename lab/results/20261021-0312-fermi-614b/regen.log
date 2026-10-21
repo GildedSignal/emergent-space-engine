@@ -1,0 +1,67 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+warning: unused import: `AtomicBool`
+  --> crates/universe/examples/census.rs:18:25
+   |
+18 | use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+   |                         ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (example "census") generated 1 warning (run `cargo fix --example "census"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.91s
+arm                   bodies  mem frames game_s | cap_max   idx  fb loop/game-s surv% | large    max_B
+coast-s2-n1e4          10028   48   1800   2899 |     267   290   0          27 92.3% |    17   320896
+burn-s1-n10000         10028   48    600    899 |     134  1056   0          83 91.2% |     8   320896
+burn-s1-n30000         30028   48    600    899 |     134  1056   0          83 91.2% |     8   960896
+burn-s1-n100000       100028   48    600    899 |     134  1056   0          83 91.2% |     8  3200896
+burn-s1-n300000       300028   48    600    899 |     134  1056   0          83 91.2% |     8  9600896
+burn-s1-n10000-30s     10028   48   1800   2898 |     134  2223   0          55 93.2% |   136   320896
+burn-s1-n0-m400           28  400    600    870 |     329     2 933         409 73.3% |   400   237568
+burn-s1-n1e4-m400      10028  400    600    837 |     628     2 890       11046  5.6% |   400   320896
+
+[1] Belt-scaled chain: the table crossing at a handout (members 48, belt N). 32.0 B/body exact.
+  coast-s2-n1e4           320896 B = 32.0 B/body at frame   12; frames around (us): [60, 50, 5698, 63] <- emergent_universe::universe::Universe::resolve_handout <- emergent_universe::universe::Universe::resolve_entity
+  burn-s1-n10000          320896 B = 32.0 B/body at frame    9; frames around (us): [62, 68, 2133, 8612] <- emergent_universe::universe::Universe::resolve_handout <- emergent_universe::universe::Universe::resolve_entity
+  burn-s1-n30000          960896 B = 32.0 B/body at frame    9; frames around (us): [63, 67, 2139, 7912] <- emergent_universe::universe::Universe::resolve_handout <- emergent_universe::universe::Universe::resolve_entity
+  burn-s1-n100000        3200896 B = 32.0 B/body at frame    9; frames around (us): [73, 69, 2169, 7947] <- emergent_universe::universe::Universe::resolve_handout <- emergent_universe::universe::Universe::resolve_entity
+  burn-s1-n300000        9600896 B = 32.0 B/body at frame    9; frames around (us): [64, 70, 2162, 7998] <- emergent_universe::universe::Universe::resolve_handout <- emergent_universe::universe::Universe::resolve_entity
+  burn-s1-n10000-30s      320896 B = 32.0 B/body at frame    9; frames around (us): [67, 72, 2262, 8204] <- emergent_universe::universe::Universe::resolve_handout <- emergent_universe::universe::Universe::resolve_entity
+  burn-s1-n1e4-m400       320896 B = 32.0 B/body at frame    9; frames around (us): [3281, 1976, 6227, 1304] <- emergent_universe::universe::Universe::resolve_handout <- emergent_universe::universe::Universe::resolve_entity
+
+[2] Fleet-scaled chains (m400 arms): deduped (site, size): count, frames.
+  burn-s1-n0-m400        237568 B x  1 (frames 49-49)  emergent_universe::universe::Universe::resolve_handout::{{closure}}
+  burn-s1-n0-m400        118784 B x  1 (frames 21-21)  emergent_universe::universe::Universe::resolve_handout::{{closure}}
+  burn-s1-n0-m400        114688 B x396 (frames 60-110)  emergent_universe::universe::Universe::encounters_for_player
+  burn-s1-n0-m400         90112 B x  1 (frames 49-49)  emergent_engine::anchor::<impl emergent_engine::frame::Battle<S>>::anchor_epoch
+  burn-s1-n0-m400         65536 B x  1 (frames 106-106)  emergent_universe::universe::Universe::answer_front
+  burn-s1-n1e4-m400      320896 B x  1 (frames 9-9)  emergent_universe::universe::Universe::resolve_handout
+  burn-s1-n1e4-m400      229376 B x198 (frames 43-89)  emergent_universe::universe::Universe::encounters_for_player
+  burn-s1-n1e4-m400      114688 B x200 (frames 25-89)  emergent_universe::universe::Universe::encounters_for_player
+  burn-s1-n1e4-m400       90112 B x  1 (frames 29-29)  emergent_engine::anchor::<impl emergent_engine::frame::Battle<S>>::anchor_epoch
+
+[3] The capture chain: max content vs arm (fleet-scaled, belt-flat).
+  coast-s2-n1e4        capture.max= 267  radial ids/capture= 268.8
+  burn-s1-n10000       capture.max= 134  radial ids/capture=  71.0
+  burn-s1-n30000       capture.max= 134  radial ids/capture=  71.0
+  burn-s1-n100000      capture.max= 134  radial ids/capture=  71.0
+  burn-s1-n300000      capture.max= 134  radial ids/capture=  71.0
+  burn-s1-n10000-30s   capture.max= 134  radial ids/capture=  72.2
+  burn-s1-n0-m400      capture.max= 329  radial ids/capture=   5.5
+  burn-s1-n1e4-m400    capture.max= 628  radial ids/capture=  17.0
+
+[4] Rates: leavers (handouts), captures, full-scan weight.
+  coast-s2-n1e4        leavers None in 2899 gs -> 0.000/gs; captures 0.10/gs; loop iters 27/gs
+  burn-s1-n10000       leavers None in 899 gs -> 0.000/gs; captures 1.18/gs; loop iters 83/gs
+  burn-s1-n30000       leavers None in 899 gs -> 0.000/gs; captures 1.18/gs; loop iters 83/gs
+  burn-s1-n100000      leavers None in 899 gs -> 0.000/gs; captures 1.18/gs; loop iters 83/gs
+  burn-s1-n300000      leavers 43 in 899 gs -> 0.048/gs; captures 1.18/gs; loop iters 83/gs
+  burn-s1-n10000-30s   leavers 48 in 2898 gs -> 0.017/gs; captures 0.77/gs; loop iters 55/gs
+  burn-s1-n0-m400      leavers 387 in 870 gs -> 0.445/gs; captures 0.00/gs; loop iters 409/gs
+  burn-s1-n1e4-m400    leavers 387 in 837 gs -> 0.462/gs; captures 0.00/gs; loop iters 11046/gs
+
+[5] The 10^9 composition (copy traffic 2x: read old + write new; bus 60 GB/s).
+  recs+info crossing: 496 B/body -> 992 GB traffic -> 16.5 s of bus
+  info only         : 32 B/body -> 64 GB traffic -> 1.1 s of bus
+  crossing at N=1e+06:   0.99 GB ->    17 ms of bus
+  crossing at N=1e+07:   9.92 GB ->   165 ms of bus
+  crossing at N=1e+08:  99.20 GB ->  1653 ms of bus

@@ -1,0 +1,326 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e29c906e..05a714d7 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -172,6 +172,7 @@ dependencies = [
+  "emergent-lattice",
+  "emergent-lattice-event",
+  "emergent-space",
++ "serde_json",
+ ]
+ 
+ [[package]]
+diff --git a/crates/universe/Cargo.toml b/crates/universe/Cargo.toml
+index 631c67e1..4cf34a1e 100644
+--- a/crates/universe/Cargo.toml
++++ b/crates/universe/Cargo.toml
+@@ -15,3 +15,6 @@ blake3.workspace = true
+ [features]
+ # Stage timers for the frame's cost (crate::prof); off, every call is empty and the engine is what it was.
+ prof = []
++
++[dev-dependencies]
++serde_json.workspace = true
+diff --git a/crates/universe/examples/census.rs b/crates/universe/examples/census.rs
+new file mode 100644
+index 00000000..1f5e0981
+--- /dev/null
++++ b/crates/universe/examples/census.rs
+@@ -0,0 +1,201 @@
++//! Lab census (experiment-only; lab/results/20261021-0312-fermi-614b): the nladder flight (plane_extra,
++//! coast or a burn at level 8 from the first second, seed on the command line) under a counting global
++//! allocator that captures backtraces of allocations at or above CENSUS_MIN (default 61,440 B, just above
++//! the candidates ladder's 57,344 B cap). The radial/capture counters (crates/universe/src/census.rs)
++//! come along. Out: CENSUS_OUT (JSON), or stdout when unset.
++//!
++//! cargo run --release -p emergent-universe --example census [-- <N> <coast|burn> [seconds [rtf [seed]]]]
++
++use emergent_universe::census::{CAPTURE_LOOP, CAPTURE_MAX, CAPTURE_TUPLES, RADIAL_FALLBACK, RADIAL_IDS, RADIAL_INDEXED};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::backtrace::Backtrace;
++use std::cell::Cell;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::sync::Mutex;
++use std::time::{Duration, Instant};
++
++// ---- the allocator ------------------------------------------------------------------------------
++
++static ALLOCS: AtomicU64 = AtomicU64::new(0);
++static REALLOCS: AtomicU64 = AtomicU64::new(0);
++static BYTES_IN: AtomicU64 = AtomicU64::new(0);
++static BYTES_OUT: AtomicU64 = AtomicU64::new(0);
++static GROWTH: AtomicU64 = AtomicU64::new(0);
++const CLASSES: usize = 36;
++static CLASS_COUNT: [AtomicU64; CLASSES] = [const { AtomicU64::new(0) }; CLASSES];
++static CLASS_BYTES: [AtomicU64; CLASSES] = [const { AtomicU64::new(0) }; CLASSES];
++
++struct Large {
++    size: u64,
++    grew_from: u64,
++    frame: u64,
++    bt: String,
++}
++
++static LARGE: Mutex<Vec<Large>> = Mutex::new(Vec::new());
++static LARGE_CAP: usize = 400;
++static MIN: AtomicU64 = AtomicU64::new(61_440);
++
++static PHASE: AtomicU64 = AtomicU64::new(0); // 0 build, 1 flight
++static FRAME: AtomicU64 = AtomicU64::new(0);
++
++thread_local! {
++    static IN_BOOK: Cell<bool> = const { Cell::new(false) };
++}
++
++fn book(size: usize, grew_from: usize) {
++    if IN_BOOK.with(|b| b.get()) {
++        return;
++    }
++    IN_BOOK.with(|b| b.set(true));
++    let class = (usize::BITS - (size as u64).leading_zeros()) as usize;
++    let class = class.min(CLASSES - 1);
++    CLASS_COUNT[class].fetch_add(1, Ordering::Relaxed);
++    CLASS_BYTES[class].fetch_add(size as u64, Ordering::Relaxed);
++    if grew_from > 0 {
++        GROWTH.fetch_add(size.saturating_sub(grew_from) as u64, Ordering::Relaxed);
++    }
++    if size as u64 >= MIN.load(Ordering::Relaxed) {
++        let frame = FRAME.load(Ordering::Relaxed);
++        if let Ok(mut l) = LARGE.lock() {
++            if l.len() < LARGE_CAP {
++                // force_capture allocates; the guard above keeps that out of the counts.
++                l.push(Large { size: size as u64, grew_from: grew_from as u64, frame, bt: format!("{:8}", Backtrace::force_capture()) });
++            }
++        }
++    }
++    IN_BOOK.with(|b| b.set(false));
++}
++
++struct Census;
++
++unsafe impl GlobalAlloc for Census {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc(l);
++        if !p.is_null() {
++            ALLOCS.fetch_add(1, Ordering::Relaxed);
++            BYTES_IN.fetch_add(l.size() as u64, Ordering::Relaxed);
++            book(l.size(), 0);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        BYTES_OUT.fetch_add(l.size() as u64, Ordering::Relaxed);
++        System.dealloc(p, l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, new_size: usize) -> *mut u8 {
++        let q = System.realloc(p, l, new_size);
++        if !q.is_null() {
++            REALLOCS.fetch_add(1, Ordering::Relaxed);
++            BYTES_OUT.fetch_add(l.size() as u64, Ordering::Relaxed);
++            BYTES_IN.fetch_add(new_size as u64, Ordering::Relaxed);
++            book(new_size, l.size());
++        }
++        q
++    }
++}
++
++#[global_allocator]
++static A: Census = Census;
++
++// ---- the flight ---------------------------------------------------------------------------------
++
++fn hwm() -> u64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines().find(|l| l.starts_with("VmHWM")).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++        })
++        .unwrap_or(0)
++        * 1024
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seed: u64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let members: u64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(48);
++    if let Ok(m) = std::env::var("CENSUS_MIN") {
++        if let Ok(m) = m.parse::<u64>() {
++            MIN.store(m, Ordering::Relaxed);
++        }
++    }
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, members, n).expect("the plane");
++    let build_s = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    PHASE.store(1, Ordering::Relaxed);
++    if let Ok(mut l) = LARGE.lock() {
++        l.clear(); // the build's own large allocations are not the flight's
++    }
++    let snap = |ph: &str| {
++        let classes: Vec<_> = (0..CLASSES)
++            .map(|c| {
++                serde_json::json!({"class": c, "lo": if c == 0 { 0 } else { 1u64 << (c - 1) },
++                    "count": CLASS_COUNT[c].load(Ordering::Relaxed), "bytes": CLASS_BYTES[c].load(Ordering::Relaxed)})
++            })
++            .collect();
++        serde_json::json!({
++            "phase": ph, "allocs": ALLOCS.load(Ordering::Relaxed), "reallocs": REALLOCS.load(Ordering::Relaxed),
++            "bytes_in": BYTES_IN.load(Ordering::Relaxed), "bytes_out": BYTES_OUT.load(Ordering::Relaxed),
++            "growth": GROWTH.load(Ordering::Relaxed), "classes": classes,
++        })
++    };
++    let build = snap("build");
++    let mut rows: Vec<(usize, f64, u64)> = Vec::new();
++    let (mut late_kicks, mut late_events, mut t_first) = (0u64, 0u64, p.u.now);
++    let s0 = p.u.stats;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(55) {
++            break;
++        }
++        if f == 60 {
++            if burn {
++                let t = p.u.now;
++                let _ = p.u.input(t, word(1, 8));
++            }
++            (late_kicks, late_events, t_first) = (s0.kicks, s0.events(), p.u.now);
++        }
++        FRAME.store(f as u64, Ordering::Relaxed);
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, i64::MAX);
++        rows.push((f, start.elapsed().as_secs_f64() * 1e3, frame.events));
++        if !p.u.rec(p.player).alive {
++            break;
++        }
++    }
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let flight_j = snap("flight");
++    let large: Vec<_> = LARGE.lock().map(|l| {
++        l.iter().map(|r| serde_json::json!({"size": r.size, "grew_from": r.grew_from, "frame": r.frame, "bt": r.bt})).collect()
++    }).unwrap_or_default();
++    let j = serde_json::json!({
++        "arm": {"n": n, "members": members, "bodies": bodies, "flight": flight, "seed": seed, "rtf": rtf, "seconds": seconds,
++                "frames_run": rows.len(), "build_s": build_s, "game_s_late": game_s, "hwm_bytes": hwm(),
++                "wall_s": t_start.elapsed().as_secs_f64()},
++        "late": {"kicks": p.u.stats.kicks - late_kicks, "events": p.u.stats.events() - late_events},
++        "build": build, "flight": flight_j,
++        "radial": {"fallback": RADIAL_FALLBACK.load(Ordering::Relaxed), "indexed": RADIAL_INDEXED.load(Ordering::Relaxed), "ids": RADIAL_IDS.load(Ordering::Relaxed)},
++        "capture": {"loop": CAPTURE_LOOP.load(Ordering::Relaxed), "tuples": CAPTURE_TUPLES.load(Ordering::Relaxed), "max": CAPTURE_MAX.load(Ordering::Relaxed)},
++        "frames": rows.iter().map(|r| serde_json::json!({"f": r.0, "ms": (r.1 * 1000.0).round() as u64, "ev": r.2})).collect::<Vec<_>>(),
++        "large": large, "large_min": MIN.load(Ordering::Relaxed),
++        "sizes": {"body_rec": std::mem::size_of::<emergent_universe::body::BodyRec>(),
++                   "binding": std::mem::size_of::<emergent_universe::bind::Binding>()},
++        "stats_end": {"leavers": p.u.stats.leavers, "handoffs": p.u.stats.handoffs, "lost": p.u.stats.lost},
++    });
++    match std::env::var("CENSUS_OUT") {
++        Ok(out) => std::fs::write(out, serde_json::to_vec_pretty(&j).unwrap_or_default()).expect("census out"),
++        Err(_) => println!("{j:#}"),
++    }
++}
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..0b733b3d
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,28 @@
++//! Lab census hooks (additive, experiment-only; see lab/results/20261021-0312-fermi-614b).
++//! Relaxed counters read out by the xtask allocation census after a run. They never touch an outcome.
++
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// `Radial::candidates` returned `None` (the caller then reads every body).
++pub static RADIAL_FALLBACK: AtomicU64 = AtomicU64::new(0);
++/// `Radial::candidates` returned an index.
++pub static RADIAL_INDEXED: AtomicU64 = AtomicU64::new(0);
++/// Bodies handed out by the indexed path, summed.
++pub static RADIAL_IDS: AtomicU64 = AtomicU64::new(0);
++/// Iterations of `PlayerNeighbourhood::capture`'s candidate loop (bodies considered).
++pub static CAPTURE_LOOP: AtomicU64 = AtomicU64::new(0);
++/// Candidate tuples actually pushed (the survivors of the filters).
++pub static CAPTURE_TUPLES: AtomicU64 = AtomicU64::new(0);
++/// Largest candidate list one capture ever built.
++pub static CAPTURE_MAX: AtomicU64 = AtomicU64::new(0);
++
++pub fn read() -> [u64; 6] {
++    [
++        RADIAL_FALLBACK.load(Ordering::Relaxed),
++        RADIAL_INDEXED.load(Ordering::Relaxed),
++        RADIAL_IDS.load(Ordering::Relaxed),
++        CAPTURE_LOOP.load(Ordering::Relaxed),
++        CAPTURE_TUPLES.load(Ordering::Relaxed),
++        CAPTURE_MAX.load(Ordering::Relaxed),
++    ]
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..a8d60163 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -173,6 +173,7 @@ impl Encounters for PlayerNeighbourhood {
+         })();
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++            crate::census::CAPTURE_LOOP.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+@@ -185,8 +186,10 @@ impl Encounters for PlayerNeighbourhood {
+             if reach.is_zero() {
+                 continue;
+             }
++            crate::census::CAPTURE_TUPLES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             candidates.push((j, other, reach));
+         }
++        crate::census::CAPTURE_MAX.fetch_max(candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..e589ceed 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -10,6 +10,7 @@ pub mod force;
+ pub mod lorentz;
+ pub mod num;
+ pub mod observe;
++pub mod census;
+ pub mod prof;
+ pub mod radial;
+ pub mod scenario;
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..748c76f3 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -248,10 +248,12 @@ impl Radial {
+         let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
++            crate::census::RADIAL_FALLBACK.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             return None;
+         }
+         let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
+         if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
++            crate::census::RADIAL_FALLBACK.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             return None;
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+@@ -262,6 +264,8 @@ impl Radial {
+         }
+         ids.sort_unstable();
+         ids.dedup();
++        crate::census::RADIAL_INDEXED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        crate::census::RADIAL_IDS.fetch_add(ids.len() as u64, std::sync::atomic::Ordering::Relaxed);
+         Some(ids.into_iter().map(|i| i as usize).collect())
+-    }
++}
+ }
