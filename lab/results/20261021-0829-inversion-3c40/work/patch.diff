@@ -1,0 +1,125 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..6610b505 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,28 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux port (the tree's only memory instrument was macOS-only, so every ladder number read 0 MB on the lab's machines):
++/// (VmRSS now, VmHWM peak) from /proc/self/status, in bytes.
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let Ok(status) = std::fs::read_to_string("/proc/self/status") else {
++        return (0, 0);
++    };
++    let kb = |line: &str| -> u64 {
++        line.split_whitespace().next().and_then(|k| k.parse::<u64>().ok()).unwrap_or(0) * 1024
++    };
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    for line in status.lines() {
++        if let Some(rest) = line.strip_prefix("VmRSS:") {
++            now = kb(rest);
++        } else if let Some(rest) = line.strip_prefix("VmHWM:") {
++            peak = kb(rest);
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -47,6 +71,10 @@ fn main() {
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
++    // ES_NL_GUARD_MB stops the flight when VmRSS crosses it (the lab box kills processes past its cap).
++    let max_s: f64 = std::env::var("ES_NL_MAX_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
++    let guard_mb: f64 = std::env::var("ES_NL_GUARD_MB").ok().and_then(|s| s.parse().ok()).unwrap_or(0.0);
++
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+     let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
+@@ -58,13 +86,14 @@ fn main() {
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+     let (mut held_max, mut truncated) = (0usize, false);
++    let (mut w_worst_ms, mut w_over, mut guarded) = (0.0f64, 0usize, false);
+     let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
+     let mut last_stats = p.u.stats;
+     let mut alive = true;
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs(max_s as u64) {
+             truncated = true;
+             break;
+         }
+@@ -90,6 +119,29 @@ fn main() {
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
++        w_worst_ms = w_worst_ms.max(took.as_secs_f64() * 1e3);
++        if took.as_secs_f64() * 1e3 > budget_ms {
++            w_over += 1;
++        }
++        if f >= 60 && f % 300 == 0 {
++            let (now_w, hwm_w) = footprint();
++            let gs = (p.u.now - late_stats.as_ref().map_or(p.u.now, |s| s.1)) as f64 * TICK_SECONDS;
++            println!(
++                "nl: f={f} gs={gs:.0} rss={:.0} hwm={:.0} held={} w_ms={w_worst_ms:.2} w_over={w_over}",
++                now_w as f64 / 1e6, hwm_w as f64 / 1e6, p.u.held_scans()
++            );
++            w_worst_ms = 0.0;
++            w_over = 0;
++        }
++        if guard_mb > 0.0 && f >= 60 && f % 15 == 0 {
++            let (now_g, _) = footprint();
++            if now_g as f64 / 1e6 >= guard_mb {
++                let gs = (p.u.now - late_stats.as_ref().map_or(p.u.now, |s| s.1)) as f64 * TICK_SECONDS;
++                println!("nl: GUARD f={f} gs={gs:.0} rss={:.0} guard={guard_mb:.0}", now_g as f64 / 1e6);
++                guarded = true;
++                break;
++            }
++        }
+         let rec = p.u.rec(p.player);
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+@@ -134,8 +186,8 @@ fn main() {
+         }
+     }
+     println!(
+-        "frames after 1 s: {}  engine ms p50 {:.3} p90 {:.3} p99 {:.3} max {:.3}; over {budget_ms} ms: {over}; frames behind: {late_frames_lagging}, worst lag {lag:.3} s; events/frame p50 {} p99 {} max {}; scans held max {held_max}",
+-        late.len(), pct(&ms, 0.5), pct(&ms, 0.9), pct(&ms, 0.99), pct(&ms, 1.0), pct(&ev, 0.5), pct(&ev, 0.99), pct(&ev, 1.0)
++        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} guarded={guarded} wall_s={:.1}",
++        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
+     println!(
+         "game {game_s:.1} s after the first second: kicks {kicks} ({:.3e}/body/game-s), events {evs} ({:.3e}/body/game-s), stats {{opens {}, boundaries {}, handoffs {}, lost {}, refused {}, slices {}}}; refusals held {refusals}, dead {dead}, alive(player) {alive}",
+@@ -156,8 +208,4 @@ fn main() {
+     over_at.truncate(12);
+     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
+-    println!(
+-        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+-        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+-    );
+ }
