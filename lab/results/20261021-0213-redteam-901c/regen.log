@@ -1,0 +1,66 @@
+== provenance: the shipped law the replica implements (crates/universe/src/thrust.rs) ==
+//! The player's thrust: a decision that grows the rapidity linearly in proper time.
+//!
+//! `Δη = α·Δτ` along the heading, in the ship's local frame. The state is a coordinate
+//! velocity in the doll (Schwarzschild coordinates), so the burn converts to the local
+//! orthonormal frame (`v̂_r = v_r/f`, `v̂_t = v_t/√f`, `f = 1 − 2M/r`), composes the boost there
+//! with the exact relativistic velocity addition, and converts back. Then the state is bound
+//! again: the new `E` and `L` are the old ones changed by the work done, and nothing else.
+pub fn burn(x: V2, v: V2, eta: Scalar, n: V2, mu: Scalar) -> Res<V2> {
+    let r = norm2(x)?;
+    let f = Scalar::ONE.sub(Scalar::integer(2).mul(mu)?.div(r)?)?;
+    if !f.is_positive() {
+        return Err(crate::num::Error::Refused("thrust inside the horizon"));
+    }
+    let rh = [x[0].div(r)?, x[1].div(r)?];
+    let th = [rh[1].negate(), rh[0]];
+    let sf = f.sqrt()?;
+    // Local orthonormal velocity: radial v_r/f, tangential v_t/√f.
+    let (vr, vt) = (dot2(v, rh)?, dot2(v, th)?);
+    let w = add2(scale2(rh, vr.div(f)?)?, scale2(th, vt.div(sf)?)?)?;
+    let ww = dot2(w, w)?;
+    let gamma = Scalar::ONE.div(Scalar::ONE.sub(ww)?.sqrt()?)?;
+    let u = scale2(w, gamma)?;
+    let (ch, sh) = cosh_sinh(eta)?;
+    let un = dot2(u, n)?;
+    let along = add2(n, scale2(u, un.div(gamma.add(Scalar::ONE)?)?)?)?;
+    let u2 = add2(scale2(u, ch)?, scale2(along, sh)?)?;
+    let g2 = Scalar::ONE.add(dot2(u2, u2)?)?.sqrt()?;
+    let w2 = scale2(u2, Scalar::ONE.div(g2)?)?;
+    let (wr, wt) = (dot2(w2, rh)?, dot2(w2, th)?);
+    add2(scale2(rh, wr.mul(f)?)?, scale2(th, wt.mul(sf)?)?)
+}
+
+== run (float64; oracle: exact Schwarzschild invariants + DOP853 powered geodesics) ==
+controls: GREEN
+
+letter/exact ratio for dE (dL tracks it to 3 digits), prograde impulse:
+       flat eta=0.05: 0.6248
+       flat eta=0.25: 0.5228
+       r=6M eta=0.05: 0.5101  [shipped relerr 0.0e+00]
+       r=6M eta=0.25: 0.4269  [shipped relerr 3.0e-15]
+      r=10M eta=0.05: 0.7118  [shipped relerr 0.0e+00]
+      r=10M eta=0.25: 0.6180  [shipped relerr 0.0e+00]
+      r=20M eta=0.05: 0.8540  [shipped relerr 0.0e+00]
+      r=20M eta=0.25: 0.7649  [shipped relerr 0.0e+00]
+     r=100M eta=0.05: 0.9657  [shipped relerr 0.0e+00]
+     r=100M eta=0.25: 0.8975  [shipped relerr 0.0e+00]
+   r=10000M eta=0.05: 0.9971  [shipped relerr 1.3e-13]
+   r=10000M eta=0.25: 0.9511  [shipped relerr 0.0e+00]
+
+escape burn (deta to E=1 from circular): letter over-calls:
+  r=6M: exact 0.1092  letter 0.3321  x3.042
+  r=10M: exact 0.1117  letter 0.1798  x1.610
+  r=20M: exact 0.0872  letter 0.1064  x1.219
+  r=100M: exact 0.0410  letter 0.0425  x1.036
+
+radial impulse r=6M eta=0.25: dL  axis-boost 0.0  shipped(FW) +0.1088 (+3.14% of L0=3.4641)  letter 0.0
+held-heading burn dtau=5M: E axis 0.94570  FW/compass 0.94138/0.94138  dL/L -0.1161/-0.1034/-0.1034
+
+flush deferral (engine lump vs own continuous law):
+  r=6M q=0.01562: relerr_E -0.00184 relerr_L -0.00221
+  r=6M q=0.00391: relerr_E -0.00047 relerr_L -0.00056
+  r=20M q=0.01562: relerr_E -0.00002 relerr_L -0.00002
+  r=20M q=0.00391: relerr_E -0.00000 relerr_L -0.00001
+
+REGEN OK
