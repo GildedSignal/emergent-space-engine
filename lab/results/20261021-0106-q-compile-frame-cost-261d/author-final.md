@@ -1,0 +1,4 @@
+Working...
+Run complete. All deliverables in `lab/results/20261021-0106-q-compile-frame-cost-261d/`: the compiled page (`wiki/frame-cost.md`), the audit (`verify.py`, run by `regen.sh` in ~2 s), pre-registered `predictions.md` (all five held, P3 over-held at 25/25 verbatim), and `dossier.md`. No shipped code or wiki files were touched — the page is a proposal in the run folder, per the lab's publish flow.
+
+**Claim:** the `frame-cost` page is compiled from 424 lines / current best 244 to 104 lines / current best 8 — all 56 distinct runs kept once each, 9 refutations, 6 board-ranked open directions, and zero supported numbers lost (25/25 sampled verbatim; the 123 non-verbatim old tokens are each a checker-arm or seed-level variant behind a kept run line), verified by `lab/wiki.py`'s own budget counter on a scratch copy.
