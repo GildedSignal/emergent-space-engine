@@ -1,0 +1,18 @@
+== falsifier.py control
+== falsifier.py mapcheck
+== falsifier.py flyby
+== falsifier.py flyby2
+== falsifier.py conv
+== controls summary (must all pass)
+PASS eigen dev < 1e-13 (7 points, 4c79 closed forms)
+PASS eigen u_drift < 1e-9 and orthonorm < 1e-9
+PASS rhs_check (vectorized member RHS) < 1e-12
+PASS sign: member u.u at tau=0 < 1e-14 (normalized ICs)
+PASS sign: roundtrip0 quadratic in xi (ratio in (3e4, 3e5) over 300x xi)
+PASS map: dual residual < old residual (except one radial cell)
+PASS repro451f z@1e-4 within 1e-3 of 451f
+PASS repro451f z@3e-2 within 5% of 451f
+PASS fixed z@1e-4 flat under 8x refinement (spread < 1%)
+PASS fixed z@1e-4 at least 10x below frozen 451f value
+PASS grid drifts < 1e-9 everywhere
+ALL CONTROLS PASS
