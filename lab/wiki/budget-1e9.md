@@ -2,16 +2,16 @@ topic: budget-1e9
 status: open
 closed-by:
 valid-while:
-updated: 20261021-0312-fermi-614b
+updated: 20261021-1443-fermi-d709
 
 # The assembled 10⁹ ledger: the board's interlocking budget, composed on measured laws
 
 ## Current best
 
-1. **The composed CPU budget at 10⁹, λ = 4×10⁻⁵/body/game-s [0659], rtf 100 = 4×10⁶ events/wall-s [3aec]: the stream row alone is 193 cores at shipped item cost (39.3 after split8×survival = 4.92×; checker 21.3 at the belt's own item); today-cost totals 22.5–43.4 cores = 5.6–10.9× the 4-core budget, cd3b-letter cost 6.5–12.5 (1.6–3.1×), arithmetic-floor closure 6.1–9.0 (1.5–2.3×). Rows: churn 0.35–1.4 [08d0 → 73b5], mint ≤ 1.9 [cd3b], view serve ≤ ~0.1 [e3a4], frame ≤ 0.72; the belt's boundary items are unpriced.**
-2. **Closure requires both owned levers [3aec]: the cadence cut is mandatory (24 cores at the 6 µs floor on the shipped cadence) and with it the cost bar is ≤ 4.9 µs/event, so the Carlson adoption is equally mandatory. Floor ladder at the same rate: write floor (50 ns) 0.20 cores; cd6e's composed kick (8–19 µs) split8 6.5–15.4; 262f's native 4 µs split8 3.3 ✓.**
-3. **Kick item costs, measured [3aec]: fired kick item stage 82.5 µs x86, N-flat to 4×10⁵ (checker 83.4–86.5); the belt's own clock item 44.7 µs x86 ≈ 26 µs M1; the player's WH item 40 µs dense; boundary 18.4 µs x86 ≈ 10.8 µs M1 (fast path unwired), apply 7.6, root walk 7.0; frames idle-cheap (p50 0.046 ms), the stream hides in event frames (p99 5.3 ms).**
-4. **The belt's own stream: Γ = 6.21 per root of reach per game-s (band 5.4–7.0), flat across d = 10⁴–10⁵ root [f876]; λ is the belt's own steady rate (1.30× cross-checked [f80a via d4ff]); encounters change no orbit.**
+1. **The composed CPU budget at 10⁹, λ = 4×10⁻⁵/body/game-s [0659], rtf 100 = 4×10⁶ events/wall-s [3aec]: the stream row alone is 193 cores at shipped item cost (39.3 after split8×survival = 4.92×; checker 21.3 at the belt's own item); today-cost totals 22.5–43.4 cores = 5.6–10.9× the 4-core budget, cd3b-letter cost 6.5–12.5 (1.6–3.1×), arithmetic-floor closure 6.1–9.0 (1.5–2.3×). Rows: churn 0.35–1.4 [08d0 → 73b5], mint ≤ 1.9 [cd3b], view serve ≤ ~0.1 [e3a4], frame ≤ 0.72; the belt's boundary row is priced [d709]: +29–38 cores shipped, +6–8 after split8 (totals 22.5–43.4 → ≈ 25.5–50.7).**
+2. **Closure requires both owned levers [3aec] and now the comb deletion [d709]: the cadence cut is mandatory (24 cores at the 6 µs floor on the shipped cadence) and with it the cost bar is ≤ 4.9 µs/event, so the Carlson adoption is equally mandatory; with the boundary comb KEPT the two-comb bar halves to 2.46 µs/event and the boundary row alone (6.1–7.7 cores x86, 3.5–4.5 M1-anchored) is itself the size of the 4-core budget — 15d7's deletion is mandatory for closure, worth 2× on the bar. Floor ladder at the same rate: write floor (50 ns) 0.20 cores; cd6e's composed kick (8–19 µs) split8 6.5–15.4; 262f's native 4 µs split8 3.3 ✓.**
+3. **Kick item costs, measured [3aec; d709]: fired kick item stage 82.5 µs x86, N-flat to 4×10⁵ (checker 83.4–86.5); the belt's own clock item 44.7 µs x86 ≈ 26 µs M1 (d709's timer: 50.7–56.2 x86, top of the ±22% machine band); the player's WH item 40 µs dense; the belt's own boundary item 8.66–9.93 µs x86 ≈ 5.0–5.8 M1 (d709, N-flat, both seeds — supersedes 3aec's 18.4 on this stream), apply 7.6, root walk 7.0; frames idle-cheap (p50 0.046 ms), the stream hides in event frames (p99 5.3 ms).**
+4. **The belt's own stream: Γ = 6.21 per root of reach per game-s (band 5.4–7.0), flat across d = 10⁴–10⁵ root [f876]; λ is the belt's own steady rate (1.30× cross-checked [f80a via d4ff]); encounters change no orbit. Belt-pure comb rates [d709]: λ_k = 3.59×10⁻⁵, λ_b = 3.57×10⁻⁵/body/game-s (one comb each per 2.79×10⁴ gs clock, ratio 0.98–0.99) — the ledger's 4×10⁻⁵ is the population average, 0.90× of it belt-pure.**
 5. **At the priced reaches [f876]: TP bar ≈ 422 pair-events/game-s at 100 km; contacts 0.41/game-s → ≤ +0.03% of every composed total; contacts wake at N ≈ 2.6–3×10⁷; a fleet's contact stream equals its own clock stream at C ≈ 4.3–5×10⁴. Bound: no mutual ship gravity is wired [d4ff].**
 6. **Machine floors, both closed [f623]: at 10⁹, rtf 100 — allocator 0.6–1.7 cores, byte traffic 13.6–28.5 GB/s marginal = 23–48% of 60 GB/s (after split8 3–6%); no pooling subsystem is machine-mandated; malloc floor 11.6 ns/alloc+touch+free.**
 7. **Naive per-kick churn law [f623; checker-reproduced]: 17.6–19.3 allocs + 12.3–12.7 KB per fired kick; heap-call family {88, 240, 304, 352, 384², 704, 832} B; net live 0.55–1.6 KB/kick (the ratchet).**
@@ -21,10 +21,12 @@ updated: 20261021-0312-fermi-614b
 11. **Memory [097e]: build 2,348–2,464 B/body = 2.35 TB (294× the machine) on the shipped build, 0.2–2.0× on the wired compact store; wired terms: 1.7–2.4 B/body self-stirred ✓, 15.8 GB driven-worst = 2.0×. Domain: one Linux box, x86→M1 anchors page-cited, orders of magnitude only; coast arms unless the burn is named.**
 12. **The radial with_capacity(hit + unbounded.len()) fix is flown and checker-reproduced [6e76]: −7.1% player bytes, −11.5% reallocs, kicks bit-identical; family A's allocator fix is refuted (over-allocates 23×) — its fix is od 4's read set.**
 13. **Ship stream marginal [5f76 + checker]: per fired kick it RISES with K — 1.45–1.53 (10⁴) → 2.18 (3×10⁴) → 2.99 (10⁵) → 3.88 KB/kick (3×10⁵; no saturation measured) — cite the range, never the point; the 10⁹ byte row re-bases to 10–42% of 60 GB/s, still closing.**
+14. **The boundary comb's law [d709]: 8.66–9.93 µs x86 per item (0.14–0.20 of the kick item — the portable constant; N-flat 3×10⁴→10⁵, seeds 1–2, settle path, era walls 6.1–7.1 s kick / 1.1–2.3 s boundary reproduce 8365); its share of the two-comb stream RISES as the kick falls — 14.5% today, 68% at the 4.9 µs bar — so the comb, not the kick, owns the closure's tail.**
 
 ## Refuted
 
-- **"The burn chains are doll-scaled ~244–366 B per pulled body, 0.25–0.37 TB a chain at 10⁹" (8994/6e76's rung reading; carried by lines 9–12 of the old page): refuted in mechanism and trigger by 614b** — the belt-scaled chain is the per-universe tables' capacity doubling at a handout (`resolve_handout` → `pos.push`, 32 B/body exact; recs 928 B/len at its own crossing), it fires on coast exactly as on burn, and at 10⁹ it is ~1.4 TB of traffic when both tables cross (0.8 s pos alone; the author's 16.5 s both-in constant is 1.5× low, order right). The order stood; the site, the trigger and the fix (chunked tables / compact-store births, mandatory before ~10⁷) are new.
+- **"The belt's boundary items are unpriced" (line 1's standing tail) and 3aec's "boundary 18.4 µs x86 ≈ 10.8 µs M1" as the belt's own coast item (line 3's old constant): priced and re-measured by a direct per-kind full-item timer — 8.66–9.93 µs x86, 29–36 cores at 10⁹ rtf100 shipped, 5.9–7.3 after split8 (d709; 8365's 5.9–8.6 confirmed).**
+- **"The 1.2× era-time saving" (nladder's measure of the boundary comb's deletion, carried as its worth): the bar arithmetic kills it — at the ledger's own 4.9 µs/event kick bar the boundary item is 68% of the two-comb stream, and keeping it halves the per-event bar to 2.46 µs; the deletion is worth 2× on the closure bar (d709).**
 - Prior refutations stand: family-B doubling [6e76]; the OLS marginal [8994]; the naive-vs-marginal gap [8994]; the one-ladder scratch [5f76]; the ~1.6 KB/kick constant [5f76]; the mint heap anatomy [f623]; the inert belt [d4ff]; the unpriced conjunction rate [f876]; d4ff's anchor table [f876]; cd3b's closure bar [3aec]; the 363-core epoch arm [73b5]; a small promotion fraction [0659].
 
 ## Open directions
@@ -33,9 +35,10 @@ updated: 20261021-0312-fermi-614b
 2. **Wire the compact store, and with it own the births** (live set and memory, ~10²–10³): 614b prices the alternative — every wired birth beyond table headroom is a table crossing (960 B × N per crossing both-in, ~24 s of bus at 10⁹), so the compact store or chunked (dyadic) tables are mandatory before the ladder passes ~10⁷; the wired row must still absorb a ~1.5×10¹¹-quantum kick every 27.6k gs or promote [0659].
 3. **Make the kick absorbable** (same row): p = 1.0 today [0659, 3aec].
 4. **Family A's read set** (the full-scan path): the full scan has two gates into `0..bodies` — the window closure's error path in `capture` (a `?` before the radial call; dominant at m400 without a belt: 409 iters/gs vs 28 bodies × 933 fallbacks ≈ 30) and `Radial::candidates`' None (fallback 0 on every m48 belt arm; at m400 + belt 10⁴ the fallback carries ~98% of the weight: 906 fallbacks × 10,028 bodies ≈ the measured 11,029 iters/gs [checker]). Filter before the tuple build, or fix both gates.
-5. **Fly a stirred belt with an in-loop conjunction counter; price the belt's boundary items** [f876, d4ff, 3aec].
+5. **Fly a stirred belt with an in-loop conjunction counter; price the belt's boundary items** [f876, d4ff, 3aec]: the boundary half is DONE [d709]; the conjunction-counter half remains.
 6. **The concentration allowance row** (families): C ≈ 4.3×10⁴ contact tail, belt-temperature critical at C ≈ 42 [d4ff, f876].
 7. **Measure the ship marginal's saturation** (1.45→3.88 KB/kick rising; band top 42–54% of bus) [5f76].
+8. **Price the absorption alternative** (deletion vs absorb-into-kick): the boundary's certificates are 17% of a kick item's work; if absorption is ~free marginal, it matches deletion without touching the anchor [d709, with 15d7's open anchor price].
 
 ## Contradictions
 
@@ -77,3 +80,6 @@ updated: 20261021-0312-fermi-614b
 - 20261020-1002-fermi-8994 (fermi, silver): the allocation wave is marginal (item-scope 91%); player item scratch 194 KB/item; burn-chain rungs (mechanism corrected by 614b).
 - 20261020-1621-fermi-5f76 (fermi): the player constant is law-grade (three seeds, three decades of K); two array-builds per item; ship marginal rises with K.
 - 20261020-2102-fermi-6e76 (fermi): ladders named (capture tuples, radial ids); radial with_capacity exact (−7.1%); family A over-allocates 23×; burn site open (named by 614b).
+- 20261019-0141-fermi-097e (fermi): the 10⁹ ledger composed — CPU 10.8–16.6 cores, memory 294× shipped / 0.2–2.0× wired, build/floor 978×, residency τ ≤ 43.6 game-s.
+- 20261019-0435-fermi-0659 (fermi): residency dial closed at its worst arm — promotion fraction 1.0 measured; τ = 43.6 game-s; the fix must absorb the kick, not skip it.
+- 20261021-1443-fermi-d709 (this run): the boundary comb priced — 8.66–9.93 µs x86, 0.14–0.20 of the kick item, rate_b/k 0.98–0.99, belt-pure 3.6×10⁻⁵ each; +29–38 cores at 10⁹ shipped, +6.1–7.7 after split8; 3aec's 18.4 µs refuted on this stream; the deletion is mandatory for closure (68% of the stream at the 4.9 µs bar, 2× on the bar).
