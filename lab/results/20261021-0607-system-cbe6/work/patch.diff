@@ -1,0 +1,98 @@
+diff --git a/crates/universe/examples/beltcad.rs b/crates/universe/examples/beltcad.rs
+new file mode 100644
+index 00000000..2942eeb9
+--- /dev/null
++++ b/crates/universe/examples/beltcad.rs
+@@ -0,0 +1,92 @@
++//! The belt's own cadence floor, on the shipped `jacobi` instrument's scene (star + Jupiter
++//! 2^-10 at sep 5.27e8). `beltcad STEP_LOG2 PERIODS SHIPS CLASS`, CLASS = strong (1.5-3 Hill
++//! radii, B17's judged class — the positive control) or belt (interior circles 2-3 AU, the
++//! plane's own belt draw: scenario.rs "a belt about the star between 2 and 3 AU"). Everything
++//! else is `jacobi.rs` verbatim: same rng, same sampling, same Jacobi expression and scaling;
++//! added: worst osculating-e drift about the star (e-pump) per ship.
++//! `beltcad STEP_LOG2 PERIODS SHIPS CLASS`
++use emergent_universe::observe::{root_state, root_state_raw};
++use emergent_universe::scenario::restricted_with;
++use emergent_universe::Config;
++fn main() {
++    let step_log2: i32 = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(6);
++    let periods: i64 = std::env::args().nth(2).map(|s| s.parse().unwrap()).unwrap_or(100);
++    let sep = 527_000_000i64;
++    let hill = sep as f64 * (2f64.powi(-10) / 3.0).cbrt();
++    let n: usize = std::env::args().nth(3).map(|s| s.parse().unwrap()).unwrap_or(6);
++    let class = std::env::args().nth(4).unwrap_or_else(|| "strong".into());
++    let au = 101_300_000i64;
++    let mut ships = Vec::new();
++    let mut seed: u64 = std::env::var("SEED").ok().and_then(|v| v.parse().ok()).unwrap_or(0x9E3779B97F4A7C15);
++    let mut rnd = || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 11) as f64 / (1u64 << 53) as f64 };
++    for i in 0..n {
++        let r = if class == "belt" {
++            (2.0 + rnd()) * au as f64 // interior circle in [2, 3) AU: 6-9 Hill from the planet
++        } else {
++            let k = 1.5 + 1.5 * rnd();
++            let side = if i % 2 == 0 { 1.0 } else { -1.0 };
++            sep as f64 + side * hill * k
++        };
++        ships.push((r as i64, ((rnd() * (1u64 << 32) as f64) as u64 % (1 << 32)) as u32));
++    }
++    let cfg = Config { step_log2, ..Config::default() };
++    let mut w = restricted_with(-10, sep, 49_000, &ships, 1, cfg).unwrap();
++    let mu = 2f64.powi(-10);
++    let omega = (1.0 + mu).sqrt() / (sep as f64).powf(1.5);
++    let period = 2.0 * std::f64::consts::PI / omega;
++    let jac = |w: &emergent_universe::scenario::Restricted, sh: usize, t: i64| -> Option<f64> {
++        let ctx = w.u.ctx();
++        let read = if std::env::var("RAW").is_ok() { root_state_raw } else { root_state };
++        let (xs, vs) = read(&ctx, sh, t).ok()?;
++        let (xp, _) = read(&ctx, w.planet, t).ok()?;
++        let r = (xs[0]*xs[0]+xs[1]*xs[1]).sqrt();
++        let d = ((xs[0]-xp[0]).powi(2)+(xs[1]-xp[1]).powi(2)).sqrt();
++        let rp3 = (xp[0]*xp[0]+xp[1]*xp[1]).powf(1.5);
++        let e = 0.5*(vs[0]*vs[0]+vs[1]*vs[1]) - 1.0/r - mu/d + if std::env::var("NOIND").is_ok() {0.0} else { mu*(xs[0]*xp[0]+xs[1]*xp[1])/rp3 };
++        let l = xs[0]*vs[1]-xs[1]*vs[0];
++        Some(e - omega*l)
++    };
++    let osc_e = |w: &emergent_universe::scenario::Restricted, sh: usize, t: i64| -> Option<f64> {
++        let ctx = w.u.ctx();
++        let (xs, vs) = root_state(&ctx, sh, t).ok()?;
++        let r = (xs[0]*xs[0]+xs[1]*xs[1]).sqrt();
++        let v2 = vs[0]*vs[0]+vs[1]*vs[1];
++        let rv = xs[0]*vs[0]+xs[1]*vs[1];
++        let ex = (v2 - 1.0/r)*xs[0] - rv*vs[0];
++        let ey = (v2 - 1.0/r)*xs[1] - rv*vs[1];
++        Some((ex*ex+ey*ey).sqrt())
++    };
++    let c0: Vec<f64> = w.ships.iter().map(|&s| jac(&w, s, 0).unwrap()).collect();
++    let e0: Vec<f64> = w.ships.iter().map(|&s| osc_e(&w, s, 0).unwrap()).collect();
++    let mut worst = vec![0.0f64; ships.len()];
++    let mut worst_e = vec![0.0f64; ships.len()];
++    let mut read_refused = vec![0u32; ships.len()];
++    let mut last_doll = vec![0u16; ships.len()];
++    let mut passes = vec![0u32; ships.len()];
++    let t0 = std::time::Instant::now();
++    let fine: i64 = std::env::var("FINE").ok().map(|v| v.parse().unwrap()).unwrap_or(1);
++    for k in 1..=(periods * 8 * fine) {
++        let t = (k as f64 * period / (8.0 * fine as f64)) as i64;
++        w.u.settle(t);
++        for (i, &sh) in w.ships.iter().enumerate() {
++            let ts = if std::env::var("SYNC").is_ok() { w.u.rec(sh).anchor } else { t };
++            let err = jac(&w, sh, ts).map(|j| ((j - c0[i]) * ships[i].0 as f64).abs());
++            let de = osc_e(&w, sh, ts).map(|e| (e - e0[i]).abs());
++            if let Some(err) = err { worst[i] = worst[i].max(err); } else { read_refused[i] += 1; }
++            if let Some(de) = de { worst_e[i] = worst_e[i].max(de); }
++            let d = w.u.rec(sh).b.doll;
++            if d != last_doll[i] { if d == 1 { passes[i] += 1; } last_doll[i] = d; }
++        }
++    }
++    println!("class {class} sep {sep} hill {hill:.3e} radii {:?}", ships.iter().map(|s| format!("{:.2}", (s.0 as f64 - sep as f64).abs()/hill)).collect::<Vec<_>>());
++    println!("captures per ship: {passes:?}");
++    for (i, &sh) in w.ships.iter().enumerate() {
++        let r = w.u.rec(sh);
++        if !r.alive {
++            println!("ship {i} is gone: fault {:?}, doll {}, last binding at {}, refusals {}", r.fault, r.b.doll, r.b.event_time, r.refusals);
++        }
++    }
++    println!("read refusals per ship: {read_refused:?}");
++    let s = w.u.stats;
++    println!("step 2^-{step_log2}: worst jacobi {:?} | worst de {:?} | {:.1}s kicks {} handoffs {} lost {}", worst.iter().map(|x| format!("{x:.1e}")).collect::<Vec<_>>(), worst_e.iter().map(|x| format!("{x:.1e}")).collect::<Vec<_>>(), t0.elapsed().as_secs_f64(), s.kicks, s.handoffs, s.lost);
++}
