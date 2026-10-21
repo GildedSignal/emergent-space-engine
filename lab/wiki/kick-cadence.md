@@ -1,29 +1,55 @@
 topic: kick-cadence
 status: open
 closed-by:
+<<<<<<< main
 valid-while: crates/universe@595fdd47 + this run's patch (examples/beltcad.rs)
-updated: 20261021-0607-system-cbe6
+updated: 20261021-1346-library-1fd7
+=======
+valid-while: crates/universe@595fdd47 + cbe6's patch (examples/beltcad.rs) + this run's patch (examples/beltcensus.rs)
+updated: 20261021-1346-taleb-ddeb
+>>>>>>> 20261021-1346-taleb-ddeb
 
 # Kick cadence: how often a body is kicked, and by what rule
 
 ## Current best
 
+<<<<<<< main
+**NEW (1fd7, library — cbe6's named cross-scene composition executed, zero flight; checker-corrected): at the measured floor the kick-comb row of the 1e9 single-doll era ledger lands UNDER budget and is the last cadence lever there — 0.78× of the 69.75-s era budget at the page-measured 45.5 µs/kick (margin 1.3×); 0.58× only at the 33.6 µs/kick the 12.75-h row implies. [checker: the script's two anchors never multiply back — 4.889e-5·era·45.5 µs = 17.2 h/era, not the 12.75 h it divides; the ledger's own rate is 3.6e-5 = 1.01 kicks/B/era (census 1.09–1.12, 0a46; b30b 3.33–3.50e-5), and the board's 9,000/orbit = 2.01 ev/B/era is the two-comb count (8ffc), ~2× the kick-only — the direct floor cost (8/S)·era·N·payload is anchor-free and gives the numbers here; the author's 0.39–0.58× and P2's ≤0.6×/1.7× margin fail at the measured payload.]** 4/conjunction already FAILS B12 (cbe6), so no cadence below the floor exists. The ledger lands 173–373× (from 830–1,030×): walks 111–311× + answers 61× are cadence-invariant — the wall moves to the scan channel (the tier's row, b57f), and the desync must land WITH the tier, not instead of it. Closure conditional on two census bars (payload-conditional, so NOT yet frozen): f_fine ≤ 0.6% (measured payload) to 1.6% (implied) at B13's 256/orbit (resonance excluded — cadence-blind, 67be, exits to the law), and governing synodic S ≥ 4.6 yr (measured payload) to 3.4 yr (implied) — at the measured payload the inner belt does not close (2 AU: S = 3.7 yr), and the SHIPPED plane's own forcing is P_D 77.24 d (cf45): its row stays 15–20× over at the floor. wt/cadence's 4-steps-per-period = 2/conjunction at cbe6's scene base — at/below the FAILING point; reconcile at the conjunction unit before any belt merge. Adoption is a policy change: ext.rs:146 computes the clock constants per body behind one global kicks_log2 dial (20261021-1346-library-1fd7, library; compose_desync.py on page-cited constants; five verbatim lessons 5/5 byte-identical, lessons.md).
 **NEW (cbe6, system — the belt's own floor measured on the shipped instrument, the board's named gap: 16 kicks per planet period ≈ 5 per belt orbit ≈ 8 per synodic conjunction PASSes B12's frozen 1e-4 bar on two draws (worst 9.4e-6–1.3e-5), while 8/planet-period (4/conjunction) fails (1.8e-4); n⁻² to the floor, super-quadratic aliasing beyond (×15/×38/×1900); the binding unit is the conjunction.** `beltcad.rs` = the `jacobi` example's scene/rng verbatim + radius-class axis + SEED dial + Δe tracker; belt = interior 2–3 AU radii (6.2–9 Hill from the planet; draws 6.3–8.8), **circular starts — the plane's belt adds Rayleigh e≈0.07, untested here**; strong-class control reproduces 7076 to the digit (5.1e-6@6, 1.8e-5@5) with the cliff as deaths at step 4 (2/6); the secular e-pump is step-independent per ship (a control: only sampling error moves with the step); zero captures/losses/refusals at passing octaves.
+=======
+**NEW (ddeb, taleb — od 1 executed, the deletion's missing half): the fine-class census on the shipped birth law (`ladder_ship`'s belt arm verbatim × `PLANETS`): the plane's belt's fine tail is 17.8% — the Giant's 3:1 zone alone 9.4% of bodies, 4:1 3.4%, 5:2 2.9%, 7:3 1.0%; first-order exactly 0 (the 2:1 zone starts at 3.148 AU: the belt's margin is 0.148 AU) — plus a 41.0% Hill bridge at 5.4–6.3 Hill (below cbe6's certified 6.3–8.8 draws: the plane's Giant, e 0.05 at 5.194 AU, dips to 4.936) and 0.26% strong tide (< 4.1 Hill); 0 crossings by construction; seeds 1–3 ±0.1%; the plane's own 2,700 bodies match (17.6/19.3%).**
+Composed desync rate 115 events/body/belt-orbit (both combs) against the 9,000 anchor: **headroom 78×** (90× if the bridge certifies at 16; 170× if zone bodies hold at 64 — checker reads 190–290× there, so the bracket is conservative) — the 17.8% tail pays 79% of the bill, the certified-clean 41% pays 3.3% (checker-instrumented; the dossier's 75/21/4 mis-normalises). Width: robust at the nominal model (×0.5 → 122×; at ×1 D1 stays exactly 0 with the 2:1 included), but the ×2–×4 sweep is blind to the Giant's 2:1 (the candidate window hi·1.06 = 3.18 excludes a_res 3.273): included, ×2 already puts 2.9% of the belt first-order → headroom 0. Worst cell: bins on a zone run 90–98% fine (per-cell cadence bimodal; the population mean is nobody's rate). Frozen at birth to any playable horizon (synodic 3.75–9.6 yr ≫ 10⁶ game-s).
+Placement cliff (design arms): a belt [3.0,3.5) is 53.8% first-order (2:1) — uncertifiable at any cadence, headroom 0; [1.4,2.4) is 6.2% fine, 231×. The zone floor for q ≥ 2 (256 vs 64) and the bridge floor (5–6.3 Hill, interior) are the two unflown arms that pin the 78–170× interval.
+[checker, reproduced bit-for-bit: seeds 1–5 (4/5 held-out: f 0.1794/0.1785, 78×), widths 0.25–8 (170×/21×, monotone), both arms, the plane's 2,700, and a widened-window probe (2:1 included): D1 = 0 at ×1; the dossier's prose zone centres are off (2.521/2.764/2.917 vs code 2.498/2.821/2.953 — counts untouched).]
+**Standing (cbe6, system — the belt's own floor measured on the shipped instrument, the board's named gap: 16 kicks per planet period ≈ 5 per belt orbit ≈ 8 per synodic conjunction PASSes B12's frozen 1e-4 bar on two draws (worst 9.4e-6–1.3e-5), while 8/planet-period (4/conjunction) fails (1.8e-4); n⁻² to the floor, super-quadratic aliasing beyond (×15/×38/×1900); the binding unit is the conjunction.** `beltcad.rs` = the `jacobi` example's scene/rng verbatim + radius-class axis + SEED dial + Δe tracker; belt = interior 2–3 AU radii (6.2–9 Hill from the planet; draws 6.3–8.8), **circular starts — the plane's belt adds Rayleigh e≈0.07, untested here**; strong-class control reproduces 7076 to the digit (5.1e-6@6, 1.8e-5@5) with the cliff as deaths at step 4 (2/6); the secular e-pump is step-independent per ship (a control: only sampling error moves with the step); zero captures/losses/refusals at passing octaves.
+>>>>>>> 20261021-1346-taleb-ddeb
 Checker-confirmed domain: the step-4 PASS holds at 4× the horizon (worst 1.2e-5 over 400 periods, no walk) and on an exact 3:1 commensurability (7.9e-6); 72 further draws (two 36-ship runs) all pass (8.3e-6–1.6e-5); the strong control's step-4 cliff is robust (8/36 dead).
 [checker2: blind reproduction bit-for-bit (all 11 arms, clean tree); the run's named gaps closed from above — the plane's hauler e-draw (e = 0.25·lcg via `e_q48`, e0 0.02–0.23) PASSES at step 4 (worst 3.2e-5, both seeds) and fails at 3; exterior circles 6.5–7.5 AU (never flown, 4.1–6.3 Hill outside) PASS at step 3 (2.6–3.4e-5) and fail at 2 — ≥1 octave coarser, the conjunction unit's direction, though this one point does not discriminate conjunction from own-orbit beyond ~2× at unequal Hill distances; 1000 periods no walk (1.2e-5 at step 4, unchanged); 72 fresh draws max 1.6e-5. Grade: gold.]
 Consequence: the class certificate is conjunction-sampled, and one doll-wide Δs delivers ~9,000 kicks/belt-orbit (board's plane-scene anchor) — the desynchronised grid's belt headroom is ~10³ (split8 is 2 orders short; a cross-scene composition, both anchors measured), and it is one constant per class (`ext::constants`): the clocks, fired gate and intervals are already per body.
 Standing: **cca6 gold** — the i64 tick wall's lost-ship class deleted by one branch (Ok(None)), 0/229 at steps 7–10, B13 step 9 PASS 1.33e-3, bit-identical brackets.
 **7076** — the cadence ladder on the frozen certificates: tide class legal to split8 (B17 cliff at 8/orbit by libration collapse), encounter class only 256/orbit (B13 PASS 64/64 worst 5.30e-3; step 10 passes 3.32e-4); B14 wall is the judge.
 **225d/9edc** — the kick comb is 100% news (0 duplicate keys in 2.04M+1.40M kicks at every Δs octave; formation duplication birth-only); the mint (~2.1 KB/binding) is the ratchet's deletion target.
-**3570/16ec/49e9 gold** — the boundary comb is 99.88% no-op; the key-range test flown, 100% skip, 202 ns, digest-neutral (20.3×); burn closed by the pinned-decision harness; clock-path boundary 4.4–5.6 µs.
-**de7b/f790** — the boundary rides every step lever (welded pairs exact, 3 seeds).
+**3570/16ec/49e9 gold** — the boundary comb is 99.88% no-op; the key-range test flown, 100% skip, 202 ns, digest-neutral (20.3×); burn closed by the pinned-decision harness; clock-path boundary 4.4–5.6 µs; the boundary rides every step lever (de7b/f790, welded pairs exact, 3 seeds).
 **8ffc/9e75/4093** — the belt's stream is a two-comb train (1+1 events/body/interval, +26% CPU); the crest a freeze (spell ≈ N·C/0.72: 7 s at 10⁵, 21–24 s at 3×10⁵, 19.3 h at 10⁹; burn inverts to overrun).
-**3aec/4e2d/e7ef/98cb** — the 10⁹ ledger: closure = cadence cut AND ≤ 4.9 µs/event; kick cost and cadence are one product (÷ ≤ 1.13 µs); split8 composition 10.3 M1 cores, S* ≈ 20×.
-**3294/f82a** — no sub-quantum fire anywhere flown (rate 1.000, impulses ≥ 2⁷ units; belt impulse 2⁻²³ of speed); the wave train is genesis phase-lock, deleted at birth by the hash stagger.
+**3aec/4e2d/e7ef/98cb** — the 10⁹ ledger: closure = cadence cut AND ≤ 4.9 µs/event; kick cost and cadence are one product (÷ ≤ 1.13 µs); split8 composition 10.3 M1 cores, S* ≈ 20×. **3294/f82a** — no sub-quantum fire anywhere flown (rate 1.000, impulses ≥ 2⁷ units); the wave train is genesis phase-lock, deleted at birth by the hash stagger.
 Replica/probe priors: non-resonant tide error ρ ≈ 0.5·n⁻²·¹ μ-independent (ad35); far belt ~2/orbit on B14 (1db4); Jupiter-belt replica 8/orbit (06a8); resonance uncertifiable at any cadence (67be); the frontier is regime-split 8× with one doll-wide Δs overpaying everywhere (7f97).
 
 ## Refuted
 
+<<<<<<< main
+- **"The desynchronised grid relieves the 1e9 ledger beyond its kick row": refuted by
+  composition — the scan channel (walks 111–311× + answers 61×) is cadence-invariant; the wall
+  moves to the tier's row, the ledger does not close (20261021-1346-library-1fd7).**
+- **"The desync's rescue is scene-unconditional": refuted — closure iff the governing synodic
+  period ≥ 3.4–4.6 yr (payload-conditional; checker: at the measured 45.5 µs/kick the bar is
+  4.6 yr, above the inner belt's S = 3.7 yr at 2 AU); the shipped plane's own forcing is
+  P_D 77.24 d (cf45) — its kick row stays 15–20× over at the floor (1fd7 + checker).**
+=======
+- "The desynchronised grid's belt headroom is ~10³" (cbe6's consequence sentence, the board's
+  macro row): the fine-class census prices the composed rescue at 78× (90–170× by floor choice;
+  width-robust to ×4) — the 17.8% resonance tail pays 75% of the bill. cbe6's floor itself
+  stands; the headroom clause does not (ddeb). 
+>>>>>>> 20261021-1346-taleb-ddeb
 - "Deep passages need ≥ 128/orbit" as the encounter floor: 256 passes, 1024 passes, 512
   fails one row; the shipped 128 is outside every window (7076 + checker).
 - The duplicate-mint delete: 0 identical keys in 3.4M belt kicks at every Δs octave and
@@ -49,11 +75,27 @@ Replica/probe priors: non-resonant tide error ρ ≈ 0.5·n⁻²·¹ μ-independ
 
 ## Open directions
 
-1. **The class census on the plane (the deletion's missing half, named by cbe6):** which
-   bodies are fine-class (B13's 256/orbit: encounters, resonances) and what fraction they
-   are — the desynchronised grid's per-class Δs constants (belt ~2⁻⁴ planet-period, strong
-   tide 2⁻⁵–2⁻⁶, encounter 2⁻⁸) now have measured floors on shipped code; the census sizes
-   the rescue the split gives the 10⁹ ledger (~10³ belt headroom vs split8's 8×).
+<<<<<<< main
+1. **The class census on the plane (the deletion's missing half, named by cbe6; bars sized
+   by 1fd7, payload-conditional — checker-corrected to 0.6–1.6% and 3.4–4.6 yr):** which
+   bodies are fine-class (B13's 256/orbit: encounters) and what fraction they are — the
+   desync closes the kick row iff f_fine ≤ 0.6–1.6% AND the governing synodic S ≥ 3.4–4.6 yr
+   (the tight end at the measured 45.5 µs/kick), so the census records (f_fine, S_gov,
+   resonance fraction) as three fields (resonance is cadence-blind, 67be, and exits to the
+   law); the legality flight (B12/B13/B14/B17 at per-class Δs) and the payload arm (45.5 µs
+   flat beyond the measured ÷8 — the payload arm DECIDES the bars' tight end and the inner
+   belt) ride the same rung; the per-class Δs constants (belt ~2⁻⁴ planet-period, strong tide
+   2⁻⁵–2⁻⁶, encounter 2⁻⁸) have measured floors on shipped code, and the census sizes the
+   rescue the split gives the 10⁹ ledger (~10³ belt headroom vs split8's 8×; kick-only
+   self-consistent R ≈ 0.85–0.95×10³, the 1,144–1,689 band mixes anchors).
+=======
+1. **The class census is flown (ddeb, silver-pending): 17.8% resonance (3:1 9.4% of bodies), 41.0%
+   Hill bridge (5.4–6.3, unflown for interior geometry), 0.26% strong tide, 0 first-order with a
+   0.148 AU margin; composed headroom 78× (90–170× by floor); the [3.0,3.5) belt dies at the 2:1
+   (53.8% first-order).** The two unflown arms that pin the interval: the zone floor at the 3:1 on
+   cbe6's instrument (16 vs 64 vs 256), and interior draws at 5–6.3 Hill (the plane's own belt's
+   outer half). Then the desync constants adopt per class.
+>>>>>>> 20261021-1346-taleb-ddeb
 2. The stagger's B-gate flight (od 8 prior; exact in the stationary measure) and its
    observer clause; the compute-ahead certificate (headroom 10.8× at 3×10⁵, 308× short at
    10⁹).
@@ -188,3 +230,5 @@ Replica/probe priors: non-resonant tide error ρ ≈ 0.5·n⁻²·¹ μ-independ
 - 20261020-1326-inversion-3b88 (awaiting grade): B13's step-9 inf = the i64 tick wall on near-escape orbits; the cure is law-side.
 - 20261020-1503-second-20261020-1326-inversion-3b88-cca6 (second, gold): Ok(None) deletes the wall's lost-ship class; record repaired.
 - 20261021-0607-system-cbe6 (system, this run): the belt's own floor on the shipped instrument — 16/planet-period ≈ 5/orbit ≈ 8/conjunction (PASS both draws), 4/conjunction fails; conjunction-sampled certificate, ~10³ desync headroom vs the doll grid.
+- 20261021-1346-library-1fd7 (library, silver): the desync ledger composed — the kick row
+- 20261021-1346-taleb-ddeb (taleb, awaiting grade): the fine-class census — 17.8% resonance tail + 41% unflown Hill bridge; composed desync headroom 78× (not ~10³); first-order 0, margin 0.148 AU; a belt at the 2:1 dies (54%).
