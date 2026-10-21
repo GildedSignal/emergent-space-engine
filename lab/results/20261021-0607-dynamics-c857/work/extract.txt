@@ -1,0 +1,24 @@
+seed 1: flight seed=1 extra=3000 n=2700 gens=145 reached=145 epochs=178 delta=2119450089 multi=0 build_s=0.1 flight_s=346.5 game_s=1858201
+  matched n=2700: g=1..129; maxmu64 4.08→3.94 (min 3.63 max 4.55); excess +2.25..+3.18; c50 0.498..0.569; Var(due)/step^2 g^beta with beta=2.018 (g=8→129, 1.60e-02→4.39e+00); drift_abs(change-fires) 6.5e-05..7.0e-05, signed -2.8e-06..-6.3e-07
+  steps: 268433 distinct over 357941 intervals, spread (max-min)/mean = 0.114; profile g=129 vs step profile r = 0.998
+seed 2: flight seed=2 extra=3000 n=2700 gens=145 reached=145 epochs=178 delta=2127162831 multi=0 build_s=0.1 flight_s=491.8 game_s=1864963
+  matched n=2700: g=1..130; maxmu64 3.39→3.89 (min 3.34 max 4.03); excess +1.97..+2.65; c50 0.521..0.616; Var(due)/step^2 g^beta with beta=2.020 (g=8→130, 1.51e-02→4.21e+00); drift_abs(change-fires) 6.4e-05..7.0e-05, signed 7.1e-07..1.3e-06
+  steps: 269348 distinct over 359212 intervals, spread (max-min)/mean = 0.109; profile g=130 vs step profile r = 0.998
+--- analysis.txt ---
+== seed 1: generations 1..139, bodies 2700
+   step_med=2859431373 ticks, window L=89357230
+   pooled g[1,16] dues=43200 windows=498 mu=86.7 max/mu=21.937 poisson_floor=1.337 excess=+20.600
+   pooled g[17,48] dues=86400 windows=1080 mu=80.0 max/mu=2.250 poisson_floor=1.350 excess=+0.900
+   pooled g[49,96] dues=129600 windows=1716 mu=75.5 max/mu=1.748 poisson_floor=1.364 excess=+0.384
+   pooled g[97,139] dues=101441 windows=1418 mu=71.5 max/mu=1.622 poisson_floor=1.370 excess=+0.252
+   locked pairs (>=8 consecutive gens within L): 6654
+   control (uniform redraw, pairs destroyed): 0
+== seed 2: generations 1..139, bodies 2700
+   step_med=2859237372 ticks, window L=89351167
+   pooled g[1,16] dues=43200 windows=497 mu=86.9 max/mu=20.398 poisson_floor=1.335 excess=+19.063
+   pooled g[17,48] dues=86400 windows=1077 mu=80.2 max/mu=2.181 poisson_floor=1.346 excess=+0.835
+   pooled g[49,96] dues=129600 windows=1707 mu=75.9 max/mu=1.607 poisson_floor=1.357 excess=+0.250
+   pooled g[97,139] dues=102712 windows=1422 mu=72.2 max/mu=1.647 poisson_floor=1.371 excess=+0.277
+   locked pairs (>=8 consecutive gens within L): 6568
+   control (uniform redraw, pairs destroyed): 0
+

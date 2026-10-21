@@ -1,0 +1,430 @@
+diff --git a/crates/universe/examples/calendar_flight.rs b/crates/universe/examples/calendar_flight.rs
+new file mode 100644
+index 00000000..42ba4672
+--- /dev/null
++++ b/crates/universe/examples/calendar_flight.rs
+@@ -0,0 +1,209 @@
++//! The calendar page's od-4 engine flight (lab/results/20261021-0607-dynamics-c857): the genesis
++//! mixing transient flown on the shipped engine, per generation, two seeds, to the depth the
++//! frozen-step model extrapolates the Poisson floor to (fire ~100–120; a97f confirmed onset to
++//! g=49). Pure observation: `plane_extra` + `settle` + `key_of` polling, no behaviour touched.
++//!
++//! Instrument. A belt body's generation g is its g-th resolved item (kick or boundary comb — the
++//! allocator sees both); dues are read from `key_of` before and after each `settle` epoch of
++//! Δ < p10(step)/8 ticks, so at most one fire a body an epoch (asserted). Per generation:
++//! `maxmu` = max window count / mean over W equal windows spanning the generation's dues
++//! (the allocator's worst-window load), against a uniform Monte-Carlo floor of the same n and W
++//! (4,000 draws, the shipped mix64); `c50` = p50 window count / mean; `span` = the dues' span in
++//! median steps; the step ledger per body gives `drift_abs`/`drift_sign` (mean |Δstep|/step and
++//! the signed mean) and `var_due` = Var(due)/step² (the spread law: diffusion reads linear in g).
++//!
++//! cargo run --release -p emergent-universe --example calendar_flight -- <extra> <gens> <seed> [...]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++
++/// splitmix64's finalizer (scenario.rs's `mix64`): one PRNG on every machine.
++fn mix64(mut z: u64) -> u64 {
++    z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    z ^ (z >> 31)
++}
++
++struct Mc {
++    z: u64,
++}
++impl Mc {
++    fn next(&mut self) -> u64 {
++        self.z = mix64(self.z);
++        self.z
++    }
++    /// E[max count / mean] and its p10/p90 for n uniform points in W windows, `reps` draws.
++    fn floor(n: usize, w: usize, reps: usize) -> (f64, f64, f64) {
++        let mut maxes = Vec::with_capacity(reps);
++        let mut z = Mc { z: 0xAB16_5E17_8D2B_1A55 };
++        for _ in 0..reps {
++            let mut c = vec![0u32; w];
++            for _ in 0..n {
++                c[(z.next() % w as u64) as usize] += 1;
++            }
++            maxes.push(*c.iter().max().unwrap() as f64 * w as f64 / n as f64);
++        }
++        maxes.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let q = |p: f64| maxes[((reps - 1) as f64 * p).round() as usize];
++        (q(0.5), q(0.1), q(0.9))
++    }
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let extra: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(3000);
++    let gens: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(145);
++    let seeds: Vec<u64> = args.iter().skip(3).filter_map(|s| s.parse().ok()).collect();
++    let seeds = if seeds.is_empty() { vec![1] } else { seeds };
++    let dump = std::env::var("CENSUS_DUMP").ok(); // per-seed file: blocks [g u32, n u32, min i64] then (id u16, due−min i64)
++    // The plane's own ships before the ladder: 12 haulers + 8 orbiters + 3 skimmers.
++    const OWN: usize = 23;
++    for seed in seeds {
++        let t0 = std::time::Instant::now();
++        let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, extra).unwrap();
++        let build = t0.elapsed().as_secs_f64();
++        let locals = (extra / 2).min(300);
++        let belt: Vec<usize> = p.ships[OWN + locals..].to_vec();
++        let n = belt.len();
++        // Generation 1: the genesis dues, before any fire.
++        let mut last_due: Vec<i64> = belt.iter().map(|&i| p.u.key_of(i).unwrap().0).collect();
++        let mut gen: Vec<usize> = vec![1; n];
++        let mut dues: Vec<Vec<i64>> = vec![Vec::with_capacity(gens + 1); n];
++        let mut steps: Vec<Vec<i64>> = vec![Vec::with_capacity(gens + 1); n];
++        for i in 0..n {
++            dues[i].push(last_due[i]);
++        }
++        // Bootstrap one step: settle just past the earliest due; the fired bodies reveal a step.
++        let t_early = *last_due.iter().min().unwrap();
++        p.u.settle(t_early + 1);
++        let mut obs: Vec<i64> = Vec::new();
++        for i in 0..n {
++            if let Some((d, _)) = p.u.key_of(belt[i]) {
++                if d > last_due[i] {
++                    obs.push(d - last_due[i]);
++                    dues[i].push(d);
++                    steps[i].push(d - last_due[i]);
++                    gen[i] = 2;
++                    last_due[i] = d;
++                }
++            }
++        }
++        obs.sort_unstable();
++        let delta = (obs[obs.len() / 10] * 4 / 5).max(1); // 0.8 x p10 step: below every body's inter-fire gap
++        let mut t = t_early + 1;
++        let mut epochs = 0usize;
++        let mut multi = 0usize;
++        let t_run = std::time::Instant::now();
++        while gen.iter().max().copied().unwrap_or(0) < gens {
++            t += delta;
++            p.u.settle(t);
++            p.u.prune(); // the view's own retention, every frame in flight: keeps the histories bounded on long censuses
++            epochs += 1;
++            for i in 0..n {
++                if let Some((d, _)) = p.u.key_of(belt[i]) {
++                    if d > last_due[i] {
++                        if steps[i].last().is_some_and(|&s| d - last_due[i] > s + s / 2) {
++                            multi += 1; // the jump exceeds half the body's own step: two fires inside one epoch
++                        }
++                        if gen[i] <= gens {
++                            dues[i].push(d);
++                            steps[i].push(d - last_due[i]);
++                        }
++                        gen[i] += 1;
++                        last_due[i] = d;
++                    }
++                }
++            }
++            if t_run.elapsed().as_secs_f64() > 720.0 {
++                eprintln!("seed {seed}: time guard at epoch {epochs}");
++                break;
++            }
++        }
++        let flight = t_run.elapsed().as_secs_f64();
++        let reached = gen.iter().max().copied().unwrap_or(0);
++        // Per-generation statistics over the bodies alive at g (those with a g-th due).
++        println!("flight seed={seed} extra={extra} n={n} gens={gens} reached={reached} epochs={epochs} delta={delta} multi={multi} build_s={build:.1} flight_s={flight:.1} game_s={:.0}", (t - t_early) as f64 * TICK_SECONDS);
++        if let Some(pre) = &dump {
++            let mut buf: Vec<u8> = Vec::new();
++            for g in 1..=reached.min(gens) {
++                let here: Vec<(usize, i64)> = (0..n).filter(|&i| dues[i].len() >= g).map(|i| (i, dues[i][g - 1])).collect();
++                if here.len() < 100 { continue; }
++                let min = here.iter().map(|&(_, d)| d).min().unwrap();
++                buf.extend_from_slice(&(g as u32).to_le_bytes());
++                buf.extend_from_slice(&(here.len() as u32).to_le_bytes());
++                buf.extend_from_slice(&min.to_le_bytes());
++                for &(i, d) in &here {
++                    buf.extend_from_slice(&(i as u16).to_le_bytes());
++                    buf.extend_from_slice(&((d - min) as i64).to_le_bytes());
++                }
++            }
++            let path = format!("{pre}{seed}.bin");
++            std::fs::write(&path, &buf).unwrap();
++            println!("dump seed={seed} path={path} bytes={}", buf.len());
++        }
++        println!("gen n span maxmu64 floor64 f10_64 f90_64 excess64 c50 maxmu32 maxmu128 maxmu1k drift_abs drift_sign var_due");
++        for g in 1..=reached.min(gens) {
++            let mut d: Vec<i64> = (0..n).filter(|&i| dues[i].len() >= g).map(|i| dues[i][g - 1]).collect();
++            if d.len() < 100 {
++                continue;
++            }
++            // The same bodies' step at g (the g-th interval; g-th due minus (g−1)-th for g ≥ 2).
++            let mut st: Vec<i64> = (0..n).filter(|&i| steps[i].len() >= g.saturating_sub(1)).map(|i| steps[i][g.min(steps[i].len()) - 1]).collect();
++            st.sort_unstable();
++            let step_med = st[st.len() / 2] as f64;
++            d.sort_unstable();
++            let (n_g, span) = (d.len() as f64, (d[d.len() - 1] - d[0]) as f64);
++            let mean = |c: &[u32]| n_g / c.len() as f64;
++            let stat = |w: usize| -> (f64, f64) {
++                let mut c = vec![0u32; w];
++                if span <= 0.0 {
++                    c[0] = d.len() as u32;
++                } else {
++                    for &x in &d {
++                        c[(((x - d[0]) as f64 * w as f64 / span) as usize).min(w - 1)] += 1;
++                    }
++                }
++                let mut cs: Vec<f64> = c.iter().map(|&x| x as f64).collect();
++                cs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++                (cs[cs.len() - 1] / mean(&c), pct(&cs, 0.5) / mean(&c))
++            };
++            let (m64, c50) = stat(64);
++            let (m32, _) = stat(32);
++            let (m128, _) = stat(128);
++            let (m1k, _) = stat(1024);
++            let (f64m, f10, f90) = Mc::floor(d.len(), 64, 4000);
++            // The step ledger at g: Δstep between the (g−1)-th and g-th intervals of the same body.
++            let (mut da, mut ds) = (0.0f64, 0.0f64);
++            let (mut kda, mut kds) = (0usize, 0usize);
++            for i in 0..n {
++                if steps[i].len() >= g && g >= 2 {
++                    da += (steps[i][g - 1] - steps[i][g - 2]).abs() as f64;
++                    ds += (steps[i][g - 1] - steps[i][g - 2]) as f64;
++                    kda += 1;
++                    kds += 1;
++                }
++            }
++            let mu_d = d.iter().map(|&x| x as f64).sum::<f64>() / n_g;
++            let mut vd2 = 0.0f64;
++            for i in 0..n {
++                if dues[i].len() >= g {
++                    vd2 += (dues[i][g - 1] as f64 - mu_d).powi(2);
++                }
++            }
++            println!(
++                "g={g} {n_g:.0} {:.4} {:.3} {:.3} {:.3} {:.3} {:+.3} {:.3} {:.3} {:.3} {:.3} {} {} {:.5}",
++                span / step_med,
++                m64, f64m, f10, f90, m64 - f64m, c50, m32, m128, m1k,
++                if kda > 0 { format!("{:.3e}", da / kda as f64 / step_med) } else { "-".into() },
++                if kds > 0 { format!("{:+.3e}", ds / kds as f64 / step_med) } else { "-".into() },
++                vd2 / n_g / step_med.powi(2),
++            );
++        }
++    }
++}
+diff --git a/crates/universe/examples/calendar_flight.rs b/crates/universe/examples/calendar_flight.rs
+new file mode 100644
+index 00000000..b3835cef
+--- /dev/null
++++ b/crates/universe/examples/calendar_flight.rs
+@@ -0,0 +1,209 @@
++//! The calendar page's od-4 engine flight (lab/results/20261021-0607-dynamics-c857): the genesis
++//! mixing transient flown on the shipped engine, per generation, two seeds, to the depth the
++//! frozen-step model extrapolates the Poisson floor to (fire ~100–120; a97f confirmed onset to
++//! g=49). Pure observation: `plane_extra` + `settle` + `key_of` polling, no behaviour touched.
++//!
++//! Instrument. A belt body's generation g is its g-th resolved item (kick or boundary comb — the
++//! allocator sees both); dues are read from `key_of` before and after each `settle` epoch of
++//! Δ < p10(step)/8 ticks, so at most one fire a body an epoch (asserted). Per generation:
++//! `maxmu` = max window count / mean over W equal windows spanning the generation's dues
++//! (the allocator's worst-window load), against a uniform Monte-Carlo floor of the same n and W
++//! (4,000 draws, the shipped mix64); `c50` = p50 window count / mean; `span` = the dues' span in
++//! median steps; the step ledger per body gives `drift_abs`/`drift_sign` (mean |Δstep|/step and
++//! the signed mean) and `var_due` = Var(due)/step² (the spread law: diffusion reads linear in g).
++//!
++//! cargo run --release -p emergent-universe --example calendar_flight -- <extra> <gens> <seed> [...]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++
++/// splitmix64's finalizer (scenario.rs's `mix64`): one PRNG on every machine.
++fn mix64(mut z: u64) -> u64 {
++    z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    z ^ (z >> 31)
++}
++
++struct Mc {
++    z: u64,
++}
++impl Mc {
++    fn next(&mut self) -> u64 {
++        self.z = mix64(self.z);
++        self.z
++    }
++    /// E[max count / mean] and its p10/p90 for n uniform points in W windows, `reps` draws.
++    fn floor(n: usize, w: usize, reps: usize) -> (f64, f64, f64) {
++        let mut maxes = Vec::with_capacity(reps);
++        let mut z = Mc { z: 0xAB16_5E17_8D2B_1A55 };
++        for _ in 0..reps {
++            let mut c = vec![0u32; w];
++            for _ in 0..n {
++                c[(z.next() % w as u64) as usize] += 1;
++            }
++            maxes.push(*c.iter().max().unwrap() as f64 * w as f64 / n as f64);
++        }
++        maxes.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let q = |p: f64| maxes[((reps - 1) as f64 * p).round() as usize];
++        (q(0.5), q(0.1), q(0.9))
++    }
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let extra: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(3000);
++    let gens: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(145);
++    let seeds: Vec<u64> = args.iter().skip(3).filter_map(|s| s.parse().ok()).collect();
++    let seeds = if seeds.is_empty() { vec![1] } else { seeds };
++    let dump = std::env::var("CENSUS_DUMP").ok(); // per-seed file: blocks [g u32, n u32, min i64] then (id u16, due−min i64)
++    // The plane's own ships before the ladder: 12 haulers + 8 orbiters + 3 skimmers.
++    const OWN: usize = 23;
++    for seed in seeds {
++        let t0 = std::time::Instant::now();
++        let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, extra).unwrap();
++        let build = t0.elapsed().as_secs_f64();
++        let locals = (extra / 2).min(300);
++        let belt: Vec<usize> = p.ships[OWN + locals..].to_vec();
++        let n = belt.len();
++        // Generation 1: the genesis dues, before any fire.
++        let mut last_due: Vec<i64> = belt.iter().map(|&i| p.u.key_of(i).unwrap().0).collect();
++        let mut gen: Vec<usize> = vec![1; n];
++        let mut dues: Vec<Vec<i64>> = vec![Vec::with_capacity(gens + 1); n];
++        let mut steps: Vec<Vec<i64>> = vec![Vec::with_capacity(gens + 1); n];
++        for i in 0..n {
++            dues[i].push(last_due[i]);
++        }
++        // Bootstrap one step: settle just past the earliest due; the fired bodies reveal a step.
++        let t_early = *last_due.iter().min().unwrap();
++        p.u.settle(t_early + 1);
++        let mut obs: Vec<i64> = Vec::new();
++        for i in 0..n {
++            if let Some((d, _)) = p.u.key_of(belt[i]) {
++                if d > last_due[i] {
++                    obs.push(d - last_due[i]);
++                    dues[i].push(d);
++                    steps[i].push(d - last_due[i]);
++                    gen[i] = 2;
++                    last_due[i] = d;
++                }
++            }
++        }
++        obs.sort_unstable();
++        let delta = (obs[obs.len() / 10] * 4 / 5).max(1); // 0.8 x p10 step: below every body's inter-fire gap
++        let mut t = t_early + 1;
++        let mut epochs = 0usize;
++        let mut multi = 0usize;
++        let t_run = std::time::Instant::now();
++        while gen.iter().max().copied().unwrap_or(0) < gens {
++            t += delta;
++            p.u.settle(t);
++            p.u.prune(); // the view's own retention, every frame in flight: keeps the histories bounded on long censuses
++            epochs += 1;
++            for i in 0..n {
++                if let Some((d, _)) = p.u.key_of(belt[i]) {
++                    if d > last_due[i] {
++                        if steps[i].last().is_some_and(|&s| d - last_due[i] > s + s / 2) {
++                            multi += 1; // the jump exceeds half the body's own step: two fires inside one epoch
++                        }
++                        if gen[i] <= gens {
++                            dues[i].push(d);
++                            steps[i].push(d - last_due[i]);
++                        }
++                        gen[i] += 1;
++                        last_due[i] = d;
++                    }
++                }
++            }
++            if t_run.elapsed().as_secs_f64() > 720.0 {
++                eprintln!("seed {seed}: time guard at epoch {epochs}");
++                break;
++            }
++        }
++        let flight = t_run.elapsed().as_secs_f64();
++        let reached = gen.iter().max().copied().unwrap_or(0);
++        // Per-generation statistics over the bodies alive at g (those with a g-th due).
++        println!("flight seed={seed} extra={extra} n={n} gens={gens} reached={reached} epochs={epochs} delta={delta} multi={multi} build_s={build:.1} flight_s={flight:.1} game_s={:.0}", (t - t_early) as f64 * TICK_SECONDS);
++        if let Some(pre) = &dump {
++            let mut buf: Vec<u8> = Vec::new();
++            for g in 1..=reached.min(gens) {
++                let here: Vec<(usize, i64)> = (0..n).filter(|&i| dues[i].len() >= g).map(|i| (i, dues[i][g - 1])).collect();
++                if here.len() < 100 { continue; }
++                let min = here.iter().map(|&(_, d)| d).min().unwrap();
++                buf.extend_from_slice(&(g as u32).to_le_bytes());
++                buf.extend_from_slice(&(here.len() as u32).to_le_bytes());
++                buf.extend_from_slice(&min.to_le_bytes());
++                for &(i, d) in &here {
++                    buf.extend_from_slice(&(i as u16).to_le_bytes());
++                    buf.extend_from_slice(&((d - min) as i64).to_le_bytes());
++                }
++            }
++            let path = format!("{pre}{seed}.bin");
++            std::fs::write(&path, &buf).unwrap();
++            println!("dump seed={seed} path={path} bytes={}", buf.len());
++        }
++        println!("gen n span maxmu64 floor64 f10_64 f90_64 excess64 c50 maxmu32 maxmu128 maxmu1k drift_abs drift_sign var_due");
++        for g in 1..=reached.min(gens) {
++            let mut d: Vec<i64> = (0..n).filter(|&i| dues[i].len() >= g).map(|i| dues[i][g - 1]).collect();
++            if d.len() < 100 {
++                continue;
++            }
++            // The same bodies' step at g (the g-th interval; g-th due minus (g−1)-th for g ≥ 2).
++            let mut st: Vec<i64> = (0..n).filter(|&i| steps[i].len() >= g.saturating_sub(1)).map(|i| steps[i][g.min(steps[i].len()) - 1]).collect();
++            st.sort_unstable();
++            let step_med = st[st.len() / 2] as f64;
++            d.sort_unstable();
++            let (n_g, span) = (d.len() as f64, (d[d.len() - 1] - d[0]) as f64);
++            let mean = |c: &[u32]| n_g / c.len() as f64;
++            let stat = |w: usize| -> (f64, f64) {
++                let mut c = vec![0u32; w];
++                if span <= 0.0 {
++                    c[0] = d.len() as u32;
++                } else {
++                    for &x in &d {
++                        c[(((x - d[0]) as f64 * w as f64 / span) as usize).min(w - 1)] += 1;
++                    }
++                }
++                let mut cs: Vec<f64> = c.iter().map(|&x| x as f64).collect();
++                cs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++                (cs[cs.len() - 1] / mean(&c), pct(&cs, 0.5) / mean(&c))
++            };
++            let (m64, c50) = stat(64);
++            let (m32, _) = stat(32);
++            let (m128, _) = stat(128);
++            let (m1k, _) = stat(1024);
++            let (f64m, f10, f90) = Mc::floor(d.len(), 64, 4000);
++            // The step ledger at g: Δstep between the (g−1)-th and g-th intervals of the same body.
++            let (mut da, mut ds) = (0.0f64, 0.0f64);
++            let (mut kda, mut kds) = (0usize, 0usize);
++            for i in 0..n {
++                if steps[i].len() >= g && g >= 2 {
++                    da += (steps[i][g - 1] - steps[i][g - 2]).abs() as f64;
++                    ds += (steps[i][g - 1] - steps[i][g - 2]) as f64;
++                    kda += 1;
++                    kds += 1;
++                }
++            }
++            let mu_d = d.iter().map(|&x| x as f64).sum::<f64>() / n_g;
++            let mut vd2 = 0.0f64;
++            for i in 0..n {
++                if dues[i].len() >= g {
++                    vd2 += (dues[i][g - 1] as f64 - mu_d).powi(2);
++                }
++            }
++            println!(
++                "g={g} {n_g:.0} {:.4} {:.3} {:.3} {:.3} {:.3} {:+.3} {:.3} {:.3} {:.3} {:.3} {} {} {:.5}",
++                span / step_med,
++                m64, f64m, f10, f90, m64 - f64m, c50, m32, m128, m1k,
++                if kda > 0 { format!("{:.3e}", da / kda as f64 / step_med) } else { "-".into() },
++                if kds > 0 { format!("{:+.3e}", ds / kds as f64 / step_med) } else { "-".into() },
++                vd2 / n_g / step_med.powi(2),
++            );
++        }
++    }
++}

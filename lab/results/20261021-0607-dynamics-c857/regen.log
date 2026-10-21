@@ -1,0 +1,60 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.88s
+== seed 1: generations 1..139, bodies 2700
+   step_med=2859431373 ticks, window L=89357230
+   pooled g[1,16] dues=43200 windows=498 mu=86.7 max/mu=21.937 poisson_floor=1.337 excess=+20.600
+   pooled g[17,48] dues=86400 windows=1080 mu=80.0 max/mu=2.250 poisson_floor=1.350 excess=+0.900
+   pooled g[49,96] dues=129600 windows=1716 mu=75.5 max/mu=1.748 poisson_floor=1.364 excess=+0.384
+   pooled g[97,139] dues=101441 windows=1418 mu=71.5 max/mu=1.622 poisson_floor=1.370 excess=+0.252
+   locked pairs (>=8 consecutive gens within L): 6654
+   control (uniform redraw, pairs destroyed): 0
+== seed 2: generations 1..139, bodies 2700
+   step_med=2859237372 ticks, window L=89351167
+   pooled g[1,16] dues=43200 windows=497 mu=86.9 max/mu=20.398 poisson_floor=1.335 excess=+19.063
+   pooled g[17,48] dues=86400 windows=1077 mu=80.2 max/mu=2.181 poisson_floor=1.346 excess=+0.835
+   pooled g[49,96] dues=129600 windows=1707 mu=75.9 max/mu=1.607 poisson_floor=1.357 excess=+0.250
+   pooled g[97,139] dues=102712 windows=1422 mu=72.2 max/mu=1.647 poisson_floor=1.371 excess=+0.277
+   locked pairs (>=8 consecutive gens within L): 6568
+   control (uniform redraw, pairs destroyed): 0
+--- seed 1 flight ---
+flight seed=1 extra=3000 n=2700 gens=145 reached=145 epochs=178 delta=2119450089 multi=0 build_s=0.1 flight_s=346.5 game_s=1858201
+dump seed=1 path=/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261021-0607-dynamics-c857/work/dues_s1.bin bytes=3608634
+--- seed 2 flight ---
+flight seed=2 extra=3000 n=2700 gens=145 reached=145 epochs=178 delta=2127162831 multi=0 build_s=0.1 flight_s=491.8 game_s=1864963
+dump seed=2 path=/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261021-0607-dynamics-c857/work/dues_s2.bin bytes=3621344
+--- endpoint rows (last 5 generation rows per seed; the table ends when n < 100) ---
+g=135 634 9.6078 6.259 1.817 1.615 2.019 +4.442 0.606 5.300 7.874 12.921 7.374e-5 -7.374e-5 3.84576
+g=136 390 8.7248 3.282 1.969 1.805 2.297 +1.313 0.821 2.954 3.938 10.503 1.826e-10 +1.826e-10 3.10716
+g=137 277 7.7852 4.621 2.310 2.079 2.773 +2.310 0.693 4.043 5.545 18.484 7.689e-5 -7.689e-5 2.63527
+g=138 170 6.8759 3.388 2.635 2.259 3.012 +0.753 0.753 3.012 4.518 12.047 1.908e-10 +1.908e-10 2.22083
+g=139 115 5.9427 3.896 2.783 2.783 3.896 +1.113 0.557 3.896 5.565 26.713 7.768e-5 -7.768e-5 1.78130
+g=135 900 9.4827 8.036 1.636 1.493 1.849 +6.400 0.569 6.898 8.249 12.516 6.908e-5 -6.760e-5 3.65751
+g=136 460 8.6551 3.061 1.948 1.809 2.226 +1.113 0.696 2.643 4.174 11.130 1.732e-10 +1.732e-10 3.08092
+g=137 339 7.7280 4.531 2.077 1.888 2.454 +2.454 0.755 3.398 4.909 12.083 7.767e-5 -7.767e-5 2.60779
+g=138 226 6.8153 3.965 2.265 1.982 2.832 +1.699 0.566 3.257 5.664 18.124 1.969e-10 +1.969e-10 2.20948
+g=139 135 5.8858 4.741 2.844 2.370 3.319 +1.896 0.948 3.556 7.585 22.756 8.572e-5 -8.572e-5 1.78735
+--- step ledger (extract) + pooled analysis ---
+seed 1: flight seed=1 extra=3000 n=2700 gens=145 reached=145 epochs=178 delta=2119450089 multi=0 build_s=0.1 flight_s=346.5 game_s=1858201
+  matched n=2700: g=1..129; maxmu64 4.08→3.94 (min 3.63 max 4.55); excess +2.25..+3.18; c50 0.498..0.569; Var(due)/step^2 g^beta with beta=2.018 (g=8→129, 1.60e-02→4.39e+00); drift_abs(change-fires) 6.5e-05..7.0e-05, signed -2.8e-06..-6.3e-07
+  steps: 268433 distinct over 357941 intervals, spread (max-min)/mean = 0.114; profile g=129 vs step profile r = 0.998
+seed 2: flight seed=2 extra=3000 n=2700 gens=145 reached=145 epochs=178 delta=2127162831 multi=0 build_s=0.1 flight_s=491.8 game_s=1864963
+  matched n=2700: g=1..130; maxmu64 3.39→3.89 (min 3.34 max 4.03); excess +1.97..+2.65; c50 0.521..0.616; Var(due)/step^2 g^beta with beta=2.020 (g=8→130, 1.51e-02→4.21e+00); drift_abs(change-fires) 6.4e-05..7.0e-05, signed 7.1e-07..1.3e-06
+  steps: 269348 distinct over 359212 intervals, spread (max-min)/mean = 0.109; profile g=130 vs step profile r = 0.998
+--- analysis.txt ---
+== seed 1: generations 1..139, bodies 2700
+   step_med=2859431373 ticks, window L=89357230
+   pooled g[1,16] dues=43200 windows=498 mu=86.7 max/mu=21.937 poisson_floor=1.337 excess=+20.600
+   pooled g[17,48] dues=86400 windows=1080 mu=80.0 max/mu=2.250 poisson_floor=1.350 excess=+0.900
+   pooled g[49,96] dues=129600 windows=1716 mu=75.5 max/mu=1.748 poisson_floor=1.364 excess=+0.384
+   pooled g[97,139] dues=101441 windows=1418 mu=71.5 max/mu=1.622 poisson_floor=1.370 excess=+0.252
+   locked pairs (>=8 consecutive gens within L): 6654
+   control (uniform redraw, pairs destroyed): 0
+== seed 2: generations 1..139, bodies 2700
+   step_med=2859237372 ticks, window L=89351167
+   pooled g[1,16] dues=43200 windows=497 mu=86.9 max/mu=20.398 poisson_floor=1.335 excess=+19.063
+   pooled g[17,48] dues=86400 windows=1077 mu=80.2 max/mu=2.181 poisson_floor=1.346 excess=+0.835
+   pooled g[49,96] dues=129600 windows=1707 mu=75.9 max/mu=1.607 poisson_floor=1.357 excess=+0.250
+   pooled g[97,139] dues=102712 windows=1422 mu=72.2 max/mu=1.647 poisson_floor=1.371 excess=+0.277
+   locked pairs (>=8 consecutive gens within L): 6568
+   control (uniform redraw, pairs destroyed): 0
+

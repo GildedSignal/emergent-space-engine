@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261021-0607-dynamics-c857/`: dossier, pre-registered predictions (P1/P5 failed — the finding; P3/P4/P6 held), regen.sh (rebuilds everything from the patch in ~9 min, ~0.2 GB/process), the folded wiki page, and all artifacts.
+
+**Claim:** the belt's worst-window event excess is not a mixing transient — on the shipped engine (belt 2,700, both seeds, g = 145) it never reaches the Poisson floor (+0.25/+0.28 at g ≈ 100–139 vs the ±0.10 band, refuting the "floor by fire 100–120" endpoint) because it is the clock's own frozen step-distribution profile (r = 0.998, drift 7×10⁻⁵/fire ⇒ ~3×10⁶-fire horizon) plus thousands of phase-locked co-firing pairs at both seeds, so the 10⁹ worst-frame line must either stagger from birth or carry the contrast.
