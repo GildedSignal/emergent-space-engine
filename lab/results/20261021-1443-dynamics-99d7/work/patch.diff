@@ -1,0 +1,226 @@
+diff --git a/crates/universe/examples/beltzone.rs b/crates/universe/examples/beltzone.rs
+new file mode 100644
+index 00000000..2955e712
+--- /dev/null
++++ b/crates/universe/examples/beltzone.rs
+@@ -0,0 +1,220 @@
++//! The census's two unflown arms on cbe6's `beltcad` instrument, verbatim: the same scene
++//! (star + Jupiter 2^-10 at sep 5.27e8), the same rng/SEED dial, the same Jacobi expression,
++//! scaling and B12 bar (1e-4), the same readout cadence — with the ships drawn where ddeb's
++//! census put the fine tail, and the plane's own belt e-law (Rayleigh 0.07, re-drawn > 0.4,
++//! `rayleigh_q48`) instead of cbe6's circles, because the census's zone width is set by e.
++//! `beltzone STEP_LOG2 PERIODS SHIPS CLASS`:
++//!   zone31 — a inside the 3:1 pendulum zone (ddeb's oracle side: |a-a_res| <=
++//!            3*sqrt(16*mu*e^2/3)*a_res at the ship's own e), e per the belt law;
++//!   bridge — apoapsis at 5.4-6.3 Hill from the planet (the census's bridge class), e per the
++//!            belt law, zone bodies rejected per the census's own rule (any j:k <= 6th order);
++//!   belte  — the plane's belt draw verbatim (a uniform [2,3) AU, e Rayleigh): the clean
++//!            control at the same e-law;
++//!   strong — cbe6's strong class (circular, 1.5-3 Hill): the ladder's positive control.
++//! Zone ships also track the 3:1 critical angle phi = 3*lam_p - lam - 2*varpi (mean of e^{i
++//! phi}, net winding) to name the mechanism when a step fails.
++use emergent_universe::num::s;
++use emergent_universe::observe::{root_state, root_state_raw};
++use emergent_universe::scenario::{rayleigh_q48, Restricted};
++use emergent_universe::world::Mass;
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++use emergent_space::orbit::Scalar;
++use std::f64::consts::TAU;
++
++fn main() {
++    let step_log2: i32 = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(6);
++    let periods: i64 = std::env::args().nth(2).map(|s| s.parse().unwrap()).unwrap_or(100);
++    let sep = 527_000_000i64;
++    let mu = 2f64.powi(-10);
++    let hill = sep as f64 * (mu / 3.0).cbrt();
++    let n: usize = std::env::args().nth(3).map(|s| s.parse().unwrap()).unwrap_or(6);
++    let class = std::env::args().nth(4).unwrap_or_else(|| "zone31".into());
++    let a_res = sep as f64 / 3f64.powf(2.0 / 3.0) // the 3:1 with the planet
++        * std::env::var("ARESC").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1.0);
++    // ddeb's resonance table for this scene: j:k coprime, order <= 6, a_res in the window.
++    fn gcd(a: usize, b: usize) -> usize { if b == 0 { a } else { gcd(b, a % b) } }
++    let resonances: Vec<(usize, usize, f64)> = (2usize..=24)
++        .flat_map(|j| (1..j).filter_map(move |k| if gcd(j, k) != 1 { None } else {
++            let a = sep as f64 * (k as f64 / j as f64).powf(2.0 / 3.0);
++            let lo = 2.0 * 101_300_000.0 * 0.94;
++            let hi = 3.32 * 101_300_000.0 * 1.06; // bridge draws can reach ~3.3 AU
++            if a > lo && a < hi { Some((j, k, a)) } else { None }
++        }))
++        .collect();
++    let in_zone = |a: f64, e: f64| resonances.iter().any(|&(j, k, ar)| {
++        let w = (j as f64 / k as f64) * (16.0 * mu * e.powi((j - k) as i32) / 3.0).sqrt();
++        (a - ar).abs() <= w * ar
++    });
++
++    let mut seed: u64 = std::env::var("SEED").ok().and_then(|v| v.parse().ok()).unwrap_or(0x9E3779B97F4A7C15);
++    let mut rnd = || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 11) as f64 / (1u64 << 53) as f64 };
++    let belt_e = |rnd: &mut dyn FnMut() -> f64| {
++        loop {
++            let e = rayleigh_q48((rnd() * (1u64 << 32) as f64) as u32, 70) as f64 / (1u64 << 48) as f64;
++            if e <= 0.4 { return e; }
++        }
++    };
++    // (periapsis root units, e, angle, phase, a AU, zone fraction)
++    let mut ships: Vec<(i64, f64, u32, u32, f64, f64)> = Vec::new();
++    for i in 0..n {
++        let (angle, phase) = ((rnd() * (1u64 << 32) as f64) as u32, (rnd() * (1u64 << 32) as f64) as u32);
++        let (p, e, a, zf) = match class.as_str() {
++            "scan" => {
++                // fixed e (ECCMILLI env, default 100), frac across the pendulum zone
++                let e = std::env::var("ECCMILLI").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(100.0) / 1000.0;
++                let span = std::env::var("FRACSPAN").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1.2);
++                let off = std::env::var("FRACC").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
++                let f = if n > 1 { off - span + 2.0 * span * i as f64 / (n - 1) as f64 } else { off };
++                let w = 3.0 * (16.0 * mu * e * e / 3.0).sqrt();
++                let a = a_res * (1.0 + f * w);
++                ((a * (1.0 - e)) as i64, e, a, f)
++            }
++            "core" => {
++                // frac uniform in [-COREW, COREW] (default 0.3 of the pendulum half-width), e per the belt law
++                let e = belt_e(&mut rnd);
++                let w = 3.0 * (16.0 * mu * e * e / 3.0).sqrt();
++                let f = std::env::var("COREW").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.3) * (2.0 * rnd() - 1.0);
++                let a = a_res * (1.0 + f * w);
++                ((a * (1.0 - e)) as i64, e, a, f)
++            }
++            "zone31" => {
++                let e = belt_e(&mut rnd);
++                let w = 3.0 * (16.0 * mu * e * e / 3.0).sqrt(); // pendulum half-width at the ship's own e
++                let f = 2.0 * rnd() - 1.0; // fraction of the half-width
++                let a = a_res * (1.0 + f * w);
++                ((a * (1.0 - e)) as i64, e, a, f)
++            }
++            "bridge" => {
++                let e = belt_e(&mut rnd);
++                loop {
++                    let apo = sep as f64 - (5.4 + 0.9 * rnd()) * hill;
++                    let a = apo / (1.0 + e);
++                    if !in_zone(a, e) && a * (1.0 - e) > 1.2 * 101_300_000.0 {
++                        break ((a * (1.0 - e)) as i64, e, a, f64::NAN);
++                    }
++                }
++            }
++            "belte" => {
++                let e = belt_e(&mut rnd);
++                let a = (2.0 + rnd()) * 101_300_000.0;
++                ((a * (1.0 - e)) as i64, e, a, f64::NAN)
++            }
++            _ => {
++                // strong: cbe6's draw, circular
++                let k = 1.5 + 1.5 * rnd();
++                let side = if i % 2 == 0 { 1.0 } else { -1.0 };
++                let r = sep as f64 + side * hill * k;
++                (r as i64, 0.0, r / 101_300_000.0, f64::NAN)
++            }
++        };
++        ships.push((p, e, angle, phase, a / 101_300_000.0, zf));
++    }
++    let cfg = Config { step_log2, ..Config::default() };
++    let mut u = Universe::new(s(471_000), cfg);
++    u.threads = 1;
++    let planet = u.add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(sep), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    let m: Mass = (-10i32).into();
++    let surface = Scalar::raw(49_000i128, -m.octave).unwrap();
++    u.add_doll("planet", planet, m, surface).unwrap();
++    let mut ids = Vec::new();
++    for &(p, e, angle, phase, _, _) in &ships {
++        ids.push(u.add_body(Kind::Ship, OrbitSpec {
++            doll: 0,
++            periapsis: s(p),
++            e_q48: (e * (1u64 << 48) as f64) as u64,
++            clockwise: false,
++            angle,
++            phase,
++        }, Scalar::raw(34, -10).unwrap()).unwrap());
++    }
++    u.start().unwrap();
++    let mut w = Restricted { u, planet, ships: ids };
++    let omega = (1.0 + mu).sqrt() / (sep as f64).powf(1.5);
++    let period = TAU / omega;
++    let jac = |w: &Restricted, sh: usize, t: i64| -> Option<f64> {
++        let ctx = w.u.ctx();
++        let read = if std::env::var("RAW").is_ok() { root_state_raw } else { root_state };
++        let (xs, vs) = read(&ctx, sh, t).ok()?;
++        let (xp, _) = read(&ctx, w.planet, t).ok()?;
++        let r = (xs[0]*xs[0]+xs[1]*xs[1]).sqrt();
++        let d = ((xs[0]-xp[0]).powi(2)+(xs[1]-xp[1]).powi(2)).sqrt();
++        let rp3 = (xp[0]*xp[0]+xp[1]*xp[1]).powf(1.5);
++        let e = 0.5*(vs[0]*vs[0]+vs[1]*vs[1]) - 1.0/r - mu/d + mu*(xs[0]*xp[0]+xs[1]*xp[1])/rp3;
++        let l = xs[0]*vs[1]-xs[1]*vs[0];
++        Some(e - omega*l)
++    };
++    let osc_e = |w: &Restricted, sh: usize, t: i64| -> Option<f64> {
++        let ctx = w.u.ctx();
++        let (xs, vs) = root_state(&ctx, sh, t).ok()?;
++        let r = (xs[0]*xs[0]+xs[1]*xs[1]).sqrt();
++        let v2 = vs[0]*vs[0]+vs[1]*vs[1];
++        let rv = xs[0]*vs[0]+xs[1]*vs[1];
++        let ex = (v2 - 1.0/r)*xs[0] - rv*vs[0];
++        let ey = (v2 - 1.0/r)*xs[1] - rv*vs[1];
++        Some((ex*ex+ey*ey).sqrt())
++    };
++    let c0: Vec<f64> = w.ships.iter().map(|&s| jac(&w, s, 0).unwrap()).collect();
++    let e0: Vec<f64> = w.ships.iter().map(|&s| osc_e(&w, s, 0).unwrap()).collect();
++    let mut worst = vec![0.0f64; ships.len()];
++    let mut worst_e = vec![0.0f64; ships.len()];
++    let mut read_refused = vec![0u32; ships.len()];
++    let mut passes = vec![0u32; ships.len()];
++    // the 3:1 critical angle 3*lam_p - lam - 2*varpi: running mean of e^{i phi}, net winding
++    let mut phi_re: Vec<f64> = vec![0.0; ships.len()];
++    let mut phi_im: Vec<f64> = vec![0.0; ships.len()];
++    let mut phi_turns: Vec<f64> = vec![0.0; ships.len()];
++    let mut phi_prev: Vec<f64> = vec![f64::NAN; ships.len()];
++    let t0 = std::time::Instant::now();
++    let fine: i64 = std::env::var("FINE").ok().map(|v| v.parse().unwrap()).unwrap_or(1);
++    for k in 1..=(periods * 8 * fine) {
++        let t = (k as f64 * period / (8.0 * fine as f64)) as i64;
++        w.u.settle(t);
++        for (i, &sh) in w.ships.iter().enumerate() {
++            let ts = if std::env::var("SYNC").is_ok() { w.u.rec(sh).anchor } else { t };
++            let err = jac(&w, sh, ts).map(|j| ((j - c0[i]) * ships[i].0 as f64).abs());
++            let de = osc_e(&w, sh, ts).map(|e| (e - e0[i]).abs());
++            if let Some(err) = err { worst[i] = worst[i].max(err); } else { read_refused[i] += 1; }
++            if let Some(de) = de { worst_e[i] = worst_e[i].max(de); }
++            if class != "bridge" && class != "belte" && class != "strong" {
++                let ctx = w.u.ctx();
++                if let (Ok((xs, vs)), Ok((xp, _))) = (root_state(&ctx, sh, ts), root_state(&ctx, w.planet, ts)) {
++                    let lam = xs[1].atan2(xs[0]);
++                    let lam_p = xp[1].atan2(xp[0]);
++                    let r = (xs[0]*xs[0]+xs[1]*xs[1]).sqrt();
++                    let v2 = vs[0]*vs[0]+vs[1]*vs[1];
++                    let rv = xs[0]*vs[0]+xs[1]*vs[1];
++                    let ex = (v2 - 1.0/r)*xs[0] - rv*vs[0];
++                    let ey = (v2 - 1.0/r)*xs[1] - rv*vs[1];
++                    let varpi = ey.atan2(ex);
++                    let phi = (3.0*lam_p - lam - 2.0*varpi).rem_euclid(TAU);
++                    phi_re[i] += phi.cos();
++                    phi_im[i] += phi.sin();
++                    if phi_prev[i].is_finite() {
++                        let mut d = phi - phi_prev[i];
++                        if d > std::f64::consts::PI { d -= TAU; }
++                        if d < -std::f64::consts::PI { d += TAU; }
++                        phi_turns[i] += d / TAU;
++                    }
++                    phi_prev[i] = phi;
++                }
++            }
++            let d = w.u.rec(sh).b.doll;
++            if d == 1 { passes[i] += 1; }
++        }
++    }
++    println!("class {class} sep {sep} hill {hill:.3e} a_res {a_res:.0} ({:.3} AU)", a_res / 101_300_000.0);
++    println!("draws (a AU, e, zone frac, |a-a_p|/hill): {:?}", ships.iter().map(|s| format!("({:.3},{:.3},{:+.2},{:.1})", s.4, s.1, s.5, (s.0 as f64 / (1.0 - s.1) - sep as f64).abs() / hill)).collect::<Vec<_>>());
++    println!("captures per ship: {passes:?}");
++    for (i, &sh) in w.ships.iter().enumerate() {
++        let r = w.u.rec(sh);
++        if !r.alive {
++            println!("ship {i} is gone: fault {:?}, doll {}, last binding at {}, refusals {}", r.fault, r.b.doll, r.b.event_time, r.refusals);
++        }
++    }
++    if class != "bridge" && class != "belte" && class != "strong" {
++        println!("phi |mean e^i.phi| {:?} | winding turns {:?}", phi_re.iter().zip(&phi_im).map(|(re, im)| format!("{:.3}", (re*re+im*im).sqrt() / (periods * 8) as f64)).collect::<Vec<_>>(), phi_turns.iter().map(|t| format!("{:+.1}", t)).collect::<Vec<_>>());
++    }
++    println!("read refusals per ship: {read_refused:?}");
++    let s = w.u.stats;
++    println!("step 2^-{step_log2}: worst jacobi {:?} | worst de {:?} | {:.1}s kicks {} handoffs {} lost {}", worst.iter().map(|x| format!("{x:.1e}")).collect::<Vec<_>>(), worst_e.iter().map(|x| format!("{x:.1e}")).collect::<Vec<_>>(), t0.elapsed().as_secs_f64(), s.kicks, s.handoffs, s.lost);
++}
