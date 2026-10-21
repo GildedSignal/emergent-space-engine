@@ -1,0 +1,45 @@
+== 20 100 1 48 100000
+ktail N=100000 (100028 bodies) seed=1 rtf=100 20s; fixed per-call overhead 6.74 us; items 5486
+kind    ship n=   1346 mean   130.28 p50    69.42 p90   257.20 p99   388.05 p999    462.49 max    505.37 us (max/mean   3.88, p999/mean  3.55)
+kind  player n=    192 mean  1914.89 p50  1265.35 p90  4123.27 p99  6325.58 p999   7118.49 max   7118.49 us (max/mean   3.72, p999/mean  3.72)
+kind   fleet n=   3948 mean    25.79 p50    15.98 p90    26.45 p99   180.23 p999    941.51 max   4484.98 us (max/mean 173.92, p999/mean 36.51)
+tail<=p99      n=   5431 kicks  28.5% opens   0.7% bounds  10.3% hoff   0.0% slices  60.1% leavers   0.7% diss   0.0% lost   0.4% ref   0.0%
+tail p99-p999  n=     50 kicks  44.1% opens   0.0% bounds  54.7% hoff   0.0% slices   1.3% leavers   0.0% diss   0.0% lost   0.0% ref   0.0%
+tail >p99.9    n=      5 kicks  15.2% opens   0.0% bounds  84.3% hoff   0.0% slices   0.5% leavers   0.0% diss   0.0% lost   0.0% ref   0.0%
+frames 1140 events/frame p50 2 p99 146 max 240 ; served ms/frame p50 0.037 p99 5.265 max 16.010
+worst frame     1:    70 events, served    16.01 ms vs events x mean     8.23 ms -> correction 1.95x
+worst frame  1129:   207 events, served     8.33 ms vs events x mean    24.33 ms -> correction 0.34x
+worst frame   733:   240 events, served     7.88 ms vs events x mean    28.21 ms -> correction 0.28x
+worst frame   336:   212 events, served     6.92 ms vs events x mean    24.92 ms -> correction 0.28x
+worst frame   138:   190 events, served     6.27 ms vs events x mean    22.33 ms -> correction 0.28x
+digest 0f13c8bc9a4b542e3a20d2839704043021b8f56ce5eb556c9dc05afc25893274
+== 20 100 2 48 100000
+ktail N=100000 (100028 bodies) seed=2 rtf=100 20s; fixed per-call overhead 6.77 us; items 4637
+kind    ship n=    895 mean   123.62 p50    40.02 p90   234.47 p99   409.41 p999    466.86 max    469.63 us (max/mean   3.80, p999/mean  3.78)
+kind  player n=    193 mean  2169.14 p50  1261.34 p90  4077.80 p99  7126.28 p999   7275.23 max   7275.23 us (max/mean   3.35, p999/mean  3.35)
+kind   fleet n=   3549 mean    25.34 p50    16.58 p90    26.36 p99   217.53 p999    997.46 max   1221.00 us (max/mean  48.19, p999/mean 39.37)
+tail<=p99      n=   4591 kicks  32.8% opens   0.7% bounds   9.0% hoff   0.0% slices  57.2% leavers   0.7% diss   0.0% lost   0.3% ref   0.0%
+tail p99-p999  n=     41 kicks  38.7% opens   0.0% bounds  60.1% hoff   0.0% slices   1.2% leavers   0.0% diss   0.0% lost   0.0% ref   0.0%
+tail >p99.9    n=      5 kicks  18.8% opens   0.0% bounds  80.7% hoff   0.0% slices   0.5% leavers   0.0% diss   0.0% lost   0.0% ref   0.0%
+frames 1140 events/frame p50 2 p99 142 max 244 ; served ms/frame p50 0.037 p99 5.658 max 18.509
+worst frame     3:    42 events, served    18.51 ms vs events x mean     5.61 ms -> correction 3.30x
+worst frame   733:   244 events, served     7.79 ms vs events x mean    32.58 ms -> correction 0.24x
+worst frame   336:   224 events, served     7.70 ms vs events x mean    29.91 ms -> correction 0.26x
+worst frame  1129:   220 events, served     7.54 ms vs events x mean    29.38 ms -> correction 0.26x
+worst frame   138:   182 events, served     6.49 ms vs events x mean    24.30 ms -> correction 0.27x
+digest 91bf53aa67452fc033bf94b3de7a725dd8d7a54b9245ef451e7a459f26ee37a1
+== 20 100 1 48 300000
+ktail N=300000 (300028 bodies) seed=1 rtf=100 20s; fixed per-call overhead 6.77 us; items 5486
+kind    ship n=   1346 mean   131.73 p50    69.53 p90   257.49 p99   386.32 p999    418.26 max    421.47 us (max/mean   3.20, p999/mean  3.18)
+kind  player n=    192 mean  1946.38 p50  1288.40 p90  4138.35 p99  6316.22 p999   6963.70 max   6963.70 us (max/mean   3.58, p999/mean  3.58)
+kind   fleet n=   3948 mean    26.02 p50    16.10 p90    27.45 p99   177.47 p999    833.87 max   4490.30 us (max/mean 172.56, p999/mean 32.04)
+tail<=p99      n=   5431 kicks  28.5% opens   0.7% bounds  10.3% hoff   0.0% slices  60.1% leavers   0.7% diss   0.0% lost   0.4% ref   0.0%
+tail p99-p999  n=     50 kicks  44.1% opens   0.0% bounds  54.7% hoff   0.0% slices   1.3% leavers   0.0% diss   0.0% lost   0.0% ref   0.0%
+tail >p99.9    n=      5 kicks  15.2% opens   0.0% bounds  84.3% hoff   0.0% slices   0.5% leavers   0.0% diss   0.0% lost   0.0% ref   0.0%
+frames 1140 events/frame p50 2 p99 146 max 240 ; served ms/frame p50 0.037 p99 5.342 max 15.886
+worst frame     1:    70 events, served    15.89 ms vs events x mean     8.34 ms -> correction 1.90x
+worst frame  1129:   207 events, served     8.09 ms vs events x mean    24.67 ms -> correction 0.33x
+worst frame   733:   240 events, served     7.72 ms vs events x mean    28.60 ms -> correction 0.27x
+worst frame   336:   212 events, served     6.96 ms vs events x mean    25.26 ms -> correction 0.28x
+worst frame   138:   190 events, served     6.67 ms vs events x mean    22.64 ms -> correction 0.29x
+digest 8d04225a3ad5d3c4bd50da97f2b96c9e391664c8d2dcd666be3796b381132c52

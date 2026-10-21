@@ -1,0 +1,179 @@
+diff --git a/crates/universe/examples/ktail.rs b/crates/universe/examples/ktail.rs
+new file mode 100644
+index 00000000..2a750f7b
+--- /dev/null
++++ b/crates/universe/examples/ktail.rs
+@@ -0,0 +1,173 @@
++//! The belt stream's per-item service-time law. Every item the engine resolves is timed
++//! alone (a budget of one event — a budget moves when work is done, never what, so the
++//! stream is the shipped one), with its kind (which of the five item classes fired, and
++//! which sub-counters moved: kicks/opens/boundaries/handoffs/slices/leavers/dissolved/
++//! lost/refused). Reports, per kind and overall: n, mean, p50/p90/p99/p99.9/max µs, the
++//! tail's sub-counter composition, the per-frame arrival distribution, and for the worst
++//! frames the sum of served item times against events x mean service (the tail correction
++//! a mean-only budget misses). `ktail [SECONDS] [RTF] [SEED] [MEMBERS] [N_EXTRA]`.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++const NAMES: [&str; 5] = ["planet", "moon", "ship", "player", "fleet"];
++
++#[derive(Default, Clone, Copy)]
++struct Deltas {
++    kicks: u64,
++    opens: u64,
++    boundaries: u64,
++    handoffs: u64,
++    slices: u64,
++    leavers: u64,
++    dissolved: u64,
++    lost: u64,
++    refused: u64,
++}
++
++fn deltas(a: &emergent_universe::universe::Stats, b: &emergent_universe::universe::Stats) -> Deltas {
++    Deltas {
++        kicks: a.kicks - b.kicks,
++        opens: a.opens - b.opens,
++        boundaries: a.boundaries - b.boundaries,
++        handoffs: a.handoffs - b.handoffs,
++        slices: a.slices - b.slices,
++        leavers: a.leavers - b.leavers,
++        dissolved: a.dissolved - b.dissolved,
++        lost: a.lost - b.lost,
++        refused: a.refused - b.refused,
++    }
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let seconds: f64 = a.first().map(|s| s.parse().unwrap()).unwrap_or(20.0);
++    let rtf: f64 = a.get(1).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let seed: u64 = a.get(2).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let members: u64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(48);
++    let extra: usize = a.get(4).map(|s| s.parse().unwrap()).unwrap_or(100_000);
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, members, extra).unwrap();
++    let bodies = p.u.n_bodies();
++    let frames = (seconds * 60.0) as usize;
++    let mut items: Vec<(f64, usize, Deltas)> = Vec::new(); // (us, kind, deltas)
++    let mut frame_sum: Vec<f64> = Vec::new(); // engine us served per frame
++    let mut frame_events: Vec<u64> = Vec::new();
++    let mut overhead_us: f64 = 0.0; // fixed per-call cost, estimated with a zero budget
++    let mut ovr_n = 0u64;
++    for f in 0..frames {
++        let want = (rtf / 60.0 / TICK_SECONDS) as i64;
++        let target = p.u.now + want.max(1);
++        let mut served = 0.0f64;
++        let mut ev = 0u64;
++        loop {
++            let before = p.u.stats;
++            let t0 = Instant::now();
++            let adv = p.u.advance(target, Budget::events(1));
++            let us = t0.elapsed().as_secs_f64() * 1e6;
++            if adv.events == 0 {
++                // fixed-cost probe: same call, no work
++                let t1 = Instant::now();
++                let _ = p.u.advance(target, Budget::events(0));
++                overhead_us += t1.elapsed().as_secs_f64() * 1e6;
++                ovr_n += 1;
++                break;
++            }
++            let s = p.u.stats;
++            let kind = (0..5).find(|&k| s.items[k] > before.items[k]).unwrap_or(4);
++            items.push((us, kind, deltas(&s, &before)));
++            served += us;
++            ev += adv.events;
++            p.u.now = adv.horizon.max(p.u.now);
++        }
++        if f >= 60 {
++            frame_sum.push(served);
++            frame_events.push(ev);
++        }
++    }
++    let over = overhead_us / ovr_n.max(1) as f64;
++    println!(
++        "ktail N={extra} ({bodies} bodies) seed={seed} rtf={rtf} {seconds}s; fixed per-call overhead {over:.2} us; items {}",
++        items.len()
++    );
++    // per-kind distributions
++    for k in 0..5 {
++        let mut v: Vec<f64> = items.iter().filter(|i| i.1 == k).map(|i| i.0). collect();
++        if v.is_empty() {
++            continue;
++        }
++        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mean = v.iter().sum::<f64>() / v.len() as f64;
++        println!(
++            "kind {:>7} n={:>7} mean {:8.2} p50 {:8.2} p90 {:8.2} p99 {:8.2} p999 {:9.2} max {:9.2} us (max/mean {:6.2}, p999/mean {:5.2})",
++            NAMES[k], v.len(), mean, pct(&v, 0.5), pct(&v, 0.9), pct(&v, 0.99), pct(&v, 0.999), v[v.len() - 1],
++            v[v.len()-1] / mean, pct(&v, 0.999) / mean
++        );
++    }
++    // overall tail composition: sub-counters of items above overall p99 vs below
++    let mut all: Vec<f64> = items.iter().map(|i| i.0).collect();
++    all.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mean_all = all.iter().sum::<f64>() / all.len() as f64;
++    let p99 = pct(&all, 0.99);
++    let p999 = pct(&all, 0.999);
++    let (mut below, mut above99, mut above999) = (Deltas::default(), Deltas::default(), Deltas::default());
++    let (mut n99, mut n999) = (0u64, 0u64);
++    let mut sum_above999 = 0.0f64;
++    for (us, _, d) in &items {
++        if *us > p999 {
++            above999.kicks += d.kicks; above999.opens += d.opens; above999.boundaries += d.boundaries;
++            above999.handoffs += d.handoffs; above999.slices += d.slices; above999.leavers += d.leavers;
++            above999.dissolved += d.dissolved; above999.lost += d.lost; above999.refused += d.refused;
++            n999 += 1; sum_above999 += us;
++        } else if *us > p99 {
++            above99.kicks += d.kicks; above99.opens += d.opens; above99.boundaries += d.boundaries;
++            above99.handoffs += d.handoffs; above99.slices += d.slices; above99.leavers += d.leavers;
++            above99.dissolved += d.dissolved; above99.lost += d.lost; above99.refused += d.refused;
++            n99 += 1;
++        } else {
++            below.kicks += d.kicks; below.opens += d.opens; below.boundaries += d.boundaries;
++            below.handoffs += d.handoffs; below.slices += d.slices; below.leavers += d.leavers;
++            below.dissolved += d.dissolved; below.lost += d.lost; below.refused += d.refused;
++        }
++    }
++    let line = |d: &Deltas, n: u64| {
++        let t = d.kicks + d.boundaries + d.handoffs + d.slices + d.leavers + d.dissolved + d.lost + d.refused;
++        let pc = |x: u64| if t > 0 { 100.0 * x as f64 / t as f64 } else { 0.0 };
++        format!("n={n:>7} kicks {:5.1}% opens {:5.1}% bounds {:5.1}% hoff {:5.1}% slices {:5.1}% leavers {:5.1}% diss {:5.1}% lost {:5.1}% ref {:5.1}%",
++            pc(d.kicks), pc(d.opens), pc(d.boundaries), pc(d.handoffs), pc(d.slices), pc(d.leavers), pc(d.dissolved), pc(d.lost), pc(d.refused))
++    };
++    println!("tail<=p99      {}", line(&below, (items.len() as u64).saturating_sub(n99 + n999)));
++    println!("tail p99-p999  {}", line(&above99, n99));
++    println!("tail >p99.9    {}", line(&above999, n999));
++    // arrivals and the worst frames' correction
++    let mut fe: Vec<u64> = frame_events.clone();
++    fe.sort();
++    let mut fs: Vec<f64> = frame_sum.clone();
++    fs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    println!(
++        "frames {} events/frame p50 {} p99 {} max {} ; served ms/frame p50 {:.3} p99 {:.3} max {:.3}",
++        frame_events.len(), pct_u(&fe, 0.5), pct_u(&fe, 0.99), fe[fe.len() - 1],
++        pct(&fs, 0.5) / 1e3, pct(&fs, 0.99) / 1e3, fs[fs.len() - 1] / 1e3
++    );
++    let mut worst: Vec<usize> = (0..frame_sum.len()).collect();
++    worst.sort_by(|&x, &y| frame_sum[y].total_cmp(&frame_sum[x]));
++    for wi in worst.iter().take(5) {
++        let ev = frame_events[*wi];
++        println!(
++            "worst frame {wi:>5}: {ev:>5} events, served {:8.2} ms vs events x mean {:8.2} ms -> correction {:.2}x",
++            frame_sum[*wi] / 1e3, ev as f64 * mean_all / 1e3, frame_sum[*wi] / (ev as f64 * mean_all)
++        );
++    }
++
++    p.u.settle(p.u.now);
++    println!("digest {}", p.u.digest());
++}
++
++fn pct_u(sorted: &[u64], p: f64) -> u64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
