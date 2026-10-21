@@ -1,0 +1,37 @@
+fetched: base=8a098f90b95ab339aab98a140ace8628fbaa883e old-page 587 lines, compiled 178 lines, head 65 lines
+== R0: author's compile_check.py rerun in sandbox ==
+old: 587 lines, current best 333 non-blank, 110 dated run ids
+new: 178 lines, current best 15 non-blank, 110 dated run ids, 112 run lines (4 merged/dropped: ['- 20261012-1524-fermi-4b55 (silver): H_live term decomposition — rebinds,', '- 20261012-1621-second-20261012-1524-fermi-4b55-09a1 (this run): named', '(completed dangling second-checker line)', "- 20261007-0933-second-20261007-0842-fermi-fc22-a7d0 (gold): fc22's ≤ 1 MB holds in 3-D only; planar belts (all shipped ones) write ~209 MB/game at 10⁹."])
+refuted entries (new): 26
+budget total<=300: PASS (178)
+budget best<=15:   PASS (15)
+runs preserved:    PASS
+open directions (new): 7; at-risk old tokens: 559
+numbers preserved: PASS (0 lost of 559)
+rebuilt == shipped compiled page: PASS
+== R1: budgets == total 178 <= 300, current best 15 <= 15: PASS
+== R2: dated ids == old lines 113 (110 ids) -> new lines 110 (110 ids); missing []; duplicated []: PASS
+== R3: Refuted == old 25 -> new 26; absent by first-60-chars: none: PASS
+== R4: strict number-core survival, old head vs compiled page ==
+   old-head cores 437, lost page-wide: 0: PASS
+== R5: header == {'topic': 'memory-h-live', 'status': 'open', 'closed-by': 'valid-while:', 'updated': '20261020-2306-q-compile-memory-h-live-e208'}: PASS
+SECOND CHECK: ALL PASS
+S1/S2: old-head cores demoted to Runs-only: 31; absent page-wide: 0
+S3: demotions that are NOT run-id/date fragments: 0
+mutation Current-best 226 -> XXX: CAUGHT [('Current best', '226', 'demoted-substantive'), ('Refuted', '226', 'demoted-substantive')]
+mutation Refuted 475 -> XXX: CAUGHT [('Current best', '475', 'PAGE-WIDE LOSS'), ('Refuted', '475', 'PAGE-WIDE LOSS')]
+live: 182 lines, runs lines 116
+artifacts dropped (4):
+  - - 20261012-1524-fermi-4b55 (silver): H_live term decomposition — rebinds,
+  - - 20261012-1621-second-20261012-1524-fermi-4b55-09a1 (this run): named
+  - - second-checker (20261017-0238-inversion-470f): 20 of 22 fresh flights grew (8/8 under 8-way
+  - - 20261007-0933-second-20261007-0842-fermi-fc22-a7d0 (gold): fc22's ≤ 1 MB holds in 3-D only; planar belts (all shipped ones) writ
+proposed: 179 lines, runs lines 113, dated lines 111 (111 ids), duplicated ids none, current best 15
+index dry-run row: | [memory-h-live](memory-h-live.md) | open | 111 | **The held-scan pin is measured in real bytes at capture, and it is one flat law: the candidates `Vec` — `size_of::<(usize, Binding, Scalar)>` = 224 B per window candidate (Binding 192), pooled fit 226 B × C (r² 0.974) a |
+apply-union simulation: union 117 run lines; artifacts resurrected by the union: 4 of 4 -> apply CANNOT delete them (hand fix needed)
+three-way head merge (live base): CLEAN; head identical to live: no (updated: bumped)
+P6 current-best line chars: min 644, median 1433, max 2892, total 22356
+CLEANUP: ALL PASS
+== code citation of the +1 Refuted entry ==
+40:            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+REGEN: ALL STEPS OK
