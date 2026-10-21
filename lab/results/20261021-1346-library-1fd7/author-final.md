@@ -1,0 +1,3 @@
+At cbe6's mRun complete: predictions pre-registered and all held (P1–P7), regen green in ~7 s, all files under budget, wiki page proposed.
+
+**Claim:** at cbe6's measured belt floor (8 kicks per synodic conjunction) the desynchronised grid closes the kick-comb row of the 10⁹ single-doll era ledger (658× → 0.39–0.58× of the 69.75-s budget, the last cadence lever there), moves the wall to the cadence-blind scan channel (173–373×), and hangs adoption on two now-frozen census bars — fine-class fraction ≤ 1.6–3.3% and governing synodic period ≥ 3.41 yr — with wt/cadence's 4-steps-per-period sitting at/below cbe6's failing conjunction rate and needing reconciliation before any belt merge.

@@ -1,0 +1,52 @@
+== Fresh Readwise export (cached to readwise_cache.json)
+4590 highlights, 770 books -> readwise_cache.json.gz
+
+== Quote verification (P6)
+L1 minority rule: BYTE-IDENTICAL (full highlight) [Skin in the Game — Nassim Nicholas Taleb]
+L2 sampling frequency vs noise: BYTE-IDENTICAL (full highlight) [20 Aphorisms from Nassim Taleb — Farnam Street]
+L3 distributional information: BYTE-IDENTICAL (full highlight) [Thinking, Fast and Slow — Daniel Kahneman]
+L4 local vs system productivity (batch): BYTE-IDENTICAL (contiguous span) [The Lean Startup — Eric Ries]
+L5 redundancy and the unusual: BYTE-IDENTICAL (full highlight) [Antifragile — Nassim Nicholas Taleb]
+5/5 byte-identical; total highlights in cache: 4590
+
+== The desynchronised-grid composition (P1-P5, P7)
+== The shipped ledger (1e9, single doll, belt-dominated) [NL]
+   kick comb 12.75 h/era = 658x   walks 2.15-6.02 h = 111-311x   answers 1.19 h = 61x
+   total 16.09-19.96 h = 830-1030x (boundary +2.4 h = +124x separate [a31c: buys only 1.2x])
+
+== P1: the desync headroom R = lam_ship * S / floor_conj
+   floor rate 4.27e-08/B/gs (= 1.35/yr); R(a: lam_ship) = 1144   R(b: board 9,000/orbit) = 1689   band [1.0e+03, 1.8e+03]
+   P1 HELD: both anchors in [1.0e3, 1.8e3]
+
+== P2: the kick row at the floor (payload constant per event [0c44; 98cb flat at /8])
+   anchor a: kick comb 658x -> 0.575x (40.1 s/era; margin 1.7x)
+   anchor b: kick comb 658x -> 0.390x (27.2 s/era; margin 2.6x)
+   P2 HELD: <= 0.6x
+   below the floor is not a lever: 4/conjunction FAILS B12 [cbe6]
+
+== P3: the census bar (fine class 256/orbit, B13 [7076])
+   anchor a: allowed 7.43e-08/B/gs -> f_fine <= 1.57%
+   anchor b: allowed 1.10e-07/B/gs -> f_fine <= 3.33%
+   P3 HELD if band within [1.5%, 3.5%]; resonance class excluded (cadence-blind, 67be)
+== P4: the scene bar (which forcing governs the closure)
+   closure iff governing S >= 1.077e+08 gs = 3.41 yr; at 77-d forcing S=0.227 yr: R = 44 -> kick row 15x over
+   P4 HELD
+== P5: the wall moves; the ledger does not close
+   post-desync total 173-373x  (kick row 0.39-0.58x; walks 111-311x + answers 61x unchanged)
+   cut vs shipped: 2.8-4.8x total; scan channel is cadence-invariant -> the tier's row [b57f], not cadence's
+== P7: wt/cadence's 4-steps-per-period vs cbe6's floor, at the conjunction unit
+   cbe6 PASS = 16/planet-period = 8/conjunction; FAIL = 8/planet = 4/conjunction
+   wt/cadence 4/Cinder-period = 2/conjunction if Cinder-period holds 2 conjunctions -> at/below the FAILING point; must reconcile before any belt merge
+
+== Memory (one line, no claim beyond composition)
+   cadence-invariant here: the plateau is steady state per body (b30b 4.85-5.06 kB/B),
+   not churn; desync is CPU-only on this ledger. Live-set churn (~1 in-flight gen/kick)
+   falls with R; the 2.4 kB/B standing anchors do not [live-residency].
+
+== Adoption shape [SG ext.rs:146]
+   constants(ctx, d, t, except, kicks_log2): per-body clock constants behind ONE global
+   dial -> the desync is a policy change (kicks_log2 per class), not an algorithm.
+
+== Shipped-code citations (the adoption shape)
+146:pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) -> Res<(Scalar, Scalar, Scalar)> {
+558:        let want = step_for(&self.rec.b, self.ctx.cfg.step_log2, edge)?;
