@@ -1,0 +1,462 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..84f0b20e 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stand-in: current resident size and its high-water mark (the lab's cloud box has no compressed pages).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/examples/rcensus.rs b/crates/universe/examples/rcensus.rs
+new file mode 100644
+index 00000000..34f2cab0
+--- /dev/null
++++ b/crates/universe/examples/rcensus.rs
+@@ -0,0 +1,105 @@
++//! The read census (lab run 20261021-0429-spacex-9d3a): the plane plus N belt bodies, flown the way
++//! the page flies it (nladder's loop: 60 frames a second of wall time at rtf 100, `frame_to`, 12 ms
++//! engine budget), with every read of every compiled trajectory counted per generation (an `Entry`
++//! from its mint to its replacement). The question is the board's macro row "live set and memory":
++//! between a body's events, is its compiled orbit read at all — i.e. is the live set the bodies, or
++//! only the bodies around their events? `ES_RCENSUS=1` arms the census; without it the run is a
++//! plain nladder flight (one relaxed load a read).
++//!
++//! cargo run --release -p emergent-universe --example rcensus [-- <N> [<wall seconds> [<view: none|frame|sparse>]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use emergent_universe::rcensus;
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
++
++fn main() {
++    rcensus::init();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let view_mode = args.get(3).cloned().unwrap_or_else(|| "none".into());
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let (_, peak0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (now1, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    println!("rcensus rung N={n} ({bodies} bodies), view={view_mode}, {seconds} s; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
++    let _ = peak0;
++    let mut rows: Vec<(usize, f64, u64)> = Vec::new();
++    let mut cache = ViewCache::default();
++    let mut view_reads_seen = 0usize;
++    let mut alive = true;
++    let mut ran = 0usize;
++    let mut last_stats = p.u.stats;
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(55) {
++            println!("truncated");
++            break;
++        }
++        if f == 60 {
++            late_stats = Some((p.u.stats, p.u.now));
++        }
++        rcensus::FRAME.store(f as u32, std::sync::atomic::Ordering::Relaxed);
++        rcensus::PHASE.store(1, std::sync::atomic::Ordering::Relaxed);
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, 100.0, Budget { events: u64::MAX, until: Some(start + Duration::from_micros(12_000)) }, i64::MAX);
++        let took = start.elapsed();
++        // the page's own view gather: every frame while it is cheap (small N), every 600 frames above
++        if view_mode == "frame" || (view_mode == "sparse" && f % 600 == 599) {
++            rcensus::PHASE.store(2, std::sync::atomic::Ordering::Relaxed);
++            if let Some(v) = gather_cached(&p.u, &p.names, &mut cache) {
++                view_reads_seen += v.seen.len();
++            }
++        }
++        rcensus::PHASE.store(3, std::sync::atomic::Ordering::Relaxed);
++        if f % 60 == 59 {
++            rcensus::sample();
++        }
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events));
++        last_stats = p.u.stats;
++        ran += 1;
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    let (now2, rss2) = footprint();
++    let late: Vec<&(usize, f64, u64)> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let kicks = last_stats.kicks - s0.kicks;
++    println!(
++        "frames after 1 s: {}  engine ms p50 {:.3} p99 {:.3} max {:.3}; game {game_s:.1} s: kicks {kicks} ({:.3e}/body/game-s); view bodies seen {view_reads_seen}; alive(player) {alive}",
++        late.len(), pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), if game_s > 0.0 { kicks as f64 / bodies as f64 / game_s } else { 0.0 }
++    );
++    println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end; {:.0} B a body from the build; dashboard bytes/body {}; catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, rss1.saturating_sub(0) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
++    rcensus::report(bodies, p.u.catalogue_live(), p.u.bytes_per_body(), ran as u32);
++    println!("rcensus: n={n} bodies={bodies} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} kicks_per_body_gs={:.3e} frames={ran}", rss1 as f64 / 1e6, rss2 as f64 / 1e6, rss1 as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), if game_s > 0.0 { kicks as f64 / bodies as f64 / game_s } else { 0.0 });
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..bad8b781 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -34,6 +34,12 @@ pub struct Entry {
+     pub unit: Unit,
+ }
+ 
++impl Drop for Entry {
++    fn drop(&mut self) {
++        crate::rcensus::close(self as *mut Entry as usize);
++    }
++}
++
+ /// The catalogue of compiled trajectories behind the tubes' key indexes.
+ #[derive(Default)]
+ pub struct Catalogue {
+@@ -152,12 +158,14 @@ impl Binding {
+ 
+     /// The orbit state at `t` (proper time, radius, velocities of the tube).
+     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
++        crate::rcensus::read(&self.entry, crate::rcensus::M_ORBIT);
+         Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
+     }
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
++        crate::rcensus::read(&self.entry, crate::rcensus::M_READOUT);
+         let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
+         let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+         let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+@@ -265,8 +273,9 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+         Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
+     } else { Rebinding::from_state(input, time, edge)? };
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+-    let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
++    crate::rcensus::mint(&entry);
++    let tube = Tube::new(0, fit.periapsis_angle, peri);
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+         let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+         let at = time_of(peri, clock_exp)?.add(unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..a8dae765 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -12,6 +12,7 @@ pub mod num;
+ pub mod observe;
+ pub mod prof;
+ pub mod radial;
++pub mod rcensus;
+ pub mod scenario;
+ pub mod step;
+ pub mod thrust;
+diff --git a/crates/universe/src/rcensus.rs b/crates/universe/src/rcensus.rs
+new file mode 100644
+index 00000000..ad6dc0bf
+--- /dev/null
++++ b/crates/universe/src/rcensus.rs
+@@ -0,0 +1,235 @@
++//! The read census (lab run 20261021-0429-spacex-9d3a): between the events that rebuild a body's
++//! binding, who reads the compiled trajectory it stands for, and how long after the last touch it
++//! stays untouched. One question: is the engine's live set the bodies, or only the bodies around
++//! their events (the board's macro row "live set and memory": demotion back to the compact store)?
++//!
++//! Gated by ES_RCENSUS=1; otherwise every hook is one relaxed load. Identity is the `Entry`
++//! allocation address (an `Arc` per mint; reuse of an address closes the generation that held it).
++//! The harness sets FRAME per frame and PHASE (1 engine, 2 view gather, 3 sampling).
++use std::cell::RefCell;
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
++
++pub static ON: AtomicBool = AtomicBool::new(false);
++pub static FRAME: AtomicU32 = AtomicU32::new(0);
++pub static PHASE: AtomicU32 = AtomicU32::new(0);
++pub static MISSES: AtomicU64 = AtomicU64::new(0);
++
++/// Demotion slacks in frames (60 fps): an entry untouched longer than S is demotion-eligible;
++/// a read after a gap > S is the rebuild a demotion policy would pay.
++pub const SLACKS: [u32; 4] = [1, 60, 300, 1200];
++
++pub(crate) const M_ORBIT: u8 = 0;
++pub(crate) const M_READOUT: u8 = 1;
++
++/// Read ES_RCENSUS and arm the census.
++pub fn init() {
++    let on = std::env::var("ES_RCENSUS").map_or(false, |v| v == "1");
++    ON.store(on, Ordering::Relaxed);
++}
++
++struct Gen {
++    mint: u32,
++    last_act: u32,
++    closed: u32, // frame the allocation was dropped (u32::MAX = still open)
++    reads: [u32; 4], // orbit-engine, orbit-view, readout-engine, readout-view
++    birth_reads: u32, // reads in the mint's own frame (the mint's birth-read)
++    rebuilds: [u32; SLACKS.len()],
++}
++
++thread_local! {
++    static C: RefCell<State> = RefCell::new(State { ids: HashMap::new(), gens: Vec::new(), reads_total: [0; 4], sampled: 0, live_samples: [0u64; SLACKS.len()] });
++}
++
++struct State {
++    ids: HashMap<usize, u32>,
++    gens: Vec<Gen>,
++    reads_total: [u64; 4],
++    sampled: u32,
++    live_samples: [u64; SLACKS.len()],
++}
++
++fn key(entry: &super::bind::Entry) -> usize {
++    entry as *const _ as usize
++}
++
++/// A compiled trajectory was minted (creation or rebind).
++pub fn mint(entry: &super::bind::Entry) {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let k = key(entry);
++    let ok = C.try_with(|c| {
++        let mut c = c.borrow_mut();
++        let next = c.gens.len() as u32;
++        match c.ids.insert(k, next) {
++            None => {
++                c.gens.push(Gen { mint: f, last_act: f, closed: u32::MAX, reads: [0; 4], birth_reads: 0, rebuilds: [0; SLACKS.len()] });
++            }
++            Some(old) => {
++                // address reused: the old generation is closed, a new one begins
++                let _ = old;
++                c.gens.push(Gen { mint: f, last_act: f, closed: u32::MAX, reads: [0; 4], birth_reads: 0, rebuilds: [0; SLACKS.len()] });
++            }
++        }
++    });
++    if ok.is_err() {
++        MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// The allocation behind a generation was dropped (the entry is out of the catalogue and of history).
++pub fn close(addr: usize) {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let ok = C.try_with(|c| {
++        let id = c.borrow().ids.get(&addr).copied();
++        if let Some(id) = id {
++            c.borrow_mut().gens[id as usize].closed = f;
++        }
++    });
++    if ok.is_err() {
++        MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// A binding was read through its compiled trajectory. `method`: 0 orbit_state, 1 readout (cartesian
++/// delegates to readout).
++pub fn read(entry: &super::bind::Entry, method: u8) {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let phase = PHASE.load(Ordering::Relaxed);
++    let k = key(entry);
++    let ok = C.try_with(|c| {
++        let mut c = c.borrow_mut();
++        c.reads_total[(method as usize) * 2 + (phase == 2) as usize] += 1;
++        let Some(id) = c.ids.get(&k).copied() else { MISSES.fetch_add(1, Ordering::Relaxed); return };
++        let g = &mut c.gens[id as usize];
++        g.reads[(method as usize) * 2 + (phase == 2) as usize] += 1;
++        if f == g.mint {
++            g.birth_reads += 1;
++        }
++        let gap = f.saturating_sub(g.last_act);
++        for (s, slack) in SLACKS.iter().enumerate() {
++            if gap > *slack {
++                g.rebuilds[s] += 1;
++            }
++        }
++        g.last_act = f;
++    });
++    if ok.is_err() {
++        MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// Working-set sample: fraction of generations alive (minted by f) whose last touch is within each slack.
++pub fn sample() {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let _ = C.try_with(|c| {
++        let mut c = c.borrow_mut();
++        c.sampled += 1;
++        let mut alive = 0u64;
++        let mut live = [0u64; SLACKS.len()];
++        for g in &c.gens {
++            if g.mint > f || g.closed <= f {
++                continue;
++            }
++            alive += 1;
++            for (s, slack) in SLACKS.iter().enumerate() {
++                if f.saturating_sub(g.last_act) <= *slack {
++                    live[s] += 1;
++                }
++            }
++        }
++        if alive > 0 {
++            for s in 0..SLACKS.len() {
++                c.live_samples[s] += live[s] * 100_000 / alive;
++            }
++        }
++    });
++}
++
++/// The census line: every number the dossier's demotion arithmetic needs.
++pub fn report(bodies: usize, catalogue_live: usize, bytes_per_body: usize, frames_run: u32) {
++    println!("rcensus-on");
++    let _ = frames_run;
++    let _ = C.try_with(|c| {
++        let c = c.borrow();
++        let gens = c.gens.len() as u64;
++        let mut zero_post = 0u64;
++        let mut zero_all = 0u64;
++        let mut zero_post_build = 0u64;
++        let mut still_open = 0u64;
++        let mut hist = [0u64; 8];
++        let mut in_flight = 0u64;
++        let mut rebuilds = [0u64; SLACKS.len()];
++        let mut rebuilds_buildborn = [0u64; SLACKS.len()];
++        for g in &c.gens {
++            let r = g.reads.iter().sum::<u32>();
++            if r == 0 {
++                zero_all += 1;
++            }
++            if r == g.birth_reads {
++                zero_post += 1;
++                if g.mint == 0 {
++                    zero_post_build += 1;
++                }
++            }
++            if g.closed == u32::MAX {
++                still_open += 1;
++            }
++            let b = (r as usize).min(255);
++            let h = if b == 0 { 0 } else if b == 1 { 1 } else if b < 4 { 2 } else if b < 8 { 3 } else if b < 16 { 4 } else if b < 64 { 5 } else if b < 256 { 6 } else { 7 };
++            hist[h] += 1;
++            if g.mint > 0 {
++                in_flight += 1;
++                for s in 0..SLACKS.len() {
++                    rebuilds[s] += g.rebuilds[s] as u64;
++                }
++            } else {
++                for s in 0..SLACKS.len() {
++                    rebuilds_buildborn[s] += g.rebuilds[s] as u64;
++                }
++            }
++        }
++        println!(
++            "rcensus: gens={gens} bodies={bodies} catalogue_live={catalogue_live} bytes_per_body={bytes_per_body} in_flight_gens={in_flight} build_born={}",
++            gens - in_flight
++        );
++        println!(
++            "rcensus reads: total={} orbit_engine={} orbit_view={} readout_engine={} readout_view={} misses={}",
++            c.reads_total.iter().sum::<u64>(),
++            c.reads_total[0], c.reads_total[1], c.reads_total[2], c.reads_total[3],
++            MISSES.load(Ordering::Relaxed)
++        );
++        println!(
++            "rcensus gens: zero_read={zero_all} zero_post_birth={zero_post} pct_zero_post={:.2} zero_post_build={zero_post_build} build_born={} pct_zero_post_build={:.2} still_open={still_open} hist_0_1_2-3_4-7_8-15_16-63_64-255_256p={}",
++            100.0 * zero_post as f64 / gens.max(1) as f64,
++            gens - in_flight,
++            100.0 * zero_post_build as f64 / (gens - in_flight).max(1) as f64,
++            hist.iter().map(|h| h.to_string()).collect::<Vec<_>>().join("_")
++        );
++        if c.sampled > 0 {
++            println!(
++                "rcensus live fraction (avg over {} samples, slack frames {:?}): {}",
++                c.sampled,
++                SLACKS,
++                c.live_samples.iter().map(|l| format!("{:.5}", (*l as f64) / (c.sampled as f64) / 100_000.0)).collect::<Vec<_>>().join(" ")
++            );
++        }
++        println!(
++            "rcensus rebuilds by slack {:?}: build_born={} in_flight={}",
++            SLACKS,
++            rebuilds_buildborn.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("_"),
++            rebuilds.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("_")
++        );
++    });
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..400c1617 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -346,6 +346,7 @@ impl Universe {
+         let orbit = Orbit::compile(key)?;
+         let period = unit.to_doll(orbit.period()?)?;
+         let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
++        crate::rcensus::mint(&entry);
+         // Periapsis `phase` of a period before tick 0.
+         let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
+         let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;

@@ -1,0 +1,4 @@
+Working...
+Regen verified end-to-end (134 s, all four arms regenerate, parse confirms every dossier number; the 1e6 re-run also completed this time with identical structure). All deliverables in place: `predictions.md` (pre-registered, 2 of 5 held, the falsifications are the result), `dossier.md`, `regen.sh` + `work/` (patch, parse, arm logs), `wiki/live-residency.md`.
+
+**Claim:** on the shipped read path the live set is sweep-bound, not event-bound — between events essentially every belt body's compiled orbit is still read (4 zero-read generations in 100,032–1,000,032; the engine's observe path sweeps ~0.7–1.3% of the population per frame ∝N, the view's O(N) gather reads every body ~7–9 times per gather), so timeout-demotion to the compact store is dead (≤1.7× memory at 5 s slack, ~0.1 returns/body/s ≈ 440 cores at 10⁹), and the memory row's ~10²–10³ lever sits upstream: kill the sweep (per-body cadence) or intern the shape per cell.

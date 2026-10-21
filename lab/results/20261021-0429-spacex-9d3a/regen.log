@@ -1,0 +1,49 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: unused variable: `now2`
+  --> crates/universe/examples/rcensus.rs:91:10
+   |
+91 |     let (now2, rss2) = footprint();
+   |          ^^^^ help: if this is intentional, prefix it with an underscore: `_now2`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "rcensus") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.64s
+rcensus rung N=0 (28 bodies), view=frame, 20 s; build 0.00 s, peak footprint 4 MB (now 4 MB)
+frames after 1 s: 1140  engine ms p50 0.035 p99 2.063 max 11.764; game 1898.5 s: kicks 1063 (2.000e-2/body/game-s); view bodies seen 71672; alive(player) true
+memory: peak footprint 4 MB at the build's end, 9 MB at the flight's end; 3784704 B a body from the build; dashboard bytes/body 4777; catalogue 76 entries
+rcensus-on
+rcensus: gens=1108 bodies=28 catalogue_live=76 bytes_per_body=4777 in_flight_gens=1076 build_born=32
+rcensus reads: total=243316 orbit_engine=4142 orbit_view=2400 readout_engine=44082 readout_view=192692 misses=0
+rcensus gens: zero_read=32 zero_post_birth=38 pct_zero_post=3.43 zero_post_build=4 build_born=32 pct_zero_post_build=12.50 still_open=210 hist_0_1_2-3_4-7_8-15_16-63_64-255_256p=32_4_0_5_26_718_323_0
+rcensus live fraction (avg over 20 samples, slack frames [1, 60, 300, 1200]): 0.23727 0.45138 0.88152 1.00000
+rcensus rebuilds by slack [1, 60, 300, 1200]: build_born=0_0_0_0 in_flight=166_22_0_0
+rcensus: n=0 bodies=28 build_s=0.00 foot_build_mb=4 foot_end_mb=9 b_per_body=3784704 p50_ms=0.035 p99_ms=2.063 kicks_per_body_gs=2.000e-2 frames=1200
+rcensus rung N=100000 (100028 bodies), view=sparse, 20 s; build 4.40 s, peak footprint 245 MB (now 245 MB)
+frames after 1 s: 1140  engine ms p50 0.036 p99 5.344 max 11.084; game 1898.5 s: kicks 3624 (1.908e-5/body/game-s); view bodies seen 200109; alive(player) true
+memory: peak footprint 245 MB at the build's end, 270 MB at the flight's end; 2446 B a body from the build; dashboard bytes/body 1203; catalogue 100076 entries
+rcensus-on
+rcensus: gens=103783 bodies=100028 catalogue_live=100076 bytes_per_body=1203 in_flight_gens=3751 build_born=100032
+rcensus reads: total=2659036 orbit_engine=15330 orbit_view=4 readout_engine=897278 readout_view=1746424 misses=0
+rcensus gens: zero_read=32 zero_post_birth=39 pct_zero_post=0.04 zero_post_build=4 build_born=100032 pct_zero_post_build=0.00 still_open=100711 hist_0_1_2-3_4-7_8-15_16-63_64-255_256p=32_4_54_12_101317_2279_85_0
+rcensus live fraction (avg over 20 samples, slack frames [1, 60, 300, 1200]): 0.09996 0.20236 0.60314 1.00000
+rcensus rebuilds by slack [1, 60, 300, 1200]: build_born=201005_199765_199678_0 in_flight=34030_135_57_0
+rcensus: n=100000 bodies=100028 build_s=4.40 foot_build_mb=245 foot_end_mb=270 b_per_body=2446 p50_ms=0.036 p99_ms=5.344 kicks_per_body_gs=1.908e-5 frames=1200
+rcensus rung N=300000 (300028 bodies), view=sparse, 20 s; build 13.18 s, peak footprint 730 MB (now 730 MB)
+frames after 1 s: 1140  engine ms p50 0.037 p99 5.325 max 11.046; game 1898.5 s: kicks 3624 (6.362e-6/body/game-s); view bodies seen 600109; alive(player) true
+memory: peak footprint 730 MB at the build's end, 796 MB at the flight's end; 2432 B a body from the build; dashboard bytes/body 1201; catalogue 300076 entries
+rcensus-on
+rcensus: gens=303783 bodies=300028 catalogue_live=300076 bytes_per_body=1201 in_flight_gens=3751 build_born=300032
+rcensus reads: total=7756828 orbit_engine=15330 orbit_view=4 readout_engine=2497278 readout_view=5244216 misses=0
+rcensus gens: zero_read=32 zero_post_birth=39 pct_zero_post=0.01 zero_post_build=4 build_born=300032 pct_zero_post_build=0.00 still_open=300711 hist_0_1_2-3_4-7_8-15_16-63_64-255_256p=32_4_54_12_301317_2279_85_0
+rcensus live fraction (avg over 20 samples, slack frames [1, 60, 300, 1200]): 0.09998 0.20079 0.60105 1.00000
+rcensus rebuilds by slack [1, 60, 300, 1200]: build_born=601005_599765_599678_0 in_flight=34030_135_57_0
+rcensus: n=300000 bodies=300028 build_s=13.18 foot_build_mb=730 foot_end_mb=796 b_per_body=2432 p50_ms=0.037 p99_ms=5.325 kicks_per_body_gs=6.362e-6 frames=1200
+arm                            bodies      gens  0post%   live@1f/@1s/@5s  rebl@60f eng rd/fr  kick%
+arm_0_20_frame.txt                 28      1108    3.43    0.24/0.45/0.88         0        372.000e-2
+arm_1000000_20_sparse.txt     1000028   1002116    0.00    0.10/0.20/0.60    999927     134262.136e-6
+arm_100000_20_sparse.txt       100028    103783    0.04    0.10/0.20/0.60    199765       7481.908e-5
+arm_1e6_rerun.txt             1000028   1002116    0.00    0.10/0.20/0.60    999927     134262.136e-6
+arm_300000_20_sparse.txt       300028    303783    0.01    0.10/0.20/0.60    599765      20816.362e-6
+1e9 timeout-demotion rebuild bill (compile 4.4 us): 0.1000 returns/body/wall-s -> 440 cores
+1e9 timeout-demotion rebuild bill (served 0.64 us): 0.1000 returns/body/wall-s -> 64 cores
