@@ -2,7 +2,7 @@ topic: memory-h-live
 status: open
 closed-by:
 valid-while:
-updated: 20261020-2306-q-compile-memory-h-live-e208
+updated: 20261021-0106-second-20261020-2306-q-compile-memory-h-live-e208-691b
 
 # Memory at 10⁹ in 8 GB: live information per body (H_live), scars, the standing representation
 
@@ -180,3 +180,4 @@ updated: 20261020-2306-q-compile-memory-h-live-e208
 - 20261007-0933-second-20261007-0842-fermi-fc22-a7d0 (gold): fc22's ≤ 1 MB holds in 3-D only; planar belts (all shipped ones) write ~209 MB/game at 10⁹.
 - 20261017-2038-second-20261017-1918-fermi-b77d-1fcf (this run, second author on fermi-b77d): the pin measured in real bytes at capture — 226 B × C (r² 0.974), the candidates Vec; the superlinear window pins are birth-churn aliasing; fence 0.46 GB/1,000 cands; the view (74 ms/frame), not the FLOW, is the crowd's wall at 10⁴.
 - second-checker (20261017-0238-inversion-470f): 20 of 22 fresh flights grew (8/8 under 8-way load, 8/8 with the counting allocator removed — not an instrument artifact — and 2/4 quiet).
+- 20261021-0106-second-20261020-2306-q-compile-memory-h-live-e208-691b (this run): second check passed at claim level: 0 lost, 31 run-id-fragment demotions; apply's four union artifacts named — immortal under shipped apply, but 6ccc's pending fold_runs folds all four on the next publish (checker-verified); hand deletion only until it lands.
