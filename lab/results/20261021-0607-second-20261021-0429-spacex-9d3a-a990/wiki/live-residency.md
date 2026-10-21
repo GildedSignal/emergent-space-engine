@@ -1,0 +1,31 @@
+topic: live-residency
+status: open
+closed-by:
+valid-while: crates/universe@f7c3 + 20261021-0607's patch (rcensus.rs with 5 slacks, rcensus example's `rows` mode, rowset_mod.rs vendored from flyable-frame 4143) + 4143's gather-rows patch
+updated: 20261021-0607-second-20261021-0429-spacex-9d3a-a990
+
+# The live set's residency: what pins a body's compiled orbit between its events
+
+## Current best
+- **The checker's gold experiment is flown: under the adopted row-set gather (`rows`: fill once, then `gather_half` every frame, 2df1's policy verbatim), the demotion return bill is the wheel's own gap law** [a990, second author on 9d3a]: at 1e5 over 20 s, slack-5-s return events fall 199,678 → 26 on build-born generations (7,700×; the same 26 at 3e5 and at the checker's 5e5 — a population-independent bounded set; 34 at seed 7), and **0 returns at slack = the wheel's cap (16384 frames) in every arm at every horizon (20/300/600 s + the checker's 1200 s)** — the 0 at the cap is by construction [checker]: `due_from` clamps every interval at `DUE_CAP` and the census counts a read after a gap *strictly greater* than the slack, so the counter cannot fire — and a timer *at* the cap evicts ≈ nothing (the idle histogram's own 99.87% re-read within one cap interval); the adoptable law is the sub-cap one. The wheel's own idle law at 400 s: 99,870 of 100,045 rows read within one cap interval, 0 past it — a hot set of ~100 rows read every frame, the far field once per cap (273 s) → the steady per-body return rate is 60/16384 = 0.0037/body/wall-s at any slack below the cap (≈ 16 cores at 1e9, 4.4 µs a compile, 27× under the oracle gather's 440).
+- The 20-s horizon is the ramp, not the law [a990]: the wheel reads every body at dues ~4, 16, 64, 256, 1024, 4096 frames (the ×4 backoff to its drift bound), so `zero_post_build` stays 4/100,032 under `rows` too — the belt is read, but at gaps the policy itself guarantees. The wheel's steady reads land on each body's *current* generation (rebinds replace entries as the kick wave sweeps: 292,829 in-flight gens at 600 s ≈ one per kick), which is why build-born counters freeze after the ramp while in-flight counters carry the cap cadence (slack-20-s returns per in-flight gen are 0.68 at 300 s, 1.37 at 600 s and 1.88 at the checker's 1200 s — the unit is one per cap interval, not a per-gen constant [checker]). Live fraction at 1e5/600 s: 0.07% @ 1 frame, 1.7% @ 1 s, 6.8% @ 5 s, 23% @ 20 s (oracle at 20 s: 10/20/60/100%).
+- Under the oracle view gather (`gather_cached`, O(N), one per 10 s), demotion stays dead: 4 zero-post-birth generations in 100,032/300,032/1,000,032 (9d3a, seed-stable), ~8.7 decodes a body a gather, 66% of all reads (9d3a).
+- The engine is event-bound and view-independent [checker of 9d3a, reproduced by a990 bit-for-bit]: 99.78%/99.93% of build-born belt bodies get zero post-birth engine reads over 20 s at 1e5/3e5; engine read counts identical across none/sparse/rows arms (897,278 at 1e5); steady engine reads ~95/frame, not ∝N.
+- Anchors: 2,432–2,452 B/body standing at 1e5–1e6; catalogue = N; misses = 0 in every arm (9d3a, a990, and the checker's 5e5/seed-7/1200-s arms); the row-set's fill is one full read (0.46 s at 1e5, 1.5 s at 3e5) and steady readouts/frame ~110 at 1e5 (600-s arm; fill-transient dominated early: 922/frame over 20 s).
+
+## Refuted
+- "With rare kicks, a body is live only around its events" — **restored as a policy statement under the row-set gather** [a990]: the live set at the wheel's own slacks is the bounded on-canvas set plus events; refuted only under the oracle O(N) gather (9d3a + checker control).
+- "Demotion back to the compact store is the memory row's next lever" as a timeout policy under the oracle gather — refuted (9d3a; the bill is the gather's return rate); killed on the plane's rebind loop by 4ea0.
+- The dossier-9d3a claim "the engine's observe path sweeps ~1%/frame ∝N, the live set is bounded by the sweep" — refuted by the checker's view=none control (birth-decode artifact).
+
+## Open directions
+1. **Adopt: demote at a sub-cap slack (the 16-core law), not at the cap.** The measured law says a timer below the wheel's cap pays the cap cadence itself — 60/16384 = 0.0037 returns/body/wall-s ≈ 16 cores at 1e9, 27× under the oracle's 440 — while a timer at the cap is a no-op: every far row is re-read within one cap interval, so the 0 there is the clamp, not a saving [checker]. The memory row's ~10² rides the row-set gather's landing on main (the flyable-frame patch is lab-side, not merged) **and a demotion path that does not exist yet** (the board: records never demote); both sides of the ledger — bytes freed vs returns paid — are still unflown.
+2. The flyable-frame exactness audit at belt scale over minutes (not flown here: the audit's gather reads every body and would contaminate the census): the wheel's far field refreshes only at the cap, so multi-minute display staleness of far rows is priced by that audit, not this one.
+3. Interning per cell (cell-rebind od 1; efd4's intern) as the complement: with the live set bounded, sharing the standing 2.4 KB/body among same-shape bodies attacks the memory floor itself.
+
+## Contradictions
+- None unresolved. The census's rebuild counters (event-based, no denominator) and the wheel's own idle histogram agree once the ramp is separated from the steady law; the live-fraction metric mixes gen populations (build-born vs history-held in-flight) and is quoted only where the denominator is unambiguous (20-s arms).
+
+## Runs
+- 20261021-0607-second-20261021-0429-spacex-9d3a-a990 (this run, silver): the checker's named experiment flown — under the row-set gather the demotion return bill collapses 7,700× at 5-s slack and the steady law is one read per cap interval (16 cores at 1e9); the ramp, not the gather, is the 20-s cost. [checker: reproduced exactly; 5e5 (the same 26), seed 7 (34), 1200 s (0 at the cap) all held; the 0-at-cap is the due clamp — see Current best; the memory ledger unflown.]
+- 20261021-0429-spacex-9d3a: under the oracle gather the live set is gather-bound — 4 zero-read belt generations in 100k–1M; live 10/20/60%; demotion pays ~440 cores at 1e9. [checker: the engine half is a build-decode artifact; see Current best.]

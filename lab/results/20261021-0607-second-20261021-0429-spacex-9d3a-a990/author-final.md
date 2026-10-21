@@ -1,0 +1,4 @@
+Working...
+The run is complete: predictions pre-registered (06:22) before every decisive arm (06:23+), controls reproduced digit-for-digit, the record regenerates from shipped code + `work/patch.diff` (verified by reverse/re-apply + re-flight), and the wiki page is within budget.
+
+**Claim:** the checker's named gold experiment is flown — under the adopted row-set gather the demotion return bill collapses 7,700× at 5-s slack (199,678 → 26 return events per 100,032 belt bodies over 20 s, the same 26 at 3×10⁵), converges to the wheel's own gap law (one read per 16,384-frame cap interval ≈ 16 cores at 10⁹ against the oracle gather's ~440) and to exactly zero at the wheel's quantum — so "demote at the view's own quantum once the row-set gather lands" restores the board's premise with a number, adoptable in one step.

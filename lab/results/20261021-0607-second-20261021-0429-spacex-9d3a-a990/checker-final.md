@@ -1,0 +1,11 @@
+Working...
+Check complete. **Grade: silver** — written to `check.md`, with the author's wiki page corrected in place.
+
+**What I did**
+
+- **Reproduced**: applied `work/patch.diff` in the reverted tree, rebuilt, re-flew the decisive arm — every canonical counter exact (rebuilds `486354_199755_26_0_0`, live fractions to 5 decimals, engine reads 897,278 across all three view arms). Controls match 9d3a's published table digit-for-digit. The vendored row-set policy is verbatim against `work/flyable.patch` (only the `Result` path + the disclosed `idle_hist` differ).
+- **Three adversarial cases, all held**: N=5e5 (outside the author's 1e5–3e5) → slack-300 build-born returns exactly **26**, 0 at cap, misses 0; seed 7 → **34** (bounded set, same order); 1200-s horizon (4.4 cap intervals) → **0 at the cap**, build-born counters frozen.
+- **The defect that keeps it from gold**: the headline "exactly 0 at the wheel's own quantum" is structural — `due_from` clamps every interval at `DUE_CAP=16384` (rowset_mod.rs:217) while the census counts gaps *strictly greater* than the slack (rcensus.rs:119), so that counter cannot fire; and at the cap a demotion timer evicts ≈ nothing (the run's own idle histogram: 99.87% re-read within one cap interval). The adoptable law is the sub-cap one the dossier's evidence states: 0.0037 returns/body/wall-s ≈ **16 cores at 1e9**, 27× under the oracle gather's 440. The Claim sentence built its policy recommendation ("demote at the view's own quantum") on that definitional zero — corrected on the page, along with two smaller slips (0.68/gen is the 300-s figure, not 600-s; the unexplained "~145/frame").
+- **Silver, not gold** because the row is a memory row and only the cost side is priced: no byte is demoted (the board: "records never demote yet"), and the named experiment's own hypothesis (live set event-bound) inverted — the live set is wheel-bound, honestly reported. The gold experiment: arm a real demotion timer at a sub-cap slack against the shipped store and fly both sides of the ledger — bytes freed vs returns paid.
+
+Tree restored to the state I found it in (patch reverted, only `lab/results/…/check.md` and the run's `wiki/live-residency.md` changed); no commits, no pushes.

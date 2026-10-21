@@ -1,0 +1,2109 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e29c906e..05a714d7 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -172,6 +172,7 @@ dependencies = [
+  "emergent-lattice",
+  "emergent-lattice-event",
+  "emergent-space",
++ "serde_json",
+ ]
+ 
+ [[package]]
+diff --git a/crates/universe/Cargo.toml b/crates/universe/Cargo.toml
+index 631c67e1..11c30d71 100644
+--- a/crates/universe/Cargo.toml
++++ b/crates/universe/Cargo.toml
+@@ -12,6 +12,9 @@ emergent-lattice = { path = "../lattice" }
+ emergent-lattice-event = { path = "../lattice-event" }
+ blake3.workspace = true
+ 
++[dev-dependencies]
++serde_json.workspace = true
++
+ [features]
+ # Stage timers for the frame's cost (crate::prof); off, every call is empty and the engine is what it was.
+ prof = []
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..84f0b20e 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,23 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux stand-in: current resident size and its high-water mark (the lab's cloud box has no compressed pages).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+diff --git a/crates/universe/examples/rcensus.rs b/crates/universe/examples/rcensus.rs
+new file mode 100644
+index 00000000..c988710e
+--- /dev/null
++++ b/crates/universe/examples/rcensus.rs
+@@ -0,0 +1,136 @@
++//! The read census (lab run 20261021-0429-spacex-9d3a): the plane plus N belt bodies, flown the way
++//! the page flies it (nladder's loop: 60 frames a second of wall time at rtf 100, `frame_to`, 12 ms
++//! engine budget), with every read of every compiled trajectory counted per generation (an `Entry`
++//! from its mint to its replacement). The question is the board's macro row "live set and memory":
++//! between a body's events, is its compiled orbit read at all — i.e. is the live set the bodies, or
++//! only the bodies around their events? `ES_RCENSUS=1` arms the census; without it the run is a
++//! plain nladder flight (one relaxed load a read).
++//!
++//! cargo run --release -p emergent-universe --example rcensus [-- <N> [<wall seconds> [<view: none|frame|sparse|rows> [<wall guard s>]]]]
++//!
++//! `rows` (run 20261021-0607, the checker's named experiment): the view is served by the adopted
++//! row-set gather (flyable-frame gold's `gather_rows` + 2df1's policy, vendored verbatim in
++//! `rowset_mod.rs`) — the fill once, then `gather_half` every frame, the wire as the session flies it.
++//! The one variable changed against the `sparse` arm is the view reader; the audit is never run
++//! (it would read every body and contaminate the census).
++#[path = "rowset_mod.rs"]
++mod rowset;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use emergent_universe::rcensus;
++use std::time::{Duration, Instant};
++use rowset::RowSet;
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches(" kB").parse::<u64>().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
++
++fn main() {
++    rcensus::init();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let view_mode = args.get(3).cloned().unwrap_or_else(|| "none".into());
++    let guard_s: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(55);
++    let frames = (seconds * 60.0) as usize;
++    let t_start = Instant::now();
++    let (_, peak0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (now1, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    println!("rcensus rung N={n} ({bodies} bodies), view={view_mode}, {seconds} s; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
++    let _ = peak0;
++    let mut rows: Vec<(usize, f64, u64)> = Vec::new();
++    let mut cache = ViewCache::default();
++    // The row-set fill at frame 0 (the policy's own first-frame cost; its reads land in the census
++    // as birth reads, exactly what a demotion policy would never pay twice).
++    let mut rs: Option<RowSet> = None;
++    if view_mode == "rows" {
++        rcensus::PHASE.store(2, std::sync::atomic::Ordering::Relaxed);
++        rs = Some(RowSet::fill(&p.u, &p.names, &mut cache, 100.0).expect("the fill"));
++        rcensus::PHASE.store(3, std::sync::atomic::Ordering::Relaxed);
++    }
++    let mut view_reads_seen = 0usize;
++    let mut alive = true;
++    let mut ran = 0usize;
++    let mut last_stats = p.u.stats;
++    let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(guard_s) {
++            println!("truncated");
++            break;
++        }
++        if f == 60 {
++            late_stats = Some((p.u.stats, p.u.now));
++        }
++        rcensus::FRAME.store(f as u32, std::sync::atomic::Ordering::Relaxed);
++        rcensus::PHASE.store(1, std::sync::atomic::Ordering::Relaxed);
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, 100.0, Budget { events: u64::MAX, until: Some(start + Duration::from_micros(12_000)) }, i64::MAX);
++        let took = start.elapsed();
++        // the page's own view gather: every frame while it is cheap (small N), every 600 frames above;
++        // under `rows`, the adopted row-set gather serves every frame (the flyable frame's own loop)
++        if view_mode == "frame" || (view_mode == "sparse" && f % 600 == 599) {
++            rcensus::PHASE.store(2, std::sync::atomic::Ordering::Relaxed);
++            if let Some(v) = gather_cached(&p.u, &p.names, &mut cache) {
++                view_reads_seen += v.seen.len();
++            }
++        } else if view_mode == "rows" {
++            rcensus::PHASE.store(2, std::sync::atomic::Ordering::Relaxed);
++            let rsw = rs.as_mut().expect("rows armed");
++            let (seen, fo) = rsw.gather_half(&p.u, &p.names, &mut cache).expect("gather_half");
++            let v = rsw.delta_json(&seen, &fo, 0);
++            let wire = serde_json::to_vec(&v).expect("wire");
++            std::hint::black_box(&wire);
++            rsw.note_wire(wire.len());
++            view_reads_seen += fo.readouts as usize;
++        }
++        rcensus::PHASE.store(3, std::sync::atomic::Ordering::Relaxed);
++        if f % 60 == 59 {
++            rcensus::sample();
++        }
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events));
++        last_stats = p.u.stats;
++        ran += 1;
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    let (now2, rss2) = footprint();
++    let late: Vec<&(usize, f64, u64)> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    if let Some(r) = &rs {
++        println!("rowset idle at end (rows by frames since last read, buckets <=1/<=60/<=300/<=1200/<=16384/past): {:?}", r.idle_hist(r.frames));
++    }
++    let (s0, t_first) = late_stats.unwrap_or((p.u.stats, p.u.now));
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let kicks = last_stats.kicks - s0.kicks;
++    println!(
++        "frames after 1 s: {}  engine ms p50 {:.3} p99 {:.3} max {:.3}; game {game_s:.1} s: kicks {kicks} ({:.3e}/body/game-s); view bodies seen {view_reads_seen}; alive(player) {alive}",
++        late.len(), pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), if game_s > 0.0 { kicks as f64 / bodies as f64 / game_s } else { 0.0 }
++    );
++    println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end; {:.0} B a body from the build; dashboard bytes/body {}; catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, rss1.saturating_sub(0) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
++    rcensus::report(bodies, p.u.catalogue_live(), p.u.bytes_per_body(), ran as u32);
++    println!("rcensus: n={n} bodies={bodies} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} kicks_per_body_gs={:.3e} frames={ran}", rss1 as f64 / 1e6, rss2 as f64 / 1e6, rss1 as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), if game_s > 0.0 { kicks as f64 / bodies as f64 / game_s } else { 0.0 });
++}
+diff --git a/crates/universe/examples/rowset_mod.rs b/crates/universe/examples/rowset_mod.rs
+new file mode 100644
+index 00000000..ea8bbe33
+--- /dev/null
++++ b/crates/universe/examples/rowset_mod.rs
+@@ -0,0 +1,548 @@
++//! The row-set deletion (2df1's policy) wired into the flyable frame: the wire carries only the rows
++//! that could move what the player sees, so the frame's view half stops being Θ(N).
++//!
++//! All client-visible state, no physics of its own: `gather_rows` (the shipped crossings) reads exactly
++//! the bodies whose drawn pixel could have crossed half a display pixel since their last read (a timing
++//! wheel of dues, drift-measured, ×4 slack), plus the star and fleet marker rows and the panel band the
++//! page always prints. The quantum lives in the row's own frame, not the server's tick (PRINCIPLES #28:
++//! the view is an instrument — the quantum is the pixel). Ported from 2df1's `flyframe2` example, with
++//! the session's rtf (game seconds per presented frame) in the drift bound, and the delta JSON shaped
++//! like [`super::session`]'s `view_json` (header every frame, `rows` that moved, `gone` ids).
++//!
++//! The audit is the instrument's control: the shipped `gather_cached` on the same frame, compared
++//! pixel-for-pixel against what the client would draw from its held rows (the page's own draw
++//! conditions), plus the panel's printed values. It runs after the frame is timed and is reported
++//! separately, never charged to a channel.
++pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
++
++use emergent_universe::view::{gather_rows, Seen, ViewCache};
++use emergent_universe::view::Head;
++use serde_json::{json, Value};
++use std::collections::HashMap;
++
++const W: f64 = 1920.0;
++const H: f64 = 1080.0;
++const CX: f64 = W / 2.0;
++const CY: f64 = H / 2.0;
++/// The map: the page's fitted view (fitLog holds the nearest kind ≤ 3 row at 0.33·R pixels, R = 432).
++const FIT_FRACTION: f64 = 0.33 * 432.0;
++const MARGIN: f64 = 20.0;
++const WHEEL: usize = 1 << 15;
++const DUE_CAP: u64 = 1 << 14;
++
++fn map_px_at(offset: [f64; 2], s: f64) -> (f64, f64) {
++    (CX + offset[0] * s, CY + offset[1] * s)
++}
++
++fn on_canvas(px: (f64, f64)) -> bool {
++    px.0 >= -MARGIN && px.0 <= W + MARGIN && px.1 >= -MARGIN && px.1 <= H + MARGIN
++}
++
++fn gap_to_canvas(px: (f64, f64)) -> f64 {
++    let dx = if px.0 < 0.0 { -px.0 } else if px.0 > W { px.0 - W } else { 0.0 };
++    let dy = if px.1 < 0.0 { -px.1 } else if px.1 > H { px.1 - H } else { 0.0 };
++    (dx * dx + dy * dy).sqrt()
++}
++
++/// The sky polar (radius, angle) of a row: heading-free, so the client derives rotation.
++fn sky_pol(direction: [f64; 2], light_seconds: f64) -> (f64, f64) {
++    let r_sky = 0.45 * W.min(H);
++    let (lo, hi) = (-5.0f64, 3.6f64);
++    let x = ((light_seconds.max(1e-6).log10() - lo) / (hi - lo)).clamp(0.0, 1.0);
++    (r_sky * x, direction[1].atan2(direction[0]))
++}
++
++fn wire_id_of(seen_id: usize) -> u64 {
++    if seen_id == usize::MAX {
++        u64::MAX
++    } else if seen_id >= 1_000_000 {
++        (1u64 << 40) + seen_id as u64
++    } else {
++        seen_id as u64
++    }
++}
++
++struct RowState {
++    wire_id: u64,
++    kind: u8,
++    light_seconds: f64,
++    offset: [f64; 2],
++    closing: f64,
++    shift: f64,
++    served: bool,
++    /// The pixel the client draws on the map from its held row (its quantum anchor).
++    map_anchor: (i64, i64),
++    /// The last exact readout's map pixel (drift is measured between reads).
++    read_px: (f64, f64),
++    sky_read: (f64, f64),
++    due: u64,
++    last_read: u64,
++    map_drift: f64,
++    sky_drift: f64,
++    interval: u64,
++    in_band: bool,
++}
++
++#[derive(Clone)]
++struct Held {
++    light_seconds: f64,
++    offset: [f64; 2],
++    closing: f64,
++    shift: f64,
++    map_anchor: (i64, i64),
++    #[allow(dead_code)]
++    sky_pol: (f64, f64),
++    #[allow(dead_code)]
++    kind: u8,
++}
++
++/// What one frame's gather phase produced (the JSON phase builds from it).
++pub struct FrameOut {
++    pub head: Head,
++    /// Indices into the gather's return list that the wire carries.
++    pub served: Vec<usize>,
++    pub gone: Vec<u64>,
++    pub readouts: u64,
++}
++
++pub struct RowSet {
++    rows: Vec<Option<RowState>>,
++    wheel: Vec<Vec<u32>>,
++    always: Vec<usize>,
++    band: Vec<usize>,
++    held: HashMap<u64, Held>,
++    /// The map's scale, as log10 of pixels per light-second (the page's fitted zoom at the fill).
++    view_log: f64,
++    rtf: f64,
++    /// The fill (one full read, the page's own first-frame cost), ms.
++    pub fill_ms: f64,
++    pub fill_rows: usize,
++    pub served_total: u64,
++    pub served_max: usize,
++    pub readouts_total: u64,
++    pub gone_total: u64,
++    pub frames: u64,
++    wire_bytes: Vec<usize>,
++    // The audit (2df1's): violations of the display exactness against the shipped gather.
++    pub audit_frames: u64,
++    pub audit_drawn: u64,
++    pub viol_px: u64,
++    pub viol_miss: u64,
++    pub viol_ghost: u64,
++    pub viol_panel: u64,
++}
++
++impl RowSet {
++    /// The fill: every body read once (the first full read, the page's own first-frame cost), the
++    /// fitted zoom taken from it, every row's first due set. `cache` is the frame's own view memo.
++    pub fn fill(u: &emergent_universe::Universe, names: &[String], cache: &mut ViewCache, rtf: f64) -> Result<Self> {
++        let t = std::time::Instant::now();
++        let all: Vec<usize> = (0..u.n_bodies()).collect();
++        let (_head, seen) = gather_rows(u, names, cache, &all).ok_or("no view: the player is unreadable")?;
++        let near = seen.iter().filter(|(_, s)| s.kind <= 3).map(|(_, s)| s.light_seconds).fold(f64::INFINITY, f64::min);
++        let mut d = Self {
++            rows: Vec::with_capacity(u.n_bodies()),
++            wheel: vec![Vec::new(); WHEEL],
++            always: Vec::new(),
++            band: Vec::new(),
++            held: HashMap::new(),
++            view_log: (FIT_FRACTION / near.max(1e-6)).log10(),
++            rtf,
++            fill_ms: 0.0,
++            fill_rows: seen.len(),
++            served_total: 0,
++            served_max: 0,
++            readouts_total: 0,
++            gone_total: 0,
++            frames: 0,
++            wire_bytes: Vec::new(),
++            audit_frames: 0,
++            audit_drawn: 0,
++            viol_px: 0,
++            viol_miss: 0,
++            viol_ghost: 0,
++            viol_panel: 0,
++        };
++        for _ in 0..u.n_bodies() {
++            d.rows.push(None);
++        }
++        for (bi, s) in &seen {
++            if let Some(i) = bi {
++                d.absorb(*i, s, 0);
++            }
++        }
++        for i in 0..d.rows.len() {
++            if d.rows[i].as_ref().is_some_and(|r| r.kind <= 2) {
++                d.always.push(i);
++            }
++        }
++        d.reband();
++        d.fill_ms = t.elapsed().as_secs_f64() * 1e3;
++        Ok(d)
++    }
++
++    fn s(&self) -> f64 {
++        10f64.powf(self.view_log)
++    }
++
++    /// The next due from observed drift and the gap to the canvas: when half a display pixel (or the
++    /// margin) could have been crossed. The ×4 slack is acceleration and arrival-rate room.
++    fn due_from(&mut self, i: usize, f: u64) -> u64 {
++        let r = self.rows[i].as_ref().unwrap();
++        let map_d = r.map_drift * 4.0;
++        let sky_d = r.sky_drift * 4.0;
++        let gap = gap_to_canvas(r.read_px);
++        let backoff = r.interval.saturating_mul(4).max(1) as f64;
++        let mut q = backoff;
++        let mut frozen = true;
++        if map_d <= 0.0 && sky_d <= 0.0 {
++            let gap_ls = if self.s() > 0.0 { gap / self.s() } else { f64::INFINITY };
++            let dt_frame = 1.0 / 60.0 * self.rtf;
++            q = q.min((gap_ls / dt_frame).ceil().max(1.0));
++        }
++        if gap > 0.0 && r.kind >= 3 {
++            if map_d > 0.0 {
++                q = q.min(gap / map_d);
++                frozen = false;
++            }
++        } else if map_d > 0.0 {
++            q = q.min(0.5 / map_d);
++            frozen = false;
++        }
++        if r.kind <= 2 && sky_d > 0.0 {
++            q = q.min(0.5 / sky_d);
++            frozen = false;
++        }
++        let jitter = if frozen { 1 + (i.wrapping_mul(2654435761) % 7) as u64 } else { 0 };
++        let q = (q.floor().max(1.0) as u64).saturating_add(jitter).min(DUE_CAP);
++        self.rows[i].as_mut().unwrap().interval = q;
++        f + q
++    }
++
++    fn reslot(&mut self, i: usize, due: u64) {
++        if due != self.rows[i].as_ref().unwrap().due {
++            self.rows[i].as_mut().unwrap().due = due;
++            self.wheel[(due as usize) % WHEEL].push(i as u32);
++        }
++    }
++
++    /// The panel band: the nearest bodies by cached distance (the page prints the nearest 8; the band
++    /// keeps a 2× slack and 16 rows so membership changes never miss a read).
++    fn reband(&mut self) {
++        let mut best: Vec<(f64, usize)> = Vec::new();
++        for (i, ro) in self.rows.iter().enumerate() {
++            let Some(r) = ro else { continue };
++            if r.kind == 4 {
++                continue;
++            }
++            if best.len() < 16 {
++                best.push((r.light_seconds, i));
++                best.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
++            } else if r.light_seconds < best[15].0 {
++                best[15] = (r.light_seconds, i);
++                best.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
++            }
++        }
++        let cut = if best.is_empty() { f64::INFINITY } else { best[best.len() - 1].0 * 2.0 + 1e-9 };
++        self.band = self.rows.iter().enumerate().filter_map(|(i, ro)| {
++            let r = ro.as_ref()?;
++            (r.kind != 4 && r.light_seconds <= cut).then_some(i)
++        }).collect();
++        for ro in self.rows.iter_mut() {
++            if let Some(r) = ro.as_mut() {
++                r.in_band = false;
++            }
++        }
++        for &i in &self.band {
++            if let Some(r) = self.rows[i].as_mut() {
++                r.in_band = true;
++            }
++        }
++    }
++
++    /// The fill's absorption of a body row: it becomes a RowState (the served decision applies at once).
++    fn absorb(&mut self, idx: usize, s: &Seen, f: u64) {
++        let wid = wire_id_of(s.id);
++        let map_px = map_px_at(s.offset, self.s());
++        let on = on_canvas(map_px);
++        let serve = s.kind <= 2 || on;
++        let pol = sky_pol(s.direction, s.light_seconds);
++        let r = RowState {
++            wire_id: wid,
++            kind: s.kind,
++            light_seconds: s.light_seconds,
++            offset: s.offset,
++            closing: s.closing,
++            shift: s.shift,
++            served: serve,
++            map_anchor: (map_px.0.round() as i64, map_px.1.round() as i64),
++            read_px: map_px,
++            sky_read: pol,
++            due: f + 1 + (idx.wrapping_mul(2654435761) % 7) as u64,
++            last_read: f,
++            map_drift: 0.0,
++            sky_drift: 0.0,
++            interval: 1,
++            in_band: false,
++        };
++        if serve {
++            self.held.insert(wid, Held { light_seconds: r.light_seconds, offset: r.offset, closing: r.closing, shift: r.shift, map_anchor: r.map_anchor, sky_pol: pol, kind: r.kind });
++        }
++        let due = r.due;
++        self.rows[idx] = Some(r);
++        self.wheel[(due as usize) % WHEEL].push(idx as u32);
++    }
++
++    /// One frame's gather half: who is due (the wheel, the markers, the band, the newborns), the read
++    /// itself, and the serve decisions. The JSON half ([`RowSet::delta_json`]) builds the wire from
++    /// the returned indices; the session times the two halves as its own dashboard channels.
++    pub fn gather_half(&mut self, u: &emergent_universe::Universe, names: &[String], cache: &mut ViewCache) -> Result<(Vec<(Option<usize>, Seen)>, FrameOut)> {
++        let f = self.frames;
++        // Births and deaths: the count grew (or the slow death sweep) pays one alive-check per body;
++        // the engine's own event feed would say so at once — the sweep stands in for it.
++        let nb_now = u.n_bodies();
++        let grew = nb_now > self.rows.len();
++        while self.rows.len() < nb_now {
++            self.rows.push(None);
++        }
++        let mut newborns: Vec<usize> = Vec::new();
++        let mut pending_gone: Vec<u64> = Vec::new();
++        if grew || f % 240 == 0 {
++            for i in 0..nb_now {
++                let alive = u.bodies().alive(i);
++                match (self.rows[i].is_some(), alive) {
++                    (false, true) => newborns.push(i),
++                    (true, false) => {
++                        if let Some(r) = self.rows[i].as_ref().filter(|r| r.served) {
++                            pending_gone.push(r.wire_id);
++                        }
++                        self.rows[i] = None;
++                    }
++                    _ => {}
++                }
++            }
++        }
++        // Who is due: the wheel's slot, the marker rows, the panel band, the newborns.
++        let slot = std::mem::take(&mut self.wheel[(f % WHEEL as u64) as usize]);
++        let mut due: Vec<usize> = Vec::with_capacity(64);
++        for i in slot {
++            let i = i as usize;
++            if self.rows[i].as_ref().is_some_and(|r| r.due <= f) {
++                due.push(i);
++            }
++        }
++        for &i in self.always.iter().chain(self.band.iter()) {
++            if self.rows[i].is_some() {
++                due.push(i);
++            }
++        }
++        due.extend(newborns.drain(..));
++        due.sort_unstable();
++        due.dedup();
++        let (head, seen) = gather_rows(u, names, cache, &due).ok_or("no view: the player is unreadable")?;
++        // The nearest fleet row is printed even off-canvas.
++        let mut nearest_fleet: Option<u64> = None;
++        let mut best_ls = f64::INFINITY;
++        for (_, s) in &seen {
++            if s.kind == 4 && s.light_seconds < best_ls {
++                best_ls = s.light_seconds;
++                nearest_fleet = Some(wire_id_of(s.id));
++            }
++        }
++        let mut served: Vec<usize> = Vec::new();
++        let mut gone: Vec<u64> = pending_gone;
++        for (k, (bi, s)) in seen.iter().enumerate() {
++            match bi {
++                Some(i) => {
++                    if self.rows[*i].is_none() {
++                        self.absorb(*i, s, f);
++                        if self.rows[*i].as_ref().is_some_and(|r| r.served) {
++                            served.push(k);
++                        }
++                    } else if self.absorb_row(*i, s, f, nearest_fleet == Some(wire_id_of(s.id)), &mut gone) {
++                        served.push(k);
++                    }
++                }
++                None => {
++                    // The star's and the fleets' rows (read every frame): the same canvas test decides the wire.
++                    let wid = wire_id_of(s.id);
++                    let pol = sky_pol(s.direction, s.light_seconds);
++                    let map_px = map_px_at(s.offset, self.s());
++                    let on = on_canvas(map_px);
++                    let do_serve = if s.kind <= 2 || nearest_fleet == Some(wid) {
++                        true
++                    } else {
++                        match self.held.get(&wid) {
++                            None => on,
++                            Some(h) => on && (map_px.0.round() as i64, map_px.1.round() as i64) != h.map_anchor,
++                        }
++                    };
++                    let was_served = self.held.contains_key(&wid);
++                    if do_serve {
++                        self.held.insert(wid, Held { light_seconds: s.light_seconds, offset: s.offset, closing: s.closing, shift: s.shift, map_anchor: (map_px.0.round() as i64, map_px.1.round() as i64), sky_pol: pol, kind: s.kind });
++                        served.push(k);
++                    } else if was_served && !on {
++                        gone.push(wid);
++                        self.held.remove(&wid);
++                    }
++                }
++            }
++        }
++        // Rows that were due but produced nothing are gone (unreadable or lost).
++        for &i in &due {
++            if let Some(r) = self.rows[i].as_ref() {
++                if r.last_read < f && r.served {
++                    gone.push(r.wire_id);
++                    self.held.remove(&r.wire_id);
++                    self.rows[i].as_mut().unwrap().served = false;
++                }
++            }
++        }
++        if f % 60 == 59 {
++            self.reband();
++        }
++        let readouts = cache.readouts;
++        self.frames += 1;
++        self.readouts_total += readouts;
++        self.served_total += served.len() as u64;
++        self.served_max = self.served_max.max(served.len());
++        self.gone_total += gone.len() as u64;
++        Ok((seen, FrameOut { head, served, gone, readouts }))
++    }
++
++    /// A due body row: the drift update, the serve decision (half a pixel at the client), the re-due.
++    fn absorb_row(&mut self, i: usize, s: &Seen, f: u64, force_serve: bool, gone: &mut Vec<u64>) -> bool {
++        let wid = wire_id_of(s.id);
++        let pol = sky_pol(s.direction, s.light_seconds);
++        let map_px = map_px_at(s.offset, self.s());
++        let on = on_canvas(map_px);
++        let r = self.rows[i].as_mut().unwrap();
++        let df = (f - r.last_read).max(1) as f64;
++        let map_drift = (((map_px.0 - r.read_px.0).powi(2) + (map_px.1 - r.read_px.1).powi(2)).sqrt() / df).max(r.map_drift * 0.5);
++        let dr = (pol.0 - r.sky_read.0).abs();
++        let dth = (pol.1 - r.sky_read.1).abs().min(std::f64::consts::TAU - (pol.1 - r.sky_read.1).abs()) * pol.0;
++        let sky_drift = (dr.max(dth) / df).max(r.sky_drift * 0.5);
++        r.light_seconds = s.light_seconds;
++        r.offset = s.offset;
++        r.closing = s.closing;
++        r.shift = s.shift;
++        r.read_px = map_px;
++        r.sky_read = pol;
++        r.last_read = f;
++        r.map_drift = map_drift;
++        r.sky_drift = sky_drift;
++        let was = r.served;
++        let do_serve = if r.kind <= 2 || force_serve || r.in_band {
++            true
++        } else if on {
++            !was || (map_px.0.round() as i64, map_px.1.round() as i64) != self.held.get(&wid).map(|h| h.map_anchor).unwrap_or((i64::MIN, i64::MIN))
++        } else {
++            false
++        };
++        let mut serve = false;
++        if do_serve {
++            r.served = true;
++            r.map_anchor = (map_px.0.round() as i64, map_px.1.round() as i64);
++            let rr = self.rows[i].as_ref().unwrap();
++            self.held.insert(wid, Held { light_seconds: rr.light_seconds, offset: rr.offset, closing: rr.closing, shift: rr.shift, map_anchor: rr.map_anchor, sky_pol: pol, kind: rr.kind });
++            serve = true;
++        } else if was && !on {
++            self.rows[i].as_mut().unwrap().served = false;
++            gone.push(wid);
++            self.held.remove(&wid);
++        }
++        let due = self.due_from(i, f);
++        self.reslot(i, due);
++        serve
++    }
++
++    /// The delta wire: the header every frame, the rows that moved, the ids that left.
++    pub fn delta_json(&mut self, seen: &[(Option<usize>, Seen)], out: &FrameOut, keys: u8) -> Value {
++        let rows: Vec<_> = out.served.iter().map(|&k| {
++            let s = &seen[k].1;
++            json!({"id": wire_id_of(s.id), "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
++                   "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift})
++        }).collect();
++        let h = &out.head;
++        json!({
++            "tick": h.t_now, "coordinate": h.t_now as f64 * emergent_universe::view::TICK_SECONDS, "proper": h.proper, "rate": h.rate_obs,
++            "beta": h.vo, "doll_rate": h.doll_rate, "doll_beta": h.doll_beta,
++            "position": [h.xo[0] * emergent_universe::view::TICK_SECONDS, h.xo[1] * emergent_universe::view::TICK_SECONDS],
++            "heading": [h.heading.cos(), h.heading.sin()], "level": 0, "burning": false, "keys": keys, "alive": true,
++            "loss": Option::<String>::None, "refusals": 0,
++            "rows": rows, "gone": out.gone,
++        })
++    }
++
++    pub fn note_wire(&mut self, bytes: usize) {
++        self.wire_bytes.push(bytes);
++    }
++
++    pub fn wire_kb_median(&self) -> f64 {
++        if self.wire_bytes.is_empty() {
++            return 0.0;
++        }
++        let mut s = self.wire_bytes.clone();
++        s.sort_unstable();
++        s[s.len() / 2] as f64 / 1e3
++    }
++
++    /// The wheel's own idle law at frame `f` (the census's instrument): rows by frames since their
++    /// last read. Buckets: ≤1, ≤60, ≤300, ≤1200, ≤16384 (the cap), past the cap.
++    pub fn idle_hist(&self, f: u64) -> [u64; 6] {
++        let mut h = [0u64; 6];
++        for r in self.rows.iter().flatten() {
++            let idle = f.saturating_sub(r.last_read);
++            let b = if idle <= 1 { 0 } else if idle <= 60 { 1 } else if idle <= 300 { 2 } else if idle <= 1200 { 3 } else if idle <= 16384 { 4 } else { 5 };
++            h[b] += 1;
++        }
++        h
++    }
++
++    /// The audit: the shipped gather's rows against what the client draws from its held rows (the
++    /// page's own draw conditions), plus the panel the page prints. One pixel of disagreement is a
++    /// violation; a drawn row with no held row is a miss; a held on-canvas row the exact does not draw
++    /// is a ghost.
++    pub fn audit(&mut self, exact: &emergent_universe::view::View) {
++        self.audit_frames += 1;
++        let s = self.s();
++        for e in &exact.seen {
++            let wid = wire_id_of(e.id);
++            let map_px = map_px_at(e.offset, s);
++            let draws = e.kind <= 2 || on_canvas(map_px);
++            let h = self.held.get(&wid);
++            if draws {
++                self.audit_drawn += 1;
++                match h {
++                    None => self.viol_miss += 1,
++                    Some(h) => {
++                        let ex = (map_px.0.round() as i64, map_px.1.round() as i64);
++                        if ex != h.map_anchor {
++                            self.viol_px += 1;
++                        }
++                    }
++                }
++            } else if let Some(h) = h {
++                let hp = map_px_at(h.offset, s);
++                if on_canvas(hp) && e.kind > 2 {
++                    self.viol_ghost += 1;
++                }
++            }
++        }
++        let mut panel: Vec<&Seen> = exact.seen.iter().filter(|e| e.kind != 4).collect();
++        panel.sort_by(|a, b| a.light_seconds.partial_cmp(&b.light_seconds).unwrap());
++        for e in panel.iter().take(8) {
++            match self.held.get(&wire_id_of(e.id)) {
++                None => self.viol_panel += 1,
++                Some(h) => {
++                    let bad = (h.light_seconds - e.light_seconds).abs() > 1e-4 * e.light_seconds.abs() + 1e-12
++                        || (h.closing - e.closing).abs() > 1e-4 * e.closing.abs() + 1e-12
++                        || (h.shift - e.shift).abs() > 1e-4 * e.shift.abs() + 1e-12;
++                    if bad {
++                        self.viol_panel += 1;
++                    }
++                }
++            }
++        }
++    }
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..bad8b781 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -34,6 +34,12 @@ pub struct Entry {
+     pub unit: Unit,
+ }
+ 
++impl Drop for Entry {
++    fn drop(&mut self) {
++        crate::rcensus::close(self as *mut Entry as usize);
++    }
++}
++
+ /// The catalogue of compiled trajectories behind the tubes' key indexes.
+ #[derive(Default)]
+ pub struct Catalogue {
+@@ -152,12 +158,14 @@ impl Binding {
+ 
+     /// The orbit state at `t` (proper time, radius, velocities of the tube).
+     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
++        crate::rcensus::read(&self.entry, crate::rcensus::M_ORBIT);
+         Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
+     }
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
++        crate::rcensus::read(&self.entry, crate::rcensus::M_READOUT);
+         let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
+         let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+         let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+@@ -265,8 +273,9 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+         Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
+     } else { Rebinding::from_state(input, time, edge)? };
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+-    let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
++    crate::rcensus::mint(&entry);
++    let tube = Tube::new(0, fit.periapsis_angle, peri);
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+         let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+         let at = time_of(peri, clock_exp)?.add(unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..a8dae765 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -12,6 +12,7 @@ pub mod num;
+ pub mod observe;
+ pub mod prof;
+ pub mod radial;
++pub mod rcensus;
+ pub mod scenario;
+ pub mod step;
+ pub mod thrust;
+diff --git a/crates/universe/src/rcensus.rs b/crates/universe/src/rcensus.rs
+new file mode 100644
+index 00000000..dcd34ea0
+--- /dev/null
++++ b/crates/universe/src/rcensus.rs
+@@ -0,0 +1,235 @@
++//! The read census (lab run 20261021-0429-spacex-9d3a): between the events that rebuild a body's
++//! binding, who reads the compiled trajectory it stands for, and how long after the last touch it
++//! stays untouched. One question: is the engine's live set the bodies, or only the bodies around
++//! their events (the board's macro row "live set and memory": demotion back to the compact store)?
++//!
++//! Gated by ES_RCENSUS=1; otherwise every hook is one relaxed load. Identity is the `Entry`
++//! allocation address (an `Arc` per mint; reuse of an address closes the generation that held it).
++//! The harness sets FRAME per frame and PHASE (1 engine, 2 view gather, 3 sampling).
++use std::cell::RefCell;
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
++
++pub static ON: AtomicBool = AtomicBool::new(false);
++pub static FRAME: AtomicU32 = AtomicU32::new(0);
++pub static PHASE: AtomicU32 = AtomicU32::new(0);
++pub static MISSES: AtomicU64 = AtomicU64::new(0);
++
++/// Demotion slacks in frames (60 fps): an entry untouched longer than S is demotion-eligible;
++/// a read after a gap > S is the rebuild a demotion policy would pay.
++pub const SLACKS: [u32; 5] = [1, 60, 300, 1200, 16384];
++
++pub(crate) const M_ORBIT: u8 = 0;
++pub(crate) const M_READOUT: u8 = 1;
++
++/// Read ES_RCENSUS and arm the census.
++pub fn init() {
++    let on = std::env::var("ES_RCENSUS").map_or(false, |v| v == "1");
++    ON.store(on, Ordering::Relaxed);
++}
++
++struct Gen {
++    mint: u32,
++    last_act: u32,
++    closed: u32, // frame the allocation was dropped (u32::MAX = still open)
++    reads: [u32; 4], // orbit-engine, orbit-view, readout-engine, readout-view
++    birth_reads: u32, // reads in the mint's own frame (the mint's birth-read)
++    rebuilds: [u32; SLACKS.len()],
++}
++
++thread_local! {
++    static C: RefCell<State> = RefCell::new(State { ids: HashMap::new(), gens: Vec::new(), reads_total: [0; 4], sampled: 0, live_samples: [0u64; SLACKS.len()] });
++}
++
++struct State {
++    ids: HashMap<usize, u32>,
++    gens: Vec<Gen>,
++    reads_total: [u64; 4],
++    sampled: u32,
++    live_samples: [u64; SLACKS.len()],
++}
++
++fn key(entry: &super::bind::Entry) -> usize {
++    entry as *const _ as usize
++}
++
++/// A compiled trajectory was minted (creation or rebind).
++pub fn mint(entry: &super::bind::Entry) {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let k = key(entry);
++    let ok = C.try_with(|c| {
++        let mut c = c.borrow_mut();
++        let next = c.gens.len() as u32;
++        match c.ids.insert(k, next) {
++            None => {
++                c.gens.push(Gen { mint: f, last_act: f, closed: u32::MAX, reads: [0; 4], birth_reads: 0, rebuilds: [0; SLACKS.len()] });
++            }
++            Some(old) => {
++                // address reused: the old generation is closed, a new one begins
++                let _ = old;
++                c.gens.push(Gen { mint: f, last_act: f, closed: u32::MAX, reads: [0; 4], birth_reads: 0, rebuilds: [0; SLACKS.len()] });
++            }
++        }
++    });
++    if ok.is_err() {
++        MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// The allocation behind a generation was dropped (the entry is out of the catalogue and of history).
++pub fn close(addr: usize) {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let ok = C.try_with(|c| {
++        let id = c.borrow().ids.get(&addr).copied();
++        if let Some(id) = id {
++            c.borrow_mut().gens[id as usize].closed = f;
++        }
++    });
++    if ok.is_err() {
++        MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// A binding was read through its compiled trajectory. `method`: 0 orbit_state, 1 readout (cartesian
++/// delegates to readout).
++pub fn read(entry: &super::bind::Entry, method: u8) {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let phase = PHASE.load(Ordering::Relaxed);
++    let k = key(entry);
++    let ok = C.try_with(|c| {
++        let mut c = c.borrow_mut();
++        c.reads_total[(method as usize) * 2 + (phase == 2) as usize] += 1;
++        let Some(id) = c.ids.get(&k).copied() else { MISSES.fetch_add(1, Ordering::Relaxed); return };
++        let g = &mut c.gens[id as usize];
++        g.reads[(method as usize) * 2 + (phase == 2) as usize] += 1;
++        if f == g.mint {
++            g.birth_reads += 1;
++        }
++        let gap = f.saturating_sub(g.last_act);
++        for (s, slack) in SLACKS.iter().enumerate() {
++            if gap > *slack {
++                g.rebuilds[s] += 1;
++            }
++        }
++        g.last_act = f;
++    });
++    if ok.is_err() {
++        MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// Working-set sample: fraction of generations alive (minted by f) whose last touch is within each slack.
++pub fn sample() {
++    if !ON.load(Ordering::Relaxed) {
++        return;
++    }
++    let f = FRAME.load(Ordering::Relaxed);
++    let _ = C.try_with(|c| {
++        let mut c = c.borrow_mut();
++        c.sampled += 1;
++        let mut alive = 0u64;
++        let mut live = [0u64; SLACKS.len()];
++        for g in &c.gens {
++            if g.mint > f || g.closed <= f {
++                continue;
++            }
++            alive += 1;
++            for (s, slack) in SLACKS.iter().enumerate() {
++                if f.saturating_sub(g.last_act) <= *slack {
++                    live[s] += 1;
++                }
++            }
++        }
++        if alive > 0 {
++            for s in 0..SLACKS.len() {
++                c.live_samples[s] += live[s] * 100_000 / alive;
++            }
++        }
++    });
++}
++
++/// The census line: every number the dossier's demotion arithmetic needs.
++pub fn report(bodies: usize, catalogue_live: usize, bytes_per_body: usize, frames_run: u32) {
++    println!("rcensus-on");
++    let _ = frames_run;
++    let _ = C.try_with(|c| {
++        let c = c.borrow();
++        let gens = c.gens.len() as u64;
++        let mut zero_post = 0u64;
++        let mut zero_all = 0u64;
++        let mut zero_post_build = 0u64;
++        let mut still_open = 0u64;
++        let mut hist = [0u64; 8];
++        let mut in_flight = 0u64;
++        let mut rebuilds = [0u64; SLACKS.len()];
++        let mut rebuilds_buildborn = [0u64; SLACKS.len()];
++        for g in &c.gens {
++            let r = g.reads.iter().sum::<u32>();
++            if r == 0 {
++                zero_all += 1;
++            }
++            if r == g.birth_reads {
++                zero_post += 1;
++                if g.mint == 0 {
++                    zero_post_build += 1;
++                }
++            }
++            if g.closed == u32::MAX {
++                still_open += 1;
++            }
++            let b = (r as usize).min(255);
++            let h = if b == 0 { 0 } else if b == 1 { 1 } else if b < 4 { 2 } else if b < 8 { 3 } else if b < 16 { 4 } else if b < 64 { 5 } else if b < 256 { 6 } else { 7 };
++            hist[h] += 1;
++            if g.mint > 0 {
++                in_flight += 1;
++                for s in 0..SLACKS.len() {
++                    rebuilds[s] += g.rebuilds[s] as u64;
++                }
++            } else {
++                for s in 0..SLACKS.len() {
++                    rebuilds_buildborn[s] += g.rebuilds[s] as u64;
++                }
++            }
++        }
++        println!(
++            "rcensus: gens={gens} bodies={bodies} catalogue_live={catalogue_live} bytes_per_body={bytes_per_body} in_flight_gens={in_flight} build_born={}",
++            gens - in_flight
++        );
++        println!(
++            "rcensus reads: total={} orbit_engine={} orbit_view={} readout_engine={} readout_view={} misses={}",
++            c.reads_total.iter().sum::<u64>(),
++            c.reads_total[0], c.reads_total[1], c.reads_total[2], c.reads_total[3],
++            MISSES.load(Ordering::Relaxed)
++        );
++        println!(
++            "rcensus gens: zero_read={zero_all} zero_post_birth={zero_post} pct_zero_post={:.2} zero_post_build={zero_post_build} build_born={} pct_zero_post_build={:.2} still_open={still_open} hist_0_1_2-3_4-7_8-15_16-63_64-255_256p={}",
++            100.0 * zero_post as f64 / gens.max(1) as f64,
++            gens - in_flight,
++            100.0 * zero_post_build as f64 / (gens - in_flight).max(1) as f64,
++            hist.iter().map(|h| h.to_string()).collect::<Vec<_>>().join("_")
++        );
++        if c.sampled > 0 {
++            println!(
++                "rcensus live fraction (avg over {} samples, slack frames {:?}): {}",
++                c.sampled,
++                SLACKS,
++                c.live_samples.iter().map(|l| format!("{:.5}", (*l as f64) / (c.sampled as f64) / 100_000.0)).collect::<Vec<_>>().join(" ")
++            );
++        }
++        println!(
++            "rcensus rebuilds by slack {:?}: build_born={} in_flight={}",
++            SLACKS,
++            rebuilds_buildborn.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("_"),
++            rebuilds.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("_")
++        );
++    });
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..400c1617 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -346,6 +346,7 @@ impl Universe {
+         let orbit = Orbit::compile(key)?;
+         let period = unit.to_doll(orbit.period()?)?;
+         let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
++        crate::rcensus::mint(&entry);
+         // Periapsis `phase` of a period before tick 0.
+         let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
+         let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..3d1558a4 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -257,11 +257,26 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+     gather_with(u, names, Some(cache))
+ }
+ 
+-fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
++/// The gather's head: the observer's own state at the presented tick, in the root frame — the first half
++/// of [`gather_with`], factored out so a display-side gather ([`gather_rows`]) reads the same observer.
++pub struct Head {
++    /// The player's body id.
++    pub p: usize,
++    pub t_now: Tick,
++    pub t_read: Tick,
++    /// Where the observer is, and how it moves (the owed burn's dv included), in the root frame.
++    pub xo: [f64; 2],
++    pub vo: [f64; 2],
++    pub rate_obs: f64,
++    pub doll_rate: f64,
++    pub doll_beta: [f64; 2],
++    /// The heading as an angle.
++    pub heading: f64,
++    pub proper: f64,
++}
++
++fn head_of(u: &Universe) -> Option<Head> {
+     let ctx = u.ctx();
+-    if let Some(c) = cache.as_mut() {
+-        c.readouts = 0;
+-    }
+     let p = u.player()?;
+     let t_now = u.now;
+     let rec = u.rec(p);
+@@ -298,84 +313,87 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
+-    let mut seen = Vec::new();
+-    let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+-        let d = [pos[0] - xo[0], pos[1] - xo[1]];
+-        let dist = dot(d, d).sqrt().max(1e-9);
+-        let toward = [d[0] / dist, d[1] / dist];
+-        // n_prop: from emitter to observer is −toward.
+-        let n_prop = [-toward[0], -toward[1]];
+-        let shift = ((1. - dot(n_prop, vo)) / rate_obs) / ((1. - dot(n_prop, vel)) / rate);
+-        let (dir, _) = aberration(toward, vo);
+-        seen.push(Seen {
+-            id,
+-            name: name.to_string(),
+-            kind,
+-            direction: dir,
+-            light_seconds: dist * TICK_SECONDS,
+-            offset: [d[0] * TICK_SECONDS, d[1] * TICK_SECONDS],
+-            closing: dot(toward, vo) - dot(toward, vel),
+-            color: blackbody(temp * shift),
+-            luminosity: lum * shift.powi(4),
+-            shift,
+-            age: (t_now as f64 - t_e) * TICK_SECONDS,
+-            lag,
+-            angular_radius: (radius_root / dist).atan(),
+-        });
+-    };
+-    // The star.
+-    {
+-        let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
+-        push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+-    }
+-    // Bodies: where each tube crosses the past light cone.
+-    let mut reads = 0u64;
+-    for i in 0..u.n_bodies() {
+-        if i == p || !u.bodies().alive(i) {
+-            continue;
+-        }
+-        let kind = u.info[i].kind;
+-        let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
+-        if let Some(c) = cache.as_deref_mut() {
+-            // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+-            let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+-            let dist = dot(d, d).sqrt();
+-            let inst = if dist > 0.0 { (1.0 + dot(d, vo) / dist) / (1.0 + dot(d, at.v) / dist) } else { 1.0 };
+-            c.put(i, t_now, root, inst);
+-        }
+-        let doll = &u.dolls[u.bodies().doll(i) as usize];
+-        let host_name = match kind {
+-            Kind::Planet => u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| d.name).unwrap_or("planet"),
+-            _ => doll.name,
+-        };
+-        let (temp, lum) = rest(kind, i, host_name);
+-        let radius = to_f64(u.info[i].radius) * 2f64.powi(-(doll.shift as i32));
+-        let radius = if kind == Kind::Planet { u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| to_f64(d.surface) * 2f64.powi(-(d.shift as i32))).unwrap_or(radius) } else { radius };
+-        let k = match kind {
+-            Kind::Planet => 1,
+-            Kind::Moon => 2,
+-            _ => 3,
+-        };
+-        match u.info[i].from {
+-            // A member that left its frame is the same ship to the eye (the same id, name and colour).
+-            Some((fi, m)) => push(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64),
+-            None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+-        }
++    Some(Head { p, t_now, t_read, xo, vo, rate_obs, doll_rate, doll_beta, heading: h, proper })
++}
++
++/// One row: everything the wire serves about one emitter, from its state at the emission event and the
++/// observer's head (the `push` of [`gather_with`], factored out unchanged).
++fn seen_of(id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64, h: &Head) -> Seen {
++    let d = [pos[0] - h.xo[0], pos[1] - h.xo[1]];
++    let dist = dot(d, d).sqrt().max(1e-9);
++    let toward = [d[0] / dist, d[1] / dist];
++    // n_prop: from emitter to observer is −toward.
++    let n_prop = [-toward[0], -toward[1]];
++    let shift = ((1. - dot(n_prop, h.vo)) / h.rate_obs) / ((1. - dot(n_prop, vel)) / rate);
++    let (dir, _) = aberration(toward, h.vo);
++    Seen {
++        id,
++        name: name.to_string(),
++        kind,
++        direction: dir,
++        light_seconds: dist * TICK_SECONDS,
++        offset: [d[0] * TICK_SECONDS, d[1] * TICK_SECONDS],
++        closing: dot(toward, h.vo) - dot(toward, vel),
++        color: blackbody(temp * shift),
++        luminosity: lum * shift.powi(4),
++        shift,
++        age: (h.t_now as f64 - t_e) * TICK_SECONDS,
++        lag,
++        angular_radius: (radius_root / dist).atan(),
+     }
++}
++
++/// The star's row (the same numbers every gather serves).
++fn star_seen(h: &Head) -> Seen {
++    let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
++    seen_of(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, h.t_now as f64 - 0.0, h)
++}
++
++/// One body's row: where its tube crosses the observer's past light cone, and the `Seen` built from it —
++/// the bodies loop of [`gather_with`], one body at a time so a display-side caller can choose which to read.
++fn body_seen(ctx: &crate::ctx::Ctx<'_>, u: &Universe, names: &[String], i: usize, h: &Head, mut cache: Option<&mut ViewCache>, reads: &mut u64) -> Option<Seen> {
++    let kind = u.info[i].kind;
++    let guess = cache.as_deref().and_then(|c| c.guess(i, h.t_now)).unwrap_or(h.t_now);
++    let Some((t_e, at, root)) = crossing(reads, &mut |t| state_rate(ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), h.t_now, h.xo, guess) else { return None };
+     if let Some(c) = cache.as_deref_mut() {
+-        c.readouts = reads;
++        // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
++        let d = [at.x[0] - h.xo[0], at.x[1] - h.xo[1]];
++        let dist = dot(d, d).sqrt();
++        let inst = if dist > 0.0 { (1.0 + dot(d, h.vo) / dist) / (1.0 + dot(d, at.v) / dist) } else { 1.0 };
++        c.put(i, h.t_now, root, inst);
++    }
++    let doll = &u.dolls[u.bodies().doll(i) as usize];
++    let host_name = match kind {
++        Kind::Planet => u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| d.name).unwrap_or("planet"),
++        _ => doll.name,
++    };
++    let (temp, lum) = rest(kind, i, host_name);
++    let radius = to_f64(u.info[i].radius) * 2f64.powi(-(doll.shift as i32));
++    let radius = if kind == Kind::Planet { u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| to_f64(d.surface) * 2f64.powi(-(d.shift as i32))).unwrap_or(radius) } else { radius };
++    let k = match kind {
++        Kind::Planet => 1,
++        Kind::Moon => 2,
++        _ => 3,
++    };
++    match u.info[i].from {
++        // A member that left its frame is the same ship to the eye (the same id, name and colour).
++        Some((fi, m)) => Some(seen_of(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64, h)),
++        None => Some(seen_of(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64, h)),
+     }
+-    // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+-    // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
++}
++
++/// The fleets' rows: the battle's committed tick follows the retarded time of its light, so its members
++/// are read where the stepper is, extrapolated along their own velocity to the retarded tick.
++fn fleet_seen(u: &Universe, ctx: &crate::ctx::Ctx<'_>, h: &Head, seen: &mut Vec<Seen>) {
++    let t_now = h.t_now;
+     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
+         let tc = f.tick();
+-        let (Some((o, ov)), Ok((cp, cv))) = (f.origin(tc), root_state(&ctx, f.centre, tc.max(u.bodies().event_time(f.centre)).min(t_now))) else { continue };
++        let (Some((o, ov)), Ok((cp, cv))) = (f.origin(tc), root_state(ctx, f.centre, tc.max(u.bodies().event_time(f.centre)).min(t_now))) else { continue };
+         let k = 2f64.powi(-20);
+         let q = crate::fleet::Q as f64;
+         let origin = [cp[0] + o[0] * k, cp[1] + o[1] * k];
+-        let rate0 = clock_rate(&ctx, f.centre, tc.max(0).min(t_now)).unwrap_or(1.0);
++        let rate0 = clock_rate(ctx, f.centre, tc.max(0).min(t_now)).unwrap_or(1.0);
+         motions.clear();
+         f.motions(&mut motions);
+         let shift = u.dolls[f.doll as usize].shift as i32;
+@@ -386,7 +404,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             }
+             let x = [origin[0] + mo.x[0] as f64 * k, origin[1] + mo.x[1] as f64 * k];
+             let v = [cv[0] + ov[0] / q + mo.k[0] as f64 / q, cv[1] + ov[1] / q + mo.k[1] as f64 / q];
+-            let d = [x[0] - xo[0], x[1] - xo[1]];
++            let d = [x[0] - h.xo[0], x[1] - h.xo[1]];
+             let dist = dot(d, d).sqrt();
+             let want = t_now as f64 - dist;
+             let dt = want - tc as f64;
+@@ -396,20 +414,25 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             let r_doll = dot(rel, rel).sqrt() * 2f64.powi(shift);
+             let rate = rate0 * (1.0 - 2.0 * u.dolls[f.doll as usize].mu_f64() / r_doll.max(3.0)).sqrt();
+             let rad = f.radii.get(m).copied().unwrap_or(0) as f64 * k;
+-            push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
++            seen.push(seen_of(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want, h));
+         }
+     }
++}
++
++/// The View's header fields, from the head (the tail of [`gather_with`]).
++fn view_of(u: &Universe, h: &Head, seen: Vec<Seen>) -> View {
++    let rec = u.rec(h.p);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+-    let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
++    let pos = [h.xo[0] * TICK_SECONDS, h.xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+-    Some(View {
+-        tick: t_now,
+-        coordinate_seconds: t_now as f64 * TICK_SECONDS,
+-        proper_seconds: proper,
+-        rate: rate_obs,
+-        beta: vo,
+-        doll_rate,
+-        doll_beta,
++    View {
++        tick: h.t_now,
++        coordinate_seconds: h.t_now as f64 * TICK_SECONDS,
++        proper_seconds: h.proper,
++        rate: h.rate_obs,
++        beta: h.vo,
++        doll_rate: h.doll_rate,
++        doll_beta: h.doll_beta,
+         level: rec.thrust.map_or(0, |t| t.level),
+         burning: rec.alive && rec.thrust.is_some_and(|t| t.keys & 3 != 0),
+         alive: rec.alive,
+@@ -417,11 +440,61 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         keys: rec.thrust.map_or(0, |t| t.keys),
+         refusals: rec.refusals,
+         position_light_seconds: pos,
+-        heading: [h.cos(), h.sin()],
++        heading: [h.heading.cos(), h.heading.sin()],
+         doll: rec_doll,
+-        impact: if rec.alive { impact_course(u, &rec, t_now) } else { None },
++        impact: if rec.alive { impact_course(u, &rec, h.t_now) } else { None },
+         seen,
+-    })
++    }
++}
++
++fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
++    if let Some(c) = cache.as_mut() {
++        c.readouts = 0;
++    }
++    let h = head_of(u)?;
++    let ctx = u.ctx();
++    let mut seen = vec![star_seen(&h)];
++    let mut reads = 0u64;
++    for i in 0..u.n_bodies() {
++        if i == h.p || !u.bodies().alive(i) {
++            continue;
++        }
++        if let Some(s) = body_seen(&ctx, u, names, i, &h, cache.as_deref_mut(), &mut reads) {
++            seen.push(s);
++        }
++    }
++    if let Some(c) = cache.as_deref_mut() {
++        c.readouts = reads;
++    }
++    fleet_seen(u, &ctx, &h, &mut seen);
++    Some(view_of(u, &h, seen))
++}
++
++/// The display-side gather's physics half: the exact rows for exactly the bodies the caller lists in
++/// `due` (plus the star and every fleet member, which every frame serves), through the same crossings,
++/// the same memo and the same arithmetic as [`gather_cached`]. Which bodies to read is the caller's
++/// policy; a body not read this frame simply keeps its crossing memo for the next time it is due. The
++/// readout count of this call lands in `cache.readouts`. Each row comes with the body it was read from
++/// (`None` for the star and the fleet's own members): a member handed out to a doll is a body, and its
++/// row carries the fleet-member id, not the body index.
++pub fn gather_rows(u: &Universe, names: &[String], cache: &mut ViewCache, due: &[usize]) -> Option<(Head, Vec<(Option<usize>, Seen)>)> {
++    let h = head_of(u)?;
++    let ctx = u.ctx();
++    let mut seen = vec![(None, star_seen(&h))];
++    let mut reads = 0u64;
++    for &i in due {
++        if i >= u.n_bodies() || i == h.p || !u.bodies().alive(i) {
++            continue;
++        }
++        if let Some(s) = body_seen(&ctx, u, names, i, &h, Some(&mut *cache), &mut reads) {
++            seen.push((Some(i), s));
++        }
++    }
++    cache.readouts = reads;
++    let mut fleet = Vec::new();
++    fleet_seen(u, &ctx, &h, &mut fleet);
++    seen.extend(fleet.into_iter().map(|s| (None, s)));
++    Some((h, seen))
+ }
+ 
+ /// The impact the player's tube holds from the presented tick: [`crate::step::next_impact`] on the surface of the body whose
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..75cdd1db 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -17,6 +17,7 @@ mod flight_tests;
+ mod http;
+ mod kick_bench;
+ mod replay;
++mod rowset;
+ mod session;
+ 
+ use serde_json::json;
+@@ -24,10 +25,11 @@ use session::Session;
+ use std::time::{Duration, Instant};
+ 
+ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+-    let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
++    let (mut seed, mut rtf, mut port, mut threads, mut members, mut extra) = (1u64, 1.0f64, 8792u16, 1usize, 48u64, 0usize);
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let (mut rows, mut rows_audit) = (false, 0usize);
+     let (mut replay_file, mut replay_all, mut flights, mut record, mut seconds_given) = (None::<String>, false, None::<std::path::PathBuf>, true, false);
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+@@ -38,6 +40,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--extra" => extra = val("--extra")?.parse::<usize>()?.clamp(0, 3_000_000),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
+@@ -51,6 +54,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
++            "--rows" => rows = true,
++            "--rows-audit" => rows_audit = val("--rows-audit")?.parse::<usize>()?.min(10_000),
+             "--describe" => describe = true,
+             "--help" => {
+                 println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe\nuniverse --replay <file> [--seconds S]\nuniverse --replay-all [--flights DIR]\nuniverse [...] [--flights DIR | --no-record]");
+@@ -68,8 +73,10 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if replay_all {
+         return replay::replay_all(&flights.unwrap_or_else(replay::default_flights), replay::ALL_SECONDS);
+     }
+-    let mut s = Session::new(seed, threads, members, rtf)?;
+-    s.engine_ms = engine_ms;
++    let mut s = Session::with_extra(seed, threads, members, rtf, extra)?;
++    if rows {
++        s.enable_rows(rows_audit);
++    }
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
+@@ -169,6 +176,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
++        "rowset": s.rows_json(),
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+diff --git a/xtask/src/universe/rowset.rs b/xtask/src/universe/rowset.rs
+new file mode 100644
+index 00000000..28370d88
+--- /dev/null
++++ b/xtask/src/universe/rowset.rs
+@@ -0,0 +1,534 @@
++//! The row-set deletion (2df1's policy) wired into the flyable frame: the wire carries only the rows
++//! that could move what the player sees, so the frame's view half stops being Θ(N).
++//!
++//! All client-visible state, no physics of its own: `gather_rows` (the shipped crossings) reads exactly
++//! the bodies whose drawn pixel could have crossed half a display pixel since their last read (a timing
++//! wheel of dues, drift-measured, ×4 slack), plus the star and fleet marker rows and the panel band the
++//! page always prints. The quantum lives in the row's own frame, not the server's tick (PRINCIPLES #28:
++//! the view is an instrument — the quantum is the pixel). Ported from 2df1's `flyframe2` example, with
++//! the session's rtf (game seconds per presented frame) in the drift bound, and the delta JSON shaped
++//! like [`super::session`]'s `view_json` (header every frame, `rows` that moved, `gone` ids).
++//!
++//! The audit is the instrument's control: the shipped `gather_cached` on the same frame, compared
++//! pixel-for-pixel against what the client would draw from its held rows (the page's own draw
++//! conditions), plus the panel's printed values. It runs after the frame is timed and is reported
++//! separately, never charged to a channel.
++use emergent_universe::view::{gather_rows, Seen, ViewCache};
++use emergent_universe::view::Head;
++use serde_json::{json, Value};
++use std::collections::HashMap;
++
++const W: f64 = 1920.0;
++const H: f64 = 1080.0;
++const CX: f64 = W / 2.0;
++const CY: f64 = H / 2.0;
++/// The map: the page's fitted view (fitLog holds the nearest kind ≤ 3 row at 0.33·R pixels, R = 432).
++const FIT_FRACTION: f64 = 0.33 * 432.0;
++const MARGIN: f64 = 20.0;
++const WHEEL: usize = 1 << 15;
++const DUE_CAP: u64 = 1 << 14;
++
++fn map_px_at(offset: [f64; 2], s: f64) -> (f64, f64) {
++    (CX + offset[0] * s, CY + offset[1] * s)
++}
++
++fn on_canvas(px: (f64, f64)) -> bool {
++    px.0 >= -MARGIN && px.0 <= W + MARGIN && px.1 >= -MARGIN && px.1 <= H + MARGIN
++}
++
++fn gap_to_canvas(px: (f64, f64)) -> f64 {
++    let dx = if px.0 < 0.0 { -px.0 } else if px.0 > W { px.0 - W } else { 0.0 };
++    let dy = if px.1 < 0.0 { -px.1 } else if px.1 > H { px.1 - H } else { 0.0 };
++    (dx * dx + dy * dy).sqrt()
++}
++
++/// The sky polar (radius, angle) of a row: heading-free, so the client derives rotation.
++fn sky_pol(direction: [f64; 2], light_seconds: f64) -> (f64, f64) {
++    let r_sky = 0.45 * W.min(H);
++    let (lo, hi) = (-5.0f64, 3.6f64);
++    let x = ((light_seconds.max(1e-6).log10() - lo) / (hi - lo)).clamp(0.0, 1.0);
++    (r_sky * x, direction[1].atan2(direction[0]))
++}
++
++fn wire_id_of(seen_id: usize) -> u64 {
++    if seen_id == usize::MAX {
++        u64::MAX
++    } else if seen_id >= 1_000_000 {
++        (1u64 << 40) + seen_id as u64
++    } else {
++        seen_id as u64
++    }
++}
++
++struct RowState {
++    wire_id: u64,
++    kind: u8,
++    light_seconds: f64,
++    offset: [f64; 2],
++    closing: f64,
++    shift: f64,
++    served: bool,
++    /// The pixel the client draws on the map from its held row (its quantum anchor).
++    map_anchor: (i64, i64),
++    /// The last exact readout's map pixel (drift is measured between reads).
++    read_px: (f64, f64),
++    sky_read: (f64, f64),
++    due: u64,
++    last_read: u64,
++    map_drift: f64,
++    sky_drift: f64,
++    interval: u64,
++    in_band: bool,
++}
++
++#[derive(Clone)]
++struct Held {
++    light_seconds: f64,
++    offset: [f64; 2],
++    closing: f64,
++    shift: f64,
++    map_anchor: (i64, i64),
++    #[allow(dead_code)]
++    sky_pol: (f64, f64),
++    #[allow(dead_code)]
++    kind: u8,
++}
++
++/// What one frame's gather phase produced (the JSON phase builds from it).
++pub struct FrameOut {
++    pub head: Head,
++    /// Indices into the gather's return list that the wire carries.
++    pub served: Vec<usize>,
++    pub gone: Vec<u64>,
++    pub readouts: u64,
++}
++
++pub struct RowSet {
++    rows: Vec<Option<RowState>>,
++    wheel: Vec<Vec<u32>>,
++    always: Vec<usize>,
++    band: Vec<usize>,
++    held: HashMap<u64, Held>,
++    /// The map's scale, as log10 of pixels per light-second (the page's fitted zoom at the fill).
++    view_log: f64,
++    rtf: f64,
++    /// The fill (one full read, the page's own first-frame cost), ms.
++    pub fill_ms: f64,
++    pub fill_rows: usize,
++    pub served_total: u64,
++    pub served_max: usize,
++    pub readouts_total: u64,
++    pub gone_total: u64,
++    pub frames: u64,
++    wire_bytes: Vec<usize>,
++    // The audit (2df1's): violations of the display exactness against the shipped gather.
++    pub audit_frames: u64,
++    pub audit_drawn: u64,
++    pub viol_px: u64,
++    pub viol_miss: u64,
++    pub viol_ghost: u64,
++    pub viol_panel: u64,
++}
++
++impl RowSet {
++    /// The fill: every body read once (the first full read, the page's own first-frame cost), the
++    /// fitted zoom taken from it, every row's first due set. `cache` is the frame's own view memo.
++    pub fn fill(u: &emergent_universe::Universe, names: &[String], cache: &mut ViewCache, rtf: f64) -> crate::Result<Self> {
++        let t = std::time::Instant::now();
++        let all: Vec<usize> = (0..u.n_bodies()).collect();
++        let (_head, seen) = gather_rows(u, names, cache, &all).ok_or("no view: the player is unreadable")?;
++        let near = seen.iter().filter(|(_, s)| s.kind <= 3).map(|(_, s)| s.light_seconds).fold(f64::INFINITY, f64::min);
++        let mut d = Self {
++            rows: Vec::with_capacity(u.n_bodies()),
++            wheel: vec![Vec::new(); WHEEL],
++            always: Vec::new(),
++            band: Vec::new(),
++            held: HashMap::new(),
++            view_log: (FIT_FRACTION / near.max(1e-6)).log10(),
++            rtf,
++            fill_ms: 0.0,
++            fill_rows: seen.len(),
++            served_total: 0,
++            served_max: 0,
++            readouts_total: 0,
++            gone_total: 0,
++            frames: 0,
++            wire_bytes: Vec::new(),
++            audit_frames: 0,
++            audit_drawn: 0,
++            viol_px: 0,
++            viol_miss: 0,
++            viol_ghost: 0,
++            viol_panel: 0,
++        };
++        for _ in 0..u.n_bodies() {
++            d.rows.push(None);
++        }
++        for (bi, s) in &seen {
++            if let Some(i) = bi {
++                d.absorb(*i, s, 0);
++            }
++        }
++        for i in 0..d.rows.len() {
++            if d.rows[i].as_ref().is_some_and(|r| r.kind <= 2) {
++                d.always.push(i);
++            }
++        }
++        d.reband();
++        d.fill_ms = t.elapsed().as_secs_f64() * 1e3;
++        Ok(d)
++    }
++
++    fn s(&self) -> f64 {
++        10f64.powf(self.view_log)
++    }
++
++    /// The next due from observed drift and the gap to the canvas: when half a display pixel (or the
++    /// margin) could have been crossed. The ×4 slack is acceleration and arrival-rate room.
++    fn due_from(&mut self, i: usize, f: u64) -> u64 {
++        let r = self.rows[i].as_ref().unwrap();
++        let map_d = r.map_drift * 4.0;
++        let sky_d = r.sky_drift * 4.0;
++        let gap = gap_to_canvas(r.read_px);
++        let backoff = r.interval.saturating_mul(4).max(1) as f64;
++        let mut q = backoff;
++        let mut frozen = true;
++        if map_d <= 0.0 && sky_d <= 0.0 {
++            let gap_ls = if self.s() > 0.0 { gap / self.s() } else { f64::INFINITY };
++            let dt_frame = 1.0 / 60.0 * self.rtf;
++            q = q.min((gap_ls / dt_frame).ceil().max(1.0));
++        }
++        if gap > 0.0 && r.kind >= 3 {
++            if map_d > 0.0 {
++                q = q.min(gap / map_d);
++                frozen = false;
++            }
++        } else if map_d > 0.0 {
++            q = q.min(0.5 / map_d);
++            frozen = false;
++        }
++        if r.kind <= 2 && sky_d > 0.0 {
++            q = q.min(0.5 / sky_d);
++            frozen = false;
++        }
++        let jitter = if frozen { 1 + (i.wrapping_mul(2654435761) % 7) as u64 } else { 0 };
++        let q = (q.floor().max(1.0) as u64).saturating_add(jitter).min(DUE_CAP);
++        self.rows[i].as_mut().unwrap().interval = q;
++        f + q
++    }
++
++    fn reslot(&mut self, i: usize, due: u64) {
++        if due != self.rows[i].as_ref().unwrap().due {
++            self.rows[i].as_mut().unwrap().due = due;
++            self.wheel[(due as usize) % WHEEL].push(i as u32);
++        }
++    }
++
++    /// The panel band: the nearest bodies by cached distance (the page prints the nearest 8; the band
++    /// keeps a 2× slack and 16 rows so membership changes never miss a read).
++    fn reband(&mut self) {
++        let mut best: Vec<(f64, usize)> = Vec::new();
++        for (i, ro) in self.rows.iter().enumerate() {
++            let Some(r) = ro else { continue };
++            if r.kind == 4 {
++                continue;
++            }
++            if best.len() < 16 {
++                best.push((r.light_seconds, i));
++                best.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
++            } else if r.light_seconds < best[15].0 {
++                best[15] = (r.light_seconds, i);
++                best.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
++            }
++        }
++        let cut = if best.is_empty() { f64::INFINITY } else { best[best.len() - 1].0 * 2.0 + 1e-9 };
++        self.band = self.rows.iter().enumerate().filter_map(|(i, ro)| {
++            let r = ro.as_ref()?;
++            (r.kind != 4 && r.light_seconds <= cut).then_some(i)
++        }).collect();
++        for ro in self.rows.iter_mut() {
++            if let Some(r) = ro.as_mut() {
++                r.in_band = false;
++            }
++        }
++        for &i in &self.band {
++            if let Some(r) = self.rows[i].as_mut() {
++                r.in_band = true;
++            }
++        }
++    }
++
++    /// The fill's absorption of a body row: it becomes a RowState (the served decision applies at once).
++    fn absorb(&mut self, idx: usize, s: &Seen, f: u64) {
++        let wid = wire_id_of(s.id);
++        let map_px = map_px_at(s.offset, self.s());
++        let on = on_canvas(map_px);
++        let serve = s.kind <= 2 || on;
++        let pol = sky_pol(s.direction, s.light_seconds);
++        let r = RowState {
++            wire_id: wid,
++            kind: s.kind,
++            light_seconds: s.light_seconds,
++            offset: s.offset,
++            closing: s.closing,
++            shift: s.shift,
++            served: serve,
++            map_anchor: (map_px.0.round() as i64, map_px.1.round() as i64),
++            read_px: map_px,
++            sky_read: pol,
++            due: f + 1 + (idx.wrapping_mul(2654435761) % 7) as u64,
++            last_read: f,
++            map_drift: 0.0,
++            sky_drift: 0.0,
++            interval: 1,
++            in_band: false,
++        };
++        if serve {
++            self.held.insert(wid, Held { light_seconds: r.light_seconds, offset: r.offset, closing: r.closing, shift: r.shift, map_anchor: r.map_anchor, sky_pol: pol, kind: r.kind });
++        }
++        let due = r.due;
++        self.rows[idx] = Some(r);
++        self.wheel[(due as usize) % WHEEL].push(idx as u32);
++    }
++
++    /// One frame's gather half: who is due (the wheel, the markers, the band, the newborns), the read
++    /// itself, and the serve decisions. The JSON half ([`RowSet::delta_json`]) builds the wire from
++    /// the returned indices; the session times the two halves as its own dashboard channels.
++    pub fn gather_half(&mut self, u: &emergent_universe::Universe, names: &[String], cache: &mut ViewCache) -> crate::Result<(Vec<(Option<usize>, Seen)>, FrameOut)> {
++        let f = self.frames;
++        // Births and deaths: the count grew (or the slow death sweep) pays one alive-check per body;
++        // the engine's own event feed would say so at once — the sweep stands in for it.
++        let nb_now = u.n_bodies();
++        let grew = nb_now > self.rows.len();
++        while self.rows.len() < nb_now {
++            self.rows.push(None);
++        }
++        let mut newborns: Vec<usize> = Vec::new();
++        let mut pending_gone: Vec<u64> = Vec::new();
++        if grew || f % 240 == 0 {
++            for i in 0..nb_now {
++                let alive = u.bodies().alive(i);
++                match (self.rows[i].is_some(), alive) {
++                    (false, true) => newborns.push(i),
++                    (true, false) => {
++                        if let Some(r) = self.rows[i].as_ref().filter(|r| r.served) {
++                            pending_gone.push(r.wire_id);
++                        }
++                        self.rows[i] = None;
++                    }
++                    _ => {}
++                }
++            }
++        }
++        // Who is due: the wheel's slot, the marker rows, the panel band, the newborns.
++        let slot = std::mem::take(&mut self.wheel[(f % WHEEL as u64) as usize]);
++        let mut due: Vec<usize> = Vec::with_capacity(64);
++        for i in slot {
++            let i = i as usize;
++            if self.rows[i].as_ref().is_some_and(|r| r.due <= f) {
++                due.push(i);
++            }
++        }
++        for &i in self.always.iter().chain(self.band.iter()) {
++            if self.rows[i].is_some() {
++                due.push(i);
++            }
++        }
++        due.extend(newborns.drain(..));
++        due.sort_unstable();
++        due.dedup();
++        let (head, seen) = gather_rows(u, names, cache, &due).ok_or("no view: the player is unreadable")?;
++        // The nearest fleet row is printed even off-canvas.
++        let mut nearest_fleet: Option<u64> = None;
++        let mut best_ls = f64::INFINITY;
++        for (_, s) in &seen {
++            if s.kind == 4 && s.light_seconds < best_ls {
++                best_ls = s.light_seconds;
++                nearest_fleet = Some(wire_id_of(s.id));
++            }
++        }
++        let mut served: Vec<usize> = Vec::new();
++        let mut gone: Vec<u64> = pending_gone;
++        for (k, (bi, s)) in seen.iter().enumerate() {
++            match bi {
++                Some(i) => {
++                    if self.rows[*i].is_none() {
++                        self.absorb(*i, s, f);
++                        if self.rows[*i].as_ref().is_some_and(|r| r.served) {
++                            served.push(k);
++                        }
++                    } else if self.absorb_row(*i, s, f, nearest_fleet == Some(wire_id_of(s.id)), &mut gone) {
++                        served.push(k);
++                    }
++                }
++                None => {
++                    // The star's and the fleets' rows (read every frame): the same canvas test decides the wire.
++                    let wid = wire_id_of(s.id);
++                    let pol = sky_pol(s.direction, s.light_seconds);
++                    let map_px = map_px_at(s.offset, self.s());
++                    let on = on_canvas(map_px);
++                    let do_serve = if s.kind <= 2 || nearest_fleet == Some(wid) {
++                        true
++                    } else {
++                        match self.held.get(&wid) {
++                            None => on,
++                            Some(h) => on && (map_px.0.round() as i64, map_px.1.round() as i64) != h.map_anchor,
++                        }
++                    };
++                    let was_served = self.held.contains_key(&wid);
++                    if do_serve {
++                        self.held.insert(wid, Held { light_seconds: s.light_seconds, offset: s.offset, closing: s.closing, shift: s.shift, map_anchor: (map_px.0.round() as i64, map_px.1.round() as i64), sky_pol: pol, kind: s.kind });
++                        served.push(k);
++                    } else if was_served && !on {
++                        gone.push(wid);
++                        self.held.remove(&wid);
++                    }
++                }
++            }
++        }
++        // Rows that were due but produced nothing are gone (unreadable or lost).
++        for &i in &due {
++            if let Some(r) = self.rows[i].as_ref() {
++                if r.last_read < f && r.served {
++                    gone.push(r.wire_id);
++                    self.held.remove(&r.wire_id);
++                    self.rows[i].as_mut().unwrap().served = false;
++                }
++            }
++        }
++        if f % 60 == 59 {
++            self.reband();
++        }
++        let readouts = cache.readouts;
++        self.frames += 1;
++        self.readouts_total += readouts;
++        self.served_total += served.len() as u64;
++        self.served_max = self.served_max.max(served.len());
++        self.gone_total += gone.len() as u64;
++        Ok((seen, FrameOut { head, served, gone, readouts }))
++    }
++
++    /// A due body row: the drift update, the serve decision (half a pixel at the client), the re-due.
++    fn absorb_row(&mut self, i: usize, s: &Seen, f: u64, force_serve: bool, gone: &mut Vec<u64>) -> bool {
++        let wid = wire_id_of(s.id);
++        let pol = sky_pol(s.direction, s.light_seconds);
++        let map_px = map_px_at(s.offset, self.s());
++        let on = on_canvas(map_px);
++        let r = self.rows[i].as_mut().unwrap();
++        let df = (f - r.last_read).max(1) as f64;
++        let map_drift = (((map_px.0 - r.read_px.0).powi(2) + (map_px.1 - r.read_px.1).powi(2)).sqrt() / df).max(r.map_drift * 0.5);
++        let dr = (pol.0 - r.sky_read.0).abs();
++        let dth = (pol.1 - r.sky_read.1).abs().min(std::f64::consts::TAU - (pol.1 - r.sky_read.1).abs()) * pol.0;
++        let sky_drift = (dr.max(dth) / df).max(r.sky_drift * 0.5);
++        r.light_seconds = s.light_seconds;
++        r.offset = s.offset;
++        r.closing = s.closing;
++        r.shift = s.shift;
++        r.read_px = map_px;
++        r.sky_read = pol;
++        r.last_read = f;
++        r.map_drift = map_drift;
++        r.sky_drift = sky_drift;
++        let was = r.served;
++        let do_serve = if r.kind <= 2 || force_serve || r.in_band {
++            true
++        } else if on {
++            !was || (map_px.0.round() as i64, map_px.1.round() as i64) != self.held.get(&wid).map(|h| h.map_anchor).unwrap_or((i64::MIN, i64::MIN))
++        } else {
++            false
++        };
++        let mut serve = false;
++        if do_serve {
++            r.served = true;
++            r.map_anchor = (map_px.0.round() as i64, map_px.1.round() as i64);
++            let rr = self.rows[i].as_ref().unwrap();
++            self.held.insert(wid, Held { light_seconds: rr.light_seconds, offset: rr.offset, closing: rr.closing, shift: rr.shift, map_anchor: rr.map_anchor, sky_pol: pol, kind: rr.kind });
++            serve = true;
++        } else if was && !on {
++            self.rows[i].as_mut().unwrap().served = false;
++            gone.push(wid);
++            self.held.remove(&wid);
++        }
++        let due = self.due_from(i, f);
++        self.reslot(i, due);
++        serve
++    }
++
++    /// The delta wire: the header every frame, the rows that moved, the ids that left.
++    pub fn delta_json(&mut self, seen: &[(Option<usize>, Seen)], out: &FrameOut, keys: u8) -> Value {
++        let rows: Vec<_> = out.served.iter().map(|&k| {
++            let s = &seen[k].1;
++            json!({"id": wire_id_of(s.id), "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
++                   "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift})
++        }).collect();
++        let h = &out.head;
++        json!({
++            "tick": h.t_now, "coordinate": h.t_now as f64 * emergent_universe::view::TICK_SECONDS, "proper": h.proper, "rate": h.rate_obs,
++            "beta": h.vo, "doll_rate": h.doll_rate, "doll_beta": h.doll_beta,
++            "position": [h.xo[0] * emergent_universe::view::TICK_SECONDS, h.xo[1] * emergent_universe::view::TICK_SECONDS],
++            "heading": [h.heading.cos(), h.heading.sin()], "level": 0, "burning": false, "keys": keys, "alive": true,
++            "loss": Option::<String>::None, "refusals": 0,
++            "rows": rows, "gone": out.gone,
++        })
++    }
++
++    pub fn note_wire(&mut self, bytes: usize) {
++        self.wire_bytes.push(bytes);
++    }
++
++    pub fn wire_kb_median(&self) -> f64 {
++        if self.wire_bytes.is_empty() {
++            return 0.0;
++        }
++        let mut s = self.wire_bytes.clone();
++        s.sort_unstable();
++        s[s.len() / 2] as f64 / 1e3
++    }
++
++    /// The audit: the shipped gather's rows against what the client draws from its held rows (the
++    /// page's own draw conditions), plus the panel the page prints. One pixel of disagreement is a
++    /// violation; a drawn row with no held row is a miss; a held on-canvas row the exact does not draw
++    /// is a ghost.
++    pub fn audit(&mut self, exact: &emergent_universe::view::View) {
++        self.audit_frames += 1;
++        let s = self.s();
++        for e in &exact.seen {
++            let wid = wire_id_of(e.id);
++            let map_px = map_px_at(e.offset, s);
++            let draws = e.kind <= 2 || on_canvas(map_px);
++            let h = self.held.get(&wid);
++            if draws {
++                self.audit_drawn += 1;
++                match h {
++                    None => self.viol_miss += 1,
++                    Some(h) => {
++                        let ex = (map_px.0.round() as i64, map_px.1.round() as i64);
++                        if ex != h.map_anchor {
++                            self.viol_px += 1;
++                        }
++                    }
++                }
++            } else if let Some(h) = h {
++                let hp = map_px_at(h.offset, s);
++                if on_canvas(hp) && e.kind > 2 {
++                    self.viol_ghost += 1;
++                }
++            }
++        }
++        let mut panel: Vec<&Seen> = exact.seen.iter().filter(|e| e.kind != 4).collect();
++        panel.sort_by(|a, b| a.light_seconds.partial_cmp(&b.light_seconds).unwrap());
++        for e in panel.iter().take(8) {
++            match self.held.get(&wire_id_of(e.id)) {
++                None => self.viol_panel += 1,
++                Some(h) => {
++                    let bad = (h.light_seconds - e.light_seconds).abs() > 1e-4 * e.light_seconds.abs() + 1e-12
++                        || (h.closing - e.closing).abs() > 1e-4 * e.closing.abs() + 1e-12
++                        || (h.shift - e.shift).abs() > 1e-4 * e.shift.abs() + 1e-12;
++                    if bad {
++                        self.viol_panel += 1;
++                    }
++                }
++            }
++        }
++    }
++}
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 8b10edfe..1d44e38e 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -1,7 +1,7 @@
+ //! A flight: the plane, the frame loop, the dashboard. Shared by the page and the benchmark.
+ use emergent_universe::dash::Dash;
+ use emergent_universe::fleet::Order;
+-use emergent_universe::scenario::{plane, Plane};
++use emergent_universe::scenario::{plane_extra, Plane};
+ use emergent_universe::view::{gather_cached, View, ViewCache};
+ use emergent_universe::{Budget, Config};
+ use serde_json::{json, Value};
+@@ -35,19 +35,43 @@ pub struct Session {
+     names: Vec<String>,
+     threads: usize,
+     members: u64,
++    /// The ladder's extra bodies (0: the shipped plane).
++    extra: usize,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+     cache: ViewCache,
++    /// The row-set deletion (2df1's policy), wired into the frame when asked ([`Session::enable_rows`]).
++    pub rows: Option<super::rowset::RowSet>,
++    /// When nonzero, the audit runs the shipped gather every N frames (after the frame is timed; reported, never charged).
++    pub rows_audit_every: usize,
++    /// The audit's own view memo (so the instrument never warms the frame's).
++    acache: ViewCache,
+     /// The flight recorder (a served session has one: [`Session::record_into`]; the benchmark and the tests do not).
+     rec: Option<Recorder>,
+-}
++ }
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        Self::with_extra(seed, threads, members, rtf, 0)
++    }
++
++    /// [`Session::new`] with the ladder's extra bodies (`scenario::plane_extra`): the belt and the
++    /// extra locals, the scene the N ladder flies, loadable by the flyable frame loop.
++    pub fn with_extra(seed: u64, threads: usize, members: u64, rtf: f64, extra: usize) -> crate::Result<Self> {
++        let p = plane_extra(Config::default(), seed, Order::Sparse, threads, members, extra).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, extra, cache: ViewCache::default(), rows: None, rows_audit_every: 0, acache: ViewCache::default(), rec: None })
++     }
++
++    /// Wire the row-set deletion into this session's frame (the ladder's cure for the view's Θ(N)):
++    /// from the next step the wire carries the header plus only the rows that moved at the display's
++    /// own quantum, and `audit_every` frames the shipped gather is compared against what the client
++    /// would draw (the control; never charged to a frame channel).
++    pub fn enable_rows(&mut self, audit_every: usize) {
++        self.rows = Some(super::rowset::RowSet::fill(&self.p.u, &self.names, &mut self.cache, self.rtf).expect("the fill"));
++        self.rows_audit_every = audit_every;
+     }
+ 
++
+     /// Record this session's flight in `dir` (`artifacts/flights/`): see [`super::flight`].
+     pub fn record_into(&mut self, dir: PathBuf) {
+         self.rec = Some(Recorder::new(dir, self.seed, self.rtf, self.members, self.threads));
+@@ -82,7 +106,7 @@ impl Session {
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+     pub fn restarted(&self) -> crate::Result<Self> {
+-        let mut s = Self::new(self.seed, self.threads, self.members, self.rtf)?;
++        let mut s = Self::with_extra(self.seed, self.threads, self.members, self.rtf, self.extra)?;
+         s.engine_ms = self.engine_ms;
+         if let Some(r) = &self.rec {
+             s.record_into(r.dir().to_path_buf());
+@@ -90,6 +114,18 @@ impl Session {
+         Ok(s)
+     }
+ 
++    /// The row-set frame's report (the bench prints it beside the dashboard).
++    pub fn rows_json(&self) -> Value {
++        let Some(r) = &self.rows else { return Value::Null };
++        json!({"fill_ms": r.fill_ms, "fill_rows": r.fill_rows, "frames": r.frames,
++               "served_per_frame": r.served_total as f64 / r.frames.max(1) as f64, "served_max": r.served_max,
++               "readouts_per_frame": r.readouts_total as f64 / r.frames.max(1) as f64, "gone_per_frame": r.gone_total as f64 / r.frames.max(1) as f64,
++               "wire_kb_median": r.wire_kb_median(),
++               "audit": {"frames": r.audit_frames, "drawn_rows": r.audit_drawn,
++                         "viol_px": r.viol_px, "viol_miss": r.viol_miss, "viol_ghost": r.viol_ghost, "viol_panel": r.viol_panel,
++                         "viol_share": if r.audit_drawn > 0 { (r.viol_px + r.viol_miss + r.viol_ghost) as f64 / r.audit_drawn as f64 } else { 0.0 }}})
++    }
++
+     pub fn n_bodies(&self) -> usize {
+         self.p.u.n_bodies()
+     }
+@@ -122,6 +158,42 @@ impl Session {
+         }
+         let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
+         let t1 = Instant::now();
++        if self.rows.is_some() {
++            // The row-set frame (2df1's deletion wired in): the gather half reads only the due rows,
++            // the JSON half builds the delta, the wire carries it. The recorder has no full View this
++            // frame (the bench flies this path; a recorded flight keeps the shipped gather).
++            let mut rs = self.rows.take().unwrap();
++            let res = rs.gather_half(&self.p.u, &self.names, &mut self.cache);
++            let t2 = Instant::now();
++            let out = match res {
++                Ok((seen, fo)) => {
++                    let v = rs.delta_json(&seen, &fo, self.keys);
++                    Ok(v)
++                }
++                Err(e) => Err(e),
++            };
++            let t3 = Instant::now();
++            let json = out?;
++            let wire = serde_json::to_vec(&json)?;
++            std::hint::black_box(&wire);
++            rs.note_wire(wire.len());
++            let audited = if self.rows_audit_every > 0 && rs.frames % self.rows_audit_every as u64 == 0 {
++                if let Some(exact) = gather_cached(&self.p.u, &self.names, &mut self.acache) {
++                    rs.audit(&exact);
++                    true
++                } else {
++                    false
++                }
++            } else {
++                false
++            };
++            self.rows = Some(rs);
++            let _ = audited;
++            let ms = start.elapsed().as_secs_f64() * 1e3;
++            self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
++            self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
++            return Ok((json, ms));
++        }
+         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+             Some(v) => v,
+             None => {

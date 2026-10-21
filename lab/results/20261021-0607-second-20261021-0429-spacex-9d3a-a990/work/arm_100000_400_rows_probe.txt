@@ -1,0 +1,11 @@
+rcensus rung N=100000 (100028 bodies), view=rows, 400 s; build 4.35 s, peak footprint 245 MB (now 245 MB)
+rowset idle at end (rows by frames since last read, buckets <=1/<=60/<=300/<=1200/<=16384/past): [62, 30, 51, 32, 99870, 0]
+frames after 1 s: 23940  engine ms p50 0.012 p99 11.915 max 11.956; game 39898.5 s: kicks 163510 (4.097e-5/body/game-s); view bodies seen 3214237; alive(player) true
+memory: peak footprint 245 MB at the build's end, 518 MB at the flight's end; 2451 B a body from the build; dashboard bytes/body 1379; catalogue 100076 entries
+rcensus-on
+rcensus: gens=263441 bodies=100028 catalogue_live=100076 bytes_per_body=1379 in_flight_gens=163409 build_born=100032
+rcensus reads: total=12587790 orbit_engine=451492 orbit_view=48002 readout_engine=2617228 readout_view=9471068 misses=0
+rcensus gens: zero_read=33 zero_post_birth=868 pct_zero_post=0.33 zero_post_build=4 build_born=100032 pct_zero_post_build=0.00 still_open=200549 hist_0_1_2-3_4-7_8-15_16-63_64-255_256p=33_826_2_99522_7064_149139_6855_0
+rcensus live fraction (avg over 400 samples, slack frames [1, 60, 300, 1200, 16384]): 0.00081 0.02066 0.08194 0.26159 0.99993
+rcensus rebuilds by slack [1, 60, 300, 1200, 16384]: build_born=785685_499086_299336_199499_0 in_flight=511022_205142_203502_200841_0
+rcensus: n=100000 bodies=100028 build_s=4.35 foot_build_mb=245 foot_end_mb=518 b_per_body=2451 p50_ms=0.012 p99_ms=11.915 kicks_per_body_gs=4.097e-5 frames=24000

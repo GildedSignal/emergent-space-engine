@@ -1,0 +1,40 @@
+# Dossier — 20261021-0607-second-20261021-0429-spacex-9d3a-a990 (second author on 20261021-0429-spacex-9d3a)
+
+## Claim
+The checker's named gold experiment is flown: under the **adopted row-set gather** (flyable-frame gold's `gather_rows` + 2df1's policy, verbatim, served every frame), the demotion return bill collapses from the oracle gather's ~0.1 returns/body/wall-s (≈ 440 cores at 1e9) to **26 slack-5-s return events per 100,032 bodies over 20 s (7,700×), a steady per-body law of one read per wheel-cap interval (0.0037/body/wall-s ≈ 16 cores at 1e9, 27×), and exactly 0 at the wheel's own quantum (16384 frames, every arm, every horizon)** — so the board's premise ("a body is live only around its events") is restored as a policy statement: *demote at the view's own quantum once the row-set gather lands*; the memory row's ~10²–10³ rides its adoption, not a new mechanism.
+
+## Bottleneck
+The board's macro row "live set and memory (~10²–10³)". The first author's silver left one experiment: fly the census under the row-set gather, with view=none already in hand. Done here; the premise is back with numbers, and the closure is a one-step adoption (the row-set patch is lab-side, unmerged).
+
+## Evidence (all from `sh regen.sh`, ~8 min on the 8-vCPU box, every arm one process, coast, rtf 100, 12 ms engine budget, seed 1; `ES_RCENSUS=1` arms the 9d3a census extended with a 5th slack = the wheel's cap)
+| arm | bodies | view | zero-post-birth | live @1f/@1s/@5s/@20s | returns@5s (build-born) | view reads | engine reads |
+|---|---|---|---|---|---|---|---|
+| none 1e5 20 s (control) | 100,028 | — | **99,813**/100,032 (99.78%) | .001/.054/.256/1.0 | 54 | 0 | 897,278 |
+| sparse 1e5 20 s (oracle) | 100,028 | gather/10 s | 4/100,032 | .100/.202/.603/1.0 | **199,678** | 1,746,432 | 897,278 |
+| **rows 1e5 20 s** | 100,028 | row-set/frame | 4/100,032 | .001/.153/.504/1.0 | **26** | 3,332,599 | 897,278 |
+| **rows 3e5 20 s** | 300,028 | row-set/frame | 4/300,032 | .000/.151/.501/1.0 | **26** | 9,571,270 | 2,497,278 |
+| rows 1e5 300 s | 100,028 | row-set/frame | 4/100,032 | .001/.025/.100/.311 | 299,336 (ramp) | 7,686,735 | 2,361,080 |
+| rows 1e5 600 s | 100,028 | row-set/frame | 4/100,032 | .001/.017/.068/.226 | 299,336 (frozen) | 11,072,989 | 3,807,856 |
+
+- **The return law.** Slack-16384 returns: **0 in every arm** (build-born and in-flight) at 20/300/600 s — the wheel's gaps never exceed their own interval. Build-born slack-5-s: 26 events at 1e5 *and* at 3e5 (a population-independent bounded set: markers, band, on-canvas rows). The 300-s and 600-s build-born counters are **identical** (499,086/299,336/199,499/0): the ramp is a one-time ~5 reads a body over the first ~90 s, then no build-born gen is read again.
+- **Where the steady reads land.** The wheel keeps reading at the cap cadence — its own idle histogram at 400 s (24,000 frames): **[61, 29, 53, 32, 99,870, 0] rows idle ≤1/≤60/≤300/≤1200/≤16384/past-cap** — 99,870 of 100,045 rows read within one cap interval, 0 past it. Those reads land on each body's *current* generation: rebinds replace entries as the kick wave sweeps (292,829 in-flight gens at 600 s ≈ one per kick), so in-flight counters carry the cadence (slack-20-s returns 0.68 a gen) while build-born counters freeze. Hot set ≈ 100 rows read every frame (readouts/frame 110 amortized at 600 s); far field once per cap (273 s).
+- **The demotion arithmetic** (per body, steady, from the wheel's measured cadence): 60/16384 = 0.0037 returns/body/wall-s at any slack below the cap → **16 cores at 1e9** (compile 4.4 µs, c4d3) against the oracle gather's 440; **0 cores at slack = the cap**. The live set the policy then holds: ~100 hot rows + 1200/16384 ≈ 7% of the far field at a 20-s slack (measured live@20 s = 22.6% averaged over a 600-s flight, still ramp-dominated) + the event set.
+- **Controls reproduce exactly** (the record regenerates): none-arm 99,813 and engine 897,278 bit-identical to the checker's; sparse-arm 4/100,032, live 10/20/60%, 199,678 = the first author's table; engine read counts identical across none/sparse/rows at 1e5 (the engine is deterministic and view-independent); misses = 0 in every arm.
+- **Honest cost:** over a 20-s window the row-set does *more* total decodes than the once-per-10-s oracle arm (3.3 M vs 1.7 M — it serves 1,200 frames against 2) and the fill is one full read (0.46 s at 1e5, 1.47 s at 3e5, birth-frame reads in census terms); the residency win is the gap law, not the read count. Run-average readouts/frame at 20 s: 922 (1e5) vs 2,590 (3e5) — fill-transient dominated; the fill-amortized steady is ~110/frame at 1e5 (600-s arm); no long 3e5 arm was flown.
+
+## Predictions (`predictions.md`, written after one N=1000/6 s smoke, before every arm above)
+- **P1 held:** zero-post-birth ≤ 2% → 4/100,032 (the wheel's ramp reads everyone early, exactly as predicted from the ×4 backoff).
+- **P2 split:** live@1f held everywhere (0.1%); live@1s/@5s/@20s **failed at the 20-s horizon** (15.3/50.4/100% against ≤15/35/60% — the ramp sits inside the window) and **held at the 300/600-s horizons** (2.5/10.0/31.1% and 1.7/6.8/22.6%); live@cap **wrong in sign** (measured ~1.0: the cap *is* the re-read interval, so the policy keeps everyone live at its own quantum by construction — the memory win lives at smaller slacks).
+- **P3 held (the gold number):** ≤ 0.01 returns/gen at 5 s over 20 s → 0.00026; steady ≈ 0.0033–0.0066/body/wall-s → 16 cores at 1e9 predicted 29, measured in band; **0 view-driven returns at slack 16384** → measured 0 everywhere.
+- **P4 held only fill-amortized:** raw run-average readouts/frame 922 vs 2,590 (2.8×, over my 2× band); after subtracting the fill's amortized readouts ≈ 197 vs 415 (2.1×, borderline); no steady 3e5 measurement.
+- **P5 held exactly:** both controls and the engine determinism reproduced digit for digit.
+- **P6 held:** the dominant read bucket at 20 s is 16–63 reads a gen (fill ~9 + ramp ~5–7).
+
+## What would make it wrong
+The census defines "read" as a decode through the two public funnels (misses = 0 says nothing else reads today). The row-set arm never runs its exactness audit — the audit's gather reads every body and would contaminate the census — so multi-minute display staleness of far rows (refresh only at the cap) is priced by the flyable-frame page's audit, not this one; the same page owns the fill transient and the un-flown zoom re-window. The steady 16-core figure is the wheel's cadence (one read per 16,384 frames per far body) projected to 1e9 with the rung's compile cost — the integrator re-measures on the M1. If the row-set policy changes (DUE_CAP, backoff, zoom law), the numbers move with it: the claim is "demote at the *policy's* quantum", not "at 16,384". The live-fraction metric mixes gen populations (build-born vs history-held in-flight) and is quoted only where the ramp is out of the window.
+
+## Cost of adoption / fit
+Nothing new to build: the adoption is the flyable-frame gold's own patch (gather_rows + policy), plus a demotion timer set at the wheel's quantum — measured here as free on the view side. PRINCIPLES #6 "Store the generator, not the generated": demotion is exactly that, and the census now says the *view's* reader decides when it is safe; #3 "compute only surprises … views are derived, never evolved": the row-set's gap law is the display's own quantum extended to residency; #19 "one law at every scale": the same wheel constant serves the wire (2df1) and the memory tier (here).
+
+## The lens
+The second-author lens inherited both instruments as-is and nearly mis-read the frozen build-born counters as "reads stop": the wheel's steady reads land on each body's *current* generation, and only its own idle histogram (added mid-run, disclosed) made the per-body law visible — the 5 October lesson (count distinct bodies, not funnel events) applied one more time. Not flown: the 1e6 arm (the box's 2 GB watchdog; the 3e5 arm carries scale), a steady 3e5 arm, and the exactness audit at belt scale.
