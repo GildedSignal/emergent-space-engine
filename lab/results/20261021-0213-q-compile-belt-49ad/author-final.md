@@ -1,0 +1,3 @@
+The belt paAll deliverables are in place and the tree outside the run folder is untouched (only the untracked `lab/results/` folder — `run.sh` will capture it as the patch). Timeline checks out: `predictions.md` (02:19) predates the first audit run, which failed with 13 missing tokens, exactly the falsifier it was meant to be; the final audit and `regen.sh` both pass green.
+
+**The belt wiki page is compiled back under budget — current best 69 → 7 non-blank lines, page 162 → 71 — with all 242 digit-bearing tokens of the old page kept, the 19 run lines byte-identical, and all 24 citations resolving (`lab/results/20261021-0213-q-compile-belt-49ad/`: `wiki/belt.md`, `check_compile.py`, `regen.sh`, `predictions.md`, `dossier.md`).**
