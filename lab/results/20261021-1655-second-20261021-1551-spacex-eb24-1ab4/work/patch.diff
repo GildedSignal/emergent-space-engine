@@ -1,0 +1,542 @@
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..9acccf97 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -10,6 +10,7 @@ use crate::num::{Res, Tick};
+ use emergent_space::{orbit::Scalar, Tube};
+ use std::collections::VecDeque;
+ use std::mem::size_of;
++use std::sync::atomic::{AtomicU64, Ordering};
+ 
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub enum Kind {
+@@ -114,33 +115,68 @@ pub trait BodyStore: Send + Sync {
+     fn droppable_until(&self, i: usize) -> Option<Tick>;
+     /// Body `i`'s current binding and every retained one, oldest first (what a reader can still ask for).
+     fn bindings_of(&self, i: usize) -> Vec<Binding>;
++
++    /// The store's epoch: 0 forever for stores that never change after the build (the default).
++    fn epoch(&self) -> u64 {
++        0
++    }
++
++    /// Body `i`'s own epoch (bumped by every mutation of its record or history), and how many
++    /// bodies have been pushed. The scan's pre-check reads them: same epochs over the ids it
++    /// read ⇒ every `binding_at`/`alive`/`born`/`doll` answer it took is unchanged.
++    fn epoch_of(&self, _i: usize) -> u64 {
++        0
++    }
++    fn pushes(&self) -> u64 {
++        0
++    }
+ }
+ 
+ #[derive(Default)]
+ pub struct PlainBodies {
+     recs: Vec<BodyRec>,
+     history: Vec<VecDeque<Segment>>,
++    /// Bumped by every mutation (put, push, retire, prune): the store's epoch. Readers that hold
++    /// no reference (the scan's pre-check) read it to learn "nothing resolved since" without
++    /// re-reading anything: same epoch ⇒ every `binding_at`/`alive`/`len` answer is unchanged.
++    epoch: AtomicU64,
++    /// The same certificate per body (put, retire, prune bump `i`'s; push appends), and the push
++    /// count (the fallback walk reads `0..len`, so its length is part of the answer).
++    epochs: Vec<AtomicU64>,
++    pushes: AtomicU64,
+ }
+ 
+ impl BodyStore for PlainBodies {
+     fn len(&self) -> usize {
+         self.recs.len()
+     }
++    fn epoch(&self) -> u64 {
++        self.epoch.load(Ordering::Relaxed)
++    }
+     fn rec(&self, i: usize) -> BodyRec {
+         self.recs[i].clone()
+     }
+     fn put(&mut self, i: usize, r: BodyRec) {
++        self.epoch.fetch_add(1, Ordering::Relaxed);
++        self.epochs[i].fetch_add(1, Ordering::Relaxed);
+         self.recs[i] = r;
+     }
+     fn push(&mut self, r: BodyRec) -> usize {
++        self.epoch.fetch_add(1, Ordering::Relaxed);
++        self.pushes.fetch_add(1, Ordering::Relaxed);
+         self.recs.push(r);
+         self.history.push(VecDeque::new());
++        self.epochs.push(AtomicU64::new(0));
+         self.recs.len() - 1
+     }
+     fn retire(&mut self, i: usize, seg: Segment) {
++        self.epoch.fetch_add(1, Ordering::Relaxed);
++        self.epochs[i].fetch_add(1, Ordering::Relaxed);
+         self.history[i].push_back(seg);
+     }
+     fn prune(&mut self, i: usize, before: Tick) -> usize {
++        self.epoch.fetch_add(1, Ordering::Relaxed);
++        self.epochs[i].fetch_add(1, Ordering::Relaxed);
+         let h = &mut self.history[i];
+         let mut gone = 0;
+         while h.len() > 1 && h[0].until < before {
+@@ -149,6 +185,12 @@ impl BodyStore for PlainBodies {
+         }
+         gone
+     }
++    fn epoch_of(&self, i: usize) -> u64 {
++        self.epochs[i].load(Ordering::Relaxed)
++    }
++    fn pushes(&self) -> u64 {
++        self.pushes.load(Ordering::Relaxed)
++    }
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
+         let r = &self.recs[i];
+         if t >= r.b.event_time {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..8837e0e1 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -73,9 +73,123 @@ struct Scan {
+     me: Binding,
+     /// Every body that passed the cheap tests (alive, born, in the player's doll, with a reach), with its binding.
+     candidates: Vec<(usize, Binding, Scalar)>,
++    /// The pre-check's certificate, snapshotted at capture: the store's global epoch, the
++    /// player's own row's epoch, the near list it read with every member row's epoch, the doll's
++    /// registration epoch (or the push count, when the walk was the `0..len` fallback), and how
++    /// many ids the walk read. Same values later ⇒ every reading the walk would take again is
++    /// bit-for-bit what this scan already holds.
++    epoch: u64,
++    epoch_me: u64,
++    near: Vec<usize>,
++    near_epochs: Vec<u64>,
++    reg: u64,
++    pushes: u64,
++    fallback: bool,
++    near_len: usize,
+     found: OnceLock<Vec<Encounter>>,
+ }
+ 
++/// The scan's own instrument (od 1 of the scan-news page): where the walk's time goes, and how
++/// much of it the memo hits after the fact. Every counter is process-wide; `scan_report` prints
++/// them. Enabled by `ES_SCAN_SPLIT=1`; the pre-check is `ES_SCAN_PRECHECK=1`.
++pub mod stat {
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++    static SPLIT: AtomicBool = AtomicBool::new(false);
++    static PRECHECK: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
++
++    pub fn split() -> bool {
++        SPLIT.load(Ordering::Relaxed)
++    }
++    pub fn precheck() -> u8 {
++        PRECHECK.load(Ordering::Relaxed)
++    }
++    /// Called once before the flight (the env read stays off the hot path).
++    pub fn arm() {
++        SPLIT.store(std::env::var("ES_SCAN_SPLIT").is_ok(), Ordering::Relaxed);
++        PRECHECK.store(std::env::var("ES_SCAN_PRECHECK").ok().and_then(|v| v.parse().ok()).unwrap_or(0), Ordering::Relaxed);
++    }
++
++    pub static CAPTURES: AtomicU64 = AtomicU64::new(0);
++    pub static ME_NONE: AtomicU64 = AtomicU64::new(0);
++    pub static RADIAL_CALLS: AtomicU64 = AtomicU64::new(0);
++    pub static RADIAL_NONE: AtomicU64 = AtomicU64::new(0);
++    pub static NEAR_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static NEAR_MAX: AtomicU64 = AtomicU64::new(0);
++    pub static CAND_SUM: AtomicU64 = AtomicU64::new(0);
++    pub static CAND_MAX: AtomicU64 = AtomicU64::new(0);
++    pub static ME_NS: AtomicU64 = AtomicU64::new(0);
++    pub static RADIAL_NS: AtomicU64 = AtomicU64::new(0);
++    pub static LOOP_NS: AtomicU64 = AtomicU64::new(0);
++    pub static LOOKUP_NS: AtomicU64 = AtomicU64::new(0);
++    pub static LOOKUP_CALLS: AtomicU64 = AtomicU64::new(0);
++    pub static MEMO_HITS: AtomicU64 = AtomicU64::new(0);
++    pub static MEMO_WALK_NS: AtomicU64 = AtomicU64::new(0);
++    pub static MEMO_NEAR: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_HITS: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_ELIG: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_MISS_ME: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_MISS_REG: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_MISS_NEAR: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_NEAR: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_CAND: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_QUIET_SEEN: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_QUIET: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_ME1: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_OTHER_MIN: AtomicU64 = AtomicU64::new(u64::MAX);
++    pub static PRE_NEAR_FAIL: AtomicU64 = AtomicU64::new(0);
++    pub static PRE_QUIET_NEAR_FAIL: AtomicU64 = AtomicU64::new(0);
++
++    pub fn bump(c: &AtomicU64, by: u64) {
++        c.fetch_add(by, Ordering::Relaxed);
++    }
++
++    /// Keeps the running minimum (u64::MAX = no sample yet).
++    pub fn min_to(c: &AtomicU64, v: u64) {
++        let mut cur = c.load(Ordering::Relaxed);
++        while v < cur {
++            match c.compare_exchange_weak(cur, v, Ordering::Relaxed, Ordering::Relaxed) {
++                Ok(_) => break,
++                Err(actual) => cur = actual,
++            }
++        }
++    }
++
++
++    /// One `scanpre:` line: the walk's attribution and the reuse law.
++    pub fn report() {
++        let g = |c: &AtomicU64| c.load(Ordering::Relaxed);
++        let cap = g(&CAPTURES).max(1);
++        println!(
++            "scanpre: captures {cap} me_none {} | radial calls {} fallback {} | near/capture {} (max {}) cands/capture {} (max {}) | ns/capture me {} radial {} loop {} lookup {} (calls {} build {}) | memo hits {} walk_ns {} near {} | pre hits {} near {} cands {} | v2 eligible {} miss_me {} miss_reg {} miss_near {} (rest)",
++            g(&ME_NONE),
++            g(&RADIAL_CALLS), g(&RADIAL_NONE),
++            g(&NEAR_SUM) / cap, g(&NEAR_MAX), g(&CAND_SUM) / cap, g(&CAND_MAX),
++            g(&ME_NS) / cap, g(&RADIAL_NS) / cap, g(&LOOP_NS) / cap, g(&LOOKUP_NS) / cap, g(&LOOKUP_CALLS),
++            g(&LOOP_NS).saturating_sub(g(&LOOKUP_NS)) / cap,
++            g(&MEMO_HITS), g(&MEMO_WALK_NS), g(&MEMO_NEAR),
++            g(&PRE_HITS), g(&PRE_NEAR), g(&PRE_CAND),
++            g(&PRE_ELIG), g(&PRE_MISS_ME), g(&PRE_MISS_REG), g(&PRE_ELIG).saturating_sub(g(&PRE_MISS_ME)).saturating_sub(g(&PRE_MISS_REG)),
++        );
++    }
++
++    /// One `scanquiet:` line: the quiet-pair decomposition (1ab4).
++    pub fn report_quiet() {
++        let g = |c: &AtomicU64| c.load(Ordering::Relaxed);
++        let min = g(&PRE_OTHER_MIN);
++        println!(
++            "scanquiet: eligible pairs {} | all-dirt-mine {} (dm==1: {}) | other-dirt min {} ({} pairs sampled) | near-epoch fail {} (quiet ones {})",
++            g(&PRE_QUIET_SEEN),
++            g(&PRE_QUIET),
++            g(&PRE_ME1),
++            if min == u64::MAX { -1i64 } else { min as i64 },
++            g(&PRE_QUIET_SEEN),
++            g(&PRE_NEAR_FAIL),
++            g(&PRE_QUIET_NEAR_FAIL),
++        );
++    }
++}
++
+ impl Scan {
+     fn same_inputs(&self, body: usize, t: Tick, interval: Tick, me: &Binding, candidates: &[(usize, Binding, Scalar)]) -> bool {
+         self.body == body
+@@ -154,16 +268,143 @@ impl Scan {
+     }
+ }
+ 
++use std::time::Instant;
++
+ impl Encounters for PlayerNeighbourhood {
+     fn find(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Vec<Encounter> {
+         self.capture(ctx, body, t, interval).map_or_else(Vec::new, |held| held.answer())
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
+-        let me = ctx.bodies.binding_at(body, t)?;
++        // The pre-check (scan-news od 3): same body, tick and interval as the last scan, and the
++        // store's epoch unchanged since — nothing was put, pushed, retired or pruned, so every
++        // reading the walk would take (the player's binding, the alive and born tests, the radial
++        // window, each candidate's `binding_at`) is bit-for-bit what the last scan holds. This is
++        let pre = stat::precheck();
++        if pre > 0 {
++            let last = self.last.lock().expect("the finder's last scan");
++            if let Some(l) = last
++                .as_ref()
++                .filter(|l| l.body == body && l.t == t && l.interval == interval)
++                // (1ab4) The quiet-pair control: on every eligible pair (same body, tick,
++                // interval), decompose the store's dirt since the last capture into the
++                // player's own row's share and everything else's. `dg == dm` ⇒ the only
++                // mutations anywhere since the last capture are the player's own; `dm == 1`
++                // there ⇒ exactly the one `put` of the apply that precedes this capture and
++                // nothing else in the whole store — the quietest pair the plane can offer.
++                // v1 reads `dg` alone and misses whenever `dg ≥ 1`, which the player's own
++                // put guarantees at this call site; these counters measure it.
++                .filter(|l| {
++                    stat::bump(&stat::PRE_QUIET_SEEN, 1);
++                    let dg = ctx.bodies.epoch().saturating_sub(l.epoch);
++                    let dm = ctx.bodies.epoch_of(body).saturating_sub(l.epoch_me);
++                    if dg == dm {
++                        stat::bump(&stat::PRE_QUIET, 1);
++                        if dm == 1 {
++                            stat::bump(&stat::PRE_ME1, 1);
++                        }
++                    }
++                    stat::min_to(&stat::PRE_OTHER_MIN, dg.saturating_sub(dm));
++                    true
++                })
++                .filter(|l| match pre {
++                    // v1: one global counter — nothing anywhere resolved since.
++                    1 => ctx.bodies.epoch() == l.epoch,
++                    // v2: the exact domain — the player's row, every near row, the near list
++                    // itself (the doll's registration epoch, or the push count on the fallback
++                    // walk, whose length is `0..len`).
++                    // v3: the player's own row cannot carry an epoch (the capture follows the
++                    // player's apply, which always puts it), so `me` is read once and compared
++                    // by value — the memo's own test, at the walk's cheapest term.
++                    3 => {
++                        stat::bump(&stat::PRE_ELIG, 1);
++                        let me = ctx.bodies.binding_at(body, t);
++                        if !me.as_ref().is_some_and(|m| same(&l.me, m)) {
++                            stat::bump(&stat::PRE_MISS_ME, 1);
++                            return false;
++                        }
++                        drop(me);
++                        let list_ok = if l.fallback { ctx.bodies.pushes() == l.pushes } else { ctx.radial.reg_epoch(l.me.doll) == l.reg };
++                        if !list_ok {
++                            stat::bump(&stat::PRE_MISS_REG, 1);
++                            return false;
++                        }
++                        let near_ok = l.near.len() == l.near_epochs.len() && l.near.iter().zip(&l.near_epochs).all(|(j, e)| ctx.bodies.epoch_of(*j) == *e);
++                        if !near_ok {
++                            stat::bump(&stat::PRE_NEAR_FAIL, 1);
++                        }
++                        near_ok
++                    }
++                    // (1ab4) v4: v3 with the player's own row excluded from the near-list
++                    // certificate. The wired v3 conflates two mechanisms: the player's put
++                    // (always dirty, and the player is IN its own radial window's list, which
++                    // the walk skips by `j == body` but the epoch snapshot does not) and
++                    // genuine near-row rebinds. This form separates them: it fires exactly on
++                    // the pairs where no row but the player's own has mutated — the value-quiet
++                    // domain the memo hits after the walk.
++                    4 => {
++                        stat::bump(&stat::PRE_ELIG, 1);
++                        let me = ctx.bodies.binding_at(body, t);
++                        if !me.as_ref().is_some_and(|m| same(&l.me, m)) {
++                            stat::bump(&stat::PRE_MISS_ME, 1);
++                            return false;
++                        }
++                        drop(me);
++                        let list_ok = if l.fallback { ctx.bodies.pushes() == l.pushes } else { ctx.radial.reg_epoch(l.me.doll) == l.reg };
++                        if !list_ok {
++                            stat::bump(&stat::PRE_MISS_REG, 1);
++                            return false;
++                        }
++                        let near_ok = l.near.len() == l.near_epochs.len() && l.near.iter().zip(&l.near_epochs).all(|(j, e)| *j == body || ctx.bodies.epoch_of(*j) == *e);
++                        if !near_ok {
++                            stat::bump(&stat::PRE_NEAR_FAIL, 1);
++                            let (dg, dm) = (ctx.bodies.epoch().saturating_sub(l.epoch), ctx.bodies.epoch_of(body).saturating_sub(l.epoch_me));
++                            if dg == dm {
++                                stat::bump(&stat::PRE_QUIET_NEAR_FAIL, 1);
++                            }
++                        }
++                        near_ok
++                    }
++                    _ => {
++                        stat::bump(&stat::PRE_ELIG, 1);
++                        if ctx.bodies.epoch_of(body) != l.epoch_me {
++                            stat::bump(&stat::PRE_MISS_ME, 1);
++                            return false;
++                        }
++                        let list_ok = if l.fallback { ctx.bodies.pushes() == l.pushes } else { ctx.radial.reg_epoch(l.me.doll) == l.reg };
++                        if !list_ok {
++                            stat::bump(&stat::PRE_MISS_REG, 1);
++                            return false;
++                        }
++                        l.near.len() == l.near_epochs.len() && l.near.iter().zip(&l.near_epochs).all(|(j, e)| ctx.bodies.epoch_of(*j) == *e)
++                    }
++                })
++            {
++                stat::bump(&stat::PRE_HITS, 1);
++                stat::bump(&stat::PRE_NEAR, l.near_len as u64);
++                stat::bump(&stat::PRE_CAND, l.candidates.len() as u64);
++                return Some(l.clone() as Arc<dyn Held>);
++            }
++        }
++        let split = stat::split();
++        stat::bump(&stat::CAPTURES, 1);
++        let (t_me, me) = (Instant::now(), ctx.bodies.binding_at(body, t));
++        let me = match me {
++            Some(m) => m,
++            None => {
++                if split {
++                    stat::bump(&stat::ME_NONE, 1);
++                }
++                return None;
++            }
++        };
++        if split {
++            stat::bump(&stat::ME_NS, t_me.elapsed().as_nanos() as u64);
++        }
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+         // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        let t_radial = Instant::now();
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+@@ -171,13 +412,37 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let radial_ns = if split { t_radial.elapsed().as_nanos() as u64 } else { 0 };
++        if split {
++            stat::bump(&stat::RADIAL_CALLS, 1);
++            if near.is_none() {
++                stat::bump(&stat::RADIAL_NONE, 1);
++            }
++            stat::bump(&stat::RADIAL_NS, radial_ns);
++        }
++        let near_len = near.as_ref().map_or_else(|| ctx.bodies.len(), |ids| ids.len());
++        // The ids the walk will read (the window's list, or every body on the fallback walk),
++        // snapshotted with every row's epoch: the v2 pre-check's certificate.
++        let near_ids: Vec<usize> = near.as_ref().map_or_else(|| (0..ctx.bodies.len()).collect(), |ids| ids.clone());
++        let near_epochs: Vec<u64> = near_ids.iter().map(|j| ctx.bodies.epoch_of(*j)).collect();
++        let (fallback, doll, reg, pushes, epoch_me) = (near.is_none(), me.doll, ctx.radial.reg_epoch(me.doll), ctx.bodies.pushes(), ctx.bodies.epoch_of(body));
+         let mut candidates = Vec::new();
++        let mut lookup_ns: u64 = 0;
++        let t_loop = Instant::now();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+             }
+-            let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++            let (t_l, other) = (Instant::now(), ctx.bodies.binding_at(j, t));
++            let other = match other {
++                Some(o) => o,
++                None => continue,
++            };
++            if split {
++                lookup_ns += t_l.elapsed().as_nanos() as u64;
++                stat::bump(&stat::LOOKUP_CALLS, 1);
++            }
+             if other.doll != me.doll {
+                 continue;
+             }
+@@ -187,12 +452,45 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        let loop_ns = if split { t_loop.elapsed().as_nanos() as u64 } else { 0 };
++        if split {
++            stat::bump(&stat::NEAR_SUM, near_len as u64);
++            if (near_len as u64) > stat::NEAR_MAX.load(std::sync::atomic::Ordering::Relaxed) {
++                stat::NEAR_MAX.store(near_len as u64, std::sync::atomic::Ordering::Relaxed);
++            }
++            stat::bump(&stat::CAND_SUM, candidates.len() as u64);
++            if candidates.len() as u64 > stat::CAND_MAX.load(std::sync::atomic::Ordering::Relaxed) {
++                stat::CAND_MAX.store(candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
++            }
++            stat::bump(&stat::LOOP_NS, loop_ns);
++            stat::bump(&stat::LOOKUP_NS, lookup_ns);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
++            if split {
++                stat::bump(&stat::MEMO_HITS, 1);
++                stat::bump(&stat::MEMO_WALK_NS, t_me.elapsed().as_nanos() as u64);
++                stat::bump(&stat::MEMO_NEAR, near_len as u64);
++            }
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+-        let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
++        let scan = Arc::new(Scan {
++            body,
++            t,
++            interval,
++            me,
++            candidates,
++            epoch: ctx.bodies.epoch(),
++            epoch_me,
++            near: near_ids,
++            near_epochs,
++            reg,
++            pushes,
++            fallback,
++            near_len,
++            found: OnceLock::new(),
++        });
+         *last = Some(scan.clone());
+         Some(scan)
+     }
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..233a396d 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -54,11 +54,16 @@ struct DollIndex {
+ #[derive(Default)]
+ pub struct Radial {
+     dolls: Vec<DollIndex>,
+-    /// Per body: its registration in the first doll it was seen in; more dolls (a ship captured by a planet's doll, rare) in `extra`.
+     first: Vec<Reg>,
++    /// More dolls (a ship captured by a planet's doll, rare): (body, doll) → its registration there.
+     extra: HashMap<(u32, u16), Reg>,
+     /// Bodies registered (with or without a range).
+     pub bodies: usize,
++    /// Per doll: bumped on every change to that doll's index (bin moves, unbounded moves, cap
++    /// rises) and on any change to the whole-store facts its `candidates` fence reads (the
++    /// registered-body count, the doll list itself). The scan's pre-check reads it: same epoch
++    /// ⇒ the same window returns the same near list.
++    regs: Vec<std::sync::atomic::AtomicU64>,
+ }
+ 
+ /// The radial range `[lo, hi]` a binding's readout can have (doll units) and a bound on its speed (c = 1): None where the tube is no
+@@ -96,10 +101,29 @@ impl Radial {
+     fn doll_mut(&mut self, d: u16) -> &mut DollIndex {
+         if self.dolls.len() <= d as usize {
+             self.dolls.resize_with(d as usize + 1, DollIndex::default);
++            self.regs.resize_with(d as usize + 1, Default::default);
++            self.touch_all();
+         }
+         &mut self.dolls[d as usize]
+     }
+ 
++    fn touch(&mut self, d: u16) {
++        if let Some(r) = self.regs.get_mut(d as usize) {
++            r.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++    }
++
++    fn touch_all(&mut self) {
++        for r in &self.regs {
++            r.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++    }
++
++    /// The doll's registration epoch (the scan's near-list certificate).
++    pub fn reg_epoch(&self, d: u16) -> u64 {
++        self.regs.get(d as usize).map_or(0, |r| r.load(std::sync::atomic::Ordering::Relaxed))
++    }
++
+     fn reg(&self, i: usize, d: u16) -> Reg {
+         let f = self.first.get(i).copied().unwrap_or(NONE);
+         if f.doll == d {
+@@ -178,6 +202,7 @@ impl Radial {
+             }
+         }
+         self.set_reg(i, new);
++        self.touch(d);
+     }
+ 
+     /// Body `i` has the binding `b` now (a creation, an event): register it, widening what is registered of it in `b`'s doll to cover it.
+@@ -188,10 +213,16 @@ impl Radial {
+         let old = self.reg(i, d);
+         let want = match range {
+             Some((lo, hi, v)) => {
+-                let idx = self.doll_mut(d);
+-                idx.radius_cap = idx.radius_cap.max(radius);
+-                idx.speed_cap = idx.speed_cap.max(v);
+-                let (blo, bhi) = (bin_of(lo.max(1e-30)), bin_of(hi));
++                let (blo, bhi, caps_rose) = {
++                    let idx = self.doll_mut(d);
++                    let (rc, sc) = (idx.radius_cap, idx.speed_cap);
++                    idx.radius_cap = idx.radius_cap.max(radius);
++                    idx.speed_cap = idx.speed_cap.max(v);
++                    (bin_of(lo.max(1e-30)), bin_of(hi), idx.radius_cap != rc || idx.speed_cap != sc)
++                };
++                if caps_rose {
++                    self.touch(d);
++                }
+                 if old.doll == d && old.lo != UNBOUNDED {
+                     Reg { doll: d, lo: old.lo.min(blo), hi: old.hi.max(bhi) }
+                 } else if old.doll == d {
+@@ -237,6 +268,7 @@ impl Radial {
+             if want != self.reg(i, d) {
+                 self.move_reg(i, d, want);
+             }
++            self.touch(d);
+         }
+     }
+ 
