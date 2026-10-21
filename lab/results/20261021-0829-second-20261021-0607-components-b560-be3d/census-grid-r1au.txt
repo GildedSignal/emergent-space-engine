@@ -1,0 +1,20 @@
+arm_dx | fires(min/med) | g_fork(min/med/max or none<lo/hi>) | cofire_idx_frac | mean_distinct_dues | step_H_med | anchors_eq | steps_eq
+arm dx=0 anchor_spread=0 step_spread=0 first_due_spread=0 last_due_spread=0 light_off=0
+      0 | 440/ 440 | none<440/440>              | 1.0000 |   1.00 | 34359738368 | true | true
+arm dx=0 fires=[440, 440, 440, 440, 440, 440, 440, 440, 440, 440, 440, 440, 440, 440, 440, 440] forks=[] distinct_mean=1.00
+arm dx=100 anchor_spread=0 step_spread=0 first_due_spread=0 last_due_spread=0 light_off=1500
+    100 | 300/ 300 | none<300/300>              | 1.0000 |   1.00 | 34359738368 | true | true
+arm dx=100 fires=[300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300] forks=[] distinct_mean=1.00
+arm dx=1000 anchor_spread=0 step_spread=0 first_due_spread=0 last_due_spread=0 light_off=15000
+   1000 | 300/ 300 | none<300/300>              | 1.0000 |   1.00 | 34359738368 | true | true
+arm dx=1000 fires=[300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300] forks=[] distinct_mean=1.00
+arm dx=10000 anchor_spread=0 step_spread=0 first_due_spread=0 last_due_spread=0 light_off=150000
+  10000 | 300/ 300 | none<300/300>              | 1.0000 |   1.00 | 34359738368 | true | true
+arm dx=10000 fires=[300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300] forks=[] distinct_mean=1.00
+arm dx=100000 anchor_spread=0 step_spread=0 first_due_spread=0 last_due_spread=0 light_off=1500000
+ 100000 | 300/ 300 | none<300/300>              | 1.0000 |   1.00 | 34359738368 | true | true
+arm dx=100000 fires=[300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300] forks=[] distinct_mean=1.00
+arm dx=1000000 anchor_spread=0 step_spread=0 first_due_spread=0 last_due_spread=0 light_off=15000000
+1000000 | 300/ 300 | none<300/300>              | 1.0000 |   1.00 | 34359738368 | true | true
+arm dx=1000000 fires=[300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300] forks=[] distinct_mean=1.00
+aligned pair (2 planets, same r/e, dx=1e6): co-fire censuses 441/441 (frac 1.0000), stream fork idx None, fires 300/300, steps 34359738368/34359738368
