@@ -1,0 +1,96 @@
+== build
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.89s
+  Executable unittests src/main.rs (/home/glmlab/lab-target-0/release/deps/xtask-b057117972fdd8dc)
+== 1. baseline belt flight (gate off): must reproduce 15d7's frozen record bit for bit
+N 30000 seed 1 horizon 5000 gs reached 500000 gs | digest f9af771e9887a6fbc704a60b567aff26 | tubes 468b70619f8c08090acf7bfa36eecbf8 | kicks 1290749 encounters 24264 contacts 0
+boundary combs 1267977 (clock-stepped 510004) | fires: crash 0 leave 0 handoff 18 | kick-surface fires 0 | gate: cut 0 keep 0
+wall 113.0 s | cut off
+== 2. the deletion, same flight (ES_BOUNDARY_CUT=1)
+N 30000 seed 1 horizon 5000 gs reached 500000 gs | digest 3c9236a6dc0c246c083d9fda48f8c16d | tubes 468b70619f8c08090acf7bfa36eecbf8 | kicks 1290749 encounters 24264 contacts 0
+boundary combs 757973 (clock-stepped 0) | fires: crash 0 leave 0 handoff 18 | kick-surface fires 0 | gate: cut 531287 keep 0
+wall 106.5 s | cut ON
+fire traces IDENTICAL (18 lines)
+== 3. held-out seed 7 (the first checker's own case), both arms, 200k gs
+N 30000 seed 7 horizon 2000 gs reached 200000 gs | digest 91b715d050b4cd2d8ba24787da9b3645 | tubes 8a7678c9f13fb4b30a9b8d6b66a1accb | kicks 509005 encounters 10518 contacts 0
+boundary combs 500639 (clock-stepped 203311) | fires: crash 0 leave 0 handoff 11 | kick-surface fires 0 | gate: cut 0 keep 0
+wall 45.9 s | cut off
+N 30000 seed 7 horizon 2000 gs reached 200000 gs | digest 27c2f6ae959eb33075b97e7656fc5bf1 | tubes 8a7678c9f13fb4b30a9b8d6b66a1accb | kicks 509005 encounters 10518 contacts 0
+boundary combs 297328 (clock-stepped 0) | fires: crash 0 leave 0 handoff 11 | kick-surface fires 0 | gate: cut 208275 keep 0
+wall 43.8 s | cut ON
+seed-7 fire traces IDENTICAL (11 lines)
+== 4. adversarial arm: B13's assist draws (the 3b88 wall class), gate off vs on
+draw 0: q 5.26 R_p, v_inf 13.4 km/s | identical true | near-escape exit no | gate cut 354 keep 256 | combs 256 (clock 256) | baseline combs 610 (clock 610) | alive true kicks 610 refused 0 lost 0
+draw 1: q 13.80 R_p, v_inf 10.1 km/s | identical true | near-escape exit no | gate cut 550 keep 0 | combs 0 (clock 0) | baseline combs 550 (clock 550) | alive true kicks 550 refused 0 lost 0
+draw 2: q 33.38 R_p, v_inf 14.6 km/s | identical true | near-escape exit YES | gate cut 0 keep 261 | combs 260 (clock 260) | baseline combs 260 (clock 260) | alive true kicks 261 refused 0 lost 0
+draw 3: q 33.25 R_p, v_inf 6.2 km/s | identical true | near-escape exit no | gate cut 44 keep 577 | combs 577 (clock 577) | baseline combs 620 (clock 620) | alive true kicks 621 refused 0 lost 0
+draw 4: q 18.05 R_p, v_inf 9.7 km/s | identical true | near-escape exit no | gate cut 573 keep 0 | combs 0 (clock 0) | baseline combs 573 (clock 573) | alive true kicks 573 refused 0 lost 0
+draw 5: q 7.44 R_p, v_inf 6.3 km/s | identical true | near-escape exit no | gate cut 658 keep 129 | combs 129 (clock 129) | baseline combs 787 (clock 787) | alive true kicks 787 refused 0 lost 0
+draw 7: q 9.27 R_p, v_inf 8.2 km/s | identical true | near-escape exit YES | gate cut 238 keep 325 | combs 324 (clock 324) | baseline combs 562 (clock 562) | alive true kicks 563 refused 0 lost 0
+draw 8: q 5.45 R_p, v_inf 20.0 km/s | identical true | near-escape exit YES | gate cut 0 keep 417 | combs 417 (clock 417) | baseline combs 417 (clock 417) | alive true kicks 417 refused 0 lost 0
+draw 9: q 32.47 R_p, v_inf 16.9 km/s | identical true | near-escape exit YES | gate cut 0 keep 256 | combs 255 (clock 255) | baseline combs 255 (clock 255) | alive true kicks 256 refused 0 lost 0
+draw 10: q 14.51 R_p, v_inf 9.2 km/s | identical true | near-escape exit no | gate cut 583 keep 0 | combs 0 (clock 0) | baseline combs 582 (clock 582) | alive true kicks 583 refused 0 lost 0
+draw 11: q 5.48 R_p, v_inf 10.5 km/s | identical true | near-escape exit no | gate cut 95 keep 508 | combs 508 (clock 508) | baseline combs 602 (clock 602) | alive true kicks 603 refused 0 lost 0
+draw 14: q 9.74 R_p, v_inf 14.8 km/s | identical true | near-escape exit no | gate cut 462 keep 0 | combs 0 (clock 0) | baseline combs 462 (clock 462) | alive true kicks 462 refused 0 lost 0
+draw 16: q 7.68 R_p, v_inf 6.3 km/s | identical true | near-escape exit no | gate cut 708 keep 140 | combs 140 (clock 140) | baseline combs 848 (clock 848) | alive true kicks 848 refused 0 lost 0
+draw 17: q 3.84 R_p, v_inf 13.7 km/s | identical true | near-escape exit no | gate cut 353 keep 303 | combs 303 (clock 303) | baseline combs 656 (clock 656) | alive true kicks 656 refused 0 lost 0
+draw 18: q 17.90 R_p, v_inf 9.5 km/s | identical true | near-escape exit no | gate cut 576 keep 0 | combs 0 (clock 0) | baseline combs 576 (clock 576) | alive true kicks 576 refused 0 lost 0
+draw 19: q 27.73 R_p, v_inf 17.7 km/s | identical true | near-escape exit no | gate cut 56 keep 203 | combs 203 (clock 203) | baseline combs 259 (clock 259) | alive true kicks 259 refused 0 lost 0
+draw 20: q 20.27 R_p, v_inf 6.5 km/s | identical true | near-escape exit no | gate cut 489 keep 0 | combs 0 (clock 0) | baseline combs 489 (clock 489) | alive true kicks 489 refused 0 lost 0
+draw 21: q 2.26 R_p, v_inf 12.7 km/s | identical true | near-escape exit YES | gate cut 241 keep 466 | combs 465 (clock 465) | baseline combs 706 (clock 706) | alive true kicks 707 refused 0 lost 0
+draw 22: q 2.64 R_p, v_inf 19.1 km/s | identical true | near-escape exit YES | gate cut 0 keep 546 | combs 546 (clock 546) | baseline combs 546 (clock 546) | alive true kicks 546 refused 0 lost 0
+draw 23: q 14.34 R_p, v_inf 16.3 km/s | identical true | near-escape exit no | gate cut 124 keep 250 | combs 250 (clock 250) | baseline combs 374 (clock 374) | alive true kicks 374 refused 0 lost 0
+draw 25: q 4.60 R_p, v_inf 5.4 km/s | identical true | near-escape exit no | gate cut 299 keep 408 | combs 408 (clock 408) | baseline combs 707 (clock 707) | alive true kicks 707 refused 0 lost 0
+draw 26: q 36.06 R_p, v_inf 11.8 km/s | identical true | near-escape exit no | gate cut 301 keep 0 | combs 0 (clock 0) | baseline combs 300 (clock 300) | alive true kicks 301 refused 0 lost 0
+draw 27: q 4.06 R_p, v_inf 16.1 km/s | identical true | near-escape exit no | gate cut 316 keep 285 | combs 285 (clock 285) | baseline combs 600 (clock 600) | alive true kicks 601 refused 0 lost 0
+draw 28: q 43.91 R_p, v_inf 9.5 km/s | identical true | near-escape exit no | gate cut 322 keep 0 | combs 0 (clock 0) | baseline combs 322 (clock 322) | alive true kicks 322 refused 0 lost 0
+draw 29: q 18.29 R_p, v_inf 11.5 km/s | identical true | near-escape exit YES | gate cut 161 keep 246 | combs 245 (clock 245) | baseline combs 406 (clock 406) | alive true kicks 407 refused 0 lost 0
+draw 30: q 12.52 R_p, v_inf 19.7 km/s | identical true | near-escape exit no | gate cut 337 keep 0 | combs 0 (clock 0) | baseline combs 337 (clock 337) | alive true kicks 337 refused 0 lost 0
+draw 31: q 4.83 R_p, v_inf 14.9 km/s | identical true | near-escape exit YES | gate cut 58 keep 473 | combs 472 (clock 472) | baseline combs 530 (clock 530) | alive true kicks 531 refused 0 lost 0
+draw 33: q 20.55 R_p, v_inf 11.6 km/s | identical true | near-escape exit no | gate cut 374 keep 0 | combs 0 (clock 0) | baseline combs 373 (clock 373) | alive true kicks 374 refused 0 lost 0
+draw 34: q 4.23 R_p, v_inf 5.3 km/s | identical true | near-escape exit no | gate cut 280 keep 443 | combs 443 (clock 443) | baseline combs 723 (clock 723) | alive true kicks 723 refused 0 lost 0
+draw 35: q 24.47 R_p, v_inf 15.2 km/s | identical true | near-escape exit YES | gate cut 0 keep 324 | combs 323 (clock 323) | baseline combs 323 (clock 323) | alive true kicks 324 refused 0 lost 0
+draw 37: q 3.35 R_p, v_inf 7.3 km/s | identical true | near-escape exit no | gate cut 202 keep 664 | combs 664 (clock 664) | baseline combs 865 (clock 865) | alive true kicks 866 refused 0 lost 0
+draw 38: q 2.70 R_p, v_inf 17.0 km/s | identical true | near-escape exit no | gate cut 153 keep 375 | combs 375 (clock 375) | baseline combs 527 (clock 527) | alive true kicks 528 refused 0 lost 0
+draw 39: q 12.56 R_p, v_inf 5.3 km/s | identical true | near-escape exit no | gate cut 214 keep 571 | combs 571 (clock 571) | baseline combs 785 (clock 785) | alive true kicks 785 refused 0 lost 0
+draw 40: q 39.08 R_p, v_inf 13.3 km/s | identical true | near-escape exit no | gate cut 259 keep 1 | combs 1 (clock 1) | baseline combs 260 (clock 260) | alive true kicks 260 refused 0 lost 0
+draw 41: q 1.79 R_p, v_inf 8.7 km/s | identical true | near-escape exit no | gate cut 401 keep 385 | combs 385 (clock 385) | baseline combs 786 (clock 786) | alive true kicks 786 refused 0 lost 0
+draw 42: q 36.38 R_p, v_inf 9.6 km/s | identical true | near-escape exit YES | gate cut 0 keep 372 | combs 372 (clock 372) | baseline combs 372 (clock 372) | alive true kicks 372 refused 0 lost 0
+draw 43: q 9.15 R_p, v_inf 12.7 km/s | identical true | near-escape exit YES | gate cut 0 keep 571 | combs 571 (clock 571) | baseline combs 571 (clock 571) | alive true kicks 571 refused 0 lost 0
+draw 45: q 6.82 R_p, v_inf 19.1 km/s | identical true | near-escape exit YES | gate cut 0 keep 468 | combs 468 (clock 468) | baseline combs 468 (clock 468) | alive true kicks 468 refused 0 lost 0
+draw 46: q 10.46 R_p, v_inf 19.5 km/s | identical true | near-escape exit YES | gate cut 0 keep 345 | combs 345 (clock 345) | baseline combs 345 (clock 345) | alive true kicks 345 refused 0 lost 0
+draw 47: q 27.74 R_p, v_inf 19.4 km/s | identical true | near-escape exit no | gate cut 227 keep 0 | combs 0 (clock 0) | baseline combs 227 (clock 227) | alive true kicks 227 refused 0 lost 0
+draw 48: q 13.20 R_p, v_inf 17.3 km/s | identical true | near-escape exit YES | gate cut 0 keep 344 | combs 343 (clock 343) | baseline combs 343 (clock 343) | alive true kicks 344 refused 0 lost 0
+draw 49: q 5.74 R_p, v_inf 8.3 km/s | identical true | near-escape exit no | gate cut 504 keep 234 | combs 234 (clock 234) | baseline combs 737 (clock 737) | alive true kicks 738 refused 0 lost 0
+draw 50: q 3.90 R_p, v_inf 9.2 km/s | identical true | near-escape exit no | gate cut 427 keep 378 | combs 378 (clock 378) | baseline combs 805 (clock 805) | alive true kicks 805 refused 0 lost 0
+draw 51: q 31.53 R_p, v_inf 11.5 km/s | identical true | near-escape exit YES | gate cut 0 keep 358 | combs 358 (clock 358) | baseline combs 358 (clock 358) | alive true kicks 358 refused 0 lost 0
+draw 52: q 47.36 R_p, v_inf 13.5 km/s | identical true | near-escape exit YES | gate cut 0 keep 254 | combs 254 (clock 254) | baseline combs 254 (clock 254) | alive true kicks 254 refused 0 lost 0
+draw 53: q 10.45 R_p, v_inf 5.2 km/s | identical true | near-escape exit no | gate cut 504 keep 102 | combs 102 (clock 102) | baseline combs 605 (clock 605) | alive true kicks 606 refused 0 lost 0
+draw 54: q 30.67 R_p, v_inf 12.0 km/s | identical true | near-escape exit no | gate cut 74 keep 249 | combs 249 (clock 249) | baseline combs 322 (clock 322) | alive true kicks 323 refused 0 lost 0
+draw 55: q 36.47 R_p, v_inf 9.0 km/s | identical true | near-escape exit no | gate cut 428 keep 0 | combs 0 (clock 0) | baseline combs 428 (clock 428) | alive true kicks 428 refused 0 lost 0
+draw 56: q 14.28 R_p, v_inf 9.3 km/s | identical true | near-escape exit YES | gate cut 158 keep 376 | combs 375 (clock 375) | baseline combs 533 (clock 533) | alive true kicks 534 refused 0 lost 0
+draw 57: q 6.68 R_p, v_inf 11.0 km/s | identical true | near-escape exit no | gate cut 500 keep 197 | combs 197 (clock 197) | baseline combs 696 (clock 696) | alive true kicks 697 refused 0 lost 0
+draw 58: q 17.45 R_p, v_inf 12.2 km/s | identical true | near-escape exit no | gate cut 384 keep 0 | combs 0 (clock 0) | baseline combs 384 (clock 384) | alive true kicks 384 refused 0 lost 0
+draw 59: q 1.27 R_p, v_inf 19.0 km/s | identical true | near-escape exit YES | gate cut 0 keep 566 | combs 565 (clock 565) | baseline combs 565 (clock 565) | alive true kicks 566 refused 0 lost 0
+draw 60: q 44.48 R_p, v_inf 6.5 km/s | identical true | near-escape exit no | gate cut 434 keep 0 | combs 0 (clock 0) | baseline combs 434 (clock 434) | alive true kicks 434 refused 0 lost 0
+draw 61: q 24.23 R_p, v_inf 8.3 km/s | identical true | near-escape exit no | gate cut 494 keep 0 | combs 0 (clock 0) | baseline combs 494 (clock 494) | alive true kicks 494 refused 0 lost 0
+draw 62: q 24.20 R_p, v_inf 9.9 km/s | identical true | near-escape exit YES | gate cut 0 keep 404 | combs 403 (clock 403) | baseline combs 403 (clock 403) | alive true kicks 404 refused 0 lost 0
+draw 63: q 1.98 R_p, v_inf 10.8 km/s | identical true | near-escape exit no | gate cut 353 keep 407 | combs 407 (clock 407) | baseline combs 759 (clock 759) | alive true kicks 760 refused 0 lost 0
+draw 64: q 4.08 R_p, v_inf 5.4 km/s | identical true | near-escape exit YES | gate cut 274 keep 469 | combs 468 (clock 468) | baseline combs 742 (clock 742) | alive true kicks 743 refused 0 lost 0
+draw 65: q 4.29 R_p, v_inf 9.7 km/s | identical true | near-escape exit no | gate cut 430 keep 293 | combs 293 (clock 293) | baseline combs 723 (clock 723) | alive true kicks 723 refused 0 lost 0
+draw 66: q 49.23 R_p, v_inf 18.5 km/s | identical true | near-escape exit YES | gate cut 0 keep 180 | combs 179 (clock 179) | baseline combs 179 (clock 179) | alive true kicks 180 refused 0 lost 0
+draw 68: q 5.47 R_p, v_inf 13.0 km/s | identical true | near-escape exit no | gate cut 199 keep 347 | combs 347 (clock 347) | baseline combs 546 (clock 546) | alive true kicks 546 refused 0 lost 0
+draw 69: q 35.78 R_p, v_inf 8.7 km/s | identical true | near-escape exit YES | gate cut 0 keep 395 | combs 394 (clock 394) | baseline combs 394 (clock 394) | alive true kicks 395 refused 0 lost 0
+draw 70: q 4.71 R_p, v_inf 11.7 km/s | identical true | near-escape exit no | gate cut 212 keep 366 | combs 366 (clock 366) | baseline combs 578 (clock 578) | alive true kicks 578 refused 0 lost 0
+draw 71: q 19.29 R_p, v_inf 8.6 km/s | identical true | near-escape exit YES | gate cut 0 keep 591 | combs 591 (clock 591) | baseline combs 591 (clock 591) | alive true kicks 591 refused 0 lost 0
+draw 72: q 8.92 R_p, v_inf 10.4 km/s | identical true | near-escape exit YES | gate cut 0 keep 639 | combs 638 (clock 638) | baseline combs 638 (clock 638) | alive true kicks 639 refused 0 lost 0
+step 8: 64/64 draws identical (tubes digest, alive, kicks, refused, lost, class); near-escape exits 24 (kept comb on 24 of them); draws with cut 46, with keep 49
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 227 filtered out; finished in 8.58s
+== 5. controls: plunges and the lib, gate off then on
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.52s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.50s
+(the motion suite with the gate on: 7 pass, 1 fails at motion.rs:411 — its sampler reads
+ 'right after a kick' THROUGH the boundary item, so it finds 0 samples; the physics
+ assertions never ran. The adoption patch re-points that sampler at the kick item.)
+done

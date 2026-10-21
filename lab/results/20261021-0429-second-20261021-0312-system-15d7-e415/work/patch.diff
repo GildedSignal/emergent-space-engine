@@ -1,0 +1,401 @@
+diff --git a/crates/universe/examples/boundary_bill.rs b/crates/universe/examples/boundary_bill.rs
+new file mode 100644
+index 00000000..9536fe72
+--- /dev/null
++++ b/crates/universe/examples/boundary_bill.rs
+@@ -0,0 +1,46 @@
++//! Run 20261021-0429 (second author on 20261021-0312-system-15d7): fly the boundary comb's deletion.
++//! With `ES_BOUNDARY_CUT` set, `kick_clock` gates the comb per kick (bound arc, apoapsis inside the
++//! edge) and takes the anchor over; without it the run is the shipped behaviour, bit for bit — the
++//! first run's frozen record must reproduce. The **tubes digest** hashes everything the shipped
++//! digest does except the bookkeeping the deletion changes by design (step, interval, anchor, plan,
++//! event counts): equal tubes digests prove the physics moved bit for bit.
++//!
++//! cargo run --release -p emergent-universe --example boundary_bill [-- <N> <game seconds> [seed]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::step::bill;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++const RTF: f64 = 100.0;
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(30_000);
++    let gs: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(60_000.0);
++    let seed: u64 = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let cut = (gs * RTF / TICK_SECONDS) as i64;
++    let t0 = std::time::Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    for _ in 0..2_000_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, RTF, Budget::unlimited(), cut);
++    }
++    p.u.settle(cut);
++    let c = bill::counters();
++    println!(
++        "N {n} seed {seed} horizon {gs:.0} gs reached {:.0} gs | digest {} | tubes {} | kicks {} encounters {} contacts {}",
++        p.u.now as f64 * TICK_SECONDS,
++        &p.u.digest()[..32],
++        &p.u.tubes_digest()[..32],
++        p.u.stats.kicks,
++        p.u.stats.encounters,
++        p.u.contacts
++    );
++    println!(
++        "boundary combs {} (clock-stepped {}) | fires: crash {} leave {} handoff {} | kick-surface fires {} | gate: cut {} keep {}",
++        c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]
++    );
++    println!("wall {:.1} s | cut {}", t0.elapsed().as_secs_f64(), if bill::enabled() { "ON" } else { "off" });
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..52b91c65 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -44,6 +44,40 @@ use emergent_space::{
+     binding::{IntegerState, Trajectory},
+     orbit::Scalar,
+ };
++
++// Run 20261021-0312-system-15d7's print-only counters (kept), plus this run's deletion: with
++// `ES_BOUNDARY_CUT` set, `kick_clock` writes the anchor the boundary comb would have written and
++// skips the comb when the drift to come is a bound arc with its apoapsis inside the system's edge
++// (the certificates cannot fire there; see `Work::leave_safe`). Without the variable the behaviour
++// is the shipped one, bit for bit.
++#[doc(hidden)]
++pub mod bill {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static COMBS: AtomicU64 = AtomicU64::new(0);
++    pub static CLOCK: AtomicU64 = AtomicU64::new(0);
++    pub static CRASH: AtomicU64 = AtomicU64::new(0);
++    pub static LEAVE: AtomicU64 = AtomicU64::new(0);
++    pub static HANDOFF: AtomicU64 = AtomicU64::new(0);
++    pub static KICK_SURFACE: AtomicU64 = AtomicU64::new(0);
++    pub static GATE_CUT: AtomicU64 = AtomicU64::new(0);
++    pub static GATE_KEEP: AtomicU64 = AtomicU64::new(0);
++    pub fn counters() -> [u64; 8] {
++        [COMBS.load(Ordering::Relaxed), CLOCK.load(Ordering::Relaxed), CRASH.load(Ordering::Relaxed), LEAVE.load(Ordering::Relaxed), HANDOFF.load(Ordering::Relaxed), KICK_SURFACE.load(Ordering::Relaxed), GATE_CUT.load(Ordering::Relaxed), GATE_KEEP.load(Ordering::Relaxed)]
++    }
++    pub fn fire(kind: &'static str, t: crate::num::Tick, doll: u16, body: usize) {
++        eprintln!("BOUNDARY FIRE {kind} t {t} doll {doll} body {body}");
++    }
++    /// The deletion's switch, read per call so one process can fly both arms of an experiment.
++    pub fn enabled() -> bool {
++        std::env::var_os("ES_BOUNDARY_CUT").is_some()
++    }
++}
++use bill::{CRASH, HANDOFF, KICK_SURFACE, LEAVE};
++use std::sync::atomic::Ordering;
++
++fn bump(c: &std::sync::atomic::AtomicU64) {
++    let _ = c.fetch_add(1, Ordering::Relaxed);
++}
+ use std::sync::Arc;
+ 
+ pub const MIN_STEP: i64 = 2 * 64;
+@@ -671,6 +705,7 @@ impl Work<'_, '_> {
+             }
+         }
+         if self.rec.kind != Kind::Planet && norm2(x)? < self.doll().surface {
++            bump(&KICK_SURFACE);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+@@ -714,7 +749,21 @@ impl Work<'_, '_> {
+         }
+         self.rec.interval = full;
+         self.rec.step = full;
+-        insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
++
++        // This run (the deletion): the boundary comb's certificates cannot fire on a drift that is a
++        // bound arc with its apoapsis inside the system's edge, so the kick takes the anchor over
++        // (the exact value the boundary would have written half a step later: the next kick's `lead`
++        // and every reader's partial step keep their bits) and the comb is not scheduled.
++        let on = bill::enabled();
++        if on && self.leave_safe() {
++            bump(&bill::GATE_CUT);
++            self.rec.anchor = t + full / 2;
++        } else {
++            if on {
++                bump(&bill::GATE_KEEP);
++            }
++            insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
++        }
+         insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
+         self.plan_terminal(t)?;
+         Ok(Resolved::Kick)
+@@ -723,14 +772,19 @@ impl Work<'_, '_> {
+     /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's edge),
+     /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
+     fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
++        bump(&bill::CLOCK);
+         let st = self.rec.b.readout(t)?;
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
++            bump(&CRASH);
++            bill::fire("clock-crash", t, self.rec.b.doll, self.i);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+         if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
++            bump(&LEAVE);
++            bill::fire("clock-leave", t, self.rec.b.doll, self.i);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+@@ -738,6 +792,29 @@ impl Work<'_, '_> {
+         Ok(Resolved::Boundary)
+     }
+ 
++    /// The deletion's gate (this run): the drift to come — the binding the kick leaves — is a bound arc
++    /// (`k = 1/(1+e) > 1/2`) whose apoapsis `periapsis/(2k−1)`, in the doll's units, sits inside the
++    /// system's edge. On such an arc `r` never reaches the edge, so the boundary's leave certificate
++    /// cannot fire before the next kick re-evaluates this on the new tube; a periapsis under the surface
++    /// is the planned [`What::Crash`] item's own tick ([`Self::plan_terminal`]). One comparison on the
++    /// key the body already holds; exact to one ulp of the truncated division.
++    fn leave_safe(&self) -> bool {
++        let Some(key) = self.rec.b.entry.trajectory.key() else { return false };
++        let Ok(k) = key.shape() else { return false };
++        let Ok(two_k_minus_one) = k.scale(1).and_then(|k2| k2.sub(Scalar::ONE)) else { return false };
++        if !two_k_minus_one.is_positive() {
++            return false; // parabolic or unbound: the comb stays
++        }
++        let apo = match key.periapsis.div(two_k_minus_one) {
++            Ok(a) => match self.rec.b.to_doll(a) {
++                Ok(doll) => doll,
++                Err(_) => return false,
++            },
++            Err(_) => return false,
++        };
++        apo.is_positive() && apo < Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16)
++    }
++
+     fn thrust_step(&self, t: Tick) -> Res<i64> {
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+@@ -760,19 +837,27 @@ impl Work<'_, '_> {
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
++            bump(&CRASH);
++            bill::fire("crash", t, d, self.i);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+         if movable {
+             if d == 0 {
+                 if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
++                    bump(&LEAVE);
++                    bill::fire("leave", t, d, self.i);
+                     self.rec.alive = false;
+                     return Ok(Resolved::Lost);
+                 }
+                 if self.maybe_capture(t, &st, x)? {
++                    bump(&HANDOFF);
++                    bill::fire("capture", t, d, self.i);
+                     return Ok(Resolved::Handoff);
+                 }
+             } else if r > self.doll().edge {
++                bump(&HANDOFF);
++                bill::fire("release", t, d, self.i);
+                 self.release(t, st)?;
+                 return Ok(Resolved::Handoff);
+             }
+@@ -836,7 +921,10 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+         What::Kick(l) => w.kick(t, l).map(|_| Resolved::Kick),
+         What::Open(l) => w.open(t, l, h0).map(|_| Resolved::Open),
+         What::Crash => w.crash(t),
+-        What::Boundary => w.boundary(t),
++        What::Boundary => {
++            bump(&bill::COMBS);
++            w.boundary(t)
++        }
+     };
+     let kind = match result {
+         Ok(k) => k,
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..632d9136 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1368,6 +1368,72 @@ impl Universe {
+         h.finalize().to_hex().to_string()
+     }
+ 
++    /// This run's identity certificate: the shipped [`Universe::digest`] minus exactly the bookkeeping
++    /// the boundary-comb deletion changes by design (`step`, `interval`, `anchor`, the plan items and
++    /// the per-body event count). Equal tubes digests across two runs prove the physics — bindings,
++    /// registers, residuals, carries, proper times, life — moved bit for bit.
++    pub fn tubes_digest(&self) -> String {
++        let mut h = blake3::Hasher::new();
++        h.update(b"es-universe-tubes-v1");
++        let put = |h: &mut blake3::Hasher, v: i128| {
++            h.update(&v.to_le_bytes());
++        };
++        let put_s = |h: &mut blake3::Hasher, s: Scalar| {
++            h.update(&(s.significand() as i128).to_le_bytes());
++            h.update(&(s.exponent() as i128).to_le_bytes());
++        };
++        for i in 0..self.bodies.len() {
++            let r = self.bodies.rec(i);
++            put(&mut h, r.kind as i128);
++            put(&mut h, r.alive as i128);
++            put(&mut h, r.b.doll as i128);
++            put(&mut h, r.b.event_time as i128);
++            put(&mut h, r.b.tube.periapsis_angle as i128);
++            put(&mut h, r.b.tube.periapsis_time.get() as i64 as i128);
++            if let Some(key) = r.b.entry.trajectory.key() {
++                put_s(&mut h, key.periapsis);
++                put(&mut h, key.k as i128);
++                if key.k_exponent != 0 {
++                    put(&mut h, key.k_exponent as i128);
++                }
++                if let Some(gap) = key.gap {
++                    put_s(&mut h, gap);
++                }
++            } else if let Trajectory::Plunge(p) = &r.b.entry.trajectory {
++                put(&mut h, -1);
++                for coefficient in p.coefficients() {
++                    put_s(&mut h, coefficient);
++                }
++                put_s(&mut h, p.arrival().end.radius());
++            }
++            put(&mut h, r.b.entry.clockwise as i128);
++            put(&mut h, r.b.turn.a as i128);
++            put(&mut h, r.b.turn.b as i128);
++            for c in 0..2 {
++                put(&mut h, r.b.residual.position[c]);
++                put(&mut h, r.b.residual.velocity[c]);
++                put(&mut h, r.carry[c] as i128);
++            }
++            put(&mut h, r.b.units.0 as i128);
++            put(&mut h, r.b.units.1 as i128);
++            put_s(&mut h, r.proper);
++            if let Some(e) = r.ext {
++                for v in [e.pt, e.pt_exp as i128, e.pt_carry as i128, e.dt_carry as i128] {
++                    put(&mut h, v);
++                }
++                for c in [e.ds, e.c, e.b] {
++                    put_s(&mut h, c);
++                }
++            }
++            put(&mut h, r.refusals as i128);
++            h.update(format!("{:?}", r.fault).as_bytes());
++        }
++        for f in &self.fleets {
++            f.digest_into(&mut h);
++        }
++        h.finalize().to_hex().to_string()
++    }
++
+     /// The canonical time at which a body's next item is, for tests.
+     pub fn horizon_of(&self, i: usize) -> Option<Tick> {
+         self.key_of(i).map(|k| k.0)
+diff --git a/xtask/src/behave/plane.rs b/xtask/src/behave/plane.rs
+index 0789f30c..0e7bdff3 100644
+--- a/xtask/src/behave/plane.rs
++++ b/xtask/src/behave/plane.rs
+@@ -521,6 +521,101 @@ mod tests {
+         }
+     }
+ 
++    /// This run (second author on 15d7): the boundary-comb deletion's adversarial arm — B13's assist
++    /// draws, the near-escape class the 3b88 wall belongs to — each flown with the gate off and on.
++    /// Per draw the outcome (alive, kicks, refused, lost, the 1% class, the tubes digest) must be
++    /// identical, and the gate must KEEP combs on the near-escape legs (heliocentric E ≥ 0, or bound
++    /// with apoapsis −1/E ≥ 2^40) while it cuts them on the bound approach.
++    /// `cargo test --release -p xtask b13_cut -- --ignored --nocapture`.
++    #[test]
++    #[ignore]
++    fn b13_cut() {
++        use super::super::assist::{self, Flyby};
++        use emergent_universe::bind::scalars;
++        use emergent_universe::num::{cross2, dot2, norm2, to_f64};
++        use emergent_universe::step::bill;
++        let step: i32 = std::env::var("B13_STEP").ok().and_then(|v| v.parse().ok()).unwrap_or(8);
++        let scene = JUPITER;
++        let mut taken = 0;
++        let (mut same, mut cut_draws, mut keep_draws, mut near_escape) = (0, 0, 0, 0);
++        let mut keep_on_near_escape = 0;
++        for (i, (q, v_inf, psi)) in super::super::sample::flybys(assist::DRAWS).into_iter().enumerate() {
++            if taken == assist::SEEDS {
++                break;
++            }
++            let s = assist::ship(&scene, q, v_inf, psi);
++            let (flyby, closest) = assist::reference(&scene, s, RTOL);
++            if closest < scene.planet_radius {
++                continue;
++            }
++            taken += 1;
++            let Flyby::Exit(t, _, _) = flyby else { continue };
++            let before = scene.heliocentric(0.0, &s);
++            let tick = (t / (1.0 - scene.mu)).round() as i64;
++            let mut arms = Vec::new();
++            for on in [false, true] {
++                if on {
++                    std::env::set_var("ES_BOUNDARY_CUT", "1");
++                } else {
++                    std::env::remove_var("ES_BOUNDARY_CUT");
++                }
++                let c0 = bill::counters();
++                let (mut u, id) = build_scene(&scene, s, step).unwrap();
++                u.settle(tick);
++                let alive = u.bodies().alive(id);
++                let (ee, el) = if alive {
++                    let (pos, vel) = observe::root_state(&u.ctx(), id, tick).unwrap();
++                    let (sp, sv) = scene.star(t);
++                    let st = [pos[0] * (1.0 - scene.mu) + sp[0], pos[1] * (1.0 - scene.mu) + sp[1], vel[0] + sv[0], vel[1] + sv[1]];
++                    let a = scene.heliocentric(t, &st);
++                    (((a.0 - before.0)).abs() / before.0.abs(), ((a.1 - before.1)).abs() / before.1.abs())
++                } else {
++                    (f64::INFINITY, f64::INFINITY)
++                };
++                let rec = u.rec(id);
++                // The exit leg's heliocentric Newtonian energy, in the root doll's units (μ* = 1).
++                let near = (|| {
++                    let st = rec.b.readout(rec.b.event_time).ok()?;
++                    let (x, v) = scalars(&st).ok()?;
++                    let r = to_f64(norm2(x).ok()?);
++                    let (vr, vt) = (to_f64(dot2(x, v).ok()?) / r, to_f64(cross2(x, v).ok()?) / r);
++                    let e = 0.5 * (vr * vr + vt * vt) - 1.0 / r;
++                    Some(e >= 0.0 || -1.0 / e >= 2f64.powi(40))
++                })()
++                .unwrap_or(true);
++                let c = bill::counters();
++                let d = |a: u64, b: u64| b.saturating_sub(a);
++                arms.push((
++                    alive,
++                    u.stats.kicks,
++                    u.stats.refused,
++                    u.stats.lost,
++                    ee <= 1e-2 && el <= 1e-2,
++                    u.tubes_digest(),
++                    near,
++                    [d(c0[0], c[0]), d(c0[1], c[1]), d(c0[6], c[6]), d(c0[7], c[7])],
++                ));
++            }
++            std::env::remove_var("ES_BOUNDARY_CUT");
++            let (a, b) = (&arms[0], &arms[1]);
++            let identical = (a.0, a.1, a.2, a.3, a.4, &a.5, a.6) == (b.0, b.1, b.2, b.3, b.4, &b.5, b.6);
++            same += identical as usize;
++            let (cut, keep) = (b.7[2], b.7[3]);
++            cut_draws += (cut > 0) as usize;
++            keep_draws += (keep > 0) as usize;
++            near_escape += b.6 as usize;
++            keep_on_near_escape += (b.6 && keep > 0) as usize;
++            println!(
++                "draw {i}: q {q:.2} R_p, v_inf {:.1} km/s | identical {identical} | near-escape exit {} | gate cut {cut} keep {keep} | combs {} (clock {}) | baseline combs {} (clock {}) | alive {} kicks {} refused {} lost {}",
++                v_inf / 3.34e-6, if b.6 { "YES" } else { "no" }, b.7[0], b.7[1], a.7[0], a.7[1], b.0, b.1, b.2, b.3
++            );
++        }
++        println!(
++            "step {step}: {same}/{taken} draws identical (tubes digest, alive, kicks, refused, lost, class); near-escape exits {near_escape} (kept comb on {} of them); draws with cut {cut_draws}, with keep {keep_draws}"
++            , keep_on_near_escape
++ );
++    }
++
+     /// Diagnostic, not a gate (the Opus memo's §1 setup, which the coordinator asked B12 to be read on): B12's frozen ships with the
+     /// planet's radius shrunk by `B12_SHRINK` (default 1000), so that no ship is lost to a surface; the exponent of the Jacobi error
+     /// and its worst value, per kick cadence `B12_STEP`. `cargo test --release -p xtask b12_small_planet -- --ignored --nocapture`.
