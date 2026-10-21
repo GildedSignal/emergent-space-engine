@@ -1,0 +1,192 @@
+diff --git a/crates/universe/examples/boundary_bill.rs b/crates/universe/examples/boundary_bill.rs
+new file mode 100644
+index 00000000..a500e767
+--- /dev/null
++++ b/crates/universe/examples/boundary_bill.rs
+@@ -0,0 +1,41 @@
++//! Run 20261021-0312-system-15d7: does the BOUNDARY comb ever fire on the belt's own stream?
++//! Flies the ladder scene (plane_extra: locals + belt + player) as the page flies it
++//! (1/60 s frames at rtf 100) to a cut, settles there, and prints the boundary bill.
++//!
++//! cargo run --release -p emergent-universe --example boundary_bill [-- <N> <game seconds>]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::step::bill;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++const RTF: f64 = 100.0;
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(30_000);
++    let gs: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(60_000.0);
++    let cut = (gs * RTF / TICK_SECONDS) as i64;
++    let t0 = std::time::Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    for _ in 0..2_000_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, RTF, Budget::unlimited(), cut);
++    }
++    p.u.settle(cut);
++    let c = bill::counters();
++    println!(
++        "N {n} horizon {gs:.0} gs reached {:.0} gs | digest {} | kicks {} encounters {} contacts {}",
++        p.u.now as f64 * TICK_SECONDS,
++        &p.u.digest()[..32],
++        p.u.stats.kicks,
++        p.u.stats.encounters,
++        p.u.contacts
++    );
++    println!(
++        "boundary combs {} (clock-stepped {}) | fires: crash {} leave {} handoff {} | kick-surface fires {}",
++        c[0], c[1], c[2], c[3], c[4], c[5]
++    );
++    println!("wall {:.1} s", t0.elapsed().as_secs_f64());
++}
+diff --git a/crates/universe/fires.txt b/crates/universe/fires.txt
+new file mode 100644
+index 00000000..4161a4c8
+--- /dev/null
++++ b/crates/universe/fires.txt
+@@ -0,0 +1 @@
++error: command not found: ./../../target/release/examples/boundary_bill
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..9bcd9f90 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -44,6 +44,30 @@ use emergent_space::{
+     binding::{IntegerState, Trajectory},
+     orbit::Scalar,
+ };
++
++// Run 20261021-0312-system-15d7: print-only counters for the BOUNDARY comb's fires. No behaviour change.
++#[doc(hidden)]
++pub mod bill {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static COMBS: AtomicU64 = AtomicU64::new(0);
++    pub static CLOCK: AtomicU64 = AtomicU64::new(0);
++    pub static CRASH: AtomicU64 = AtomicU64::new(0);
++    pub static LEAVE: AtomicU64 = AtomicU64::new(0);
++    pub static HANDOFF: AtomicU64 = AtomicU64::new(0);
++    pub static KICK_SURFACE: AtomicU64 = AtomicU64::new(0);
++    pub fn counters() -> [u64; 6] {
++        [COMBS.load(Ordering::Relaxed), CLOCK.load(Ordering::Relaxed), CRASH.load(Ordering::Relaxed), LEAVE.load(Ordering::Relaxed), HANDOFF.load(Ordering::Relaxed), KICK_SURFACE.load(Ordering::Relaxed)]
++    }
++    pub fn fire(kind: &'static str, t: crate::num::Tick, doll: u16, body: usize) {
++        eprintln!("BOUNDARY FIRE {kind} t {t} doll {doll} body {body}");
++    }
++}
++use bill::{CRASH, HANDOFF, KICK_SURFACE, LEAVE};
++use std::sync::atomic::Ordering;
++
++fn bump(c: &std::sync::atomic::AtomicU64) {
++    let _ = c.fetch_add(1, Ordering::Relaxed);
++}
+ use std::sync::Arc;
+ 
+ pub const MIN_STEP: i64 = 2 * 64;
+@@ -671,6 +695,7 @@ impl Work<'_, '_> {
+             }
+         }
+         if self.rec.kind != Kind::Planet && norm2(x)? < self.doll().surface {
++            bump(&KICK_SURFACE);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+@@ -723,14 +748,19 @@ impl Work<'_, '_> {
+     /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's edge),
+     /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
+     fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
++        bump(&bill::CLOCK);
+         let st = self.rec.b.readout(t)?;
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
++            bump(&CRASH);
++            bill::fire("clock-crash", t, self.rec.b.doll, self.i);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+         if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
++            bump(&LEAVE);
++            bill::fire("clock-leave", t, self.rec.b.doll, self.i);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+@@ -748,8 +778,6 @@ impl Work<'_, '_> {
+         let exp = log2_floor(ticks).clamp(1, 50);
+         Ok((1i64 << exp).clamp(MIN_STEP, MAX_STEP))
+     }
+-
+-    /// The end of a step: certificates, then the next step's plan.
+     fn boundary(&mut self, t: Tick) -> Res<Resolved> {
+         if self.rec.ext.is_some() {
+             return self.boundary_clock(t);
+@@ -760,19 +788,27 @@ impl Work<'_, '_> {
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
++            bump(&CRASH);
++            bill::fire("crash", t, d, self.i);
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+         if movable {
+             if d == 0 {
+                 if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
++                    bump(&LEAVE);
++                    bill::fire("leave", t, d, self.i);
+                     self.rec.alive = false;
+                     return Ok(Resolved::Lost);
+                 }
+                 if self.maybe_capture(t, &st, x)? {
++                    bump(&HANDOFF);
++                    bill::fire("capture", t, d, self.i);
+                     return Ok(Resolved::Handoff);
+                 }
+             } else if r > self.doll().edge {
++                bump(&HANDOFF);
++                bill::fire("release", t, d, self.i);
+                 self.release(t, st)?;
+                 return Ok(Resolved::Handoff);
+             }
+@@ -836,7 +872,10 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+         What::Kick(l) => w.kick(t, l).map(|_| Resolved::Kick),
+         What::Open(l) => w.open(t, l, h0).map(|_| Resolved::Open),
+         What::Crash => w.crash(t),
+-        What::Boundary => w.boundary(t),
++        What::Boundary => {
++            bump(&bill::COMBS);
++            w.boundary(t)
++        }
+     };
+     let kind = match result {
+         Ok(k) => k,
+diff --git a/fires.txt b/fires.txt
+new file mode 100644
+index 00000000..45e74847
+--- /dev/null
++++ b/fires.txt
+@@ -0,0 +1,20 @@
++    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
++     Running `/home/glmlab/lab-target-3/release/examples/boundary_bill 30000 60000`
++BOUNDARY FIRE release t 7144968799 doll 2 body 30028
++BOUNDARY FIRE release t 8350162202 doll 2 body 30033
++BOUNDARY FIRE release t 11418814026 doll 2 body 30029
++BOUNDARY FIRE release t 12635956190 doll 2 body 30037
++BOUNDARY FIRE release t 12640528533 doll 2 body 30036
++BOUNDARY FIRE release t 15566011102 doll 2 body 30057
++BOUNDARY FIRE release t 15945744402 doll 2 body 30068
++BOUNDARY FIRE release t 16356063240 doll 2 body 30063
++BOUNDARY FIRE release t 16578956652 doll 2 body 30065
++BOUNDARY FIRE release t 16953942462 doll 2 body 30047
++BOUNDARY FIRE release t 16993329741 doll 2 body 30038
++BOUNDARY FIRE release t 17236440223 doll 2 body 30064
++BOUNDARY FIRE release t 19188223852 doll 2 body 30067
++BOUNDARY FIRE release t 19371281052 doll 2 body 30052
++BOUNDARY FIRE release t 20293488292 doll 2 body 30053
++BOUNDARY FIRE release t 22834803424 doll 2 body 30060
++BOUNDARY FIRE release t 31042760883 doll 2 body 30059
++BOUNDARY FIRE release t 31687418619 doll 2 body 30044

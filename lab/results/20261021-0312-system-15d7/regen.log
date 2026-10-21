@@ -1,0 +1,18 @@
+== build (instrumented example)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.19s
+== 1. belt, completed flight (3e4 bodies; horizon arg is wall-s at rtf 100 = 500,000 game-s
+#     ~= 18 eras; ~111 s wall on the lab box)
+N 30000 horizon 5000 gs reached 500000 gs | digest f9af771e9887a6fbc704a60b567aff26 | kicks 1290749 encounters 24264 contacts 0
+boundary combs 1267977 (clock-stepped 510004) | fires: crash 0 leave 0 handoff 18 | kick-surface fires 0
+wall 110.0 s
+     18 BOUNDARY FIRE release
+      1     Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+      1      Running `/home/glmlab/lab-target-3/release/examples/boundary_bill 30000 5000`
+== 2. determinism cross-check (killed at the runner's 420 s cap, as in the author's run)
+(killed at the 420 s cap, as in the author's run)
+     18 BOUNDARY FIRE release
+      1     Finished `release` profile [optimized + debuginfo] target(s) in 0.21s
+      1      Running `/home/glmlab/lab-target-3/release/examples/boundary_bill 30000 28000`
+== 3. control: plunges (boundary fires must be absent; tests must pass)
+      1 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+done
