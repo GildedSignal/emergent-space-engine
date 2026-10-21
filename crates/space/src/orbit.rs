@@ -5,7 +5,7 @@ use crate::{
     num::{ONE, cos},
     tables::{EDGE, PI, W, X},
 };
-use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::Arc};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, Mutex}};
 
 const HALF: u64 = 1 << 47;
 const UNIT: u64 = 1 << 48;
@@ -205,13 +205,24 @@ impl Integral {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Knot {
     pub psi: u64,
-    sum: Integral,
 }
+
+// A memoized prefix is not part of the shape's identity. Readers on any thread
+// fill the same immutable panel sequence, with the original left-to-right sums.
+#[derive(Debug)]
+struct Prefix(Mutex<Vec<Integral>>);
+impl Clone for Prefix {
+    fn clone(&self) -> Self { Self(Mutex::new(self.0.lock().unwrap().clone())) }
+}
+impl PartialEq for Prefix { fn eq(&self, _: &Self) -> bool { true } }
+impl Eq for Prefix {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OrbitShape {
     key: ShapeKey,
     knots: Vec<Knot>,
+    sums: Prefix,
+    lazy: bool,
     crossings: Vec<usize>,
     k: i128,
     q: i128,
@@ -228,8 +239,25 @@ impl OrbitShape {
     fn retained_bytes(&self) -> usize {
         std::mem::size_of::<Self>() + 2 * std::mem::size_of::<usize>()
             + self.knots.capacity() * std::mem::size_of::<Knot>()
+            // Charge the largest possible prefix capacity before it grows, so
+            // reads cannot exceed the cache's byte limit. Actual allocation is lazy.
+            + self.knots.len().next_power_of_two().max(4) * std::mem::size_of::<Integral>()
             + self.crossings.capacity() * std::mem::size_of::<usize>()
     }
+    /// Panels actually integrated so far (diagnostics only).
+    pub fn integrated_panels(&self) -> usize { self.sums.0.lock().unwrap().len() - 1 }
+    fn integral(&self, index: usize) -> Result<Integral> {
+        if index >= self.knots.len() { return Err(Error::Range); }
+        let mut sums = self.sums.0.lock().unwrap();
+        while sums.len() <= index {
+            let i = sums.len();
+            let panel = self.quad(self.knots[i-1].psi as i128, self.knots[i].psi as i128)?;
+            let next = sums[i-1].add(panel)?;
+            sums.push(next);
+        }
+        Ok(sums[index])
+    }
+    fn total(&self) -> Result<Integral> { self.integral(self.knots.len() - 1) }
     pub fn key(&self) -> ShapeKey {
         self.key
     }
@@ -289,10 +317,9 @@ impl OrbitShape {
         let floor2 = f(floor)?.mul(f(floor)?)?;
         Ok(Self {
             key,
-            knots: vec![Knot {
-                psi: 0,
-                sum: Integral::default(),
-            }],
+            knots: vec![Knot { psi: 0 }],
+            sums: Prefix(Mutex::new(vec![Integral::default()])),
+            lazy: false,
             crossings: vec![],
             k,
             q,
@@ -477,8 +504,9 @@ impl OrbitShape {
             for i in 0..n {
                 let a = lo + (hi - lo) * i / n;
                 let b = lo + (hi - lo) * (i + 1) / n;
-                let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
-                self.knots.push(Knot { psi: b as u64, sum });
+                debug_assert_eq!(self.knots.last().unwrap().psi as i128, a);
+                self.knots.push(Knot { psi: b as u64 });
+                if !self.lazy { self.total()?; }
             }
             lo = hi;
             cut *= 2;
@@ -500,6 +528,7 @@ impl OrbitShape {
             return Err(Error::NotPeriodic);
         }
         let mut s = Self::new(key)?;
+        s.lazy = true;
         let xa = 2 * s.k - ONE;
         let mut band = 1usize;
         loop {
@@ -559,7 +588,6 @@ pub struct Orbit {
     time_scale: Scalar,
     q: Scalar,
     speed_scale: Scalar,
-    increments: [Scalar; 3],
     /// The exact proper clock of a key that carries a gap: `[√(d/k), q·term]`. The weak shape's `tau` integrals are
     /// `√k·∫(1/x²)(1 + q(a/2 − term))`, first order in `q`; with `E ≫ 1`, `q·term → 1/2` and that is not small. The exact numerator
     /// `√d` is `√k·√(d/k)`, and the first-order expansion of the rest (`g = 1/√(1−qa)`, uniformly `O(q)`) stays:
@@ -641,7 +669,8 @@ impl Orbit {
             })?;
             shape.key = ShapeKey::for_orbit(key)?;
             let rate = Scalar::ONE.sub(q.mul(Scalar::integer(3))?)?.sqrt()?;
-            shape.knots.last_mut().unwrap().sum = Integral([
+            shape.total()?;
+            *shape.sums.0.get_mut().unwrap().last_mut().unwrap() = Integral([
                 Scalar::ZERO,
                 Scalar::raw(PI, -61)?,
                 Scalar::raw(PI, -61)?.mul(rate)?,
@@ -665,16 +694,12 @@ impl Orbit {
         })?);
         let time_scale = key.periapsis.mul(key.periapsis.sqrt()?)?;
         let k = key.shape()?;
-        let period = shape.knots.last().unwrap().sum.0[1]
-            .mul(time_scale)?
-            .scale(1)?;
         Ok(Self {
             key,
             shape: Some(shape.clone()),
             time_scale,
             q: Scalar::ZERO,
             speed_scale: key.compactness()?.div(k)?.sqrt()?,
-            increments: [Scalar::ZERO, period, period],
             clock: None,
         })
     }
@@ -719,7 +744,6 @@ impl Orbit {
             },
             q,
             speed_scale,
-            increments: [Scalar::ZERO; 3],
             clock: None,
         };
         if let Some(gap) = key.gap {
@@ -729,12 +753,8 @@ impl Orbit {
             }
             orbit.clock = Some([gap.div(k)?.sqrt()?, q.mul(shape.weak_tau_term)?]);
         }
-        let half = shape.knots.last().unwrap().sum;
-        orbit.increments = [
-            q.mul(half.0[0])?.scale(1)?,
-            orbit.time(half)?.mul(orbit.time_scale)?.scale(1)?,
-            orbit.tau(half)?.mul(orbit.time_scale)?.scale(1)?,
-        ];
+        // Preserve eager validation for strong cycles and finite passages.
+        if !shape.lazy { orbit.cycle_increments()?; }
         Ok(orbit)
     }
     fn time(&self, i: Integral) -> Result<Scalar> {
@@ -747,17 +767,19 @@ impl Orbit {
             Some([ratio, q_term]) => ratio.mul(first.add(q_term.mul(i.0[2])?)?),
         }
     }
-    pub fn period(&self) -> Result<Scalar> {
-        Ok(self.increments[1])
+    fn cycle_increments(&self) -> Result<[Scalar; 3]> {
+        let half = self.shape().total()?;
+        Ok([
+            self.q.mul(half.0[0])?.scale(1)?,
+            self.time(half)?.mul(self.time_scale)?.scale(1)?,
+            self.tau(half)?.mul(self.time_scale)?.scale(1)?,
+        ])
     }
-    pub fn proper_period(&self) -> Result<Scalar> {
-        Ok(self.increments[2])
-    }
-    pub fn advance(&self) -> Result<Scalar> {
-        Ok(self.increments[0])
-    }
+    pub fn period(&self) -> Result<Scalar> { Ok(self.cycle_increments()?[1]) }
+    pub fn proper_period(&self) -> Result<Scalar> { Ok(self.cycle_increments()?[2]) }
+    pub fn advance(&self) -> Result<Scalar> { Ok(self.cycle_increments()?[0]) }
     pub fn crossing_time(&self, index: usize) -> Result<Scalar> {
-        self.time(self.shape().knots.get(index).ok_or(Error::Range)?.sum)?
+        self.time(self.shape().integral(index)?)?
             .mul(self.time_scale)
     }
     /// A specified radial cycle and time within that cycle; no total elapsed clock needed.
@@ -785,7 +807,11 @@ impl Orbit {
                 psi: phi,
             });
         }
-        let half = self.time(self.shape().knots.last().unwrap().sum)?;
+        if self.prefix_covers(normalized_time)? {
+            let (psi, sum) = self.outbound_at(normalized_time)?;
+            return self.read(cycles, psi, true, sum);
+        }
+        let half = self.time(self.shape().total()?)?;
         let full = half.scale(1)?;
         if normalized_time > full {
             return Err(Error::Range);
@@ -804,7 +830,12 @@ impl Orbit {
             return Err(Error::Range);
         }
         let normalized = elapsed.div(self.time_scale)?;
-        let period = self.time(self.shape().knots.last().unwrap().sum)?.scale(1)?;
+        let symbolic_circle = self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))?;
+        if !symbolic_circle && self.prefix_covers(normalized)? {
+            let (psi, sum) = self.outbound_at(normalized)?;
+            return self.read(0, psi, true, sum);
+        }
+        let period = self.time(self.shape().total()?)?.scale(1)?;
         let cycles = u64::try_from(normalized.div(period)?.fixed(0)?).map_err(|_| Error::Range)?;
         let rem = normalized.sub(period.mul(Scalar::raw(cycles as i128, 0)?)?)?;
         self.at_phase(cycles, rem)
@@ -840,7 +871,7 @@ impl Orbit {
             .partition_point(|k| k.psi as i128 <= psi)
             .saturating_sub(1);
         let base = &shape.knots[i];
-        let sum = base.sum.add(shape.quad(base.psi as i128, psi)?)?;
+        let sum = shape.integral(i)?.add(shape.quad(base.psi as i128, psi)?)?;
         Ok((
             self.time(sum)?.mul(self.time_scale)?,
             self.read(0, psi, true, sum)?,
@@ -850,15 +881,25 @@ impl Orbit {
     pub fn crossing_state(&self, index: usize, cycles: u64, outbound: bool) -> Result<OrbitState> {
         let shape = self.shape();
         let k = shape.knots.get(index).ok_or(Error::Range)?;
-        self.read(cycles, k.psi as i128, outbound, k.sum)
+        self.read(cycles, k.psi as i128, outbound, shape.integral(index)?)
+    }
+    // Stop as soon as the requested time lies in the known outbound prefix.
+    // A period is needed only after the reader actually reaches the half-cycle.
+    fn prefix_covers(&self, target: Scalar) -> Result<bool> {
+        let s = self.shape();
+        let first = s.integrated_panels();
+        for i in first..s.knots.len() {
+            if self.time(s.integral(i)?)? >= target { return Ok(true); }
+        }
+        Ok(false)
     }
     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
         let s = self.shape();
         let mut lo_i = 0;
-        let mut hi_i = s.knots.len();
+        let mut hi_i = s.integrated_panels() + 1;
         while lo_i < hi_i {
             let mid = (lo_i + hi_i) / 2;
-            if self.time(s.knots[mid].sum)? <= target {
+            if self.time(s.integral(mid)?)? <= target {
                 lo_i = mid + 1;
             } else {
                 hi_i = mid;
@@ -866,14 +907,15 @@ impl Orbit {
         }
         let index = lo_i.saturating_sub(1);
         let base = &s.knots[index];
-        if self.time(base.sum)? == target || index + 1 == s.knots.len() {
-            return Ok((base.psi as i128, base.sum));
+        let base_sum = s.integral(index)?;
+        if self.time(base_sum)? == target || index + 1 == s.knots.len() {
+            return Ok((base.psi as i128, base_sum));
         }
         let a = base.psi as i128;
         let b = s.knots[index + 1].psi as i128;
         let (mut lo, mut hi) = (a, b);
-        let ta = self.time(base.sum)?;
-        let tb = self.time(s.knots[index + 1].sum)?;
+        let ta = self.time(base_sum)?;
+        let tb = self.time(s.integral(index + 1)?)?;
         let fraction = target.sub(ta)?.div(tb.sub(ta)?)?.fixed(61)?;
         let mut psi = a + (((b - a) * fraction) >> 61);
         // The panel clocks retain 48 weighted bits on the fast path. Do not
@@ -887,7 +929,7 @@ impl Orbit {
                 Scalar::ZERO
             })?;
         for iteration in 0..72 {
-            let sum = base.sum.add(s.quad(a, psi)?)?;
+            let sum = base_sum.add(s.quad(a, psi)?)?;
             let t = self.time(sum)?;
             if t.sub(target)?.abs() <= quantum || hi - lo <= 1 {
                 return Ok((psi, sum));
@@ -936,13 +978,14 @@ impl Orbit {
         if !outbound {
             radial = radial.negate();
         }
-        let total = s.knots.last().unwrap().sum;
         let here = if outbound {
             sum
         } else {
+            let total = s.total()?;
             total.add(total)?.subtract(sum)?
         };
         let n = Scalar::raw(cycles as i128, 0)?;
+        let increments = if cycles == 0 { [Scalar::ZERO; 3] } else { self.cycle_increments()? };
         Ok(OrbitState {
             radius: self.key.periapsis.div(x)?,
             radial_angle: if outbound {
@@ -950,11 +993,11 @@ impl Orbit {
             } else {
                 (2 * PI - psi) as u64
             },
-            advance: self.q.mul(here.0[0])?.add(self.advance()?.mul(n)?)?,
+            advance: self.q.mul(here.0[0])?.add(increments[0].mul(n)?)?,
             proper_time: self
                 .tau(here)?
                 .mul(self.time_scale)?
-                .add(self.proper_period()?.mul(n)?)?,
+                .add(increments[2].mul(n)?)?,
             radial_velocity: radial,
             transverse_velocity: speed.mul(x)?,
             cycles,
@@ -1079,11 +1122,17 @@ impl QuantizedMemo {
 
 /// An unbound geodesic over a finite radial window. Infinity has a deflection,
 /// but no finite arrival time. No maximum passage radius is assumed by the compiler.
+#[derive(Debug)]
+struct PassageTail {
+    edges: Vec<Scalar>,
+    sums: Prefix,
+}
+
 #[derive(Clone, Debug)]
 pub struct Passage {
     orbit: Orbit,
     pub outer_radius: Scalar,
-    tail: Vec<(Scalar, Integral)>,
+    tail: Option<Arc<PassageTail>>,
 }
 impl Passage {
     /// Same shape and exponent-backed phase as massive passages; null proper time is zero.
@@ -1097,6 +1146,7 @@ impl Passage {
             return Err(Error::Topology);
         }
         let mut shape = OrbitShape::new(ShapeKey::for_orbit(key)?)?;
+        shape.lazy = true;
         let endpoint = key.periapsis.div(outer_radius)?;
         // psi is a good phase near the turn, but cancels at infinity. Continue
         // in x=R/r with its own exponent once that cancellation matters.
@@ -1122,90 +1172,85 @@ impl Passage {
             band += 1;
         }
         shape.append(shape.cut(x))?;
-        let mut passage = Self {
-            orbit: Orbit::from_shape(key, Arc::new(shape))?,
-            outer_radius,
-            tail: vec![],
-        };
+        let mut edges = vec![];
         if endpoint < join {
-            let sum = passage.orbit.shape().knots.last().unwrap().sum;
-            passage.tail.push((join, sum));
+            edges.push(join);
             let mut x = join;
-            // Each radial panel shrinks x by 15/16: work follows its binary exponent.
+            // Keep every original endpoint; only the cumulative integrals are deferred.
             while x > endpoint {
-                let next = x
-                    .mul(Scalar::integer(15))?
-                    .div(Scalar::integer(16))?
-                    .max(endpoint);
-                if next == x {
-                    return Err(Error::Range);
-                }
-                let sum = passage
-                    .tail
-                    .last()
-                    .unwrap()
-                    .1
-                    .add(passage.tail_quad(next, x)?)?;
-                passage.tail.push((next, sum));
+                let next = x.mul(Scalar::integer(15))?.div(Scalar::integer(16))?.max(endpoint);
+                if next == x { return Err(Error::Range); }
+                edges.push(next);
                 x = next;
             }
         }
-        Ok(passage)
+        Ok(Self {
+            orbit: Orbit::from_shape(key, Arc::new(shape))?,
+            outer_radius,
+            tail: if edges.is_empty() { None } else {
+                Some(Arc::new(PassageTail { edges, sums: Prefix(Mutex::new(vec![])) }))
+            },
+        })
     }
-    pub fn key(&self) -> OrbitKey {
-        self.orbit.key
+    pub fn key(&self) -> OrbitKey { self.orbit.key }
+    /// Integrated panels, excluding endpoints that have never been read.
+    pub fn integrated_panels(&self) -> usize {
+        self.orbit.shape().integrated_panels() + self.tail.as_ref().map_or(0,
+            |t| t.sums.0.lock().unwrap().len().saturating_sub(1))
+    }
+    fn tail_integral(&self, index: usize) -> Result<Integral> {
+        let tail = self.tail.as_ref().ok_or(Error::Range)?;
+        if index >= tail.edges.len() { return Err(Error::Range); }
+        let mut sums = tail.sums.0.lock().unwrap();
+        if sums.is_empty() { sums.push(self.orbit.shape().total()?); }
+        while sums.len() <= index {
+            let i = sums.len();
+            let next = sums[i-1].add(self.tail_quad(tail.edges[i], tail.edges[i-1])?)?;
+            sums.push(next);
+        }
+        Ok(sums[index])
     }
     pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
         let x = self.key().periapsis.div(radius)?;
-        if self.tail.is_empty() || x >= self.tail[0].0 {
-            return self.orbit.at_radius(radius);
-        }
-        if radius > self.outer_radius {
-            return Err(Error::Range);
-        }
-        let i = self.tail.partition_point(|k| k.0 >= x).saturating_sub(1);
-        let (base, sum) = self.tail[i];
-        let sum = sum.add(self.tail_quad(x, base)?)?;
-        Ok((
-            self.orbit.time(sum)?.mul(self.orbit.time_scale)?,
-            self.tail_read(x, sum)?,
-        ))
+        let Some(tail) = &self.tail else { return self.orbit.at_radius(radius) };
+        if x >= tail.edges[0] { return self.orbit.at_radius(radius); }
+        if radius > self.outer_radius { return Err(Error::Range); }
+        let i = tail.edges.partition_point(|&edge| edge >= x).saturating_sub(1);
+        let base = tail.edges[i];
+        let sum = self.tail_integral(i)?.add(self.tail_quad(x, base)?)?;
+        Ok((self.orbit.time(sum)?.mul(self.orbit.time_scale)?, self.tail_read(x, sum)?))
     }
     /// Coordinate time between the incoming and outgoing outer-radius crossings.
     pub fn duration(&self) -> Result<Scalar> {
-        if let Some((_, sum)) = self.tail.last() {
-            self.orbit.time(*sum)?.mul(self.orbit.time_scale)?.scale(1)
-        } else {
-            self.orbit.period()
-        }
+        if let Some(tail) = &self.tail {
+            self.orbit.time(self.tail_integral(tail.edges.len()-1)?)?.mul(self.orbit.time_scale)?.scale(1)
+        } else { self.orbit.period() }
     }
     /// Signed time since periapsis. Incoming times/angles/proper times are negative.
     pub fn state(&self, elapsed: Scalar) -> Result<OrbitState> {
         let t = elapsed.abs().div(self.orbit.time_scale)?;
-        let inner_end = self
-            .orbit
-            .time(self.orbit.shape().knots.last().unwrap().sum)?;
-        let end = if let Some((_, sum)) = self.tail.last() {
-            self.orbit.time(*sum)?
-        } else {
-            inner_end
-        };
-        if t > end {
-            return Err(Error::Range);
-        }
-        let mut state = if t <= inner_end {
+        let mut state = if self.orbit.prefix_covers(t)? {
             let (psi, sum) = self.orbit.outbound_at(t)?;
             self.orbit.read(0, psi, true, sum)?
         } else {
-            let i = self
-                .tail
-                .partition_point(|k| self.orbit.time(k.1).is_ok_and(|v| v <= t))
-                .saturating_sub(1);
-            let (base, sum) = self.tail[i];
-            if i + 1 == self.tail.len() {
-                self.tail_read(base, sum)?
-            } else {
-                let (mut lo, mut hi) = (self.tail[i + 1].0, base);
+            let tail = self.tail.as_ref().ok_or(Error::Range)?;
+            let first = tail.sums.0.lock().unwrap().len().saturating_sub(1);
+            for i in first..tail.edges.len() {
+                if self.orbit.time(self.tail_integral(i)?)? >= t { break; }
+            }
+            let known = tail.sums.0.lock().unwrap().len();
+            if self.orbit.time(self.tail_integral(known-1)?)? < t { return Err(Error::Range); }
+            let (mut lo_i, mut hi_i) = (0, known);
+            while lo_i < hi_i {
+                let mid = (lo_i+hi_i)/2;
+                if self.orbit.time(self.tail_integral(mid)?)? <= t { lo_i=mid+1; }
+                else { hi_i=mid; }
+            }
+            let i = lo_i.saturating_sub(1);
+            let (base, sum) = (tail.edges[i], self.tail_integral(i)?);
+            if i + 1 == tail.edges.len() { self.tail_read(base, sum)? }
+            else {
+                let (mut lo, mut hi) = (tail.edges[i+1], base);
                 let quantum = t.scale(-40)?;
                 let mut answer = None;
                 for _ in 0..80 {
@@ -1216,18 +1261,12 @@ impl Passage {
                         answer = Some(self.tail_read(x, here)?);
                         break;
                     }
-                    if time > t {
-                        lo = x;
-                    } else {
-                        hi = x;
-                    }
+                    if time > t { lo = x; } else { hi = x; }
                 }
                 answer.ok_or(Error::Range)?
             }
         };
-        if elapsed < Scalar::ZERO {
-            state.reflect();
-        }
+        if elapsed < Scalar::ZERO { state.reflect(); }
         Ok(state)
     }
     fn tail_node(&self, x: Scalar) -> Result<Integral> {

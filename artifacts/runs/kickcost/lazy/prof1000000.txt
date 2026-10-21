@@ -1,0 +1,39 @@
+state: 2026-10-21 05:12:40 | load averages: 5.63 5.13 4.94 | swap total = 6144.00M used = 5368.31M free = 775.69M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['target/release/examples/nladder', '1000000', 'burn', '20']
+rung N=1000000 (1000028 bodies), burn, rtf 100, 20 s of wall time, engine budget 12 ms; build 36.44 s, peak footprint 1056 MB (now 1056 MB)
+memory_progress: frame=0 game_s=1.666663 current=1056181504 peak=1056181504 kicks=0 wall_s=36.442
+memory_progress: frame=600 game_s=1001.626763 current=1072565632 peak=1072565632 kicks=2563 wall_s=37.008
+shape_cache: (3110, 8367392, 38136003, 1001083, 2001621)
+memory: n=1000000 build_peak=1056165120 end_peak=1086705024 end_current=1086705024 initial_records=1000028 records=1000076 alive=1000051 pending=1000051 changed=264 history=637 resident_game_s=1999.957899 min_record_residency_gs=16.693287 tube_age_min_gs=6.363784 tube_age_max_gs=1999.957899
+frames after 1 s: 1140  engine ms p50 0.412 p90 2.479 p99 8.930 max 11.547; over 12 ms: 0; frames behind: 1, worst lag 0.038 s; events/frame p50 4 p99 152 max 328; scans held max 21
+game 1900.0 s after the first second: kicks 4860 (2.558e-6/body/game-s), events 16212 (8.533e-6/body/game-s), stats {opens 334, boundaries 3908, handoffs 1, lost 22, refused 0, slices 7109}; refusals held 0, dead 25, alive(player) true
+memory: peak footprint 1056 MB at the build's end, 1087 MB at the flight's end (now 1087 MB); 1055 B a body from the build; dashboard bytes/body 528; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 1000076 entries
+fit_breakdown_us: inverse=3.424 shape=63.106 locate=6.158 reconstruct=3.749
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                       10.7     1.00      10702
+    position walk (root_state_raw)            31.3     6.06       5170
+  apply (whole)                               35.5     7.92       4486
+  requeue                                      4.0    39.43        102
+  process (whole)                            541.6     7.89      68628
+    fit: bind_surface (kicks, hand-outs)     337.9     4.22      80136
+  take_due                                     0.3    15.49         18
+  prune                                        5.7     1.00       5701
+  encounters: capture (cheap half)            20.6     1.87      11057
+  encounters: held scans answered            308.0     1.87     165082
+  item: kick (Wisdom-Holman)                 275.5     3.44      80109
+  item: kick (clock)                           1.9     0.02     106831
+  item: kick at a changeover level           196.4     0.73     270365
+  item: boundary                              65.4     3.43      19071
+  item: open                                   2.6     0.26       9900
+  item: crash                                  0.1     0.02       3938
+  fleet: battle run_to                         8.0     6.24       1281
+  fleet: advance (whole item)                 11.2     6.24       1793
+  hand-out (a member made a body)              9.8     0.03     303426
+    hand-out: pull planets and moons           0.0     0.03         71
+    hand-out: bind (the member as a tube)       7.1     0.03     219108
+    hand-out: first plan (replan)              2.4     0.03      74548
+    fit again: the coarser word (bind_surface)       5.1     0.03     160058
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2), (947, 0)]
+worst frames (frame, ms, events, lag s): (61, 11.55, 117, 0.038) (644, 10.55, 140, 0.000) (619, 10.19, 101, 0.000) (645, 10.01, 34, 0.000) (613, 9.76, 37, 0.000)
+ladder: n=1000000 bodies=1000028 flight=burn rtf=100 frames=1200 build_s=36.44 foot_build_mb=1056 foot_end_mb=1087 b_per_body=1055 p50_ms=0.412 p99_ms=8.930 max_ms=11.547 over=0 lag_s=0.038 kicks_per_body_gs=2.558e-6 events_per_body_gs=8.533e-6 refusals=0 dead=25 held_max=21 view_ms=-1.0 truncated=false wall_s=38.0
+runner: exit=0 wall_s=38.204

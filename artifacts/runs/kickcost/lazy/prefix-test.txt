@@ -1,0 +1,24 @@
+state: 2026-10-21 04:57:40 | load averages: 5.24 4.50 4.07 | swap total = 6144.00M used = 5424.31M free = 719.69M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['cargo', 'test', '--release', '-j', '2', '-p', 'emergent-space', '--test', 'lazy_panels']
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling num-bigint v0.4.8
+   Compiling emergent-space v0.1.0 (/Users/julien_laurent/Research/emergent-wt/kickcost/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.70s
+     Running tests/lazy_panels.rs (target/release/deps/lazy_panels-0e77f0094dc521b2)
+
+running 1 test
+test deferred_prefix_matches_the_eager_cycle_in_any_read_order ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+runner: exit=0 wall_s=10.169

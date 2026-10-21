@@ -76,6 +76,7 @@ fn main() {
             }
             late_stats = Some((p.u.stats, p.u.now));
             let _ = emergent_universe::prof::take();
+            let _ = emergent_space::binding::take_fit_profile();
         }
         let start = Instant::now();
         let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
@@ -164,6 +165,9 @@ fn main() {
     );
     println!("memory: peak footprint {:.0} MB at the build's end, {:.0} MB at the flight's end (now {:.0} MB); {:.0} B a body from the build; dashboard bytes/body {}; view gather {cold:.1} ms cold, {warm:.1} ms warm ({seen} seen); catalogue {} entries", rss1 as f64 / 1e6, rss2 as f64 / 1e6, now2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, p.u.bytes_per_body(), p.u.catalogue_live());
     if emergent_universe::prof::ENABLED {
+        let fit = emergent_space::binding::take_fit_profile();
+        let calls = stage_calls[emergent_universe::prof::FIT].max(1) as f64;
+        println!("fit_breakdown_us: inverse={:.3} shape={:.3} locate={:.3} reconstruct={:.3}", fit[0] as f64 / 1000. / calls, fit[1] as f64 / 1000. / calls, fit[2] as f64 / 1000. / calls, fit[3] as f64 / 1000. / calls);
         println!("stages (µs per frame, calls per frame, ns per call), over the {} frames:", late.len());
         for k in 0..emergent_universe::prof::N {
             if stage_calls[k] > 0 {

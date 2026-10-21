@@ -7,6 +7,23 @@ use crate::{
     Error, Result,
 };
 
+macro_rules! fit_stage {
+    ($i:expr, $e:expr) => {{
+        #[cfg(feature = "profile")]
+        { crate::profile::stage($i, || $e) }
+        #[cfg(not(feature = "profile"))]
+        { $e }
+    }};
+}
+/// Optional fit timings: inverse key, shape, locate event, reconstruct event.
+/// Disabled builds carry no timers; this diagnostic resets the reading thread.
+pub fn take_fit_profile() -> [u128; 4] {
+    #[cfg(feature = "profile")]
+    { crate::profile::take() }
+    #[cfg(not(feature = "profile"))]
+    { [0; 4] }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct IntegerState {
     pub position: [i64; 2],
@@ -390,7 +407,7 @@ impl Rebinding {
         let mut fit = Self { trajectory: Trajectory::Plunge(plunge), periapsis_time: event_time,
             periapsis_angle, clockwise: false, residual: Residual { position: [0; 2], velocity: [0; 2] },
             event_time, units: (state.length_exponent, state.velocity_exponent) };
-        fit.residual = Residual::between(state, fit.decoded_event()?);
+        fit.residual = Residual::between(state, fit_stage!(3, fit.decoded_event())?);
         Ok(fit)
     }
     /// An outbound near-radial state as the arc [`crate::plunge::Plunge::outbound`] compiles from its anchor (the radius it
@@ -413,17 +430,17 @@ impl Rebinding {
             event_time,
             units: (state.length_exponent, state.velocity_exponent),
         };
-        fit.residual = Residual::between(state, fit.decoded_event()?);
+        fit.residual = Residual::between(state, fit_stage!(3, fit.decoded_event())?);
         Ok(fit)
     }
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
+        let (key, r, clockwise, incoming) = fit_stage!(0, fit_key(state, true))?;
         let trajectory = if key.periodic() {
-            Trajectory::Cycle(Orbit::compile(key)?)
+            Trajectory::Cycle(fit_stage!(1, Orbit::compile(key))?)
         } else {
-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+            Trajectory::Passage(fit_stage!(1, Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)))?)
         };
-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
+        let (mut offset, mut sample) = fit_stage!(2, trajectory.at_radius(r))?;
         if incoming {
             offset = offset.negate();
             sample.reflect();
@@ -444,7 +461,7 @@ impl Rebinding {
             event_time,
             units: (state.length_exponent, state.velocity_exponent),
         };
-        fit.residual = Residual::between(state, fit.decoded_event()?);
+        fit.residual = Residual::between(state, fit_stage!(3, fit.decoded_event())?);
         Ok(fit)
     }
     pub fn decoded_event(&self) -> Result<IntegerState> {

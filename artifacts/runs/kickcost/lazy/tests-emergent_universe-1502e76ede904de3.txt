@@ -1,0 +1,18 @@
+state: 2026-10-21 05:06:30 | load averages: 6.12 6.53 5.28 | swap total = 6144.00M used = 5392.31M free = 751.69M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['target/release/deps/emergent_universe-1502e76ede904de3', '--test-threads=1']
+
+running 10 tests
+test lorentz::tests::a_centre_is_at_rest_in_its_own_frame ... ok
+test lorentz::tests::a_handoff_out_and_back_is_the_identity ... ok
+test lorentz::tests::mulshr_is_a_floor_of_the_exact_product ... ok
+test lorentz::tests::rotations_round_trip_exactly_through_every_angle ... ok
+test lorentz::tests::the_boost_is_exactly_invertible_and_is_lorentz ... ok
+test lorentz::tests::the_turn_is_exactly_invertible_and_within_two_quanta_of_the_rotation ... ok
+test step::tests::a_captured_ship_is_seen_with_the_relativistic_velocity ... ok
+test step::tests::a_passages_exit_by_its_inverse_is_the_exit_by_bisection ... ok
+test step::tests::a_ship_captured_and_released_returns_the_identical_integer_state_at_every_speed ... ok
+test step::tests::a_thousand_handoff_round_trips_do_not_drift ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.68s
+
+runner: exit=0 wall_s=2.193

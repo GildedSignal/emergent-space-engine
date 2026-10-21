@@ -1,0 +1,14 @@
+state: 2026-10-21 04:52:58 | load averages: 4.90 3.92 3.77 | swap total = 6144.00M used = 4940.75M free = 1203.25M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['target/release/examples/nladder', '100000', 'burn', '20']
+rung N=100000 (100028 bodies), burn, rtf 100, 20 s of wall time, engine budget 12 ms; build 3.31 s, peak footprint 136 MB (now 136 MB)
+memory_progress: frame=0 game_s=1.666663 current=135906496 peak=135906496 kicks=0 wall_s=3.305
+memory_progress: frame=600 game_s=1001.664463 current=154928448 peak=154928448 kicks=2564 wall_s=3.829
+shape_cache: (3112, 8364736, 3779393, 100415, 200951)
+memory: n=100000 build_peak=135890112 end_peak=170444096 end_current=170444096 initial_records=100028 records=100076 alive=100051 pending=100051 changed=264 history=637 resident_game_s=1999.995599 min_record_residency_gs=16.730986 tube_age_min_gs=6.401483 tube_age_max_gs=1999.995599
+frames after 1 s: 1140  engine ms p50 0.408 p90 2.404 p99 8.615 max 11.353; over 12 ms: 0; frames behind: 0, worst lag 0.000 s; events/frame p50 4 p99 152 max 328; scans held max 21
+game 1900.0 s after the first second: kicks 4860 (2.557e-5/body/game-s), events 16201 (8.524e-5/body/game-s), stats {opens 334, boundaries 3908, handoffs 1, lost 22, refused 0, slices 7098}; refusals held 0, dead 25, alive(player) true
+memory: peak footprint 136 MB at the build's end, 170 MB at the flight's end (now 170 MB); 1349 B a body from the build; dashboard bytes/body 530; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 100076 entries
+frames over the budget (first 12): []; the player's doll (frame, doll): [(0, 2), (947, 0)]
+worst frames (frame, ms, events, lag s): (61, 11.35, 130, 0.000) (644, 10.65, 140, 0.000) (619, 9.42, 98, 0.000) (632, 9.14, 64, 0.000) (629, 9.11, 35, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=1200 build_s=3.31 foot_build_mb=136 foot_end_mb=170 b_per_body=1349 p50_ms=0.408 p99_ms=8.615 max_ms=11.353 over=0 lag_s=0.000 kicks_per_body_gs=2.557e-5 events_per_body_gs=8.524e-5 refusals=0 dead=25 held_max=21 view_ms=-1.0 truncated=false wall_s=4.4
+runner: exit=0 wall_s=4.525
