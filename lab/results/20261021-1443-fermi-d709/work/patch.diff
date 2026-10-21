@@ -1,0 +1,156 @@
+diff --git a/crates/universe/examples/brow.rs b/crates/universe/examples/brow.rs
+new file mode 100644
+index 00000000..3713e64b
+--- /dev/null
++++ b/crates/universe/examples/brow.rs
+@@ -0,0 +1,99 @@
++//! The belt's two combs priced apart: per-item wall cost and rate of the KICK and BOUNDARY items on
++//! the ladder belt's own stream (the 10^9 ledger's unpriced boundary row). Settled to canonical cuts
++//! (no budget, no frames), so the numbers are the item costs the stream row is composed of, not frame
++//! pacing. The per-kind timers are the ship-class ones added to `Stats` for this run.
++//!
++//! cargo run --release -p emergent-universe --example brow [-- <extra> [<game-s a chunk> <chunks> [<seed>]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++
++/// Peak resident set (VmHWM) in MB, from /proc (Linux; the record's M1 flights read phys_footprint).
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmHWM"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<f64>().ok()))
++        })
++        .unwrap_or(0.0)
++        / 1024.0
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(30_000);
++    let chunk_gs: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(7_000.0);
++    let chunks: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(12);
++    let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let t0 = std::time::Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    println!("brow n={n} seed={seed} bodies={bodies} build_s={build:.2} rss_hwm_mb={:.0}", rss_mb());
++    // A warmup settle past the fleet's dissolution and the births' first items: measured windows
++    // start with the population in its steady clock law.
++    let warm_gs = 5_000.0;
++    p.u.settle(p.u.now + (warm_gs / TICK_SECONDS) as i64);
++    let base = p.u.stats;
++    let base_now = p.u.now;
++    for c in 1..=chunks {
++        let t = std::time::Instant::now();
++        let to = base_now + (((c as f64) * chunk_gs + warm_gs) / TICK_SECONDS) as i64;
++        p.u.settle(to);
++        let wall = t.elapsed().as_secs_f64();
++        let s = &p.u.stats;
++        let gs = (p.u.now - base_now) as f64 * TICK_SECONDS;
++        let (dk, db) = (s.ship_kicks - base.ship_kicks, s.ship_boundaries - base.ship_boundaries);
++        println!(
++            "chunk {c:>2}: gs {gs:>7.0} wall {wall:>6.2} s | kicks {dk:>8} ({:.3e}/b/gs, {:6.2} us) | boundaries {db:>8} ({:.3e}/b/gs, {:6.2} us) | ship items {} ({:5.2} us avg) | opens {} handoffs {} lost {} | rss {:.0} MB",
++            dk as f64 / bodies as f64 / gs,
++            (s.ship_kick_ns - base.ship_kick_ns) as f64 / 1e3 / dk.max(1) as f64,
++            db as f64 / bodies as f64 / gs,
++            (s.ship_boundary_ns - base.ship_boundary_ns) as f64 / 1e3 / db.max(1) as f64,
++            s.items[2] - base.items[2],
++            (s.cost_ns[2] - base.cost_ns[2]) as f64 / 1e3 / (s.items[2] - base.items[2]).max(1) as f64,
++            s.opens - base.opens,
++            s.handoffs - base.handoffs,
++            s.lost - base.lost,
++            rss_mb()
++        );
++    }
++    // Totals and the 10^9 row: cores of stream work at 1e9 belt bodies, rtf 100, from the measured
++    // per-body rates and per-item costs of THIS flight (Linux x86; the M1 re-anchors by ~0.58).
++    let s = &p.u.stats;
++    let gs = (p.u.now - base_now) as f64 * TICK_SECONDS;
++    let (k, b) = ((s.ship_kicks - base.ship_kicks) as f64, (s.ship_boundaries - base.ship_boundaries) as f64);
++    let uk = (s.ship_kick_ns - base.ship_kick_ns) as f64 / 1e3 / k.max(1.0);
++    let ub = (s.ship_boundary_ns - base.ship_boundary_ns) as f64 / 1e3 / b.max(1.0);
++    let (rk, rb) = (k / bodies as f64 / gs, b / bodies as f64 / gs);
++    let cores = |r: f64, u: f64| r * 1e9 * 100.0 * u * 1e-6;
++    println!(
++        "totals: gs {gs:.0} kicks {k:.0} boundaries {b:.0} rate_b/k {:.3} | us_kick {uk:.2} us_boundary {ub:.2} cost_b/k {:.3} | boundary share of the comb stream {:.3}",
++        b / k.max(1.0),
++        ub / uk,
++        ub * b / (ub * b + uk * k).max(1.0)
++    );
++    println!(
++        "row at 1e9 rtf100 (this flight's laws): kick {:.1} cores + boundary {:.1} cores = {:.1} cores | blended {:.2} us/event over {:.3e} events/wall-s",
++        cores(rk, uk),
++        cores(rb, ub),
++        cores(rk, uk) + cores(rb, ub),
++        (uk * k + ub * b) / (k + b).max(1.0),
++        (rk + rb) * 1e9 * 100.0
++    );
++    // The ledger's two corrections, printed from the same numbers: the mandatory cadence cut
++    // (split8xsurvival = 4.92x on both combs, budget-1e9 line 2) and the M1 anchor (0.58, 3aec).
++    let (ck, cb) = (cores(rk, uk), cores(rb, ub));
++    println!(
++        "row at 1e9 rtf100 after split8 (÷4.92): kick {:.1} + boundary {:.1} = {:.1} cores (M1-anchored ×0.58: {:.1} + {:.1} = {:.1})",
++        ck / 4.92,
++        cb / 4.92,
++        (ck + cb) / 4.92,
++        ck * 0.58 / 4.92,
++        cb * 0.58 / 4.92,
++        (ck + cb) * 0.58 / 4.92
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..1d7e4b97 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -126,9 +126,15 @@ pub struct Stats {
+     /// Members handed out of a frame into a doll, and frames dissolved.
+     pub leavers: u64,
+     pub dissolved: u64,
+-    /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
++    /// Wall ns and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
++    /// Ship items only, by what they resolved: the belt's two combs priced apart (the 10^9 ledger's
++    /// boundary row). `What::Kick` items (clock or not) against `What::Boundary` ones.
++    pub ship_kick_ns: u64,
++    pub ship_kicks: u64,
++    pub ship_boundary_ns: u64,
++    pub ship_boundaries: u64,
+ }
+ impl Stats {
+     pub fn events(&self) -> u64 {
+@@ -796,11 +802,28 @@ impl Universe {
+                 self.resolve_fleet(f, cap);
+             }
+             None => {
++                // The item about to resolve, read before the clock starts so the classification costs
++                // nothing inside the timed window (resolve_body reads the same plan first).
++                let comb = self.bodies.rec(e).plan.first().map(|it| it.what);
+                 let t0 = Instant::now();
+                 let class = self.info[e].kind as usize;
+                 self.resolve_body(e);
+-                self.stats.cost_ns[class] += t0.elapsed().as_nanos() as u64;
++                let el = t0.elapsed().as_nanos() as u64;
++                self.stats.cost_ns[class] += el;
+                 self.stats.items[class] += 1;
++                if class == Kind::Ship as usize {
++                    match comb {
++                        Some(What::Kick(_)) => {
++                            self.stats.ship_kick_ns += el;
++                            self.stats.ship_kicks += 1;
++                        }
++                        Some(What::Boundary) => {
++                            self.stats.ship_boundary_ns += el;
++                            self.stats.ship_boundaries += 1;
++                        }
++                        _ => {}
++                    }
++                }
+                 self.requeue(e);
+             }
+         }

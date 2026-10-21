@@ -1,0 +1,4 @@
+Working...
+Run complete. All artifacts in place (`predictions.md` pre-registered, `dossier.md`, `regen.sh` verified end-to-end at exit 0 in 109 s, raw flights in `out/`, folded `wiki/budget-1e9.md`, two-hunk `work/patch.diff` re-applied to the tree).
+
+**The claim:** the belt's BOUNDARY comb — unpriced in every composed 10⁹ total — fires at 0.98–0.99× the kick rate (belt-pure 3.6×10⁻⁵/body/game-s each) and costs 8.7–9.9 µs x86 per item (N-flat, both seeds; refuting 3aec's 18.4 µs on this stream), making it a **29–38-core row at 10⁹ rtf 100 (5.7–7.7 cores after the mandatory split8 cut — the whole 4-core budget by itself)** whose share of the two-comb stream rises from 14.5% today to 68% at the ledger's own 4.9 µs/event kick bar, so deleting it (15d7: its certificates never fire on the belt's own stream) is worth **2× on the closure bar**, not the 1.2× era-time saving the record carried.

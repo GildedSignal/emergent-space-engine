@@ -1,0 +1,60 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.87s
+== brow 30000 7000 12 1
+brow n=30000 seed=1 bodies=30028 build_s=1.27 rss_hwm_mb=70
+chunk  1: gs   12000 wall   3.45 s | kicks    30085 (8.349e-5/b/gs,  51.62 us) | boundaries      251 (6.966e-7/b/gs,  40.40 us) | ship items 30382 (51.49 us avg) | opens 45 handoffs 0 lost 1 | rss 222 MB
+chunk  2: gs   19000 wall   1.19 s | kicks    30430 (5.334e-5/b/gs,  54.33 us) | boundaries      381 (6.678e-7/b/gs,  40.83 us) | ship items 30967 (54.02 us avg) | opens 155 handoffs 0 lost 1 | rss 236 MB
+chunk  3: gs   26000 wall   1.53 s | kicks    30957 (3.965e-5/b/gs,  58.93 us) | boundaries    30165 (3.864e-5/b/gs,   8.78 us) | ship items 61451 (34.14 us avg) | opens 327 handoffs 0 lost 3 | rss 257 MB
+chunk  4: gs   33000 wall   1.21 s | kicks    31378 (3.167e-5/b/gs,  62.88 us) | boundaries    30218 (3.049e-5/b/gs,   8.89 us) | ship items 62058 (36.32 us avg) | opens 460 handoffs 1 lost 3 | rss 280 MB
+chunk  5: gs   40000 wall   2.54 s | kicks    61239 (5.098e-5/b/gs,  55.95 us) | boundaries    30265 (2.520e-5/b/gs,   8.99 us) | ship items 92043 (40.33 us avg) | opens 537 handoffs 2 lost 3 | rss 344 MB
+chunk  6: gs   47000 wall   1.05 s | kicks    61298 (4.343e-5/b/gs,  56.17 us) | boundaries    30289 (2.146e-5/b/gs,   9.04 us) | ship items 92144 (40.49 us avg) | opens 555 handoffs 2 lost 3 | rss 360 MB
+chunk  7: gs   54000 wall   1.34 s | kicks    61335 (3.783e-5/b/gs,  56.31 us) | boundaries    60042 (3.703e-5/b/gs,   8.66 us) | ship items 121940 (32.70 us avg) | opens 561 handoffs 3 lost 3 | rss 377 MB
+chunk  8: gs   61000 wall   1.05 s | kicks    61433 (3.354e-5/b/gs,  56.55 us) | boundaries    60084 (3.280e-5/b/gs,   8.70 us) | ship items 122080 (32.86 us avg) | opens 561 handoffs 5 lost 3 | rss 393 MB
+chunk  9: gs   68000 wall   2.53 s | kicks    91125 (4.463e-5/b/gs,  53.87 us) | boundaries    60107 (2.944e-5/b/gs,   8.72 us) | ship items 151795 (35.89 us avg) | opens 561 handoffs 5 lost 3 | rss 450 MB
+chunk 10: gs   75000 wall   1.08 s | kicks    91173 (4.048e-5/b/gs,  54.05 us) | boundaries    60383 (2.681e-5/b/gs,   8.79 us) | ship items 152119 (35.98 us avg) | opens 561 handoffs 7 lost 3 | rss 466 MB
+chunk 11: gs   82000 wall   1.33 s | kicks    91230 (3.705e-5/b/gs,  54.28 us) | boundaries    89840 (3.649e-5/b/gs,   8.65 us) | ship items 181633 (31.62 us avg) | opens 561 handoffs 12 lost 3 | rss 488 MB
+chunk 12: gs   89000 wall   1.03 s | kicks    91677 (3.430e-5/b/gs,  54.29 us) | boundaries    89957 (3.366e-5/b/gs,   8.65 us) | ship items 182197 (31.67 us avg) | opens 561 handoffs 12 lost 3 | rss 504 MB
+totals: gs 89000 kicks 91677 boundaries 89957 rate_b/k 0.981 | us_kick 54.29 us_boundary 8.65 cost_b/k 0.159 | boundary share of the comb stream 0.135
+row at 1e9 rtf100 (this flight's laws): kick 186.3 cores + boundary 29.1 cores = 215.4 cores | blended 31.69 us/event over 6.796e6 events/wall-s
+row at 1e9 rtf100 after split8 (÷4.92): kick 37.9 + boundary 5.9 = 43.8 cores (M1-anchored ×0.58: 22.0 + 3.4 = 25.4)
+== brow 100000 7000 12 1
+brow n=100000 seed=1 bodies=100028 build_s=4.26 rss_hwm_mb=226
+chunk  1: gs   12000 wall   7.04 s | kicks   100085 (8.338e-5/b/gs,  49.78 us) | boundaries      251 (2.091e-7/b/gs,  40.77 us) | ship items 100382 (49.75 us avg) | opens 45 handoffs 0 lost 1 | rss 536 MB
+chunk  2: gs   19000 wall   1.20 s | kicks   100430 (5.284e-5/b/gs,  50.62 us) | boundaries      381 (2.005e-7/b/gs,  41.13 us) | ship items 100967 (50.55 us avg) | opens 155 handoffs 0 lost 1 | rss 549 MB
+chunk  3: gs   26000 wall   2.23 s | kicks   100957 (3.882e-5/b/gs,  52.05 us) | boundaries   100165 (3.851e-5/b/gs,   8.56 us) | ship items 201451 (30.38 us avg) | opens 327 handoffs 0 lost 3 | rss 571 MB
+chunk  4: gs   33000 wall   1.22 s | kicks   101378 (3.071e-5/b/gs,  53.33 us) | boundaries   100218 (3.036e-5/b/gs,   8.59 us) | ship items 202058 (31.08 us avg) | opens 460 handoffs 1 lost 3 | rss 594 MB
+chunk  5: gs   40000 wall   6.05 s | kicks   201239 (5.030e-5/b/gs,  50.88 us) | boundaries   100265 (2.506e-5/b/gs,   8.62 us) | ship items 302043 (36.81 us avg) | opens 537 handoffs 2 lost 3 | rss 759 MB
+chunk  6: gs   47000 wall   1.09 s | kicks   201298 (4.282e-5/b/gs,  50.95 us) | boundaries   100289 (2.133e-5/b/gs,   8.64 us) | ship items 302144 (36.86 us avg) | opens 555 handoffs 2 lost 3 | rss 776 MB
+chunk  7: gs   54000 wall   2.23 s | kicks   201335 (3.727e-5/b/gs,  51.00 us) | boundaries   200042 (3.703e-5/b/gs,   8.74 us) | ship items 401940 (29.93 us avg) | opens 561 handoffs 3 lost 3 | rss 793 MB
+chunk  8: gs   61000 wall   1.35 s | kicks   201561 (3.303e-5/b/gs,  51.08 us) | boundaries   200084 (3.279e-5/b/gs,   8.75 us) | ship items 402208 (29.99 us avg) | opens 561 handoffs 5 lost 3 | rss 809 MB
+chunk  9: gs   68000 wall   6.48 s | kicks   301125 (4.427e-5/b/gs,  51.06 us) | boundaries   200107 (2.942e-5/b/gs,   8.76 us) | ship items 501795 (34.16 us avg) | opens 561 handoffs 5 lost 3 | rss 965 MB
+chunk 10: gs   75000 wall   1.08 s | kicks   301173 (4.015e-5/b/gs,  51.11 us) | boundaries   200874 (2.678e-5/b/gs,   8.78 us) | ship items 502610 (34.17 us avg) | opens 561 handoffs 7 lost 3 | rss 981 MB
+chunk 11: gs   82000 wall   2.05 s | kicks   301230 (3.673e-5/b/gs,  51.18 us) | boundaries   299597 (3.653e-5/b/gs,   8.69 us) | ship items 601390 (29.99 us avg) | opens 561 handoffs 12 lost 3 | rss 1004 MB
+chunk 12: gs   89000 wall   1.10 s | kicks   302684 (3.400e-5/b/gs,  51.18 us) | boundaries   299957 (3.369e-5/b/gs,   8.69 us) | ship items 603204 (30.03 us avg) | opens 561 handoffs 12 lost 3 | rss 1021 MB
+totals: gs 89000 kicks 302684 boundaries 299957 rate_b/k 0.991 | us_kick 51.18 us_boundary 8.69 cost_b/k 0.170 | boundary share of the comb stream 0.144
+row at 1e9 rtf100 (this flight's laws): kick 174.0 cores + boundary 29.3 cores = 203.3 cores | blended 30.03 us/event over 6.769e6 events/wall-s
+row at 1e9 rtf100 after split8 (÷4.92): kick 35.4 + boundary 5.9 = 41.3 cores (M1-anchored ×0.58: 20.5 + 3.5 = 24.0)
+== brow 100000 7000 12 2
+brow n=100000 seed=2 bodies=100028 build_s=4.41 rss_hwm_mb=226
+chunk  1: gs   12000 wall   8.71 s | kicks   102087 (8.505e-5/b/gs,  49.44 us) | boundaries     2360 (1.966e-6/b/gs,  27.90 us) | ship items 104463 (48.95 us avg) | opens 18 handoffs 0 lost 1 | rss 568 MB
+chunk  2: gs   19000 wall   1.84 s | kicks   103928 (5.468e-5/b/gs,  50.45 us) | boundaries     3876 (2.039e-6/b/gs,  27.43 us) | ship items 107965 (49.58 us avg) | opens 163 handoffs 0 lost 1 | rss 572 MB
+chunk  3: gs   26000 wall   3.56 s | kicks   106058 (4.078e-5/b/gs,  52.11 us) | boundaries   105050 (4.039e-5/b/gs,   9.27 us) | ship items 211527 (30.78 us avg) | opens 419 handoffs 0 lost 3 | rss 600 MB
+chunk  4: gs   33000 wall   1.76 s | kicks   107705 (3.263e-5/b/gs,  52.50 us) | boundaries   106507 (3.227e-5/b/gs,   9.51 us) | ship items 214750 (31.11 us avg) | opens 540 handoffs 0 lost 3 | rss 621 MB
+chunk  5: gs   40000 wall   6.61 s | kicks   209610 (5.239e-5/b/gs,  50.32 us) | boundaries   108617 (2.715e-5/b/gs,   9.83 us) | ship items 318831 (36.48 us avg) | opens 606 handoffs 0 lost 3 | rss 789 MB
+chunk  6: gs   47000 wall   1.65 s | kicks   211737 (4.504e-5/b/gs,  50.33 us) | boundaries   110716 (2.355e-5/b/gs,  10.13 us) | ship items 323071 (36.50 us avg) | opens 620 handoffs 0 lost 3 | rss 808 MB
+chunk  7: gs   54000 wall   2.62 s | kicks   213858 (3.959e-5/b/gs,  50.33 us) | boundaries   212545 (3.935e-5/b/gs,   9.40 us) | ship items 427027 (29.92 us avg) | opens 626 handoffs 1 lost 3 | rss 829 MB
+chunk  8: gs   61000 wall   1.69 s | kicks   216163 (3.543e-5/b/gs,  50.37 us) | boundaries   214662 (3.518e-5/b/gs,   9.57 us) | ship items 431450 (30.03 us avg) | opens 626 handoffs 6 lost 4 | rss 850 MB
+chunk  9: gs   68000 wall   6.79 s | kicks   317785 (4.672e-5/b/gs,  50.15 us) | boundaries   216755 (3.187e-5/b/gs,   9.73 us) | ship items 535165 (33.75 us avg) | opens 626 handoffs 9 lost 4 | rss 1009 MB
+chunk 10: gs   75000 wall   1.68 s | kicks   319822 (4.263e-5/b/gs,  50.11 us) | boundaries   219543 (2.926e-5/b/gs,   9.89 us) | ship items 539991 (33.73 us avg) | opens 626 handoffs 9 lost 5 | rss 1028 MB
+chunk 11: gs   82000 wall   2.83 s | kicks   321902 (3.925e-5/b/gs,  50.13 us) | boundaries   320255 (3.904e-5/b/gs,   9.77 us) | ship items 642783 (30.00 us avg) | opens 626 handoffs 13 lost 5 | rss 1053 MB
+chunk 12: gs   89000 wall   1.67 s | kicks   325432 (3.656e-5/b/gs,  50.08 us) | boundaries   322649 (3.624e-5/b/gs,   9.88 us) | ship items 648707 (30.06 us avg) | opens 626 handoffs 14 lost 5 | rss 1074 MB
+totals: gs 89000 kicks 325432 boundaries 322649 rate_b/k 0.991 | us_kick 50.08 us_boundary 9.88 cost_b/k 0.197 | boundary share of the comb stream 0.164
+row at 1e9 rtf100 (this flight's laws): kick 183.1 cores + boundary 35.8 cores = 218.9 cores | blended 30.07 us/event over 7.280e6 events/wall-s
+row at 1e9 rtf100 after split8 (÷4.92): kick 37.2 + boundary 7.3 = 44.5 cores (M1-anchored ×0.58: 21.6 + 4.2 = 25.8)
+steady window (gs 33k..89k, two full clock periods), per rung:
+brow-n30000-s1.txt: rate_k 3.586e-05 rate_b 3.553e-05 b/k 0.991 | kick 194.7 + boundary 30.7 = 225.4 cores @1e9 rtf100 | split8 39.6+6.2=45.8 (M1 x0.58: 22.9+3.6=26.6)
+  boundary share: today 0.136 | at the 4.9us kick bar 0.637 | bar halves to 2.46 us/event if the comb is kept
+brow-n100000-s1.txt: rate_k 3.594e-05 rate_b 3.566e-05 b/k 0.992 | kick 183.9 + boundary 31.0 = 214.9 cores @1e9 rtf100 | split8 37.4+6.3=43.7 (M1 x0.58: 21.7+3.7=25.3)
+  boundary share: today 0.144 | at the 4.9us kick bar 0.639 | bar halves to 2.46 us/event if the comb is kept
+brow-n100000-s2.txt: rate_k 3.887e-05 rate_b 3.859e-05 b/k 0.993 | kick 194.7 + boundary 38.1 = 232.8 cores @1e9 rtf100 | split8 39.6+7.7=47.3 (M1 x0.58: 22.9+4.5=27.4)
+  boundary share: today 0.164 | at the 4.9us kick bar 0.668 | bar halves to 2.46 us/event if the comb is kept
