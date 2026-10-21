@@ -1,0 +1,82 @@
+diff --git a/crates/universe/examples/truthprobe.rs b/crates/universe/examples/truthprobe.rs
+new file mode 100644
+index 00000000..ce1673c6
+--- /dev/null
++++ b/crates/universe/examples/truthprobe.rs
+@@ -0,0 +1,76 @@
++//! Truth probe (inversion 279d): is the canonical digest at a fixed cut independent of the wall?
++//! Scene: plane_extra (the belt), coast; cut at `seconds` of game time. Arms vary only the schedule:
++//!   paced|unpaced|unlimited|events|loaded  [rtf] [seconds] [budget_ms] [N] [seed] [threads] [gather]
++//! Prints one json line: arm, cut, digest, frames, presented_at_end, events, kicked, encounters, contacts.
++//! cargo run --release -p emergent-universe --example truthprobe -- paced 6000 20 12 10000 1 1 0
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let arm = a.get(1).cloned().unwrap_or_else(|| "paced".into());
++    let rtf: f64 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(6000.0);
++    let seconds: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let budget_ms: f64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let n: usize = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(10000);
++    let seed: u64 = a.get(6).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let threads: usize = a.get(7).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let gather: usize = a.get(8).and_then(|s| s.parse().ok()).unwrap_or(0); // gather every N frames (0: never)
++    let input: String = a.get(9).cloned().unwrap_or_else(|| "none".into()); // none | presented | scheduled
++    let open = arm.ends_with("-open");
++    let arm_base = arm.trim_end_matches("-open").to_string();
++    let frames = (seconds * 60.0) as usize;
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, threads, 48, n)
++        .unwrap_or_else(|e| panic!("plane: {e:?}"));
++    let build = t0.elapsed().as_secs_f64();
++    let mut cache = ViewCache::default();
++    if input == "scheduled" {
++        p.u.schedule((1.0 * rtf / TICK_SECONDS) as i64, word(1, 8)).unwrap();
++    }
++    let budget = |ms: f64| Budget { events: u64::MAX, until: Some(Instant::now() + Duration::from_micros((ms * 1e3) as u64)) };
++    let wall = Instant::now();
++    let mut last = Instant::now();
++    let mut ran = 0usize;
++    for f in 1..=frames {
++        if arm == "paced" {
++            let due = Duration::from_secs_f64(f as f64 / 60.0);
++            if let Some(w) = due.checked_sub(wall.elapsed()) {
++                std::thread::sleep(w);
++            }
++        }
++        let dt = if arm == "paced" { last.elapsed().as_secs_f64().min(0.1) } else { 1.0 / 60.0 };
++        last = Instant::now();
++        if f == 60 && input == "presented" {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let b = match arm_base.as_str() {
++            "unlimited" => Budget::unlimited(),
++            "events" => Budget::events(25),
++            _ => budget(budget_ms),
++        };
++        p.u.frame_to(dt, rtf, b, cut);
++        ran += 1;
++        if gather != 0 && f % gather == 0 {
++            let _ = gather_cached(&p.u, &p.names, &mut cache);
++        }
++        if !p.u.rec(p.player).alive {
++            break;
++        }
++    }
++    let presented = p.u.now;
++    let digest_presented = p.u.digest();
++    p.u.settle(cut);
++    let after_settle = p.u.now;
++    println!(
++        "{{\"arm\": \"{}\", \"rtf\": {}, \"seconds\": {}, \"budget_ms\": {}, \"n\": {}, \"seed\": {}, \"threads\": {}, \"gather\": {}, \"cut\": {}, \"digest\": \"{}\", \"digest_presented\": \"{}\", \"input\": \"{}\", \"frames\": {}, \"presented_at_end\": {}, \"after_settle\": {}, \"events\": {}, \"kicks\": {}, \"encounters\": {}, \"contacts\": {}, \"scans_held\": {}, \"build_s\": {:.2}, \"wall_s\": {:.2}}}",
++        arm, rtf, seconds, budget_ms, n, seed, threads, gather, cut, p.u.digest(), digest_presented, input, ran, presented, after_settle,
++        p.u.stats.events(), p.u.stats.kicks, p.u.stats.encounters, p.u.contacts, p.u.held_scans(), build, wall.elapsed().as_secs_f64()
++    );
++}
