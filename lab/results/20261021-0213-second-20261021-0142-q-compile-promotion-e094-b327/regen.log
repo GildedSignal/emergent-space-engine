@@ -1,0 +1,40 @@
+  PASS  variants: tree wiki.py == pristine+6ccc+b327ext — otherwise work/patch.diff has drifted from the stored diffs
+disease at 046d8d9c: 29/40 pages, 468 dup lines; promotion 32L/14ids/18dups; 02:12 window added 34: {'budget-1e9.md': 10, 'cell-rebind.md': 4, 'kick-jet.md': 7, 'promotion.md': 13}
+  PASS  P1 pristine replay of e094's publish == shipped page byte-for-byte
+  PASS  P2 shipped publisher re-present: no-op, disease stands (32L/13dups) — {'lines': 32, 'ids': 14, 'dups': 18}
+  PASS  P3 6ccc-only re-present: skip no-op, no heal
+  PASS  P4 healed: 14 lines / 14 ids / 0 dups — {'lines': 14, 'ids': 14, 'dups': 0}; heal printed: True
+  PASS  P4 healed Runs == e094 proposal's Runs (the compiled variants win)
+  PASS  P4 body untouched
+  PASS  P4 index row: open, 14 runs, no flag — | [promotion](promotion.md) | open | 14 | **The phase/along-orbit axis is priced
+  PASS  P5 second identical sweep byte-identical
+  PASS  P6 every page the 02:12 window compounded is fully healed (0 dups each) — corpus 468 -> 392 (-76); the rest are older topics', healed by their own next sweep or the one-time `heal` (P7b)
+  PASS  P6 budget-1e9.md Runs == its compiled proposal's as a set (10 lines) — {'lines': 10, 'ids': 10, 'dups': 0}; byte-identical: True
+  PASS  P6 cell-rebind.md Runs == its compiled proposal's as a set (4 lines) — {'lines': 4, 'ids': 4, 'dups': 0}; byte-identical: True
+  PASS  P6 promotion.md Runs == its compiled proposal's as a set (14 lines) — {'lines': 14, 'ids': 14, 'dups': 0}; byte-identical: True
+  PASS  P6 kick-jet.md Runs == its compiled proposal's as a set (57 lines) — {'lines': 57, 'ids': 57, 'dups': 0}; byte-identical: False
+  PASS  P7 fold clears every dup line, zero ids lost corpus-wide — cleared 468/468, lost []
+  PASS  P7b `wiki.py heal` clears the whole corpus (468 -> 0), zero ids lost, idempotent — 0 left, lost []
+  PASS  P7b heal idempotent
+  PASS  P8 patched index == shipped index
+  PASS  P9 promotion lands 15 Runs lines, one per id, b327 added — {'lines': 15, 'ids': 15, 'dups': 0}
+  PASS  P9 wiki-memory healed: one line per id (4+b327) — {'lines': 5, 'ids': 5, 'dups': 0}
+  PASS  P9 both pages under budget, no flags — current best 14/7 lines
+
+VERDICT: PASS
+  PASS  P4 box: promotion 14/14/0 — 14/14/0
+  PASS  P4 box: healed Runs == staged e094 proposal's Runs
+  PASS  P4 box: index row open|14, no flag
+  PASS  P6 box: promotion.md 15 lines, 0 dups — 15/15/0
+  PASS  P6 box: budget-1e9.md 10 lines, 0 dups — 10/10/0
+  PASS  P6 box: cell-rebind.md 4 lines, 0 dups — 4/4/0
+  PASS  P6 box: kick-jet.md 57 lines, 0 dups — 57/57/0
+  PASS  P6 box: corpus dup total 388 after P6+P9 — 388
+  PASS  P7b box: corpus dup total 0 after heal — 0
+  PASS  P9 box: promotion.md 15/15/0 — 15/15/0
+  PASS  P9 box: wiki-memory.md 5/5/0 — 5/5/0
+  PASS  record: verdict PASS — PASS
+  PASS  record: disease 29/40 pages, 468 dups, promotion 32/14/18 — {"corpus": "046d8d9c", "pages": 40, "diseased": 29, "dup_lines": 468, "promotion": {"lines": 32, "ids": 14, "dups": 18}, "window_added": {"budget-1e9.md": 10, "cell-rebind.md": 4, "kick-jet.md": 7, "promotion.md": 13}}
+  PASS  record: 02:12 window added 34 — {"budget-1e9.md": 10, "cell-rebind.md": 4, "kick-jet.md": 7, "promotion.md": 13}
+VERIFY: PASS
+regen: done (record in work/record.json)

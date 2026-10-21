@@ -1,0 +1,45 @@
+diff --git a/lab/wiki.py b/lab/wiki.py
+index 1111111..2222222 100644
+@@ -196,7 +196,16 @@
+             mine, theirs_text = defuse(open(ours, encoding="utf-8").read()), defuse(open(theirs, encoding="utf-8").read())
+             body = {k: split_runs(v) for k, v in (("ours", mine), ("base", old), ("theirs", theirs_text))}
+             if any(l.split(" ")[1:2] == [run] for l in body["ours"][1]):
+-                continue  # already folded (the Runs list is the union): re-applying old runs is the amplifier
++                # Already folded: re-applying old runs is the amplifier.  The skip is
++                # also the heal — a Runs list compounded by the literal union (every
++                # publish before this patch, and any unpatched publish since) folds
++                # back to one line per id here, the later wording of each run winning.
++                folded = fold_runs(body["ours"][1], [])
++                if folded != body["ours"][1]:
++                    open(ours, "w", encoding="utf-8").write(
++                        body["ours"][0].rstrip("\n") + "\n\n## Runs\n" + "".join(l + "\n" for l in folded))
++                    print(f"wiki: {run} healed {name} (Runs folded to one line per id)")
++                continue
+             tmp = {k: os.path.join(results, run, f".{k}-{name}") for k in body}
+             for k in body:
+                 open(tmp[k], "w", encoding="utf-8").write(body[k][0])
+@@ -211,15 +220,22 @@
+ 
+ 
+ def heal():
+-    """Rewrite any conflict markers still on pages (one-time cleanup of past publishes)."""
++    """One-time cleanup of past publishes: defuse conflict markers, and fold each
++    page's `## Runs` back to one line per run (the literal union compounded them)."""
+     for name in sorted(os.listdir(WIKI)):
+         if not name.endswith(".md") or name in SKIP:
+             continue
+         p = os.path.join(WIKI, name)
+         t = open(p, encoding="utf-8").read()
+-        if has_markers(t):
++        body, lines = split_runs(defuse(t))
++        folded = fold_runs(lines, [])
++        if not lines and has_markers(t):  # no Runs section to fold; defuse only
+             open(p, "w", encoding="utf-8").write(defuse(t))
+             print(f"wiki: healed {name}")
++        elif has_markers(t) or folded != lines:
++            open(p, "w", encoding="utf-8").write(
++                body.rstrip("\n") + "\n\n## Runs\n" + "".join(l + "\n" for l in folded))
++            print(f"wiki: healed {name}{' (Runs folded)' if folded != lines else ''}")
+ 
+ 
+ if __name__ == "__main__":

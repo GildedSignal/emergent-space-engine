@@ -1,0 +1,158 @@
+{
+ "variants: tree wiki.py == pristine+6ccc+b327ext": {
+  "pass": true,
+  "detail": "otherwise work/patch.diff has drifted from the stored diffs"
+ },
+ "disease": {
+  "corpus": "046d8d9c",
+  "pages": 40,
+  "diseased": 29,
+  "dup_lines": 468,
+  "promotion": {
+   "lines": 32,
+   "ids": 14,
+   "dups": 18
+  },
+  "window_added": {
+   "budget-1e9.md": 10,
+   "cell-rebind.md": 4,
+   "kick-jet.md": 7,
+   "promotion.md": 13
+  }
+ },
+ "P1 pristine replay of e094's publish == shipped page byte-for-byte": {
+  "pass": true,
+  "detail": ""
+ },
+ "P2 shipped publisher re-present: no-op, disease stands (32L/13dups)": {
+  "pass": true,
+  "detail": "{'lines': 32, 'ids': 14, 'dups': 18}"
+ },
+ "P3 6ccc-only re-present: skip no-op, no heal": {
+  "pass": true,
+  "detail": ""
+ },
+ "P4 healed: 14 lines / 14 ids / 0 dups": {
+  "pass": true,
+  "detail": "{'lines': 14, 'ids': 14, 'dups': 0}; heal printed: True"
+ },
+ "P4 healed Runs == e094 proposal's Runs (the compiled variants win)": {
+  "pass": true,
+  "detail": ""
+ },
+ "P4 body untouched": {
+  "pass": true,
+  "detail": ""
+ },
+ "P4 index row: open, 14 runs, no flag": {
+  "pass": true,
+  "detail": "| [promotion](promotion.md) | open | 14 | **The phase/along-orbit axis is priced"
+ },
+ "P5 second identical sweep byte-identical": {
+  "pass": true,
+  "detail": ""
+ },
+ "P6 every page the 02:12 window compounded is fully healed (0 dups each)": {
+  "pass": true,
+  "detail": "corpus 468 -> 392 (-76); the rest are older topics', healed by their own next sweep or the one-time `heal` (P7b)"
+ },
+ "P6 budget-1e9.md Runs == its compiled proposal's as a set (10 lines)": {
+  "pass": true,
+  "detail": "{'lines': 10, 'ids': 10, 'dups': 0}; byte-identical: True"
+ },
+ "p6_budget-1e9.md_byteidentical": true,
+ "P6 cell-rebind.md Runs == its compiled proposal's as a set (4 lines)": {
+  "pass": true,
+  "detail": "{'lines': 4, 'ids': 4, 'dups': 0}; byte-identical: True"
+ },
+ "p6_cell-rebind.md_byteidentical": true,
+ "P6 promotion.md Runs == its compiled proposal's as a set (14 lines)": {
+  "pass": true,
+  "detail": "{'lines': 14, 'ids': 14, 'dups': 0}; byte-identical: True"
+ },
+ "p6_promotion.md_byteidentical": true,
+ "P6 kick-jet.md Runs == its compiled proposal's as a set (57 lines)": {
+  "pass": true,
+  "detail": "{'lines': 57, 'ids': 57, 'dups': 0}; byte-identical: False"
+ },
+ "p6_kick-jet.md_byteidentical": false,
+ "p6_healed": {
+  "promotion.md": {
+   "before": {
+    "lines": 32,
+    "ids": 14,
+    "dups": 18
+   },
+   "after": {
+    "lines": 14,
+    "ids": 14,
+    "dups": 0
+   }
+  },
+  "budget-1e9.md": {
+   "before": {
+    "lines": 26,
+    "ids": 10,
+    "dups": 16
+   },
+   "after": {
+    "lines": 10,
+    "ids": 10,
+    "dups": 0
+   }
+  },
+  "cell-rebind.md": {
+   "before": {
+    "lines": 11,
+    "ids": 4,
+    "dups": 7
+   },
+   "after": {
+    "lines": 4,
+    "ids": 4,
+    "dups": 0
+   }
+  },
+  "kick-jet.md": {
+   "before": {
+    "lines": 92,
+    "ids": 57,
+    "dups": 35
+   },
+   "after": {
+    "lines": 57,
+    "ids": 57,
+    "dups": 0
+   }
+  }
+ },
+ "P7 fold clears every dup line, zero ids lost corpus-wide": {
+  "pass": true,
+  "detail": "cleared 468/468, lost []"
+ },
+ "P7b `wiki.py heal` clears the whole corpus (468 -> 0), zero ids lost, idempotent": {
+  "pass": true,
+  "detail": "0 left, lost []"
+ },
+ "P7b heal idempotent": {
+  "pass": true,
+  "detail": ""
+ },
+ "P8 patched index == shipped index": {
+  "pass": true,
+  "detail": ""
+ },
+ "P9 promotion lands 15 Runs lines, one per id, b327 added": {
+  "pass": true,
+  "detail": "{'lines': 15, 'ids': 15, 'dups': 0}"
+ },
+ "P9 wiki-memory healed: one line per id (4+b327)": {
+  "pass": true,
+  "detail": "{'lines': 5, 'ids': 5, 'dups': 0}"
+ },
+ "P9 both pages under budget, no flags": {
+  "pass": true,
+  "detail": "current best 14/7 lines"
+ },
+ "verdict": "PASS"
+}
