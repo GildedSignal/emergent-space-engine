@@ -1,0 +1,97 @@
+diff --git a/crates/universe/examples/boundary_row.rs b/crates/universe/examples/boundary_row.rs
+new file mode 100644
+index 00000000..00f7e1ba
+--- /dev/null
++++ b/crates/universe/examples/boundary_row.rs
+@@ -0,0 +1,91 @@
++// The belt's boundary combs, priced on the shipped plane: every clock kick plans one Boundary item
++// half a period ahead (step.rs `kick_clock`), so the item stream carries a boundary per kick. This
++// measures what the budget page left unpriced: the steady boundaries/kicks ratio, the blended
++// per-item cost of a hot settle window, a belt body's own item spacing, and the pure resolve cost
++// of a Boundary against a Kick and against its readout share. `boundary_row [EXTRA] [SEED]`.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::Config;
++use emergent_universe::body::BodyRec;
++use std::time::Instant;
++
++fn main() {
++    let extra: usize = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(100_000);
++    let seed: u64 = std::env::args().nth(2).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let chunk: i64 = 200_000_000;
++    let n_chunk = 10;
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 24, extra).unwrap();
++    // Steady stream: chunked settles with stat deltas; early chunks still carry the birth ramp.
++    let mut horizon = chunk;
++    let mut prev = p.u.stats;
++    let mut best: Option<(u64, u64, u64, u64, f64)> = None;
++    for _ in 0..n_chunk {
++        let t0 = Instant::now();
++        p.u.settle(horizon);
++        let wall = t0.elapsed().as_secs_f64();
++        let s = p.u.stats;
++        let (dk, db, dop, dh) = (s.kicks - prev.kicks, s.boundaries - prev.boundaries, s.opens - prev.opens, s.handoffs - prev.handoffs);
++        prev = s;
++        let dev = dk + db + dop + dh;
++        println!(
++            "chunk -> {horizon} ticks: dkicks {dk} dbound {db} dopens {dop} dhand {dh} items {dev} wall {wall:.3}s b/k {:.4} blended {:.2} us/item",
++            db as f64 / dk.max(1) as f64,
++            wall * 1e6 / dev.max(1) as f64
++        );
++        if dev > 1000 {
++            best = Some((dk, db, dop, dh, wall));
++        }
++        horizon += chunk;
++    }
++    if let Some((dk, db, dop, dh, wall)) = best {
++        let dev = dk + db + dop + dh;
++        println!(
++            "STEADY extra={extra} seed={seed}: dkicks {dk} dbound {db} dopens {dop} dhand {dh} wall {wall:.3}s | b/k {:.4} blended {:.2} us/item | per-body per-1e9-tick: kicks {:.4e} boundaries {:.4e}",
++            db as f64 / dk.max(1) as f64,
++            wall * 1e6 / dev as f64,
++            dk as f64 / extra as f64 / n_chunk as f64,
++            db as f64 / extra as f64 / n_chunk as f64,
++        );
++    }
++    // A belt body's own plan: process one kick; the record it returns plans [Boundary, Kick].
++    let ctx = p.u.ctx();
++    let id = p.ships.len(); // first ladder body ("the ids after the plane's own ships")
++    let rec0 = p.u.rec(id);
++    let u0 = emergent_universe::step::process(&ctx, id, rec0.clone());
++    let rec1 = u0.rec;
++    let items: Vec<(i64, String)> = rec1.plan.iter().map(|i| (i.t, format!("{:?}", i.what))).collect();
++    let itemslen = items.len();
++    let spacing: Vec<i64> = items.windows(2).map(|w| w[1].0 - w[0].0).collect();
++    println!("belt body {id}: post-kick plan len {itemslen}, items {items:?}, spacing {spacing:?}");
++    // Pure resolves on clones of the post-kick record: its Boundary item vs its Kick item.
++    let n = 2000;
++    let strip = |r: &mut BodyRec, want: emergent_universe::body::What| {
++        while r.plan.first().map(|i| i.what) != Some(want) {
++            r.plan.remove(0);
++        }
++    };
++    let (t0, mut nb) = (Instant::now(), 0);
++    for _ in 0..n {
++        let mut r = rec1.clone();
++        strip(&mut r, emergent_universe::body::What::Boundary);
++        let u = emergent_universe::step::process(&ctx, id, r);
++        nb += matches!(u.kind, emergent_universe::step::Resolved::Boundary) as u32;
++        std::hint::black_box(&u);
++    }
++    println!("pure Boundary resolve {:.2} us ({nb}/{n})", t0.elapsed().as_secs_f64() * 1e6 / n as f64);
++    let (t0, mut nk) = (Instant::now(), 0);
++    for _ in 0..n {
++        let mut r = rec1.clone();
++        strip(&mut r, emergent_universe::body::What::Kick(0));
++        let u = emergent_universe::step::process(&ctx, id, r);
++        nk += matches!(u.kind, emergent_universe::step::Resolved::Kick) as u32;
++        std::hint::black_box(&u);
++    }
++    println!("pure Kick(0) resolve {:.2} us ({nk}/{n})", t0.elapsed().as_secs_f64() * 1e6 / n as f64);
++    let tb = rec1.plan.first().map(|i| i.t).unwrap_or(rec1.b.event_time + 1000);
++    let t0 = Instant::now();
++    for _ in 0..n {
++        std::hint::black_box(rec1.b.readout(tb).unwrap());
++    }
++    println!("belt readout at the boundary tick: {:.2} us", t0.elapsed().as_secs_f64() * 1e6 / n as f64);
++}
