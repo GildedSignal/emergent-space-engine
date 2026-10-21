@@ -1,0 +1,28 @@
+Grade: silver
+
+**Abstract.** Claim: representation.md L67's inspiral-as-per-cycle-kicks is dead by type in the plunge band — even with exact Peters rates and an exact per-kick recompile (law.md's own standing kick policy), merger time is off +0.23%…−1.62% at the 65M licensed edge (ν = 0.25, equal mass), tens of percent inside 30M, and at e₀ ≥ 0.9 the last kick jumps through the band (p_end −0.90M). Reproduced bit-identically (fresh rerun, same md5); my closed-form oracle matches every circular number to 3 digits; my e₀ = 0.99 arm is worse everywhere (−26.4% at 65M, −1.6% even at 200M); 32 kicks/cycle still −1.8%. But the conclusion is already law.md:36 (12 Oct) and df81; new is the sampling-channel isolation, the |Δt/t| ≈ 3.9·q₀ law, typed bars and the verified rung gap. ν = 0.5 rows are super-physical (ν ≤ 0.25). Cost to adopt: one doc pass + commit r17.
+
+**Reasons.**
+
+*Reproduction.* regen.sh exit 0 (runner) and my own fresh `python3 peters.py` (37 s): `peters_out.json` bit-identical (md5 48c61d92…). Every dossier number I checked is in the log, row by row. Independent of the author's RK4 truth: at e₀ = 0 the exact closed form t = (a₀⁴−6⁴)/(4k) reproduces the letter's circular deltas to three digits (+8.798/+3.969/+1.554/+0.444/+0.231/+0.079/+0.014% at ν = 0.25; same at ν = 0.5), and the truth arm vs closed form reads 7.5e−9% (ν = 0.01, 15M). The rung gap is real: no peters/inspiral/gw/merger match in any of the 14 files of lab/rungs/. Controls on both sides (C1 positive, C3 negative at 8.8% > 1%); C1's bar miss (7.5e−8 vs 1e−9, secant stop) is disclosed and four decades under the smallest kill.
+
+*Predictions.* predictions.md predates the decisive artifacts (file times: 10 min before peters.py's last save; regen after). Honest scoring: P2/P3/P5/P7 held, P4 half-held, P6 missed and reported as missed — good practice.
+
+*My adversarial arms* (checker_adversarial.py/.log, in this folder; 18 s):
+1. **e₀ = 0.99** (a decade past the swept e): the kill strengthens — dtt −43.4% at 30M (2 cycles vs 69.4; Δa/a = 25.1; p_end −2897M), −26.4% at 65M, and **−1.64% even at 200M**: the letter's far-field survival (P2) is circular-only, which the dossier's domain statement does not say.
+2. **ν = 0.01** (a decade below the swept ν): the quantum is 0.009 (vs 0.23), the letter errs ≤ 0.4% at 15M and +0.009% at 65M circular. The type kill is ν-scoped (∝ν); "no operating point for every trajectory" needs that qualifier.
+3. **Closed-form oracle** (above): the headline circular numbers are oracle-exact, no integrator doubt.
+4. **Sub-cycled kicks**, worst cell (15M/e0.9/ν0.25): 2/4/8/16/32 kicks per cycle still err −31.4/−19.1/−10.5/−5.0/−1.8% — cadence alone does not rescue the kick form; supports deleting it rather than tuning it.
+
+*Errors found (why not gold).*
+- **"ν = 0.5 (equal mass, unlicensed by 97b0)" is wrong twice.** ν = m₁m₂/M² ≤ 0.25 with equality *at* equal mass; no binary exists above 0.25. 97b0 swept ν ∈ {0.01, 0.1, 0.25} — the entire physical range, equal mass at the top. The ν = 0.5 rows are a super-physical stress arm (harmless, clearly labelled in the table), but attack #2 ("the license is missing; equal mass unlicensed") collapses. The physical equal-mass case is exactly the ν = 0.25 arm, which fails — the central kill stands.
+- **The 0.1% license bar is p̄₀ ≈ 91M, not 230M** (measured slope −2.48, |dtt|/q₀ = 3.81–3.98; 230M is the 0.01% bar). The 230M figure is not regenerable from the run's code — the exact defect class the lab's rules name.
+- "Final-kick Δa/a 0.16–0.22 for every row": the measured max column spans 0.15–0.30 at ν = 0.25 (0.24–0.92 at ν = 0.5).
+
+*Novelty.* The conclusion is already on record: df81 (gold, 6 Oct) — "inspirals need Peters' generator"; **law.md:36 (12 Oct, adopted)** — "Inspiral is not a jet: Peters' a(t) is its generator"; HANDOFF lists the generator as the planned step. The dossier cites df81's multiply-add kill but never law.md's standing sentence; its proposed amendment for L67 restates it. Genuinely new: (a) the sampling-channel isolation — per-cycle ZOH with *exact* rates and exact recompile fails, the escape route the jet retirement left open; (b) the |Δt/t| ≈ 3.9·q₀ law with the license bars; (c) the plunge-fabrication type kill; (d) r17-inspiral with both-side controls, and the verified fact that no rung gates any GW arm. That strengthens and arms an existing refutation; it does not turn the integrator's direction, which was already the generator. Goal fit: guards principle 13 ("errors that can compound") and 2 (error type over size); "a failed expectation is not a failed method" respected.
+
+*Page.* Faithful fold, budgets kept (131 lines; current best 14). Corrected in place: the ν = 0.5 label, the quantum's ν-domain (0.009 at ν = 0.01), the 230M→91M bar, the 0.16–0.30 envelope, the law.md:36 context, and my e 0.99 / sub-cycle arms added to the Refuted line and open direction 10.
+
+**The one experiment that would make it gold.** Run the *cure* against the same oracle: the Peters generator (exact circular a(t) = a₀(1−t/t_c)^{1/4}, pericentre-refined for e > 0) shown to hold 1% on merger time and cycles over the full plane extended to e₀ = 0.99 and down to ν = 0.01, with r17-inspiral frozen as written and the bar arithmetic fixed. One run; the amendment then lands in one doc pass.
+
+**What the author missed.** The ν convention error and the collapse of attack #2; that e₀ = 0.99 makes the kill worse everywhere and kills the far-field survival (the domain claim should say "circular-only"); the ν-domain of the type kill; the 230M arithmetic slip; and law.md:36 — the run proves the standing law text right and quantifies it, which is a different (and smaller) contribution than killing a live premise.

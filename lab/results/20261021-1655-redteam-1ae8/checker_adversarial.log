@@ -1,0 +1,45 @@
+=== A: outside e-range, e0=0.99 (next decade of the swept number) ===
+p0=   30 e0=0.99 nu=0.25: dtt   -43.43%  cyc 2 vs 69.4  maxDa/a 25.06  p_end_letter -2897.41
+p0=   65 e0=0.99 nu=0.25: dtt   -26.41%  cyc 328 vs 490.3  maxDa/a 0.16  p_end_letter +5.80
+p0=  200 e0=0.99 nu=0.25: dtt    -1.64%  cyc 8020 vs 8171.0  maxDa/a 0.17  p_end_letter +5.70
+
+=== B: outside nu-range, nu=0.01 (extreme mass ratio; galaxy-scale regime) ===
+p0=   15 e0=0.0 nu=0.01: dtt   +0.356%  cyc 391 vs 389.5  maxDa/a 0.0091  | truth vs closed form 7.47e-09%  letter vs closed form +0.356%
+p0=   15 e0=0.9 nu=0.01: dtt   -2.564%  cyc 277 vs 287.5  maxDa/a 0.0181
+p0=   65 e0=0.0 nu=0.01: dtt   +0.009%  cyc 16900 vs 16897.7  maxDa/a 0.0090  | truth vs closed form 2.27e-11%  letter vs closed form +0.009%
+
+=== C: circular closed form as RK4-independent oracle (letter error exactly) ===
+nu=0.25 p0=   15: letter vs closed form  +8.798%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.25 p0=   20: letter vs closed form  +3.969%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.25 p0=   30: letter vs closed form  +1.554%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.25 p0=   50: letter vs closed form  +0.444%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.25 p0=   65: letter vs closed form  +0.231%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.25 p0=  100: letter vs closed form  +0.079%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.25 p0=  200: letter vs closed form  +0.014%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.5 p0=   15: letter vs closed form +16.631%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.5 p0=   20: letter vs closed form  +7.780%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.5 p0=   30: letter vs closed form  +3.144%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.5 p0=   50: letter vs closed form  +0.886%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.5 p0=   65: letter vs closed form  +0.461%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.5 p0=  100: letter vs closed form  +0.158%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+nu=0.5 p0=  200: letter vs closed form  +0.028%  (author's RK4-truth deltas: +8.80/+3.97/+1.55/+0.44/+0.23/+0.08/+0.01 at nu=0.25)
+
+=== D: sub-cycled kicks (does a modest cadence save the kick form?) ===
+truth: t=1.0236e+04 cycles=11.5
+sub=  1 kicks/cycle: dtt   -34.58%  cyc 3 vs 11.5  p_end_l -0.90
+sub=  2 kicks/cycle: dtt   -31.44%  cyc 4 vs 11.5  p_end_l +3.95
+sub=  4 kicks/cycle: dtt   -19.09%  cyc 7 vs 11.5  p_end_l +4.03
+sub=  8 kicks/cycle: dtt   -10.45%  cyc 8 vs 11.5  p_end_l +5.65
+sub= 16 kicks/cycle: dtt    -5.03%  cyc 9 vs 11.5  p_end_l +5.26
+sub= 32 kicks/cycle: dtt    -1.78%  cyc 10 vs 11.5  p_end_l +3.07
+
+=== E: the 0.1% license bar arithmetic (dossier says p0 >= 230M) ===
+p0=   30: |dtt|/q0 = 3.81
+p0=   50: |dtt|/q0 = 3.91
+p0=   65: |dtt|/q0 = 3.92
+p0=  100: |dtt|/q0 = 3.95
+p0=  200: |dtt|/q0 = 3.98
+bar 0.10% => p0 ~ 91M (slope -2.48)
+bar 0.01% => p0 ~ 229M (slope -2.48)
+
+wall 18.3 s
