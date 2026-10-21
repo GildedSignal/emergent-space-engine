@@ -1,0 +1,308 @@
+diff --git a/crates/lattice/examples/beltledger.rs b/crates/lattice/examples/beltledger.rs
+new file mode 100644
+index 00000000..abacf250
+--- /dev/null
++++ b/crates/lattice/examples/beltledger.rs
+@@ -0,0 +1,279 @@
++//! The contact carry ledger through the belt storm and its terminal rattle
++//! (chaos-shadowing's named leftover; lens: dynamics).
++//!
++//! Genesis and tide follow the e3b7/c644 class: 800 Bounce bodies of mass 1,
++//! radius q, on 8 rings 36..102q around a central attractor MU = 70*2^52,
++//! per-chronon rounded 1/r^2 tide through `Kickable::kick` with the DK_CAP
++//! per-component clamp |dk_c| <= q/16, Q = 2^20, Law::RelativisticV1.
++//!
++//! Instrumented: per-stride ledger summaries (residual/carry L0/L1/max/median),
++//! full per-body snapshots at coarse stride, per-body contact tallies, a global
++//! pair-contact table, per-64ch window aggregates in a late window, and a
++//! per-chronon residual trace of the hottest bodies there.
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::relativity::momentum;
++use emergent_lattice::{Body, Kickable, Kind, Law, Response, Stepper, World};
++use std::collections::{HashMap, HashSet};
++use std::io::Write;
++
++const Q: i64 = 1 << 20;
++const MU: i128 = 70 * (1i128 << 52);
++const DK_CAP: i64 = Q / 16;
++const N: usize = 800;
++const RINGS: i64 = 8;
++
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        self.0 = self.0.wrapping_add(0x9E3779B97F4A7C15);
++        let mut z = self.0;
++        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++        z ^ (z >> 31)
++    }
++}
++
++fn isqrt_i(v: i128) -> i128 {
++    v.unsigned_abs().isqrt() as i128
++}
++
++fn genesis(seed: u64, thermal: i64) -> World {
++    let mut rng = Rng(seed);
++    let mut bodies = Vec::new();
++    let mut id = 0u64;
++    let per_ring = (N / RINGS as usize) as i64;
++    for ring in 0..RINGS {
++        let r_q = 36 + (66 * ring + RINGS / 2) / (RINGS - 1); // 36,46,55,64,73,83,92,102 q
++        let r = (r_q as i128) * (Q as i128);
++        let v = isqrt_i(MU / r); // exact integer circular speed
++        let phase = (rng.next() % 1_000_000) as f64 / 1_000_000.0 * std::f64::consts::TAU / per_ring as f64;
++        for j in 0..per_ring {
++            let th = phase + (j as f64 / per_ring as f64) * std::f64::consts::TAU;
++            let (c, s) = (th.cos(), th.sin());
++            let (rf, vf) = (r as f64, v as f64);
++            let x = [(rf * c).round() as i64, (rf * s).round() as i64];
++            let vx = -(vf * s).round() as i64;
++            let vy = (vf * c).round() as i64;
++            let k = if thermal > 0 {
++                [
++                    vx + (rng.next() % (2 * thermal as u64 + 1)) as i64 - thermal,
++                    vy + (rng.next() % (2 * thermal as u64 + 1)) as i64 - thermal,
++                ]
++            } else {
++                [vx, vy]
++            };
++            bodies.push(Body::new(id, x, k, 1, Q, Response::Bounce));
++            id += 1;
++        }
++    }
++    World { q: Q, tick: 0, container: None, bodies, consumed: Vec::new(), wall_momentum: [0, 0], law: Law::RelativisticV1 }
++}
++
++/// Per-chronon rounded 1/r^2 tide with the DK_CAP per-component clamp (truncation
++/// toward zero; this run's own convention).
++fn tide(bodies: &[Body], out: &mut Vec<[i64; 2]>, skipped: &mut u64) {
++    out.clear();
++    for b in bodies {
++        let (x0, x1) = (b.x[0] as i128, b.x[1] as i128);
++        let r2 = x0 * x0 + x1 * x1;
++        let r = isqrt_i(r2);
++        let r3 = r2 * r;
++        let mut dk = [0i64; 2];
++        if r3 > 0 {
++            for c in 0..2 {
++                let d = -(MU * b.x[c] as i128 / r3) as i64;
++                dk[c] = d.clamp(-DK_CAP, DK_CAP);
++            }
++        }
++        let nk = [b.k[0] + dk[0], b.k[1] + dk[1]];
++        let kk = nk[0] as i128 * nk[0] as i128 + nk[1] as i128 * nk[1] as i128;
++        if nk.iter().any(|c| c.abs() > emergent_lattice::law::MAX_SPEED) || kk >= Q as i128 * Q as i128 {
++            *skipped += 1;
++            dk = [0, 0];
++        }
++        out.push(dk);
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let arg = |name: &str, d: &str| -> String {
++        let mut v = d.to_string();
++        if let Some(p) = args.iter().position(|a| a == name) {
++            if p + 1 < args.len() {
++                v = args[p + 1].clone();
++            }
++        }
++        v
++    };
++    let seed: u64 = arg("--seed", "1").parse().unwrap();
++    let horizon: i64 = arg("--horizon", "98304").parse().unwrap();
++    let thermal: i64 = arg("--thermal", "0").parse().unwrap();
++    let stride: i64 = arg("--stride", "512").parse().unwrap();
++    let snap_stride: i64 = arg("--snap", "4096").parse().unwrap();
++    let win: i64 = { let w: i64 = arg("--win", "-1").parse().unwrap(); if w <= 0 { horizon - 1024 } else { w } };
++    let tag = arg("--tag", "cold1");
++    let dir = format!("lab/results/20261021-0312-dynamics-485f/work/{}", tag);
++    std::fs::create_dir_all(&dir).unwrap();
++
++    let mut chronon = Chronon::new(genesis(seed, thermal), true).unwrap();
++    let mut dk = Vec::new();
++    let mut skipped = 0u64;
++
++    let mut w_summary = std::io::BufWriter::new(std::fs::File::create(format!("{}/summary.tsv", dir)).unwrap());
++    writeln!(w_summary, "t\tcontacts\tc_win\talive\tn_r10\tn_r3\tke_dev\tres_sum\tres_abs\tres_abs_alive\tres_max\tres_max_id\tres_med\tres_p99\tcar_abs\tcar_max\tdead_new").ok();
++    let mut w_snap = std::io::BufWriter::new(std::fs::File::create(format!("{}/snapshots.tsv", dir)).unwrap());
++    writeln!(w_snap, "t\tid\tr_q\tres\tcar0\tcar1\tc_cum").ok();
++    let mut w_trace = std::io::BufWriter::new(std::fs::File::create(format!("{}/hottrace.tsv", dir)).unwrap());
++    writeln!(w_trace, "t\tid\tres\tcar0\tcar1").ok();
++    let mut w_pairs = std::io::BufWriter::new(std::fs::File::create(format!("{}/pairs.tsv", dir)).unwrap());
++    writeln!(w_pairs, "a\tb\tc_run").ok();
++    let mut w_chron = std::io::BufWriter::new(std::fs::File::create(format!("{}/winchron.tsv", dir)).unwrap());
++    writeln!(w_chron, "t\tcontacts64\tdistinct\ttop_share\thot\tpartner_med\tpartner_max\tres_abs_hot").ok();
++
++    let mut c_cum = vec![0u64; N];
++    let mut pair_run: HashMap<(u64, u64), u64> = HashMap::new();
++    let mut alive_prev = vec![true; N];
++    let e0: i128 = {
++        let w = chronon.world();
++        w.bodies.iter().map(|b| momentum(w.law, b.mass, b.k, w.q)[0]).sum()
++    };
++    let mut contacts_cum: u64 = 0;
++    let mut contacts_prev: u64 = 0;
++    let mut hot32: Vec<usize> = Vec::new();
++    let mut win_pairs: HashMap<(u64, u64), u64> = HashMap::new();
++    let mut partners: Vec<HashSet<u64>> = vec![HashSet::new(); N];
++
++    let t0 = std::time::Instant::now();
++    let mut t = 0i64;
++    while t < horizon {
++        chronon.step();
++        tide(&chronon.world().bodies, &mut dk, &mut skipped);
++        let _ = chronon.kick(&dk);
++        t = chronon.tick();
++
++        for ev in chronon.take_kept_events() {
++            if ev.kind != Kind::Contact {
++                continue;
++            }
++            let (a, b) = (ev.a, ev.b);
++            contacts_cum += 1;
++            let (ia, ib) = (a as usize, b as usize);
++            if ia < N && ib < N {
++                c_cum[ia] += 1;
++                c_cum[ib] += 1;
++            }
++            *pair_run.entry((a, b)).or_default() += 1;
++            if t > win {
++                *win_pairs.entry((a, b)).or_default() += 1;
++                if ia < N && ib < N {
++                    partners[ia].insert(b);
++                    partners[ib].insert(a);
++                }
++            }
++        }
++
++        // choose the trace set once, at the window's start: top 32 by lifetime contacts
++        if t == win {
++            let mut idx: Vec<usize> = (0..N).collect();
++            idx.sort_by_key(|&i| std::cmp::Reverse(c_cum[i]));
++            hot32 = idx.into_iter().take(32).collect();
++        }
++        if t > win {
++            let w = chronon.world();
++            for &i in &hot32 {
++                let b = &w.bodies[i];
++                writeln!(w_trace, "{}\t{}\t{}\t{}\t{}", t, b.id, b.residual, b.carry[0], b.carry[1]).ok();
++            }
++        }
++
++        if t % stride == 0 {
++            let w = chronon.world();
++            let (mut alive, mut n_r10, mut n_r3, mut dead_new) = (0usize, 0usize, 0usize, 0usize);
++            let (mut res_sum, mut res_abs, mut res_abs_alive) = (0i128, 0i128, 0i128);
++            let (mut res_max, mut res_max_id) = (0i64, 0u64);
++            let (mut car_abs, mut car_max) = (0i128, 0i64);
++            let mut rs = Vec::with_capacity(N);
++            let mut e: i128 = 0;
++            for (i, b) in w.bodies.iter().enumerate() {
++                let r = isqrt_i(b.x[0] as i128 * b.x[0] as i128 + b.x[1] as i128 * b.x[1] as i128);
++                let a = r <= 250 * Q as i128;
++                if a {
++                    alive += 1;
++                    res_abs_alive += b.residual.unsigned_abs() as i128;
++                } else if alive_prev[i] {
++                    dead_new += 1;
++                }
++                alive_prev[i] = a;
++                if r < 10 * Q as i128 {
++                    n_r10 += 1;
++                }
++                if r < 3 * Q as i128 {
++                    n_r3 += 1;
++                }
++                res_sum += b.residual as i128;
++                res_abs += b.residual.unsigned_abs() as i128;
++                if b.residual.abs() > res_max {
++                    res_max = b.residual.abs();
++                    res_max_id = b.id;
++                }
++                rs.push(b.residual);
++                car_abs += b.carry[0].unsigned_abs() as i128 + b.carry[1].unsigned_abs() as i128;
++                car_max = car_max.max(b.carry[0].abs()).max(b.carry[1].abs());
++                e += momentum(w.law, b.mass, b.k, w.q)[0];
++            }
++            rs.sort_unstable();
++            let med = rs[rs.len() / 2];
++            let p99 = rs[(rs.len() as f64 * 0.99) as usize];
++            let ke_dev = (e - e0) as f64 / e0 as f64;
++            writeln!(w_summary, "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", t, contacts_cum, contacts_cum - contacts_prev, alive, n_r10, n_r3, ke_dev, res_sum, res_abs, res_abs_alive, res_max, res_max_id, med, p99, car_abs, car_max, dead_new).ok();
++            contacts_prev = contacts_cum;
++        }
++
++        if t % snap_stride == 0 {
++            let w = chronon.world();
++            for b in &w.bodies {
++                let r = isqrt_i(b.x[0] as i128 * b.x[0] as i128 + b.x[1] as i128 * b.x[1] as i128);
++                writeln!(w_snap, "{}\t{}\t{:.3}\t{}\t{}\t{}\t{}", t, b.id, r as f64 / Q as f64, b.residual, b.carry[0], b.carry[1], c_cum[b.id as usize]).ok();
++            }
++        }
++
++        // per-64ch rattle aggregates inside the window
++        if t > win && t % 64 == 0 {
++            let c64: u64 = win_pairs.values().sum();
++            let top = win_pairs.values().max().copied().unwrap_or(0);
++            let hot: Vec<usize> = (0..N).filter(|&i| !partners[i].is_empty()).collect();
++            let mut parts: Vec<usize> = hot.iter().map(|&i| partners[i].len()).collect();
++            parts.sort_unstable();
++            let (pmed, pmax) = if parts.is_empty() { (0, 0) } else { (parts[parts.len() / 2], *parts.last().unwrap()) };
++            let w = chronon.world();
++            let res_abs_hot: i128 = hot.iter().map(|&i| w.bodies[i].residual.unsigned_abs() as i128).sum();
++            writeln!(w_chron, "{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}", t, c64, win_pairs.len(), if c64 > 0 { top as f64 / c64 as f64 } else { 0.0 }, hot.len(), pmed, pmax, res_abs_hot).ok();
++            win_pairs.clear();
++            for p in partners.iter_mut() {
++                p.clear();
++            }
++        }
++    }
++
++    let mut pl: Vec<((u64, u64), u64)> = pair_run.into_iter().collect();
++    pl.sort_unstable();
++    for ((a, b), c) in pl {
++        writeln!(w_pairs, "{}\t{}\t{}", a, b, c).ok();
++    }
++    {
++        let w = chronon.world();
++        let mut fw = std::io::BufWriter::new(std::fs::File::create(format!("{}/final.tsv", dir)).unwrap());
++        writeln!(fw, "id\tr_q\tres\tcar0\tcar1\tc_cum\tk0\tk1").ok();
++        for b in &w.bodies {
++            let r = isqrt_i(b.x[0] as i128 * b.x[0] as i128 + b.x[1] as i128 * b.x[1] as i128);
++            writeln!(fw, "{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}", b.id, r as f64 / Q as f64, b.residual, b.carry[0], b.carry[1], c_cum[b.id as usize], b.k[0], b.k[1]).ok();
++        }
++        fw.flush().ok();
++    }
++    let l = chronon.log();
++    eprintln!("tag={} t={} wall={:.1}s contacts={} skipped={} digest={}", tag, t, t0.elapsed().as_secs_f64(), contacts_cum, skipped, l.digest());
++    for w in [&mut w_summary, &mut w_snap, &mut w_trace, &mut w_pairs, &mut w_chron] {
++        w.flush().ok();
++    }
++}
+diff --git a/crates/lattice/src/chronon.rs b/crates/lattice/src/chronon.rs
+index 9bab167d..b099ec07 100644
+--- a/crates/lattice/src/chronon.rs
++++ b/crates/lattice/src/chronon.rs
+@@ -143,6 +143,12 @@ impl Chronon {
+     }
+ }
+ 
++impl Chronon {
++    /// Take the kept events out. Digest-neutral: `Log::digest` hashes counters only.
++    pub fn take_kept_events(&mut self) -> Vec<Event> {
++        std::mem::take(&mut self.log.events)
++    }
++}
+ impl Stepper for Chronon {
+     fn tick(&self) -> Tick {
+         self.w.tick
+@@ -232,4 +238,5 @@ impl Kickable for Chronon {
+         }
+         Ok(())
+     }
++
+ }
