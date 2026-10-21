@@ -1,0 +1,4 @@
+Working...
+Run folder complete: `predictions.md` (pre-registered), `dossier.md`, `regen.sh` (verified end-to-end: three arms, digests bit-for-bit, ~5 s after build), `wiki/scan-news.md`, `work/patch.diff` + logs.
+
+**Claim:** The player's scan is the shipped engine's last per-event full walk — per player item it re-walks the whole window candidate list while only 1.2–11.4% of those bindings changed (0.8 of 64.7 on the burn arm; 47% of burn captures are same-tick duplicates the memo checks only *after* the walk) — so the post-desync scan wall 1fd7 composed as "cadence-invariant" is only implementation-coupled: its information is kick-coupled, and a news-fed window (16ec's certificate, not a new mechanism) puts the scan row on the same dial as the cadence cut, with the exact duplicate half deletable today behind a nothing-resolved-since dirty bit.

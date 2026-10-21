@@ -1,0 +1,1433 @@
+diff --git a/crates/universe/examples/scannews.rs b/crates/universe/examples/scannews.rs
+new file mode 100644
+index 00000000..86a876ec
+--- /dev/null
++++ b/crates/universe/examples/scannews.rs
+@@ -0,0 +1,66 @@
++//! Run 20261021-1443-system-9b03: how much of the player's scan walk is news on the shipped belt plane.
++//!
++//! The plane (`scenario::plane_extra`: a few hundred locals about Home and the Moon, the rest a belt at 2–3 AU), flown
++//! the way `nladder` flies it, with `SCAN_NEWS=1` printing per-scan counters from `encounter.rs` (candidates walked,
++//! bindings changed since the previous scan, the player's own binding, the fallback flag) and a summary line at the end.
++//!
++//! cargo run --release -p emergent-universe --example scannews [-- <N> <coast|burn> [<wall s> [<rtf> [<budget ms>]]]]
++use emergent_universe::encounter::{scan_summary, SCAN_CANDS, SCAN_CHANGED, SCAN_CLEAN, SCAN_FALLBACK, SCAN_ME_CHANGED, SCAN_MEMO, SCAN_TOTAL};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(30_000);
++    let burn = args.get(2).map(|s| s == "burn").unwrap_or(false);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let frames = (seconds * 60.0) as usize;
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let mut kicks0 = p.u.stats.kicks;
++    let t0 = Instant::now();
++    for f in 0..frames {
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let start = Instant::now();
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        if t0.elapsed() > Duration::from_secs(50) {
++            break;
++        }
++    }
++    let (_, _) = (kicks0, p.u.stats.kicks);
++    kicks0 = p.u.stats.kicks;
++    p.u.flush_scans();
++    let held = p.u.held_scans();
++    let digest = p.u.digest();
++    let game_s = p.u.now as f64 * emergent_universe::view::TICK_SECONDS;
++    println!(
++        "scannews N={n} ({bodies} bodies) burn={burn} rtf={rtf} wall={seconds}s build={build:.1}s game_s={game_s:.0} kicks={kicks0} held_left={held} digest={digest:?}"
++    );
++    let s = SCAN_TOTAL.load(std::sync::atomic::Ordering::Relaxed);
++    let c = SCAN_CANDS.load(std::sync::atomic::Ordering::Relaxed);
++    let ch = SCAN_CHANGED.load(std::sync::atomic::Ordering::Relaxed);
++    if s > 0 {
++        println!(
++            "scannews scans={s} cands/scan={:.1} changed/scan={:.1} news_frac={:.5} me_changed={} ({:.3}/scan) clean={} fallback={} memo_hits={}",
++            c as f64 / s as f64,
++            ch as f64 / s as f64,
++            ch as f64 / c.max(1) as f64,
++            SCAN_ME_CHANGED.load(std::sync::atomic::Ordering::Relaxed),
++            SCAN_ME_CHANGED.load(std::sync::atomic::Ordering::Relaxed) as f64 / s as f64,
++            SCAN_CLEAN.load(std::sync::atomic::Ordering::Relaxed),
++            SCAN_FALLBACK.load(std::sync::atomic::Ordering::Relaxed),
++            SCAN_MEMO.load(std::sync::atomic::Ordering::Relaxed)
++        );
++    }
++    scan_summary();
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..034f1217 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -17,6 +17,38 @@ use std::sync::{Arc, Mutex, OnceLock};
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
++
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// Run 20261021-1443-system-9b03: how much of each scan's walk is news (a binding that changed since the previous scan).
++pub static SCAN_TOTAL: AtomicU64 = AtomicU64::new(0);
++pub static SCAN_CANDS: AtomicU64 = AtomicU64::new(0);
++pub static SCAN_CHANGED: AtomicU64 = AtomicU64::new(0);
++pub static SCAN_ME_CHANGED: AtomicU64 = AtomicU64::new(0);
++pub static SCAN_CLEAN: AtomicU64 = AtomicU64::new(0);
++pub static SCAN_FALLBACK: AtomicU64 = AtomicU64::new(0);
++pub static SCAN_MEMO: AtomicU64 = AtomicU64::new(0);
++
++pub fn scan_summary() {
++    let (s, c, ch, me, cl, fb, memo) = (
++        SCAN_TOTAL.load(Ordering::Relaxed),
++        SCAN_CANDS.load(Ordering::Relaxed),
++        SCAN_CHANGED.load(Ordering::Relaxed),
++        SCAN_ME_CHANGED.load(Ordering::Relaxed),
++        SCAN_CLEAN.load(Ordering::Relaxed),
++        SCAN_FALLBACK.load(Ordering::Relaxed),
++        SCAN_MEMO.load(Ordering::Relaxed),
++    );
++    if s > 0 {
++        eprintln!(
++            "SCANNEWS scans={s} cands/scan={:.1} changed/scan={:.2} news_frac={:.5} me_changed={me} clean={cl} fallback={fb} memo_hits={memo}",
++            c as f64 / s as f64,
++            ch as f64 / s as f64,
++            ch as f64 / c.max(1) as f64
++        );
++    }
++}
++
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub struct Encounter {
+     pub a: usize,
+@@ -171,6 +203,7 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let fb = near.is_none();
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+@@ -188,8 +221,34 @@ impl Encounters for PlayerNeighbourhood {
+             candidates.push((j, other, reach));
+         }
+         let mut last = self.last.lock().expect("the finder's last scan");
++        // 20261021-1443-system-9b03: count the walk's news against the previous scan (pure reads).
++        let prev = last.as_ref().map(|l| l.clone());
++        let mut changed = 0u64;
++        let mut me_ch = false;
++        if let Some(p) = prev.as_ref() {
++            me_ch = !same(&p.me, &me);
++            let old: std::collections::HashMap<usize, &Binding> =
++                p.candidates.iter().map(|(j, b, _)| (*j, b)).collect();
++            for (j, other, _) in &candidates {
++                if !old.get(j).is_some_and(|b| same(b, other)) {
++                    changed += 1;
++                }
++            }
++        }
++        SCAN_TOTAL.fetch_add(1, Ordering::Relaxed);
++        SCAN_CANDS.fetch_add(candidates.len() as u64, Ordering::Relaxed);
++        SCAN_CHANGED.fetch_add(changed, Ordering::Relaxed);
++        SCAN_FALLBACK.fetch_add(u64::from(fb), Ordering::Relaxed);
++        SCAN_ME_CHANGED.fetch_add(u64::from(me_ch), Ordering::Relaxed);
++        if prev.is_some() && changed == 0 && !me_ch {
++            SCAN_CLEAN.fetch_add(1, Ordering::Relaxed);
++        }
++        if std::env::var("SCAN_NEWS").is_ok() {
++            eprintln!("SCANNEWS t={t} n={} ch={changed} me={me_ch} fb={fb}", candidates.len());
++        }
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
++            SCAN_MEMO.fetch_add(1, Ordering::Relaxed);
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+         let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
+diff --git a/regen_30000_burn.log b/regen_30000_burn.log
+new file mode 100644
+index 00000000..1955480b
+--- /dev/null
++++ b/regen_30000_burn.log
+@@ -0,0 +1,1059 @@
++SCANNEWS t=2097152 n=7 ch=0 me=false fb=false
++SCANNEWS t=2097152 n=28 ch=21 me=false fb=false
++SCANNEWS t=6291456 n=39 ch=36 me=true fb=false
++SCANNEWS t=6291456 n=39 ch=1 me=false fb=false
++SCANNEWS t=10485760 n=37 ch=2 me=true fb=false
++SCANNEWS t=10485760 n=37 ch=1 me=false fb=false
++SCANNEWS t=14680064 n=37 ch=26 me=true fb=false
++SCANNEWS t=14680064 n=37 ch=1 me=false fb=false
++SCANNEWS t=18874368 n=36 ch=1 me=true fb=false
++SCANNEWS t=20250528 n=15 ch=1 me=true fb=false
++SCANNEWS t=20250528 n=15 ch=0 me=false fb=false
++SCANNEWS t=20258816 n=15 ch=0 me=true fb=false
++SCANNEWS t=20258816 n=15 ch=0 me=false fb=false
++SCANNEWS t=20275200 n=15 ch=0 me=true fb=false
++SCANNEWS t=20275200 n=15 ch=0 me=false fb=false
++SCANNEWS t=20291584 n=15 ch=0 me=true fb=false
++SCANNEWS t=20291584 n=15 ch=0 me=false fb=false
++SCANNEWS t=20307968 n=15 ch=0 me=true fb=false
++SCANNEWS t=20307968 n=15 ch=0 me=false fb=false
++SCANNEWS t=20324352 n=15 ch=0 me=true fb=false
++SCANNEWS t=20324352 n=15 ch=0 me=false fb=false
++SCANNEWS t=20340736 n=15 ch=0 me=true fb=false
++SCANNEWS t=20340736 n=15 ch=0 me=false fb=false
++SCANNEWS t=20357120 n=15 ch=0 me=true fb=false
++SCANNEWS t=20357120 n=15 ch=0 me=false fb=false
++SCANNEWS t=20373504 n=15 ch=0 me=true fb=false
++SCANNEWS t=20373504 n=15 ch=0 me=false fb=false
++SCANNEWS t=20389888 n=15 ch=0 me=true fb=false
++SCANNEWS t=20389888 n=15 ch=0 me=false fb=false
++SCANNEWS t=20406272 n=15 ch=0 me=true fb=false
++SCANNEWS t=20406272 n=16 ch=1 me=false fb=false
++SCANNEWS t=20430848 n=16 ch=0 me=true fb=false
++SCANNEWS t=20430848 n=16 ch=0 me=false fb=false
++SCANNEWS t=20463616 n=16 ch=0 me=true fb=false
++SCANNEWS t=20463616 n=16 ch=0 me=false fb=false
++SCANNEWS t=20496384 n=16 ch=0 me=true fb=false
++SCANNEWS t=20496384 n=16 ch=0 me=false fb=false
++SCANNEWS t=20529152 n=16 ch=0 me=true fb=false
++SCANNEWS t=20529152 n=16 ch=0 me=false fb=false
++SCANNEWS t=20561920 n=16 ch=0 me=true fb=false
++SCANNEWS t=20561920 n=16 ch=0 me=false fb=false
++SCANNEWS t=20594688 n=16 ch=0 me=true fb=false
++SCANNEWS t=20594688 n=16 ch=0 me=false fb=false
++SCANNEWS t=20627456 n=16 ch=0 me=true fb=false
++SCANNEWS t=20627456 n=16 ch=0 me=false fb=false
++SCANNEWS t=20660224 n=16 ch=0 me=true fb=false
++SCANNEWS t=20660224 n=16 ch=0 me=false fb=false
++SCANNEWS t=20692992 n=16 ch=0 me=true fb=false
++SCANNEWS t=20692992 n=16 ch=0 me=false fb=false
++SCANNEWS t=20725760 n=16 ch=0 me=true fb=false
++SCANNEWS t=20725760 n=16 ch=0 me=false fb=false
++SCANNEWS t=20758528 n=16 ch=0 me=true fb=false
++SCANNEWS t=20758528 n=16 ch=0 me=false fb=false
++SCANNEWS t=20791296 n=16 ch=0 me=true fb=false
++SCANNEWS t=20791296 n=16 ch=0 me=false fb=false
++SCANNEWS t=20824064 n=16 ch=0 me=true fb=false
++SCANNEWS t=20824064 n=16 ch=0 me=false fb=false
++SCANNEWS t=20856832 n=16 ch=0 me=true fb=false
++SCANNEWS t=20856832 n=16 ch=0 me=false fb=false
++SCANNEWS t=20889600 n=16 ch=0 me=true fb=false
++SCANNEWS t=20889600 n=16 ch=0 me=false fb=false
++SCANNEWS t=20922368 n=16 ch=0 me=true fb=false
++SCANNEWS t=20922368 n=16 ch=0 me=false fb=false
++SCANNEWS t=20955136 n=16 ch=0 me=true fb=false
++SCANNEWS t=20955136 n=16 ch=0 me=false fb=false
++SCANNEWS t=20987904 n=54 ch=45 me=true fb=false
++SCANNEWS t=20987904 n=54 ch=0 me=false fb=false
++SCANNEWS t=21020672 n=54 ch=0 me=true fb=false
++SCANNEWS t=21020672 n=54 ch=0 me=false fb=false
++SCANNEWS t=21053440 n=54 ch=0 me=true fb=false
++SCANNEWS t=21053440 n=54 ch=0 me=false fb=false
++SCANNEWS t=21086208 n=54 ch=0 me=true fb=false
++SCANNEWS t=21086208 n=54 ch=0 me=false fb=false
++SCANNEWS t=21118976 n=54 ch=0 me=true fb=false
++SCANNEWS t=21118976 n=54 ch=0 me=false fb=false
++SCANNEWS t=21151744 n=54 ch=0 me=true fb=false
++SCANNEWS t=21151744 n=54 ch=0 me=false fb=false
++SCANNEWS t=21184512 n=54 ch=0 me=true fb=false
++SCANNEWS t=21184512 n=54 ch=0 me=false fb=false
++SCANNEWS t=21217280 n=54 ch=0 me=true fb=false
++SCANNEWS t=21217280 n=54 ch=0 me=false fb=false
++SCANNEWS t=21250048 n=54 ch=0 me=true fb=false
++SCANNEWS t=21250048 n=54 ch=0 me=false fb=false
++SCANNEWS t=21282816 n=54 ch=0 me=true fb=false
++SCANNEWS t=21282816 n=54 ch=0 me=false fb=false
++SCANNEWS t=21315584 n=54 ch=0 me=true fb=false
++SCANNEWS t=21315584 n=54 ch=0 me=false fb=false
++SCANNEWS t=21348352 n=54 ch=0 me=true fb=false
++SCANNEWS t=21348352 n=54 ch=0 me=false fb=false
++SCANNEWS t=21381120 n=54 ch=0 me=true fb=false
++SCANNEWS t=21381120 n=54 ch=0 me=false fb=false
++SCANNEWS t=21413888 n=54 ch=0 me=true fb=false
++SCANNEWS t=21413888 n=54 ch=0 me=false fb=false
++SCANNEWS t=21446656 n=54 ch=0 me=true fb=false
++SCANNEWS t=21446656 n=54 ch=0 me=false fb=false
++SCANNEWS t=21479424 n=54 ch=0 me=true fb=false
++SCANNEWS t=21479424 n=54 ch=0 me=false fb=false
++SCANNEWS t=21512192 n=54 ch=0 me=true fb=false
++SCANNEWS t=21512192 n=54 ch=0 me=false fb=false
++SCANNEWS t=21544960 n=54 ch=0 me=true fb=false
++SCANNEWS t=21544960 n=54 ch=0 me=false fb=false
++SCANNEWS t=21577728 n=54 ch=0 me=true fb=false
++SCANNEWS t=21577728 n=54 ch=0 me=false fb=false
++SCANNEWS t=21610496 n=54 ch=0 me=true fb=false
++SCANNEWS t=21610496 n=54 ch=0 me=false fb=false
++SCANNEWS t=21643264 n=54 ch=0 me=true fb=false
++SCANNEWS t=21643264 n=54 ch=0 me=false fb=false
++SCANNEWS t=21676032 n=54 ch=0 me=true fb=false
++SCANNEWS t=21676032 n=54 ch=0 me=false fb=false
++SCANNEWS t=21708800 n=54 ch=0 me=true fb=false
++SCANNEWS t=21708800 n=54 ch=0 me=false fb=false
++SCANNEWS t=21741568 n=54 ch=0 me=true fb=false
++SCANNEWS t=21741568 n=54 ch=0 me=false fb=false
++SCANNEWS t=21774336 n=54 ch=0 me=true fb=false
++SCANNEWS t=21774336 n=54 ch=0 me=false fb=false
++SCANNEWS t=21807104 n=54 ch=0 me=true fb=false
++SCANNEWS t=21807104 n=54 ch=0 me=false fb=false
++SCANNEWS t=21839872 n=54 ch=0 me=true fb=false
++SCANNEWS t=21839872 n=54 ch=0 me=false fb=false
++SCANNEWS t=21872640 n=54 ch=0 me=true fb=false
++SCANNEWS t=21872640 n=54 ch=0 me=false fb=false
++SCANNEWS t=21905408 n=54 ch=0 me=true fb=false
++SCANNEWS t=21905408 n=54 ch=0 me=false fb=false
++SCANNEWS t=21938176 n=54 ch=0 me=true fb=false
++SCANNEWS t=21938176 n=54 ch=0 me=false fb=false
++SCANNEWS t=21970944 n=54 ch=0 me=true fb=false
++SCANNEWS t=21970944 n=54 ch=0 me=false fb=false
++SCANNEWS t=22003712 n=54 ch=0 me=true fb=false
++SCANNEWS t=22003712 n=54 ch=0 me=false fb=false
++SCANNEWS t=22036480 n=54 ch=8 me=true fb=false
++SCANNEWS t=22036480 n=54 ch=0 me=false fb=false
++SCANNEWS t=22069248 n=54 ch=0 me=true fb=false
++SCANNEWS t=22069248 n=54 ch=0 me=false fb=false
++SCANNEWS t=22102016 n=54 ch=0 me=true fb=false
++SCANNEWS t=22102016 n=54 ch=0 me=false fb=false
++SCANNEWS t=22134784 n=54 ch=0 me=true fb=false
++SCANNEWS t=22134784 n=54 ch=0 me=false fb=false
++SCANNEWS t=22167552 n=54 ch=0 me=true fb=false
++SCANNEWS t=22167552 n=54 ch=0 me=false fb=false
++SCANNEWS t=22200320 n=54 ch=0 me=true fb=false
++SCANNEWS t=22200320 n=54 ch=0 me=false fb=false
++SCANNEWS t=22233088 n=53 ch=0 me=true fb=false
++SCANNEWS t=22233088 n=53 ch=0 me=false fb=false
++SCANNEWS t=22265856 n=53 ch=0 me=true fb=false
++SCANNEWS t=22265856 n=53 ch=0 me=false fb=false
++SCANNEWS t=22298624 n=53 ch=0 me=true fb=false
++SCANNEWS t=22298624 n=53 ch=0 me=false fb=false
++SCANNEWS t=22331392 n=53 ch=0 me=true fb=false
++SCANNEWS t=22331392 n=53 ch=0 me=false fb=false
++SCANNEWS t=22364160 n=53 ch=0 me=true fb=false
++SCANNEWS t=22364160 n=53 ch=0 me=false fb=false
++SCANNEWS t=22396928 n=53 ch=0 me=true fb=false
++SCANNEWS t=22396928 n=53 ch=0 me=false fb=false
++SCANNEWS t=22429696 n=53 ch=0 me=true fb=false
++SCANNEWS t=22429696 n=53 ch=0 me=false fb=false
++SCANNEWS t=22462464 n=53 ch=0 me=true fb=false
++SCANNEWS t=22462464 n=53 ch=0 me=false fb=false
++SCANNEWS t=22495232 n=53 ch=0 me=true fb=false
++SCANNEWS t=22495232 n=53 ch=0 me=false fb=false
++SCANNEWS t=22528000 n=53 ch=0 me=true fb=false
++SCANNEWS t=22528000 n=55 ch=2 me=false fb=false
++SCANNEWS t=22577152 n=55 ch=0 me=true fb=false
++SCANNEWS t=22577152 n=55 ch=0 me=false fb=false
++SCANNEWS t=22642688 n=55 ch=0 me=true fb=false
++SCANNEWS t=22642688 n=55 ch=0 me=false fb=false
++SCANNEWS t=22708224 n=55 ch=0 me=true fb=false
++SCANNEWS t=22708224 n=55 ch=0 me=false fb=false
++SCANNEWS t=22773760 n=55 ch=0 me=true fb=false
++SCANNEWS t=22773760 n=55 ch=0 me=false fb=false
++SCANNEWS t=22839296 n=55 ch=0 me=true fb=false
++SCANNEWS t=22839296 n=55 ch=0 me=false fb=false
++SCANNEWS t=22904832 n=55 ch=0 me=true fb=false
++SCANNEWS t=22904832 n=55 ch=0 me=false fb=false
++SCANNEWS t=22970368 n=55 ch=0 me=true fb=false
++SCANNEWS t=22970368 n=55 ch=0 me=false fb=false
++SCANNEWS t=23035904 n=55 ch=0 me=true fb=false
++SCANNEWS t=23035904 n=55 ch=0 me=false fb=false
++SCANNEWS t=23101440 n=55 ch=7 me=true fb=false
++SCANNEWS t=23101440 n=55 ch=0 me=false fb=false
++SCANNEWS t=23166976 n=55 ch=0 me=true fb=false
++SCANNEWS t=23166976 n=55 ch=0 me=false fb=false
++SCANNEWS t=23232512 n=55 ch=0 me=true fb=false
++SCANNEWS t=23232512 n=55 ch=0 me=false fb=false
++SCANNEWS t=23298048 n=55 ch=0 me=true fb=false
++SCANNEWS t=23298048 n=55 ch=0 me=false fb=false
++SCANNEWS t=23363584 n=55 ch=0 me=true fb=false
++SCANNEWS t=23363584 n=55 ch=0 me=false fb=false
++SCANNEWS t=23429120 n=55 ch=0 me=true fb=false
++SCANNEWS t=23429120 n=55 ch=0 me=false fb=false
++SCANNEWS t=23494656 n=55 ch=0 me=true fb=false
++SCANNEWS t=23494656 n=55 ch=0 me=false fb=false
++SCANNEWS t=23560192 n=55 ch=0 me=true fb=false
++SCANNEWS t=23560192 n=55 ch=0 me=false fb=false
++SCANNEWS t=23625728 n=55 ch=0 me=true fb=false
++SCANNEWS t=23625728 n=55 ch=0 me=false fb=false
++SCANNEWS t=23691264 n=55 ch=0 me=true fb=false
++SCANNEWS t=23691264 n=55 ch=0 me=false fb=false
++SCANNEWS t=23756800 n=55 ch=0 me=true fb=false
++SCANNEWS t=23756800 n=55 ch=0 me=false fb=false
++SCANNEWS t=23822336 n=55 ch=0 me=true fb=false
++SCANNEWS t=23822336 n=55 ch=0 me=false fb=false
++SCANNEWS t=23887872 n=55 ch=0 me=true fb=false
++SCANNEWS t=23887872 n=55 ch=0 me=false fb=false
++SCANNEWS t=23953408 n=55 ch=0 me=true fb=false
++SCANNEWS t=23953408 n=55 ch=0 me=false fb=false
++SCANNEWS t=24018944 n=55 ch=0 me=true fb=false
++SCANNEWS t=24018944 n=55 ch=0 me=false fb=false
++SCANNEWS t=24084480 n=55 ch=0 me=true fb=false
++SCANNEWS t=24084480 n=55 ch=0 me=false fb=false
++SCANNEWS t=24150016 n=55 ch=8 me=true fb=false
++SCANNEWS t=24150016 n=55 ch=0 me=false fb=false
++SCANNEWS t=24215552 n=55 ch=0 me=true fb=false
++SCANNEWS t=24215552 n=55 ch=0 me=false fb=false
++SCANNEWS t=24281088 n=55 ch=0 me=true fb=false
++SCANNEWS t=24281088 n=55 ch=0 me=false fb=false
++SCANNEWS t=24346624 n=55 ch=0 me=true fb=false
++SCANNEWS t=24346624 n=55 ch=0 me=false fb=false
++SCANNEWS t=24412160 n=55 ch=0 me=true fb=false
++SCANNEWS t=24412160 n=55 ch=0 me=false fb=false
++SCANNEWS t=24477696 n=55 ch=0 me=true fb=false
++SCANNEWS t=24477696 n=55 ch=0 me=false fb=false
++SCANNEWS t=24543232 n=55 ch=0 me=true fb=false
++SCANNEWS t=24543232 n=55 ch=0 me=false fb=false
++SCANNEWS t=24608768 n=55 ch=0 me=true fb=false
++SCANNEWS t=24608768 n=55 ch=0 me=false fb=false
++SCANNEWS t=24674304 n=55 ch=0 me=true fb=false
++SCANNEWS t=24674304 n=55 ch=0 me=false fb=false
++SCANNEWS t=24739840 n=55 ch=0 me=true fb=false
++SCANNEWS t=24739840 n=55 ch=0 me=false fb=false
++SCANNEWS t=24805376 n=55 ch=0 me=true fb=false
++SCANNEWS t=24805376 n=55 ch=0 me=false fb=false
++SCANNEWS t=24870912 n=55 ch=0 me=true fb=false
++SCANNEWS t=24870912 n=55 ch=0 me=false fb=false
++SCANNEWS t=24936448 n=55 ch=0 me=true fb=false
++SCANNEWS t=24936448 n=55 ch=0 me=false fb=false
++SCANNEWS t=25001984 n=55 ch=0 me=true fb=false
++SCANNEWS t=25001984 n=55 ch=0 me=false fb=false
++SCANNEWS t=25067520 n=55 ch=0 me=true fb=false
++SCANNEWS t=25067520 n=55 ch=0 me=false fb=false
++SCANNEWS t=25133056 n=55 ch=0 me=true fb=false
++SCANNEWS t=25133056 n=55 ch=0 me=false fb=false
++SCANNEWS t=25198592 n=55 ch=0 me=true fb=false
++SCANNEWS t=25198592 n=55 ch=0 me=false fb=false
++SCANNEWS t=25264128 n=55 ch=0 me=true fb=false
++SCANNEWS t=25264128 n=55 ch=0 me=false fb=false
++SCANNEWS t=25329664 n=55 ch=0 me=true fb=false
++SCANNEWS t=25329664 n=55 ch=0 me=false fb=false
++SCANNEWS t=25395200 n=55 ch=0 me=true fb=false
++SCANNEWS t=25395200 n=55 ch=0 me=false fb=false
++SCANNEWS t=25460736 n=55 ch=0 me=true fb=false
++SCANNEWS t=25460736 n=55 ch=0 me=false fb=false
++SCANNEWS t=25526272 n=55 ch=0 me=true fb=false
++SCANNEWS t=25526272 n=55 ch=0 me=false fb=false
++SCANNEWS t=25591808 n=55 ch=0 me=true fb=false
++SCANNEWS t=25591808 n=55 ch=0 me=false fb=false
++SCANNEWS t=25657344 n=55 ch=0 me=true fb=false
++SCANNEWS t=25657344 n=55 ch=0 me=false fb=false
++SCANNEWS t=25722880 n=55 ch=0 me=true fb=false
++SCANNEWS t=25722880 n=55 ch=0 me=false fb=false
++SCANNEWS t=25788416 n=55 ch=0 me=true fb=false
++SCANNEWS t=25788416 n=55 ch=0 me=false fb=false
++SCANNEWS t=25853952 n=55 ch=0 me=true fb=false
++SCANNEWS t=25853952 n=55 ch=0 me=false fb=false
++SCANNEWS t=25919488 n=55 ch=0 me=true fb=false
++SCANNEWS t=25919488 n=55 ch=0 me=false fb=false
++SCANNEWS t=25985024 n=55 ch=0 me=true fb=false
++SCANNEWS t=25985024 n=55 ch=0 me=false fb=false
++SCANNEWS t=26050560 n=55 ch=0 me=true fb=false
++SCANNEWS t=26050560 n=55 ch=0 me=false fb=false
++SCANNEWS t=26116096 n=55 ch=0 me=true fb=false
++SCANNEWS t=26116096 n=55 ch=0 me=false fb=false
++SCANNEWS t=26181632 n=55 ch=0 me=true fb=false
++SCANNEWS t=26181632 n=55 ch=0 me=false fb=false
++SCANNEWS t=26247168 n=55 ch=8 me=true fb=false
++SCANNEWS t=26247168 n=55 ch=0 me=false fb=false
++SCANNEWS t=26312704 n=55 ch=0 me=true fb=false
++SCANNEWS t=26312704 n=55 ch=0 me=false fb=false
++SCANNEWS t=26378240 n=55 ch=0 me=true fb=false
++SCANNEWS t=26378240 n=55 ch=0 me=false fb=false
++SCANNEWS t=26443776 n=55 ch=0 me=true fb=false
++SCANNEWS t=26443776 n=55 ch=0 me=false fb=false
++SCANNEWS t=26509312 n=55 ch=0 me=true fb=false
++SCANNEWS t=26509312 n=55 ch=0 me=false fb=false
++SCANNEWS t=26574848 n=55 ch=0 me=true fb=false
++SCANNEWS t=26574848 n=55 ch=0 me=false fb=false
++SCANNEWS t=26640384 n=55 ch=0 me=true fb=false
++SCANNEWS t=26640384 n=55 ch=0 me=false fb=false
++SCANNEWS t=26705920 n=55 ch=0 me=true fb=false
++SCANNEWS t=26705920 n=55 ch=0 me=false fb=false
++SCANNEWS t=26771456 n=55 ch=0 me=true fb=false
++SCANNEWS t=26771456 n=61 ch=6 me=false fb=false
++SCANNEWS t=26836992 n=61 ch=0 me=true fb=false
++SCANNEWS t=26836992 n=61 ch=0 me=false fb=false
++SCANNEWS t=26935296 n=61 ch=0 me=true fb=false
++SCANNEWS t=26935296 n=61 ch=0 me=false fb=false
++SCANNEWS t=27066368 n=61 ch=0 me=true fb=false
++SCANNEWS t=27066368 n=61 ch=0 me=false fb=false
++SCANNEWS t=27197440 n=61 ch=0 me=true fb=false
++SCANNEWS t=27197440 n=61 ch=0 me=false fb=false
++SCANNEWS t=27328512 n=61 ch=7 me=true fb=false
++SCANNEWS t=27328512 n=61 ch=0 me=false fb=false
++SCANNEWS t=27459584 n=61 ch=0 me=true fb=false
++SCANNEWS t=27459584 n=61 ch=0 me=false fb=false
++SCANNEWS t=27590656 n=61 ch=0 me=true fb=false
++SCANNEWS t=27590656 n=61 ch=0 me=false fb=false
++SCANNEWS t=27721728 n=62 ch=1 me=true fb=false
++SCANNEWS t=27721728 n=62 ch=0 me=false fb=false
++SCANNEWS t=27852800 n=62 ch=0 me=true fb=false
++SCANNEWS t=27852800 n=62 ch=0 me=false fb=false
++SCANNEWS t=27983872 n=62 ch=0 me=true fb=false
++SCANNEWS t=27983872 n=62 ch=0 me=false fb=false
++SCANNEWS t=28114944 n=62 ch=0 me=true fb=false
++SCANNEWS t=28114944 n=62 ch=0 me=false fb=false
++SCANNEWS t=28246016 n=62 ch=0 me=true fb=false
++SCANNEWS t=28246016 n=62 ch=0 me=false fb=false
++SCANNEWS t=28377088 n=62 ch=8 me=true fb=false
++SCANNEWS t=28377088 n=62 ch=0 me=false fb=false
++SCANNEWS t=28508160 n=62 ch=0 me=true fb=false
++SCANNEWS t=28508160 n=62 ch=0 me=false fb=false
++SCANNEWS t=28639232 n=62 ch=0 me=true fb=false
++SCANNEWS t=28639232 n=62 ch=0 me=false fb=false
++SCANNEWS t=28770304 n=62 ch=0 me=true fb=false
++SCANNEWS t=28770304 n=62 ch=0 me=false fb=false
++SCANNEWS t=28901376 n=62 ch=0 me=true fb=false
++SCANNEWS t=28901376 n=62 ch=0 me=false fb=false
++SCANNEWS t=29032448 n=62 ch=0 me=true fb=false
++SCANNEWS t=29032448 n=62 ch=0 me=false fb=false
++SCANNEWS t=29163520 n=62 ch=0 me=true fb=false
++SCANNEWS t=29163520 n=62 ch=0 me=false fb=false
++SCANNEWS t=29294592 n=62 ch=0 me=true fb=false
++SCANNEWS t=29294592 n=62 ch=0 me=false fb=false
++SCANNEWS t=29425664 n=62 ch=26 me=true fb=false
++SCANNEWS t=29425664 n=62 ch=0 me=false fb=false
++SCANNEWS t=29556736 n=62 ch=0 me=true fb=false
++SCANNEWS t=29556736 n=62 ch=0 me=false fb=false
++SCANNEWS t=29687808 n=62 ch=0 me=true fb=false
++SCANNEWS t=29687808 n=62 ch=0 me=false fb=false
++SCANNEWS t=29818880 n=62 ch=0 me=true fb=false
++SCANNEWS t=29818880 n=62 ch=0 me=false fb=false
++SCANNEWS t=29949952 n=62 ch=0 me=true fb=false
++SCANNEWS t=29949952 n=62 ch=0 me=false fb=false
++SCANNEWS t=30081024 n=62 ch=0 me=true fb=false
++SCANNEWS t=30081024 n=62 ch=0 me=false fb=false
++SCANNEWS t=30212096 n=62 ch=0 me=true fb=false
++SCANNEWS t=30212096 n=62 ch=0 me=false fb=false
++SCANNEWS t=30343168 n=62 ch=0 me=true fb=false
++SCANNEWS t=30343168 n=62 ch=0 me=false fb=false
++SCANNEWS t=30474240 n=62 ch=8 me=true fb=false
++SCANNEWS t=30474240 n=62 ch=0 me=false fb=false
++SCANNEWS t=30605312 n=62 ch=0 me=true fb=false
++SCANNEWS t=30605312 n=62 ch=0 me=false fb=false
++SCANNEWS t=30736384 n=62 ch=0 me=true fb=false
++SCANNEWS t=30736384 n=62 ch=0 me=false fb=false
++SCANNEWS t=30867456 n=62 ch=0 me=true fb=false
++SCANNEWS t=30867456 n=62 ch=0 me=false fb=false
++SCANNEWS t=30998528 n=62 ch=0 me=true fb=false
++SCANNEWS t=30998528 n=62 ch=0 me=false fb=false
++SCANNEWS t=31129600 n=62 ch=0 me=true fb=false
++SCANNEWS t=31129600 n=62 ch=0 me=false fb=false
++SCANNEWS t=31260672 n=62 ch=0 me=true fb=false
++SCANNEWS t=31260672 n=62 ch=0 me=false fb=false
++SCANNEWS t=31391744 n=62 ch=0 me=true fb=false
++SCANNEWS t=31391744 n=62 ch=0 me=false fb=false
++SCANNEWS t=31522816 n=62 ch=6 me=true fb=false
++SCANNEWS t=31522816 n=62 ch=0 me=false fb=false
++SCANNEWS t=31653888 n=62 ch=0 me=true fb=false
++SCANNEWS t=31653888 n=62 ch=0 me=false fb=false
++SCANNEWS t=31784960 n=62 ch=0 me=true fb=false
++SCANNEWS t=31784960 n=62 ch=0 me=false fb=false
++SCANNEWS t=31916032 n=62 ch=0 me=true fb=false
++SCANNEWS t=31916032 n=62 ch=0 me=false fb=false
++SCANNEWS t=32047104 n=61 ch=0 me=true fb=false
++SCANNEWS t=32047104 n=61 ch=0 me=false fb=false
++SCANNEWS t=32178176 n=61 ch=0 me=true fb=false
++SCANNEWS t=32178176 n=61 ch=0 me=false fb=false
++SCANNEWS t=32309248 n=61 ch=0 me=true fb=false
++SCANNEWS t=32309248 n=61 ch=0 me=false fb=false
++SCANNEWS t=32440320 n=61 ch=0 me=true fb=false
++SCANNEWS t=32440320 n=61 ch=0 me=false fb=false
++SCANNEWS t=32571392 n=61 ch=8 me=true fb=false
++SCANNEWS t=32571392 n=61 ch=0 me=false fb=false
++SCANNEWS t=32702464 n=61 ch=0 me=true fb=false
++SCANNEWS t=32702464 n=61 ch=0 me=false fb=false
++SCANNEWS t=32833536 n=61 ch=0 me=true fb=false
++SCANNEWS t=32833536 n=61 ch=0 me=false fb=false
++SCANNEWS t=32964608 n=61 ch=0 me=true fb=false
++SCANNEWS t=32964608 n=61 ch=0 me=false fb=false
++SCANNEWS t=33095680 n=62 ch=1 me=true fb=false
++SCANNEWS t=33095680 n=62 ch=0 me=false fb=false
++SCANNEWS t=33226752 n=62 ch=0 me=true fb=false
++SCANNEWS t=33226752 n=62 ch=0 me=false fb=false
++SCANNEWS t=33357824 n=63 ch=2 me=true fb=false
++SCANNEWS t=33357824 n=63 ch=0 me=false fb=false
++SCANNEWS t=33488896 n=63 ch=0 me=true fb=false
++SCANNEWS t=33488896 n=63 ch=0 me=false fb=false
++SCANNEWS t=33619968 n=63 ch=0 me=true fb=false
++SCANNEWS t=33619968 n=63 ch=0 me=false fb=false
++SCANNEWS t=33751040 n=63 ch=0 me=true fb=false
++SCANNEWS t=33751040 n=63 ch=0 me=false fb=false
++SCANNEWS t=33882112 n=63 ch=0 me=true fb=false
++SCANNEWS t=33882112 n=63 ch=0 me=false fb=false
++SCANNEWS t=34013184 n=63 ch=0 me=true fb=false
++SCANNEWS t=34013184 n=63 ch=0 me=false fb=false
++SCANNEWS t=34144256 n=63 ch=0 me=true fb=false
++SCANNEWS t=34144256 n=63 ch=0 me=false fb=false
++SCANNEWS t=34275328 n=63 ch=0 me=true fb=false
++SCANNEWS t=34275328 n=63 ch=0 me=false fb=false
++SCANNEWS t=34406400 n=63 ch=0 me=true fb=false
++SCANNEWS t=34406400 n=63 ch=0 me=false fb=false
++SCANNEWS t=34537472 n=63 ch=0 me=true fb=false
++SCANNEWS t=34537472 n=63 ch=0 me=false fb=false
++SCANNEWS t=34668544 n=63 ch=8 me=true fb=false
++SCANNEWS t=34668544 n=63 ch=0 me=false fb=false
++SCANNEWS t=34799616 n=63 ch=0 me=true fb=false
++SCANNEWS t=34799616 n=63 ch=0 me=false fb=false
++SCANNEWS t=34930688 n=63 ch=0 me=true fb=false
++SCANNEWS t=34930688 n=63 ch=0 me=false fb=false
++SCANNEWS t=35061760 n=63 ch=0 me=true fb=false
++SCANNEWS t=35061760 n=63 ch=0 me=false fb=false
++SCANNEWS t=35192832 n=63 ch=0 me=true fb=false
++SCANNEWS t=35192832 n=83 ch=20 me=false fb=false
++SCANNEWS t=35323904 n=83 ch=0 me=true fb=false
++SCANNEWS t=35323904 n=83 ch=0 me=false fb=false
++SCANNEWS t=35520512 n=83 ch=0 me=true fb=false
++SCANNEWS t=35520512 n=83 ch=0 me=false fb=false
++SCANNEWS t=35782656 n=83 ch=6 me=true fb=false
++SCANNEWS t=35782656 n=83 ch=0 me=false fb=false
++SCANNEWS t=36044800 n=83 ch=0 me=true fb=false
++SCANNEWS t=36044800 n=83 ch=0 me=false fb=false
++SCANNEWS t=36306944 n=83 ch=0 me=true fb=false
++SCANNEWS t=36306944 n=83 ch=0 me=false fb=false
++SCANNEWS t=36569088 n=83 ch=0 me=true fb=false
++SCANNEWS t=36569088 n=83 ch=0 me=false fb=false
++SCANNEWS t=36831232 n=83 ch=8 me=true fb=false
++SCANNEWS t=36831232 n=83 ch=0 me=false fb=false
++SCANNEWS t=37093376 n=83 ch=0 me=true fb=false
++SCANNEWS t=37093376 n=83 ch=0 me=false fb=false
++SCANNEWS t=37355520 n=83 ch=0 me=true fb=false
++SCANNEWS t=37355520 n=83 ch=0 me=false fb=false
++SCANNEWS t=37617664 n=85 ch=2 me=true fb=false
++SCANNEWS t=37617664 n=84 ch=0 me=false fb=false
++SCANNEWS t=37879808 n=84 ch=26 me=true fb=false
++SCANNEWS t=37879808 n=84 ch=0 me=false fb=false
++SCANNEWS t=38141952 n=84 ch=0 me=true fb=false
++SCANNEWS t=38141952 n=84 ch=0 me=false fb=false
++SCANNEWS t=38404096 n=84 ch=0 me=true fb=false
++SCANNEWS t=38404096 n=84 ch=0 me=false fb=false
++SCANNEWS t=38666240 n=84 ch=0 me=true fb=false
++SCANNEWS t=38666240 n=84 ch=0 me=false fb=false
++SCANNEWS t=38928384 n=84 ch=7 me=true fb=false
++SCANNEWS t=38928384 n=84 ch=0 me=false fb=false
++SCANNEWS t=39190528 n=84 ch=0 me=true fb=false
++SCANNEWS t=39190528 n=84 ch=0 me=false fb=false
++SCANNEWS t=39452672 n=84 ch=0 me=true fb=false
++SCANNEWS t=39452672 n=84 ch=0 me=false fb=false
++SCANNEWS t=39714816 n=84 ch=0 me=true fb=false
++SCANNEWS t=39714816 n=84 ch=0 me=false fb=false
++SCANNEWS t=39976960 n=86 ch=8 me=true fb=false
++SCANNEWS t=39976960 n=86 ch=0 me=false fb=false
++SCANNEWS t=40239104 n=86 ch=0 me=true fb=false
++SCANNEWS t=40239104 n=86 ch=0 me=false fb=false
++SCANNEWS t=40501248 n=86 ch=0 me=true fb=false
++SCANNEWS t=40501248 n=86 ch=0 me=false fb=false
++SCANNEWS t=40763392 n=86 ch=0 me=true fb=false
++SCANNEWS t=40763392 n=86 ch=0 me=false fb=false
++SCANNEWS t=41025536 n=86 ch=7 me=true fb=false
++SCANNEWS t=41025536 n=86 ch=0 me=false fb=false
++SCANNEWS t=41287680 n=86 ch=0 me=true fb=false
++SCANNEWS t=41287680 n=86 ch=0 me=false fb=false
++SCANNEWS t=41549824 n=86 ch=0 me=true fb=false
++SCANNEWS t=41549824 n=86 ch=0 me=false fb=false
++SCANNEWS t=41811968 n=92 ch=6 me=true fb=false
++SCANNEWS t=41811968 n=92 ch=0 me=false fb=false
++SCANNEWS t=42074112 n=92 ch=32 me=true fb=false
++SCANNEWS t=42074112 n=92 ch=0 me=false fb=false
++SCANNEWS t=42336256 n=92 ch=0 me=true fb=false
++SCANNEWS t=42336256 n=92 ch=0 me=false fb=false
++SCANNEWS t=42598400 n=92 ch=0 me=true fb=false
++SCANNEWS t=42598400 n=92 ch=0 me=false fb=false
++SCANNEWS t=42860544 n=92 ch=0 me=true fb=false
++SCANNEWS t=42860544 n=92 ch=0 me=false fb=false
++SCANNEWS t=43122688 n=92 ch=7 me=true fb=false
++SCANNEWS t=43122688 n=92 ch=0 me=false fb=false
++SCANNEWS t=43384832 n=92 ch=0 me=true fb=false
++SCANNEWS t=43384832 n=92 ch=0 me=false fb=false
++SCANNEWS t=43646976 n=95 ch=3 me=true fb=false
++SCANNEWS t=43646976 n=95 ch=0 me=false fb=false
++SCANNEWS t=43909120 n=95 ch=0 me=true fb=false
++SCANNEWS t=43909120 n=95 ch=0 me=false fb=false
++SCANNEWS t=44171264 n=95 ch=6 me=true fb=false
++SCANNEWS t=44171264 n=95 ch=0 me=false fb=false
++SCANNEWS t=44433408 n=95 ch=0 me=true fb=false
++SCANNEWS t=44433408 n=95 ch=0 me=false fb=false
++SCANNEWS t=44695552 n=95 ch=0 me=true fb=false
++SCANNEWS t=44695552 n=95 ch=0 me=false fb=false
++SCANNEWS t=44957696 n=95 ch=0 me=true fb=false
++SCANNEWS t=44957696 n=95 ch=0 me=false fb=false
++SCANNEWS t=45219840 n=98 ch=10 me=true fb=false
++SCANNEWS t=45219840 n=98 ch=0 me=false fb=false
++SCANNEWS t=45481984 n=98 ch=0 me=true fb=false
++SCANNEWS t=45481984 n=98 ch=0 me=false fb=false
++SCANNEWS t=45744128 n=98 ch=0 me=true fb=false
++SCANNEWS t=45744128 n=98 ch=0 me=false fb=false
++SCANNEWS t=46006272 n=98 ch=0 me=true fb=false
++SCANNEWS t=46006272 n=98 ch=0 me=false fb=false
++SCANNEWS t=46268416 n=98 ch=26 me=true fb=false
++SCANNEWS t=46268416 n=98 ch=0 me=false fb=false
++SCANNEWS t=46530560 n=98 ch=0 me=true fb=false
++SCANNEWS t=46530560 n=98 ch=0 me=false fb=false
++SCANNEWS t=46792704 n=100 ch=2 me=true fb=false
++SCANNEWS t=46792704 n=100 ch=0 me=false fb=false
++SCANNEWS t=47054848 n=100 ch=0 me=true fb=false
++SCANNEWS t=47054848 n=100 ch=0 me=false fb=false
++SCANNEWS t=47316992 n=100 ch=7 me=true fb=false
++SCANNEWS t=47316992 n=100 ch=0 me=false fb=false
++SCANNEWS t=47579136 n=100 ch=0 me=true fb=false
++SCANNEWS t=47579136 n=100 ch=0 me=false fb=false
++SCANNEWS t=47841280 n=100 ch=0 me=true fb=false
++SCANNEWS t=47841280 n=100 ch=0 me=false fb=false
++SCANNEWS t=48103424 n=100 ch=0 me=true fb=false
++SCANNEWS t=48103424 n=100 ch=0 me=false fb=false
++SCANNEWS t=48365568 n=102 ch=8 me=true fb=false
++SCANNEWS t=48365568 n=102 ch=0 me=false fb=false
++SCANNEWS t=48627712 n=102 ch=0 me=true fb=false
++SCANNEWS t=48627712 n=102 ch=0 me=false fb=false
++SCANNEWS t=48889856 n=102 ch=0 me=true fb=false
++SCANNEWS t=48889856 n=102 ch=0 me=false fb=false
++SCANNEWS t=49152000 n=94 ch=0 me=true fb=false
++SCANNEWS t=49152000 n=94 ch=0 me=false fb=false
++SCANNEWS t=49414144 n=94 ch=1 me=true fb=false
++SCANNEWS t=49414144 n=94 ch=0 me=false fb=false
++SCANNEWS t=49676288 n=96 ch=3 me=true fb=false
++SCANNEWS t=49676288 n=96 ch=0 me=false fb=false
++SCANNEWS t=49938432 n=96 ch=0 me=true fb=false
++SCANNEWS t=49938432 n=96 ch=0 me=false fb=false
++SCANNEWS t=50200576 n=94 ch=0 me=true fb=false
++SCANNEWS t=50200576 n=94 ch=0 me=false fb=false
++SCANNEWS t=50462720 n=94 ch=10 me=true fb=false
++SCANNEWS t=50462720 n=94 ch=0 me=false fb=false
++SCANNEWS t=50724864 n=94 ch=0 me=true fb=false
++SCANNEWS t=50724864 n=94 ch=0 me=false fb=false
++SCANNEWS t=50987008 n=90 ch=0 me=true fb=false
++SCANNEWS t=50987008 n=90 ch=0 me=false fb=false
++SCANNEWS t=51249152 n=91 ch=1 me=true fb=false
++SCANNEWS t=51249152 n=91 ch=0 me=false fb=false
++SCANNEWS t=51511296 n=89 ch=0 me=true fb=false
++SCANNEWS t=51511296 n=89 ch=0 me=false fb=false
++SCANNEWS t=51773440 n=89 ch=0 me=true fb=false
++SCANNEWS t=51773440 n=89 ch=0 me=false fb=false
++SCANNEWS t=52035584 n=88 ch=0 me=true fb=false
++SCANNEWS t=52035584 n=120 ch=32 me=false fb=false
++SCANNEWS t=52297728 n=124 ch=4 me=true fb=false
++SCANNEWS t=52297728 n=124 ch=0 me=false fb=false
++SCANNEWS t=52690944 n=124 ch=6 me=true fb=false
++SCANNEWS t=52690944 n=124 ch=0 me=false fb=false
++SCANNEWS t=53215232 n=124 ch=0 me=true fb=false
++SCANNEWS t=53215232 n=124 ch=0 me=false fb=false
++SCANNEWS t=53739520 n=130 ch=12 me=true fb=false
++SCANNEWS t=53739520 n=130 ch=0 me=false fb=false
++SCANNEWS t=54263808 n=130 ch=0 me=true fb=false
++SCANNEWS t=54263808 n=130 ch=0 me=false fb=false
++SCANNEWS t=54788096 n=130 ch=26 me=true fb=false
++SCANNEWS t=54788096 n=130 ch=0 me=false fb=false
++SCANNEWS t=55312384 n=134 ch=4 me=true fb=false
++SCANNEWS t=55312384 n=134 ch=0 me=false fb=false
++SCANNEWS t=55836672 n=126 ch=1 me=true fb=false
++SCANNEWS t=55836672 n=126 ch=0 me=false fb=false
++SCANNEWS t=56360960 n=124 ch=0 me=true fb=false
++SCANNEWS t=56360960 n=124 ch=0 me=false fb=false
++SCANNEWS t=56885248 n=126 ch=9 me=true fb=false
++SCANNEWS t=56885248 n=126 ch=0 me=false fb=false
++SCANNEWS t=57409536 n=124 ch=0 me=true fb=false
++SCANNEWS t=57409536 n=124 ch=0 me=false fb=false
++SCANNEWS t=57933824 n=123 ch=0 me=true fb=false
++SCANNEWS t=57933824 n=123 ch=0 me=false fb=false
++SCANNEWS t=58458112 n=120 ch=2 me=true fb=false
++SCANNEWS t=58458112 n=120 ch=0 me=false fb=false
++SCANNEWS t=58982400 n=118 ch=37 me=true fb=false
++SCANNEWS t=58982400 n=118 ch=0 me=false fb=false
++SCANNEWS t=59506688 n=113 ch=0 me=true fb=false
++SCANNEWS t=59506688 n=113 ch=0 me=false fb=false
++SCANNEWS t=60030976 n=115 ch=6 me=true fb=false
++SCANNEWS t=60030976 n=115 ch=0 me=false fb=false
++SCANNEWS t=60555264 n=114 ch=0 me=true fb=false
++SCANNEWS t=60555264 n=114 ch=0 me=false fb=false
++SCANNEWS t=61079552 n=113 ch=1 me=true fb=false
++SCANNEWS t=61079552 n=113 ch=0 me=false fb=false
++SCANNEWS t=61603840 n=117 ch=4 me=true fb=false
++SCANNEWS t=61603840 n=117 ch=0 me=false fb=false
++SCANNEWS t=62128128 n=115 ch=0 me=true fb=false
++SCANNEWS t=62128128 n=115 ch=0 me=false fb=false
++SCANNEWS t=62652416 n=113 ch=0 me=true fb=false
++SCANNEWS t=62652416 n=113 ch=0 me=false fb=false
++SCANNEWS t=63176704 n=111 ch=2 me=true fb=false
++SCANNEWS t=63176704 n=111 ch=0 me=false fb=false
++SCANNEWS t=63700992 n=103 ch=0 me=true fb=false
++SCANNEWS t=63700992 n=103 ch=0 me=false fb=false
++SCANNEWS t=64225280 n=98 ch=0 me=true fb=false
++SCANNEWS t=64225280 n=98 ch=0 me=false fb=false
++SCANNEWS t=64749568 n=100 ch=2 me=true fb=false
++SCANNEWS t=64749568 n=100 ch=0 me=false fb=false
++SCANNEWS t=65273856 n=94 ch=0 me=true fb=false
++SCANNEWS t=65273856 n=94 ch=0 me=false fb=false
++SCANNEWS t=65798144 n=91 ch=0 me=true fb=false
++SCANNEWS t=65798144 n=91 ch=0 me=false fb=false
++SCANNEWS t=66322432 n=92 ch=2 me=true fb=false
++SCANNEWS t=66322432 n=92 ch=0 me=false fb=false
++SCANNEWS t=66846720 n=92 ch=0 me=true fb=false
++SCANNEWS t=66846720 n=92 ch=0 me=false fb=false
++SCANNEWS t=67371008 n=89 ch=0 me=true fb=false
++SCANNEWS t=67371008 n=89 ch=0 me=false fb=false
++SCANNEWS t=67895296 n=84 ch=1 me=true fb=false
++SCANNEWS t=67895296 n=84 ch=0 me=false fb=false
++SCANNEWS t=68419584 n=84 ch=0 me=true fb=false
++SCANNEWS t=68419584 n=84 ch=0 me=false fb=false
++SCANNEWS t=68943872 n=81 ch=0 me=true fb=false
++SCANNEWS t=68943872 n=81 ch=0 me=false fb=false
++SCANNEWS t=69468160 n=81 ch=2 me=true fb=false
++SCANNEWS t=69468160 n=81 ch=0 me=false fb=false
++SCANNEWS t=69992448 n=81 ch=0 me=true fb=false
++SCANNEWS t=69992448 n=81 ch=0 me=false fb=false
++SCANNEWS t=70516736 n=80 ch=0 me=true fb=false
++SCANNEWS t=70516736 n=80 ch=0 me=false fb=false
++SCANNEWS t=71041024 n=80 ch=2 me=true fb=false
++SCANNEWS t=71041024 n=80 ch=0 me=false fb=false
++SCANNEWS t=71565312 n=80 ch=0 me=true fb=false
++SCANNEWS t=71565312 n=80 ch=0 me=false fb=false
++SCANNEWS t=72089600 n=78 ch=0 me=true fb=false
++SCANNEWS t=72089600 n=78 ch=0 me=false fb=false
++SCANNEWS t=72613888 n=81 ch=3 me=true fb=false
++SCANNEWS t=72613888 n=81 ch=0 me=false fb=false
++SCANNEWS t=73138176 n=80 ch=0 me=true fb=false
++SCANNEWS t=73138176 n=80 ch=0 me=false fb=false
++SCANNEWS t=73662464 n=75 ch=0 me=true fb=false
++SCANNEWS t=73662464 n=75 ch=0 me=false fb=false
++SCANNEWS t=74186752 n=79 ch=4 me=true fb=false
++SCANNEWS t=74186752 n=79 ch=0 me=false fb=false
++SCANNEWS t=74711040 n=73 ch=0 me=true fb=false
++SCANNEWS t=74711040 n=73 ch=0 me=false fb=false
++SCANNEWS t=75235328 n=73 ch=0 me=true fb=false
++SCANNEWS t=75235328 n=73 ch=0 me=false fb=false
++SCANNEWS t=75759616 n=72 ch=2 me=true fb=false
++SCANNEWS t=75759616 n=72 ch=0 me=false fb=false
++SCANNEWS t=76283904 n=72 ch=0 me=true fb=false
++SCANNEWS t=76283904 n=72 ch=0 me=false fb=false
++SCANNEWS t=76808192 n=67 ch=0 me=true fb=false
++SCANNEWS t=76808192 n=67 ch=0 me=false fb=false
++SCANNEWS t=77332480 n=67 ch=0 me=true fb=false
++SCANNEWS t=77332480 n=67 ch=0 me=false fb=false
++SCANNEWS t=77856768 n=64 ch=3 me=true fb=false
++SCANNEWS t=77856768 n=64 ch=0 me=false fb=false
++SCANNEWS t=78381056 n=64 ch=0 me=true fb=false
++SCANNEWS t=78381056 n=64 ch=0 me=false fb=false
++SCANNEWS t=78905344 n=56 ch=0 me=true fb=false
++SCANNEWS t=78905344 n=56 ch=0 me=false fb=false
++SCANNEWS t=79429632 n=60 ch=4 me=true fb=false
++SCANNEWS t=79429632 n=60 ch=0 me=false fb=false
++SCANNEWS t=79953920 n=57 ch=0 me=true fb=false
++SCANNEWS t=79953920 n=57 ch=0 me=false fb=false
++SCANNEWS t=80478208 n=57 ch=0 me=true fb=false
++SCANNEWS t=80478208 n=57 ch=0 me=false fb=false
++SCANNEWS t=81002496 n=58 ch=3 me=true fb=false
++SCANNEWS t=81002496 n=58 ch=0 me=false fb=false
++SCANNEWS t=81526784 n=58 ch=0 me=true fb=false
++SCANNEWS t=81526784 n=58 ch=0 me=false fb=false
++SCANNEWS t=82051072 n=54 ch=0 me=true fb=false
++SCANNEWS t=82051072 n=54 ch=0 me=false fb=false
++SCANNEWS t=82575360 n=58 ch=4 me=true fb=false
++SCANNEWS t=82575360 n=58 ch=0 me=false fb=false
++SCANNEWS t=83099648 n=56 ch=0 me=true fb=false
++SCANNEWS t=83099648 n=56 ch=0 me=false fb=false
++SCANNEWS t=83623936 n=56 ch=0 me=true fb=false
++SCANNEWS t=83623936 n=56 ch=0 me=false fb=false
++SCANNEWS t=84148224 n=51 ch=2 me=true fb=false
++SCANNEWS t=84148224 n=51 ch=0 me=false fb=false
++SCANNEWS t=84672512 n=52 ch=1 me=true fb=false
++SCANNEWS t=84672512 n=52 ch=0 me=false fb=false
++SCANNEWS t=85196800 n=52 ch=0 me=true fb=false
++SCANNEWS t=85196800 n=52 ch=0 me=false fb=false
++SCANNEWS t=85721088 n=50 ch=0 me=true fb=false
++SCANNEWS t=85721088 n=74 ch=24 me=false fb=false
++SCANNEWS t=86507520 n=72 ch=1 me=true fb=false
++SCANNEWS t=86507520 n=72 ch=0 me=false fb=false
++SCANNEWS t=87556096 n=70 ch=0 me=true fb=false
++SCANNEWS t=87556096 n=70 ch=0 me=false fb=false
++SCANNEWS t=88604672 n=68 ch=2 me=true fb=false
++SCANNEWS t=88604672 n=68 ch=0 me=false fb=false
++SCANNEWS t=89653248 n=66 ch=0 me=true fb=false
++SCANNEWS t=89653248 n=66 ch=0 me=false fb=false
++SCANNEWS t=90701824 n=65 ch=4 me=true fb=false
++SCANNEWS t=90701824 n=65 ch=0 me=false fb=false
++SCANNEWS t=91750400 n=63 ch=0 me=true fb=false
++SCANNEWS t=91750400 n=63 ch=0 me=false fb=false
++SCANNEWS t=92798976 n=62 ch=0 me=true fb=false
++SCANNEWS t=92798976 n=62 ch=0 me=false fb=false
++SCANNEWS t=93847552 n=59 ch=0 me=true fb=false
++SCANNEWS t=93847552 n=59 ch=0 me=false fb=false
++SCANNEWS t=94896128 n=60 ch=4 me=true fb=false
++SCANNEWS t=94896128 n=60 ch=0 me=false fb=false
++SCANNEWS t=95944704 n=58 ch=0 me=true fb=false
++SCANNEWS t=95944704 n=58 ch=0 me=false fb=false
++SCANNEWS t=96993280 n=57 ch=2 me=true fb=false
++SCANNEWS t=96993280 n=57 ch=0 me=false fb=false
++SCANNEWS t=98041856 n=57 ch=0 me=true fb=false
++SCANNEWS t=98041856 n=57 ch=0 me=false fb=false
++SCANNEWS t=99090432 n=58 ch=4 me=true fb=false
++SCANNEWS t=99090432 n=58 ch=0 me=false fb=false
++SCANNEWS t=100139008 n=55 ch=0 me=true fb=false
++SCANNEWS t=100139008 n=55 ch=0 me=false fb=false
++SCANNEWS t=101187584 n=58 ch=4 me=true fb=false
++SCANNEWS t=101187584 n=58 ch=0 me=false fb=false
++SCANNEWS t=102236160 n=58 ch=0 me=true fb=false
++SCANNEWS t=102236160 n=58 ch=0 me=false fb=false
++SCANNEWS t=103284736 n=57 ch=0 me=true fb=false
++SCANNEWS t=103284736 n=57 ch=0 me=false fb=false
++SCANNEWS t=104333312 n=52 ch=2 me=true fb=false
++SCANNEWS t=104333312 n=52 ch=0 me=false fb=false
++SCANNEWS t=105381888 n=49 ch=0 me=true fb=false
++SCANNEWS t=105381888 n=49 ch=0 me=false fb=false
++SCANNEWS t=106430464 n=53 ch=4 me=true fb=false
++SCANNEWS t=106430464 n=53 ch=0 me=false fb=false
++SCANNEWS t=107479040 n=52 ch=0 me=true fb=false
++SCANNEWS t=107479040 n=52 ch=0 me=false fb=false
++SCANNEWS t=108527616 n=52 ch=2 me=true fb=false
++SCANNEWS t=108527616 n=52 ch=0 me=false fb=false
++SCANNEWS t=109576192 n=52 ch=0 me=true fb=false
++SCANNEWS t=109576192 n=52 ch=0 me=false fb=false
++SCANNEWS t=110624768 n=54 ch=4 me=true fb=false
++SCANNEWS t=110624768 n=54 ch=0 me=false fb=false
++SCANNEWS t=111673344 n=53 ch=0 me=true fb=false
++SCANNEWS t=111673344 n=53 ch=0 me=false fb=false
++SCANNEWS t=112721920 n=53 ch=0 me=true fb=false
++SCANNEWS t=112721920 n=53 ch=0 me=false fb=false
++SCANNEWS t=113770496 n=53 ch=2 me=true fb=false
++SCANNEWS t=113770496 n=53 ch=0 me=false fb=false
++SCANNEWS t=114819072 n=53 ch=0 me=true fb=false
++SCANNEWS t=114819072 n=53 ch=0 me=false fb=false
++SCANNEWS t=115867648 n=55 ch=5 me=true fb=false
++SCANNEWS t=115867648 n=55 ch=0 me=false fb=false
++SCANNEWS t=116916224 n=53 ch=0 me=true fb=false
++SCANNEWS t=116916224 n=53 ch=0 me=false fb=false
++SCANNEWS t=117964800 n=54 ch=1 me=true fb=false
++SCANNEWS t=117964800 n=54 ch=0 me=false fb=false
++SCANNEWS t=119013376 n=53 ch=0 me=true fb=false
++SCANNEWS t=119013376 n=53 ch=0 me=false fb=false
++SCANNEWS t=120061952 n=53 ch=0 me=true fb=false
++SCANNEWS t=120061952 n=53 ch=0 me=false fb=false
++SCANNEWS t=121110528 n=49 ch=0 me=true fb=false
++SCANNEWS t=121110528 n=49 ch=0 me=false fb=false
++SCANNEWS t=122159104 n=49 ch=0 me=true fb=false
++SCANNEWS t=122159104 n=49 ch=0 me=false fb=false
++SCANNEWS t=123207680 n=49 ch=3 me=true fb=false
++SCANNEWS t=123207680 n=49 ch=0 me=false fb=false
++SCANNEWS t=124256256 n=44 ch=0 me=true fb=false
++SCANNEWS t=124256256 n=44 ch=0 me=false fb=false
++SCANNEWS t=125304832 n=44 ch=0 me=true fb=false
++SCANNEWS t=125304832 n=44 ch=0 me=false fb=false
++SCANNEWS t=126353408 n=45 ch=5 me=true fb=false
++SCANNEWS t=126353408 n=45 ch=0 me=false fb=false
++SCANNEWS t=127401984 n=45 ch=0 me=true fb=false
++SCANNEWS t=127401984 n=45 ch=0 me=false fb=false
++SCANNEWS t=128450560 n=47 ch=3 me=true fb=false
++SCANNEWS t=128450560 n=47 ch=0 me=false fb=false
++SCANNEWS t=129499136 n=47 ch=0 me=true fb=false
++SCANNEWS t=129499136 n=47 ch=0 me=false fb=false
++SCANNEWS t=130547712 n=44 ch=0 me=true fb=false
++SCANNEWS t=130547712 n=44 ch=0 me=false fb=false
++SCANNEWS t=131596288 n=46 ch=2 me=true fb=false
++SCANNEWS t=131596288 n=46 ch=0 me=false fb=false
++SCANNEWS t=132644864 n=43 ch=0 me=true fb=false
++SCANNEWS t=132644864 n=43 ch=0 me=false fb=false
++SCANNEWS t=133693440 n=43 ch=0 me=true fb=false
++SCANNEWS t=133693440 n=43 ch=0 me=false fb=false
++SCANNEWS t=134742016 n=41 ch=0 me=true fb=false
++SCANNEWS t=134742016 n=41 ch=0 me=false fb=false
++SCANNEWS t=135790592 n=41 ch=0 me=true fb=false
++SCANNEWS t=135790592 n=41 ch=1 me=false fb=false
++SCANNEWS t=136839168 n=42 ch=6 me=true fb=false
++SCANNEWS t=136839168 n=42 ch=0 me=false fb=false
++SCANNEWS t=137887744 n=42 ch=0 me=true fb=false
++SCANNEWS t=137887744 n=42 ch=0 me=false fb=false
++SCANNEWS t=138936320 n=42 ch=0 me=true fb=false
++SCANNEWS t=138936320 n=42 ch=0 me=false fb=false
++SCANNEWS t=139984896 n=42 ch=4 me=true fb=false
++SCANNEWS t=139984896 n=42 ch=0 me=false fb=false
++SCANNEWS t=141033472 n=42 ch=0 me=true fb=false
++SCANNEWS t=141033472 n=42 ch=0 me=false fb=false
++SCANNEWS t=142082048 n=41 ch=0 me=true fb=false
++SCANNEWS t=142082048 n=41 ch=0 me=false fb=false
++SCANNEWS t=143130624 n=46 ch=5 me=true fb=false
++SCANNEWS t=143130624 n=46 ch=0 me=false fb=false
++SCANNEWS t=144179200 n=46 ch=0 me=true fb=false
++SCANNEWS t=144179200 n=46 ch=0 me=false fb=false
++SCANNEWS t=145227776 n=46 ch=2 me=true fb=false
++SCANNEWS t=145227776 n=46 ch=0 me=false fb=false
++SCANNEWS t=146276352 n=46 ch=0 me=true fb=false
++SCANNEWS t=146276352 n=46 ch=0 me=false fb=false
++SCANNEWS t=147324928 n=41 ch=0 me=true fb=false
++SCANNEWS t=147324928 n=41 ch=0 me=false fb=false
++SCANNEWS t=148373504 n=41 ch=0 me=true fb=false
++SCANNEWS t=148373504 n=41 ch=0 me=false fb=false
++SCANNEWS t=149422080 n=39 ch=2 me=true fb=false
++SCANNEWS t=149422080 n=39 ch=0 me=false fb=false
++SCANNEWS t=150470656 n=39 ch=0 me=true fb=false
++SCANNEWS t=150470656 n=39 ch=0 me=false fb=false
++SCANNEWS t=151519232 n=37 ch=0 me=true fb=false
++SCANNEWS t=151519232 n=37 ch=0 me=false fb=false
++SCANNEWS t=152567808 n=39 ch=2 me=true fb=false
++SCANNEWS t=152567808 n=39 ch=0 me=false fb=false
++SCANNEWS t=153616384 n=39 ch=0 me=true fb=false
++SCANNEWS t=153616384 n=49 ch=10 me=false fb=false
++SCANNEWS t=154664960 n=49 ch=0 me=true fb=false
++SCANNEWS t=154664960 n=49 ch=0 me=false fb=false
++SCANNEWS t=156237824 n=45 ch=0 me=true fb=false
++SCANNEWS t=156237824 n=45 ch=0 me=false fb=false
++SCANNEWS t=158334976 n=43 ch=0 me=true fb=false
++SCANNEWS t=158334976 n=43 ch=0 me=false fb=false
++SCANNEWS t=160432128 n=41 ch=0 me=true fb=false
++SCANNEWS t=160432128 n=41 ch=0 me=false fb=false
++SCANNEWS t=162529280 n=41 ch=0 me=true fb=false
++SCANNEWS t=162529280 n=41 ch=0 me=false fb=false
++SCANNEWS t=164626432 n=39 ch=0 me=true fb=false
++SCANNEWS t=164626432 n=39 ch=0 me=false fb=false
++SCANNEWS t=166723584 n=34 ch=0 me=true fb=false
++SCANNEWS t=166723584 n=34 ch=0 me=false fb=false
++SCANNEWS t=168820736 n=30 ch=0 me=true fb=false
++SCANNEWS t=168820736 n=30 ch=0 me=false fb=false
++SCANNEWS t=170917888 n=30 ch=0 me=true fb=false
++SCANNEWS t=170917888 n=30 ch=0 me=false fb=false
++SCANNEWS t=173015040 n=29 ch=0 me=true fb=false
++SCANNEWS t=173015040 n=29 ch=0 me=false fb=false
++SCANNEWS t=174325760 n=27 ch=0 me=true fb=false
++SCANNEWS t=174325760 n=27 ch=0 me=false fb=false
++SCANNEWS t=174850048 n=27 ch=0 me=true fb=false
++SCANNEWS t=175112192 n=27 ch=0 me=true fb=false
++SCANNEWS t=175112192 n=27 ch=0 me=false fb=false
++SCANNEWS t=175374336 n=27 ch=0 me=true fb=false
++SCANNEWS t=175374336 n=27 ch=0 me=false fb=false
++SCANNEWS t=175898624 n=27 ch=0 me=true fb=false
++SCANNEWS t=175898624 n=27 ch=0 me=false fb=false
++SCANNEWS t=176422912 n=27 ch=0 me=true fb=false
++SCANNEWS t=176422912 n=27 ch=0 me=false fb=false
++SCANNEWS t=176947200 n=27 ch=0 me=true fb=false
++SCANNEWS t=177209344 n=24 ch=0 me=true fb=false
++SCANNEWS t=177209344 n=24 ch=0 me=false fb=false
++SCANNEWS t=177471488 n=24 ch=0 me=true fb=false
++SCANNEWS t=177471488 n=24 ch=0 me=false fb=false
++SCANNEWS t=177995776 n=24 ch=0 me=true fb=false
++SCANNEWS t=177995776 n=24 ch=0 me=false fb=false
++SCANNEWS t=178520064 n=24 ch=0 me=true fb=false
++SCANNEWS t=178520064 n=24 ch=0 me=false fb=false
++SCANNEWS t=179044352 n=24 ch=0 me=true fb=false
++SCANNEWS t=179306496 n=24 ch=0 me=true fb=false
++SCANNEWS t=179306496 n=24 ch=0 me=false fb=false
++SCANNEWS t=179568640 n=24 ch=0 me=true fb=false
++SCANNEWS t=179568640 n=24 ch=0 me=false fb=false
++SCANNEWS t=180092928 n=20 ch=0 me=true fb=false
++SCANNEWS t=180092928 n=20 ch=0 me=false fb=false
++SCANNEWS t=180617216 n=20 ch=0 me=true fb=false
++SCANNEWS t=180617216 n=20 ch=0 me=false fb=false
++SCANNEWS t=181141504 n=20 ch=0 me=true fb=false
++SCANNEWS t=181403648 n=20 ch=0 me=true fb=false
++SCANNEWS t=181403648 n=20 ch=0 me=false fb=false
++SCANNEWS t=181665792 n=20 ch=0 me=true fb=false
++SCANNEWS t=181665792 n=20 ch=0 me=false fb=false
++SCANNEWS t=182190080 n=20 ch=0 me=true fb=false
++SCANNEWS t=182190080 n=20 ch=0 me=false fb=false
++SCANNEWS t=182714368 n=20 ch=0 me=true fb=false
++SCANNEWS t=182714368 n=20 ch=0 me=false fb=false
++SCANNEWS t=183238656 n=19 ch=0 me=true fb=false
++SCANNEWS t=183500800 n=19 ch=0 me=true fb=false
++SCANNEWS t=183500800 n=19 ch=0 me=false fb=false
++SCANNEWS t=183762944 n=19 ch=0 me=true fb=false
++SCANNEWS t=183762944 n=19 ch=0 me=false fb=false
++SCANNEWS t=184287232 n=19 ch=0 me=true fb=false
++SCANNEWS t=184287232 n=19 ch=0 me=false fb=false
++SCANNEWS t=184811520 n=19 ch=0 me=true fb=false
++SCANNEWS t=184811520 n=19 ch=0 me=false fb=false
++SCANNEWS t=185335808 n=19 ch=0 me=true fb=false
++SCANNEWS t=185597952 n=19 ch=0 me=true fb=false
++SCANNEWS t=185597952 n=19 ch=0 me=false fb=false
++SCANNEWS t=185860096 n=21 ch=2 me=true fb=false
++SCANNEWS t=185860096 n=21 ch=0 me=false fb=false
++SCANNEWS t=186384384 n=21 ch=0 me=true fb=false
++SCANNEWS t=186384384 n=21 ch=0 me=false fb=false
++SCANNEWS t=186908672 n=21 ch=0 me=true fb=false
++SCANNEWS t=186908672 n=21 ch=0 me=false fb=false
++SCANNEWS t=187432960 n=21 ch=0 me=true fb=false
++SCANNEWS t=187695104 n=21 ch=0 me=true fb=false
++SCANNEWS t=187695104 n=21 ch=0 me=false fb=false
++SCANNEWS t=187957248 n=21 ch=0 me=true fb=false
++SCANNEWS t=187957248 n=21 ch=0 me=false fb=false
++SCANNEWS t=188481536 n=21 ch=0 me=true fb=false
++SCANNEWS t=188481536 n=21 ch=0 me=false fb=false
++SCANNEWS t=189005824 n=21 ch=0 me=true fb=false
++SCANNEWS t=189005824 n=21 ch=0 me=false fb=false
++SCANNEWS t=189530112 n=21 ch=0 me=true fb=false
++SCANNEWS t=189792256 n=21 ch=0 me=true fb=false
++SCANNEWS t=189792256 n=21 ch=0 me=false fb=false
++SCANNEWS t=190054400 n=77 ch=56 me=true fb=false
++SCANNEWS t=190054400 n=77 ch=0 me=false fb=false
++SCANNEWS t=190578688 n=77 ch=0 me=true fb=false
++SCANNEWS t=190578688 n=77 ch=0 me=false fb=false
++SCANNEWS t=191102976 n=77 ch=0 me=true fb=false
++SCANNEWS t=191102976 n=77 ch=0 me=false fb=false
++SCANNEWS t=191627264 n=77 ch=0 me=true fb=false
++SCANNEWS t=191889408 n=77 ch=0 me=true fb=false
++SCANNEWS t=191889408 n=77 ch=0 me=false fb=false
++SCANNEWS t=192151552 n=77 ch=0 me=true fb=false
++SCANNEWS t=192151552 n=77 ch=0 me=false fb=false
++SCANNEWS t=192675840 n=77 ch=0 me=true fb=false
++SCANNEWS t=192675840 n=77 ch=0 me=false fb=false
++SCANNEWS t=193200128 n=77 ch=0 me=true fb=false
++SCANNEWS t=193200128 n=77 ch=0 me=false fb=false
++SCANNEWS t=193724416 n=77 ch=0 me=true fb=false
++SCANNEWS t=193986560 n=77 ch=0 me=true fb=false
++SCANNEWS t=193986560 n=77 ch=0 me=false fb=false
++SCANNEWS t=194248704 n=94 ch=17 me=true fb=false
++SCANNEWS t=194248704 n=94 ch=0 me=false fb=false
++SCANNEWS t=194772992 n=94 ch=0 me=true fb=false
++SCANNEWS t=194772992 n=94 ch=0 me=false fb=false
++SCANNEWS t=195100672 n=94 ch=0 me=true fb=false
++SCANNEWS t=195100672 n=94 ch=0 me=false fb=false
++SCANNEWS t=195231744 n=94 ch=0 me=true fb=false
++SCANNEWS t=195297280 n=94 ch=0 me=true fb=false
++SCANNEWS t=195297280 n=94 ch=0 me=false fb=false
++SCANNEWS t=195362816 n=94 ch=0 me=true fb=false
++SCANNEWS t=195362816 n=94 ch=0 me=false fb=false
++SCANNEWS t=195493888 n=94 ch=0 me=true fb=false
++SCANNEWS t=195493888 n=94 ch=0 me=false fb=false
++SCANNEWS t=195624960 n=94 ch=0 me=true fb=false
++SCANNEWS t=195624960 n=94 ch=0 me=false fb=false
++SCANNEWS t=195756032 n=94 ch=0 me=true fb=false
++SCANNEWS t=195821568 n=94 ch=0 me=true fb=false
++SCANNEWS t=195821568 n=94 ch=0 me=false fb=false
++SCANNEWS t=195887104 n=94 ch=0 me=true fb=false
++SCANNEWS t=195887104 n=94 ch=0 me=false fb=false
++SCANNEWS t=196018176 n=94 ch=0 me=true fb=false
++SCANNEWS t=196083712 n=94 ch=0 me=true fb=false
++SCANNEWS t=196083712 n=94 ch=0 me=false fb=false
++SCANNEWS t=196149248 n=94 ch=0 me=true fb=false
++SCANNEWS t=196149248 n=94 ch=0 me=false fb=false
++SCANNEWS t=196280320 n=94 ch=0 me=true fb=false
++SCANNEWS t=196345856 n=94 ch=0 me=true fb=false
++SCANNEWS t=196345856 n=94 ch=0 me=false fb=false
++SCANNEWS t=196411392 n=94 ch=0 me=true fb=false
++SCANNEWS t=196411392 n=94 ch=0 me=false fb=false
++SCANNEWS t=196542464 n=94 ch=0 me=true fb=false
++SCANNEWS t=196542464 n=94 ch=0 me=false fb=false
++SCANNEWS t=196673536 n=94 ch=0 me=true fb=false
++SCANNEWS t=196673536 n=94 ch=0 me=false fb=false
++SCANNEWS t=196804608 n=94 ch=0 me=true fb=false
++SCANNEWS t=196870144 n=94 ch=0 me=true fb=false
++SCANNEWS t=196870144 n=94 ch=0 me=false fb=false
++SCANNEWS t=196935680 n=94 ch=0 me=true fb=false
++SCANNEWS t=196935680 n=94 ch=0 me=false fb=false
++SCANNEWS t=197066752 n=94 ch=0 me=true fb=false
++SCANNEWS t=197066752 n=94 ch=0 me=false fb=false
++SCANNEWS t=197197824 n=94 ch=0 me=true fb=false
++SCANNEWS t=197197824 n=94 ch=0 me=false fb=false
++SCANNEWS t=197328896 n=94 ch=0 me=true fb=false
++SCANNEWS t=197394432 n=94 ch=0 me=true fb=false
++SCANNEWS t=197394432 n=94 ch=0 me=false fb=false
++SCANNEWS t=197459968 n=94 ch=0 me=true fb=false
++SCANNEWS t=197459968 n=94 ch=0 me=false fb=false
++SCANNEWS t=197591040 n=94 ch=0 me=true fb=false
++SCANNEWS t=197591040 n=94 ch=0 me=false fb=false
++SCANNEWS t=197722112 n=94 ch=0 me=true fb=false
++SCANNEWS t=197722112 n=94 ch=0 me=false fb=false
++SCANNEWS t=197853184 n=94 ch=0 me=true fb=false
++SCANNEWS t=197918720 n=94 ch=0 me=true fb=false
++SCANNEWS t=197918720 n=94 ch=0 me=false fb=false
++SCANNEWS t=197984256 n=94 ch=0 me=true fb=false
++SCANNEWS t=197984256 n=94 ch=0 me=false fb=false
++SCANNEWS t=198115328 n=94 ch=0 me=true fb=false
++SCANNEWS t=198180864 n=94 ch=0 me=true fb=false
++SCANNEWS t=198180864 n=94 ch=0 me=false fb=false
++SCANNEWS t=198246400 n=94 ch=0 me=true fb=false
++SCANNEWS t=198246400 n=94 ch=0 me=false fb=false
++SCANNEWS t=198377472 n=94 ch=0 me=true fb=false
++SCANNEWS t=198443008 n=94 ch=0 me=true fb=false
++SCANNEWS t=198443008 n=94 ch=0 me=false fb=false
++SCANNEWS t=198508544 n=94 ch=0 me=true fb=false
++SCANNEWS t=198508544 n=94 ch=0 me=false fb=false
++SCANNEWS t=198639616 n=94 ch=0 me=true fb=false
++SCANNEWS t=198639616 n=94 ch=0 me=false fb=false
++SCANNEWS t=198770688 n=94 ch=0 me=true fb=false
++SCANNEWS t=198770688 n=94 ch=0 me=false fb=false
++SCANNEWS t=198901760 n=94 ch=0 me=true fb=false
++SCANNEWS t=198967296 n=94 ch=0 me=true fb=false
++SCANNEWS t=198967296 n=94 ch=0 me=false fb=false
++SCANNEWS t=199032832 n=94 ch=0 me=true fb=false
++SCANNEWS t=199032832 n=94 ch=0 me=false fb=false
++SCANNEWS t=199163904 n=94 ch=0 me=true fb=false
++SCANNEWS t=199163904 n=94 ch=0 me=false fb=false
++SCANNEWS t=199294976 n=94 ch=0 me=true fb=false
++SCANNEWS t=199294976 n=94 ch=0 me=false fb=false
++SCANNEWS t=199426048 n=94 ch=0 me=true fb=false
++SCANNEWS t=199491584 n=94 ch=0 me=true fb=false
++SCANNEWS t=199491584 n=94 ch=0 me=false fb=false
++SCANNEWS t=199557120 n=94 ch=0 me=true fb=false
++SCANNEWS t=199557120 n=94 ch=0 me=false fb=false
++SCANNEWS t=199688192 n=94 ch=0 me=true fb=false
++SCANNEWS t=199688192 n=94 ch=0 me=false fb=false
++SCANNEWS t=199819264 n=94 ch=0 me=true fb=false
++SCANNEWS t=199819264 n=94 ch=0 me=false fb=false
++SCANNEWS t=199950336 n=94 ch=0 me=true fb=false
++SCANNEWS t=200015872 n=94 ch=0 me=true fb=false
++SCANNEWS t=200015872 n=94 ch=0 me=false fb=false
++SCANNEWS t=200081408 n=94 ch=0 me=true fb=false
++SCANNEWS t=200081408 n=94 ch=0 me=false fb=false
++SCANNEWS t=200212480 n=94 ch=0 me=true fb=false
++SCANNEWS t=200278016 n=94 ch=0 me=true fb=false
++SCANNEWS t=200278016 n=94 ch=0 me=false fb=false
++SCANNEWS t=200343552 n=94 ch=0 me=true fb=false
++SCANNEWS t=200343552 n=94 ch=0 me=false fb=false
++SCANNEWS t=200474624 n=94 ch=0 me=true fb=false
++SCANNEWS t=200540160 n=94 ch=0 me=true fb=false
++SCANNEWS t=200540160 n=94 ch=0 me=false fb=false
++SCANNEWS t=200605696 n=94 ch=0 me=true fb=false
++SCANNEWS t=200605696 n=94 ch=0 me=false fb=false
++SCANNEWS t=200736768 n=94 ch=0 me=true fb=false
++SCANNEWS t=200736768 n=94 ch=0 me=false fb=false
++SCANNEWS t=200867840 n=94 ch=0 me=true fb=false
++SCANNEWS t=200867840 n=94 ch=0 me=false fb=false
++SCANNEWS t=200998912 n=94 ch=0 me=true fb=false
++SCANNEWS t=201064448 n=94 ch=0 me=true fb=false
++SCANNEWS t=201064448 n=94 ch=0 me=false fb=false
++SCANNEWS t=201129984 n=94 ch=0 me=true fb=false
++SCANNEWS t=201129984 n=94 ch=0 me=false fb=false
++SCANNEWS t=201261056 n=94 ch=0 me=true fb=false
++SCANNEWS t=201261056 n=94 ch=0 me=false fb=false
++SCANNEWS t=201392128 n=94 ch=0 me=true fb=false
++SCANNEWS t=201392128 n=94 ch=0 me=false fb=false
++SCANNEWS t=201523200 n=94 ch=0 me=true fb=false
++SCANNEWS t=201588736 n=94 ch=0 me=true fb=false
++SCANNEWS t=201588736 n=94 ch=0 me=false fb=false
++SCANNEWS t=201654272 n=94 ch=0 me=true fb=false
++SCANNEWS t=201654272 n=94 ch=0 me=false fb=false
++SCANNEWS t=201785344 n=94 ch=0 me=true fb=false
++SCANNEWS t=201785344 n=94 ch=0 me=false fb=false
++SCANNEWS t=201916416 n=94 ch=0 me=true fb=false
++SCANNEWS t=201916416 n=94 ch=0 me=false fb=false
++SCANNEWS t=202047488 n=94 ch=0 me=true fb=false
++SCANNEWS t=202113024 n=94 ch=0 me=true fb=false
++SCANNEWS t=202113024 n=94 ch=0 me=false fb=false
++SCANNEWS t=202178560 n=94 ch=0 me=true fb=false
++SCANNEWS t=202178560 n=94 ch=0 me=false fb=false
++SCANNEWS t=202309632 n=94 ch=0 me=true fb=false
++SCANNEWS t=202375168 n=94 ch=0 me=true fb=false
++SCANNEWS t=202375168 n=94 ch=0 me=false fb=false
++SCANNEWS t=202440704 n=94 ch=0 me=true fb=false
++SCANNEWS t=202440704 n=94 ch=0 me=false fb=false
++SCANNEWS t=202571776 n=94 ch=0 me=true fb=false
++SCANNEWS t=202637312 n=94 ch=0 me=true fb=false
++SCANNEWS t=202637312 n=94 ch=0 me=false fb=false
++scannews N=30000 (30028 bodies) burn=true rtf=100 wall=10s build=1.3s game_s=998 kicks=2558 held_left=0 digest="72d314493499960838bbdf405c81ed10b9fb6b83b004bd35dfac91308b305146"
++scannews scans=1056 cands/scan=64.7 changed/scan=0.8 news_frac=0.01203 me_changed=542 (0.513/scan) clean=501 fallback=0 memo_hits=500
++SCANNEWS scans=1056 cands/scan=64.7 changed/scan=0.78 news_frac=0.01203 me_changed=542 clean=501 fallback=0 memo_hits=500
+diff --git a/regen_30000_coast.log b/regen_30000_coast.log
+new file mode 100644
+index 00000000..ec814985
+--- /dev/null
++++ b/regen_30000_coast.log
+@@ -0,0 +1,99 @@
++SCANNEWS t=2097152 n=7 ch=0 me=false fb=false
++SCANNEWS t=2097152 n=28 ch=21 me=false fb=false
++SCANNEWS t=6291456 n=39 ch=36 me=true fb=false
++SCANNEWS t=6291456 n=39 ch=1 me=false fb=false
++SCANNEWS t=10485760 n=37 ch=2 me=true fb=false
++SCANNEWS t=10485760 n=37 ch=1 me=false fb=false
++SCANNEWS t=14680064 n=37 ch=26 me=true fb=false
++SCANNEWS t=14680064 n=37 ch=1 me=false fb=false
++SCANNEWS t=18874368 n=36 ch=1 me=true fb=false
++SCANNEWS t=18874368 n=36 ch=1 me=false fb=false
++SCANNEWS t=23068672 n=194 ch=183 me=true fb=false
++SCANNEWS t=23068672 n=194 ch=7 me=false fb=false
++SCANNEWS t=27262976 n=194 ch=45 me=true fb=false
++SCANNEWS t=27262976 n=194 ch=7 me=false fb=false
++SCANNEWS t=31457280 n=194 ch=34 me=true fb=false
++SCANNEWS t=31457280 n=193 ch=5 me=false fb=false
++SCANNEWS t=35651584 n=194 ch=39 me=true fb=false
++SCANNEWS t=35651584 n=193 ch=6 me=false fb=false
++SCANNEWS t=39845888 n=193 ch=33 me=true fb=false
++SCANNEWS t=39845888 n=193 ch=6 me=false fb=false
++SCANNEWS t=44040192 n=193 ch=44 me=true fb=false
++SCANNEWS t=44040192 n=193 ch=6 me=false fb=false
++SCANNEWS t=48234496 n=193 ch=33 me=true fb=false
++SCANNEWS t=48234496 n=193 ch=6 me=false fb=false
++SCANNEWS t=52428800 n=192 ch=45 me=true fb=false
++SCANNEWS t=52428800 n=192 ch=6 me=false fb=false
++SCANNEWS t=56623104 n=192 ch=32 me=true fb=false
++SCANNEWS t=56623104 n=191 ch=6 me=false fb=false
++SCANNEWS t=60817408 n=190 ch=41 me=true fb=false
++SCANNEWS t=60817408 n=190 ch=6 me=false fb=false
++SCANNEWS t=65011712 n=190 ch=30 me=true fb=false
++SCANNEWS t=65011712 n=190 ch=6 me=false fb=false
++SCANNEWS t=69206016 n=190 ch=31 me=true fb=false
++SCANNEWS t=69206016 n=190 ch=6 me=false fb=false
++SCANNEWS t=73400320 n=190 ch=30 me=true fb=false
++SCANNEWS t=73400320 n=189 ch=6 me=false fb=false
++SCANNEWS t=77594624 n=189 ch=40 me=true fb=false
++SCANNEWS t=77594624 n=189 ch=7 me=false fb=false
++SCANNEWS t=81788928 n=189 ch=29 me=true fb=false
++SCANNEWS t=81788928 n=188 ch=6 me=false fb=false
++SCANNEWS t=85983232 n=188 ch=41 me=true fb=false
++SCANNEWS t=85983232 n=188 ch=6 me=false fb=false
++SCANNEWS t=90177536 n=188 ch=28 me=true fb=false
++SCANNEWS t=90177536 n=188 ch=6 me=false fb=false
++SCANNEWS t=94371840 n=188 ch=39 me=true fb=false
++SCANNEWS t=94371840 n=188 ch=6 me=false fb=false
++SCANNEWS t=98566144 n=188 ch=28 me=true fb=false
++SCANNEWS t=98566144 n=188 ch=6 me=false fb=false
++SCANNEWS t=102760448 n=188 ch=32 me=true fb=false
++SCANNEWS t=102760448 n=188 ch=6 me=false fb=false
++SCANNEWS t=106954752 n=188 ch=28 me=true fb=false
++SCANNEWS t=106954752 n=188 ch=6 me=false fb=false
++SCANNEWS t=111149056 n=188 ch=39 me=true fb=false
++SCANNEWS t=111149056 n=188 ch=6 me=false fb=false
++SCANNEWS t=115343360 n=188 ch=28 me=true fb=false
++SCANNEWS t=115343360 n=188 ch=6 me=false fb=false
++SCANNEWS t=119537664 n=188 ch=41 me=true fb=false
++SCANNEWS t=119537664 n=187 ch=5 me=false fb=false
++SCANNEWS t=123731968 n=185 ch=27 me=true fb=false
++SCANNEWS t=123731968 n=185 ch=4 me=false fb=false
++SCANNEWS t=127926272 n=185 ch=38 me=true fb=false
++SCANNEWS t=127926272 n=185 ch=4 me=false fb=false
++SCANNEWS t=132120576 n=185 ch=27 me=true fb=false
++SCANNEWS t=132120576 n=185 ch=4 me=false fb=false
++SCANNEWS t=136314880 n=185 ch=5 me=true fb=false
++SCANNEWS t=136314880 n=185 ch=4 me=false fb=false
++SCANNEWS t=140509184 n=185 ch=27 me=true fb=false
++SCANNEWS t=140509184 n=185 ch=4 me=false fb=false
++SCANNEWS t=144703488 n=185 ch=38 me=true fb=false
++SCANNEWS t=144703488 n=185 ch=6 me=false fb=false
++SCANNEWS t=148897792 n=185 ch=27 me=true fb=false
++SCANNEWS t=148897792 n=185 ch=4 me=false fb=false
++SCANNEWS t=153092096 n=185 ch=40 me=true fb=false
++SCANNEWS t=153092096 n=185 ch=4 me=false fb=false
++SCANNEWS t=157286400 n=185 ch=27 me=true fb=false
++SCANNEWS t=157286400 n=185 ch=4 me=false fb=false
++SCANNEWS t=161480704 n=185 ch=38 me=true fb=false
++SCANNEWS t=161480704 n=185 ch=4 me=false fb=false
++SCANNEWS t=165675008 n=185 ch=27 me=true fb=false
++SCANNEWS t=165675008 n=185 ch=4 me=false fb=false
++SCANNEWS t=169869312 n=185 ch=31 me=true fb=false
++SCANNEWS t=169869312 n=185 ch=4 me=false fb=false
++SCANNEWS t=174063616 n=185 ch=27 me=true fb=false
++SCANNEWS t=174063616 n=185 ch=4 me=false fb=false
++SCANNEWS t=178257920 n=185 ch=38 me=true fb=false
++SCANNEWS t=178257920 n=185 ch=4 me=false fb=false
++SCANNEWS t=182452224 n=185 ch=27 me=true fb=false
++SCANNEWS t=182452224 n=185 ch=4 me=false fb=false
++SCANNEWS t=186646528 n=185 ch=40 me=true fb=false
++SCANNEWS t=186646528 n=185 ch=4 me=false fb=false
++SCANNEWS t=190840832 n=185 ch=27 me=true fb=false
++SCANNEWS t=190840832 n=185 ch=4 me=false fb=false
++SCANNEWS t=195035136 n=185 ch=38 me=true fb=false
++SCANNEWS t=195035136 n=185 ch=4 me=false fb=false
++SCANNEWS t=199229440 n=185 ch=27 me=true fb=false
++SCANNEWS t=199229440 n=185 ch=4 me=false fb=false
++scannews N=30000 (30028 bodies) burn=false rtf=100 wall=10s build=1.3s game_s=998 kicks=2063 held_left=0 digest="750cf21d2f43137d1e4bafcef49c335914ac4db9c0b0191b19607cef694b83ab"
++scannews scans=96 cands/scan=171.8 changed/scan=19.6 news_frac=0.11410 me_changed=47 (0.490/scan) clean=0 fallback=0 memo_hits=0
++SCANNEWS scans=96 cands/scan=171.8 changed/scan=19.60 news_frac=0.11410 me_changed=47 clean=0 fallback=0 memo_hits=0
+diff --git a/regen_3000_coast.log b/regen_3000_coast.log
+new file mode 100644
+index 00000000..50fb553e
+--- /dev/null
++++ b/regen_3000_coast.log
+@@ -0,0 +1,99 @@
++SCANNEWS t=2097152 n=7 ch=0 me=false fb=false
++SCANNEWS t=2097152 n=28 ch=21 me=false fb=false
++SCANNEWS t=6291456 n=39 ch=36 me=true fb=false
++SCANNEWS t=6291456 n=39 ch=1 me=false fb=false
++SCANNEWS t=10485760 n=37 ch=2 me=true fb=false
++SCANNEWS t=10485760 n=37 ch=1 me=false fb=false
++SCANNEWS t=14680064 n=37 ch=26 me=true fb=false
++SCANNEWS t=14680064 n=37 ch=1 me=false fb=false
++SCANNEWS t=18874368 n=36 ch=1 me=true fb=false
++SCANNEWS t=18874368 n=36 ch=1 me=false fb=false
++SCANNEWS t=23068672 n=344 ch=333 me=true fb=true
++SCANNEWS t=23068672 n=344 ch=7 me=false fb=true
++SCANNEWS t=27262976 n=344 ch=45 me=true fb=true
++SCANNEWS t=27262976 n=344 ch=7 me=false fb=true
++SCANNEWS t=31457280 n=344 ch=34 me=true fb=true
++SCANNEWS t=31457280 n=343 ch=5 me=false fb=true
++SCANNEWS t=35651584 n=344 ch=39 me=true fb=true
++SCANNEWS t=35651584 n=343 ch=6 me=false fb=true
++SCANNEWS t=39845888 n=343 ch=33 me=true fb=true
++SCANNEWS t=39845888 n=343 ch=6 me=false fb=true
++SCANNEWS t=44040192 n=343 ch=44 me=true fb=true
++SCANNEWS t=44040192 n=343 ch=6 me=false fb=true
++SCANNEWS t=48234496 n=343 ch=33 me=true fb=true
++SCANNEWS t=48234496 n=343 ch=6 me=false fb=true
++SCANNEWS t=52428800 n=342 ch=45 me=true fb=true
++SCANNEWS t=52428800 n=342 ch=6 me=false fb=true
++SCANNEWS t=56623104 n=342 ch=32 me=true fb=true
++SCANNEWS t=56623104 n=341 ch=6 me=false fb=true
++SCANNEWS t=60817408 n=340 ch=41 me=true fb=true
++SCANNEWS t=60817408 n=340 ch=6 me=false fb=true
++SCANNEWS t=65011712 n=340 ch=30 me=true fb=true
++SCANNEWS t=65011712 n=340 ch=6 me=false fb=true
++SCANNEWS t=69206016 n=340 ch=31 me=true fb=true
++SCANNEWS t=69206016 n=340 ch=6 me=false fb=true
++SCANNEWS t=73400320 n=340 ch=30 me=true fb=true
++SCANNEWS t=73400320 n=339 ch=6 me=false fb=true
++SCANNEWS t=77594624 n=339 ch=40 me=true fb=true
++SCANNEWS t=77594624 n=339 ch=7 me=false fb=true
++SCANNEWS t=81788928 n=339 ch=29 me=true fb=true
++SCANNEWS t=81788928 n=338 ch=6 me=false fb=true
++SCANNEWS t=85983232 n=338 ch=41 me=true fb=true
++SCANNEWS t=85983232 n=338 ch=6 me=false fb=true
++SCANNEWS t=90177536 n=338 ch=28 me=true fb=true
++SCANNEWS t=90177536 n=338 ch=6 me=false fb=true
++SCANNEWS t=94371840 n=338 ch=39 me=true fb=true
++SCANNEWS t=94371840 n=338 ch=6 me=false fb=true
++SCANNEWS t=98566144 n=338 ch=28 me=true fb=true
++SCANNEWS t=98566144 n=338 ch=6 me=false fb=true
++SCANNEWS t=102760448 n=338 ch=32 me=true fb=true
++SCANNEWS t=102760448 n=338 ch=6 me=false fb=true
++SCANNEWS t=106954752 n=338 ch=28 me=true fb=true
++SCANNEWS t=106954752 n=338 ch=6 me=false fb=true
++SCANNEWS t=111149056 n=338 ch=39 me=true fb=true
++SCANNEWS t=111149056 n=338 ch=6 me=false fb=true
++SCANNEWS t=115343360 n=338 ch=28 me=true fb=true
++SCANNEWS t=115343360 n=338 ch=6 me=false fb=true
++SCANNEWS t=119537664 n=338 ch=41 me=true fb=true
++SCANNEWS t=119537664 n=337 ch=5 me=false fb=true
++SCANNEWS t=123731968 n=335 ch=27 me=true fb=true
++SCANNEWS t=123731968 n=335 ch=4 me=false fb=true
++SCANNEWS t=127926272 n=335 ch=38 me=true fb=true
++SCANNEWS t=127926272 n=335 ch=4 me=false fb=true
++SCANNEWS t=132120576 n=335 ch=27 me=true fb=true
++SCANNEWS t=132120576 n=335 ch=4 me=false fb=true
++SCANNEWS t=136314880 n=335 ch=33 me=true fb=true
++SCANNEWS t=136314880 n=335 ch=4 me=false fb=true
++SCANNEWS t=140509184 n=335 ch=27 me=true fb=true
++SCANNEWS t=140509184 n=335 ch=4 me=false fb=true
++SCANNEWS t=144703488 n=335 ch=38 me=true fb=true
++SCANNEWS t=144703488 n=335 ch=6 me=false fb=true
++SCANNEWS t=148897792 n=335 ch=27 me=true fb=true
++SCANNEWS t=148897792 n=335 ch=4 me=false fb=true
++SCANNEWS t=153092096 n=335 ch=40 me=true fb=true
++SCANNEWS t=153092096 n=335 ch=4 me=false fb=true
++SCANNEWS t=157286400 n=335 ch=27 me=true fb=true
++SCANNEWS t=157286400 n=335 ch=4 me=false fb=true
++SCANNEWS t=161480704 n=335 ch=38 me=true fb=true
++SCANNEWS t=161480704 n=335 ch=4 me=false fb=true
++SCANNEWS t=165675008 n=335 ch=27 me=true fb=true
++SCANNEWS t=165675008 n=335 ch=4 me=false fb=true
++SCANNEWS t=169869312 n=335 ch=31 me=true fb=true
++SCANNEWS t=169869312 n=335 ch=4 me=false fb=true
++SCANNEWS t=174063616 n=335 ch=27 me=true fb=true
++SCANNEWS t=174063616 n=335 ch=4 me=false fb=true
++SCANNEWS t=178257920 n=335 ch=38 me=true fb=true
++SCANNEWS t=178257920 n=335 ch=4 me=false fb=true
++SCANNEWS t=182452224 n=335 ch=27 me=true fb=true
++SCANNEWS t=182452224 n=335 ch=4 me=false fb=true
++SCANNEWS t=186646528 n=335 ch=40 me=true fb=true
++SCANNEWS t=186646528 n=335 ch=4 me=false fb=true
++SCANNEWS t=190840832 n=335 ch=27 me=true fb=true
++SCANNEWS t=190840832 n=335 ch=4 me=false fb=true
++SCANNEWS t=195035136 n=335 ch=38 me=true fb=true
++SCANNEWS t=195035136 n=335 ch=4 me=false fb=true
++SCANNEWS t=199229440 n=335 ch=27 me=true fb=true
++SCANNEWS t=199229440 n=335 ch=4 me=false fb=true
++scannews N=3000 (3028 bodies) burn=false rtf=100 wall=10s build=0.1s game_s=998 kicks=2063 held_left=0 digest="1d0715a6f36049cb8228d5ac189fa84b85ba24a53e63252b42e05143935837fc"
++scannews scans=96 cands/scan=306.2 changed/scan=21.5 news_frac=0.07008 me_changed=47 (0.490/scan) clean=0 fallback=86 memo_hits=0
++SCANNEWS scans=96 cands/scan=306.2 changed/scan=21.46 news_frac=0.07008 me_changed=47 clean=0 fallback=86 memo_hits=0
