@@ -1,0 +1,8 @@
+Working...
+Check complete. `Grade: silver` written to `lab/results/20261021-1346-taleb-ddeb/check.md`; the author's wiki page corrected in place (198/300 lines, still in budget); tree restored to base.
+
+**What I did:**
+- **Reproduced bit-for-bit** from `work/patch.diff` at base `2c0b6c9a`: all four dossier commands (seeds 1/2/3 → f 0.1784/0.1793/0.1784, rate 115.41–115.89, headroom 78×; width sweep; both placement arms; the plane's own 2,700 → 17.6/19.3%). Verified the example calls the shipped `ladder_ship` belt arm and `PLANETS` verbatim, and that every cited floor (cbe6's 16/period at 6.3–8.8 Hill and e ≤ 0.23, 67be's first-order kill, 7076's 256/orbit) matches the standing wiki page.
+- **Seven adversarial cases:** held-out seeds 4/5 (stable, 78×); widths 0.25 and 8 (monotone, 170×→21×); a chaos arm 1.0:4.0 (14.2% first-order, dies); an instrumented rerun for exact bill shares; and a widened-candidate-window probe.
+- **Found one structural defect:** the candidate filter `a_res < hi·1.06` excludes the Giant's 2:1 (3.273 AU) from the shipped arm, so the ×2–×4 width-robustness sweep is blind to the first-order zone nearest the belt — with the 2:1 included, ×2 already gives 2.89% first-order (headroom 0), killing the "×4 keeps ≥ 28×" clause. At ×1 the margin claim holds exactly (D1 = 0). Also: exact shares are 3.3/17.6/79.1% not 4/21/75; prose zone centres are off (2.521 vs code 2.498); the 170× bracket reads 190–290×.
+- **Why silver:** the 78× headline rests on the borrowed, unmeasured 256/own-orbit floor for q≥2 zones — if 16/Giant-period holds at the 3:1, headroom returns to ~700× ≈ the board's sentence, so the premise correction is conditional. The gold experiment is named: a `beltcad` arm on a 3:1-drawn belt measuring the zone floor.
