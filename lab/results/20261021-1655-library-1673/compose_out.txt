@@ -1,0 +1,65 @@
+# code literals verified: r_lat='let r_lat: i64 = 4_740 * Q;' moon='periapsis: Scalar::raw(260_000, 18)' Q='pub const Q: i64 = 1 << 20;'
+# shipped plane default members = 48 (scenario.rs examples; tail.rs default 48)
+
+== T1 domain map: word lifetime per population (measured anchors + r² law) ==
+root unit = 1.4768 km; AU = 1.013e+08 root; belt 2–3 AU = 2.03e+08–3.04e+08 root (root doll)
+  r=   4740 root (    7.0 kkm): first fork 682–3367 kicks, steady disagree 0.16%
+  r=  15000 root (   22.2 kkm): first fork 69–69 kicks
+  r=  47400 root (   70.0 kkm): first fork 3–5 kicks, steady disagree 38.5%
+  r= 150000 root (  221.5 kkm): first fork 1–20 kicks
+  r= 250000 root (  369.2 kkm): first fork 1–1 kicks
+  fleet lattice (LEO): r = 4,740 root = 0.3× the 15,000 kill radius -> IN domain (kill unproven, steady rate favours family)
+  Home/Moon locals max: r = 173,333 root = 11.6× the 15,000 kill radius -> DEAD domain (word forks in 1–20 kicks)
+  L4/L5 locals: r = 260,000 root = 17.3× the 15,000 kill radius -> DEAD domain (word forks in 1–20 kicks)
+  P1: locals max 173,333 vs kill 15,000: ratio 11.6x (>=11 predicted); L4/L5 ratio 17.3x
+
+== T2 bytes/body: family (B+F*w)/F vs compact vs cache ==
+  standing 2,432         F=48     w8:  58.67B w16:  66.67B w32:  82.67B
+  standing 2,432         F=64     w8:  46.00B w16:  54.00B w32:  70.00B
+  standing 2,432         F=400    w8:  14.08B w16:  22.08B w32:  38.08B
+  standing 2,432         F=2700   w8:   8.90B w16:  16.90B w32:  32.90B
+  standing 2,432         F=10000  w8:   8.24B w16:  16.24B w32:  32.24B
+  with table cache 1,171 F=48     w8:  32.40B w16:  40.40B w32:  56.40B
+  with table cache 1,171 F=64     w8:  26.30B w16:  34.30B w32:  50.30B
+  with table cache 1,171 F=400    w8:  10.93B w16:  18.93B w32:  34.93B
+  with table cache 1,171 F=2700   w8:   8.43B w16:  16.43B w32:  32.43B
+  with table cache 1,171 F=10000  w8:   8.12B w16:  16.12B w32:  32.12B
+  plateau 5,060          F=48     w8: 113.42B w16: 121.42B w32: 137.42B
+  plateau 5,060          F=64     w8:  87.06B w16:  95.06B w32: 111.06B
+  plateau 5,060          F=400    w8:  20.65B w16:  28.65B w32:  44.65B
+  plateau 5,060          F=2700   w8:   9.87B w16:  17.87B w32:  33.87B
+  plateau 5,060          F=10000  w8:   8.51B w16:  16.51B w32:  32.51B
+  compact phase-locked: 2.62–5.00 B; driven worst 15.75 B; goal <= 6 B
+  family floor at F->inf is w itself: 8–32 B -> misses 6 B alone at every w (P2 first half)
+  best family arm (cache, F=1e4, w=8): 8.12 B vs compact phase-locked worst 5.00 B: compact wins 1.6x at the belt (P2)
+  driven comparison: family (cache,F=400,w=8) 10.93 B vs compact driven 15.75 B: family wins 1.44x
+  blended 10^9 row: driven share f with compact_pl=5 B cap and route R:
+    route compact driven 15.75         R=15.75 B -> closure iff f <= 9.3%
+    route family (cache,F=400,w=16)    R=18.93 B -> closure iff f <= 7.2%
+    route family (cache,F=1e4,w=8)     R= 8.12 B -> closure iff f <= 32.1%
+
+== T3 fork bill at the belt (worst recurring cadence, dearest handler) ==
+  F=16    stream saving   720.6 µs/B/orbit; fork bill 0.0052–1.657 µs/B/orbit = 0.230% of saving (P3 bound 0.3%)
+  F=400   stream saving   766.8 µs/B/orbit; fork bill 0.0052–1.657 µs/B/orbit = 0.216% of saving (P3 bound 0.3%)
+  F=2700  stream saving   768.4 µs/B/orbit; fork bill 0.0052–1.657 µs/B/orbit = 0.216% of saving (P3 bound 0.3%)
+
+== T4 events: where one population dominates the total ==
+  belt: 21.9 ev/B/1.25e+08 s = 1.76e-07 ev/B/game-s;  LEO: 16/5829 s = 0.00275 ev/B/game-s -> LEO is 1.56e+04x the belt's per-body rate
+  10^9 with    1% fleet share: 2.76e+06 ev/wall-s vs budget 4e+06 = 0.69x
+  10^9 with    5% fleet share: 1.37e+07 ev/wall-s vs budget 4e+06 = 3.44x
+  10^9 with   10% fleet share: 2.75e+07 ev/wall-s vs budget 4e+06 = 6.87x
+  fire collapse at the plane's own F=48 (disagree 0.16%): fires/B/interval = 1/F + disagree = 0.0224 -> 44.6x (P4 second half, >=40 predicted)
+
+== T5 certificate lifetimes vs horizons ==
+  belt certificate: 35–845 orbits = 4.37e+09–1.05e+11 game-s
+  fleet certificate at 4,740: 43–210 LEO orbits = 2.48e+05–1.23e+06 game-s
+  longest flown horizon 1e+05 game-s = 20.6 LEO orbits -> margin 2.07–10.2x (P4 first half, >=2 predicted)
+  belt certificate vs the 10^9 ledger's own horizon T* = 3.37e7 game-s (e29c): 130x over it
+
+== P5: quote byte-identity against the cached fresh export ==
+  [OK ] Egan, Diaspora: it required a profound myopia of scale and similarity to bel...
+  [OK ] Munger, The Revised Psychology of Human Misjudgment (Farnam Street): To a man with only a hammer every problem looks pretty much ...
+  [OK ] Taleb, 20 Aphorisms (Farnam Street): The more frequently you look at data, the more noise you are...
+  [OK ] Housel, The Psychology of Money: Growth is driven by compounding, which always takes time. De...
+  [OK ] Taleb, The Black Swan: In Extremistan, inequalities are such that one single observ...
+  P5: 5/5 byte-identical

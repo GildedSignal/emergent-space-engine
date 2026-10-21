@@ -1,0 +1,4 @@
+Working...
+**Claim:** composed from measured constants (no flight, `compose_family.py`, 0.1 s, predictions P1–P5 pre-registered and held, quotes 5/5 byte-identical on a fresh 4,590-highlight export), the formation family's row is the fleet/driven population — 113–244× off the 5,060 B plateau at F = 400, 44.6× fires at the plane's own 48 members, and the 10⁹ kick row swings 0.69×→6.87× budget on 1–10% fleet share alone — while the phase-locked belt stays the compact store's (family floors at w = 8–32 B > 5 B), the Home/Moon locals are dead domain by the r²·H law (11.6–17.3× beyond the kill radius), and the fork bill is ≤ 0.23% of the stream saving, closing od 3 by composition and scoping the od-1 gate flight to belt+fleet only.
+
+Evidence in `lab/results/20261021-1655-library-1673/` (dossier.md, lessons.md, regen.sh proven end-to-end in 8 s, wiki/formation-family.md folded).
