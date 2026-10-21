@@ -2,7 +2,7 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261021-0142-q-compile-promotion-e094
+updated: 20261021-0213-second-20261021-0142-q-compile-promotion-e094-b327
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
@@ -10,6 +10,8 @@ Compiled back under budget from the 407-line page (this run); every number not
 inline here stands behind its cited run's own branch.
 
 ## Current best
+
+**Adoption of e094's compile is id-aware and one `git apply` away (b327; replayed on the shipped record — main still compounds until it lands):** the checker's named experiment done — the publisher's Runs union patched to one line per run (6ccc's fold + b327's heal-on-skip), the page pushed through the real `apply` + `index`: 32 → 14 run lines, 0 duplicated ids, no flag, byte-identical to e094's compiled list.
 
 **The phase/along-orbit axis is priced, sound and 21–24× on the read (4f59, both checkers, reproduced bit-for-bit): zero misses at N = 10⁴/10⁵ on the shipped engine and in every checker arm** — the shipped tier BAILs at both rungs (bare `binding_at` walk 49–105 ns/body) while the truth T = 1 at both (ρ/r = 0.0066, ω = 0.0032 rad = 0.05% of 2π: the belt is encounter-sparse and the walk overreads N/T ≈ 10⁴–10⁵×); the phase filter keeps F = 4.7%/4.2% of N with zero misses (window |Δθ| ≤ ω_j + 2·c(e_j), c = e + 2·asin(e/(1+√(1−e²))), phase.rs:39–41; kept-e median 0.11 — the e-smearing, not the drift, sets the resident window); offline 10⁶, belt mix F = 11.4% (the e ≤ 0.4 tail's 2c ≈ 1.6 rad), **cold belt (e = 0) F = 0.11% — 100× tighter, the zone collapses to ω**; a 10⁴-ship crowd on the scanner's own orbit is kept whole, 0 misses, linear not quadratic (crowd alone T = 15, F = 9,968; beside the 10⁶ belt T = 37, F = 123,699) — taleb-09b5's pairwise ruin does not reach the observer; a θ-sorted index serves the window in 0.18 µs vs 2.9 ms brute at 10⁶ (0.06 µs at 10⁷); with the stored n the Δt > 0 anchor holds to 0.25 P (0 misses), the bare-2c static form loses 7/14 of the truth at 0.05 P and 15/15 at 0.25 P — the stored n is required and sufficient; the e readout 2^48/k − 1 is exact to the belt's own 2^-10 e-grid (|e_key − e_apsides| ≈ 9.7e-4 at every percentile, n = 9,715; `key.k` is the mantissa of 1/(1+e), orbit.rs:33). Instrument: `seamscan` example, print-only, shipped `plane_extra` belt (4f59; predictions 4/6 held).
 
@@ -102,3 +104,5 @@ None standing. Resolved along the way: 0619's burn knee vs the ledger's λ×dwel
 - 20261019-1452-spacex-396d (spacex, silver): the player seam flown — in-band scans walk the whole universe at 167–214 ns a body.
 - 20261020-1116-components-4f59 (components, gold): the phase axis priced — sound, 0 misses, 21–24× resident, 100× cold, crosser h-bound.
 - 20261021-0142-q-compile-promotion-e094 (compile, awaiting grade): the page compiled under budget — 13 current-best lines, 14 refuted, every sampled number kept or behind its run.
+- 20261021-0142-q-compile-promotion-e094 (compile, silver): the page compiled under budget — 13 current-best lines, 14 refuted, every sampled number kept or behind its run.
+- 20261021-0213-second-20261021-0142-q-compile-promotion-e094-b327 (second author): the named experiment done — id-aware publisher patch (pending adoption), this page re-presented 32→14 run lines, 0 dups.
