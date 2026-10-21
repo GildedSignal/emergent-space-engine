@@ -1,0 +1,387 @@
+diff --git a/crates/universe/examples/scannews2.rs b/crates/universe/examples/scannews2.rs
+new file mode 100644
+index 00000000..5155b542
+--- /dev/null
++++ b/crates/universe/examples/scannews2.rs
+@@ -0,0 +1,53 @@
++//! Run 20261021-1551 (second author on 20261021-1443-system-9b03): the news-fed scan window, flown.
++//!
++//! The original run measured the walk's information (1.2–11.4% of the walked bindings change); this run wires
++//! the window (`SCAN_NEWSFED=1`, `encounter.rs`: a kept candidate is proved identical to a full rebuild's
++//! through `(event_time, alive, binding_until)`, so the digest is the shipped one) and flies it against the
++//! shipped rebuild on the same flight, with the belt-desync dial (`BELT_DESYNC=D`, `step.rs`: every ship's
++//! clock cadence × D — ddeb's classes in their cheapest decisive form).
++//!
++//! No wall budget inside a frame (`until: None`): the flight is deterministic, so the digest is comparable
++//! between the two scan implementations run for run.
++//!
++//! cargo run --release -p emergent-universe --example scannews2 [-- <N> <coast|burn> [<wall s> [<rtf>]]]
++use emergent_universe::encounter::{s2_enabled, s2_summary};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(30_000);
++    let burn = args.get(2).map_or(false, |s| s == "burn");
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(6.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let frames = (seconds * 60.0) as usize;
++    let desync = std::env::var("BELT_DESYNC").unwrap_or_else(|_| "1".into());
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let kicks0 = p.u.stats.kicks;
++    let t0 = Instant::now();
++    for f in 0..frames {
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: None }, i64::MAX);
++    }
++    let wall = t0.elapsed().as_secs_f64();
++    p.u.flush_scans();
++    let held = p.u.held_scans();
++    let digest = p.u.digest();
++    let game_s = p.u.now as f64 * emergent_universe::view::TICK_SECONDS;
++    let mode = if s2_enabled() { "newsfed" } else { "shipped" };
++    println!(
++        "scannews2 N={n} burn={burn} scan={mode} desync={desync} frames={frames} wall={wall:.1}s build={build:.1}s game_s={game_s:.0} kicks={} encounters={} contacts={} held_left={held} digest={digest:?}",
++        p.u.stats.kicks - kicks0,
++        p.u.stats.encounters,
++        p.u.contacts,
++    );
++    s2_summary();
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..d8cf2a97 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -98,6 +98,11 @@ pub trait BodyStore: Send + Sync {
+     fn prune(&mut self, i: usize, before: Tick) -> usize;
+     /// The binding that holds at `t` (current, or a retired one), if still remembered.
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding>;
++    /// The tick at which [`BodyStore::binding_at`]'s answer at `t` stops being what it is (`Tick::MAX` for
++    /// the current binding, the covering segment's end for a retired one, `Tick::MIN` when nothing covers `t`).
++    /// Run 20261021-1551: the news-fed scan proves a kept candidate identical through this plus the
++    /// body's `event_time` and `alive` (a rebind retires and advances `event_time`; prune moves the end).
++    fn binding_until(&self, i: usize, t: Tick) -> Tick;
+     /// The current binding's event time (the body's committed tick).
+     fn event_time(&self, i: usize) -> Tick;
+     fn next_time(&self, i: usize) -> Option<Tick>;
+@@ -149,6 +154,18 @@ impl BodyStore for PlainBodies {
+         }
+         gone
+     }
++    fn binding_until(&self, i: usize, t: Tick) -> Tick {
++        let r = &self.recs[i];
++        if t >= r.b.event_time {
++            return Tick::MAX;
++        }
++        let h = &self.history[i];
++        let k = h.partition_point(|s| s.until <= t);
++        match h.get(k) {
++            Some(s) if s.b.event_time <= t => s.until,
++            _ => Tick::MIN,
++        }
++    }
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
+         let r = &self.recs[i];
+         if t >= r.b.event_time {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..4d994bf8 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -13,10 +13,88 @@ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
+-use std::sync::{Arc, Mutex, OnceLock};
++use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
++// Run 20261021-1551 (second author on 20261021-1443-system-9b03): the news-fed walk. A candidate's
++// `binding_at(j, t)` answer is provably unchanged while (a) `j`'s current `event_time` and `alive` are
++// unchanged (every rebind retires the old binding and advances `event_time`; a death flips `alive`), and
++// (b) `t` has not crossed the answer segment's end, and (c) the segment still exists (prune moves the
++// end: `binding_until(j, t)` recomputed must equal the stored one). Kept candidates and kept rejects are
++// then elementwise identical to a full rebuild's, in the same order — exact by construction, so the
++// digest is the shipped one. The same-tick duplicates fall out: with everything kept, the shipped memo
++// (`same_inputs`) hits and the answer is shared — the nothing-resolved-since pre-check, read-side.
++use std::sync::atomic::{AtomicU64, Ordering as Relaxed};
++
++pub static S2_TOTAL: AtomicU64 = AtomicU64::new(0);
++pub static S2_NEAR: AtomicU64 = AtomicU64::new(0);
++pub static S2_CANDS: AtomicU64 = AtomicU64::new(0);
++pub static S2_REREAD: AtomicU64 = AtomicU64::new(0);
++pub static S2_KEPT: AtomicU64 = AtomicU64::new(0);
++pub static S2_MEMO: AtomicU64 = AtomicU64::new(0);
++pub static S2_FALLBACK: AtomicU64 = AtomicU64::new(0);
++pub static S2_NS_TOTAL: AtomicU64 = AtomicU64::new(0);
++pub static S2_NS_RADIAL: AtomicU64 = AtomicU64::new(0);
++
++pub fn s2_enabled() -> bool {
++    static ON: LazyLock<bool> = LazyLock::new(|| std::env::var_os("SCAN_NEWSFED").is_some_and(|v| v != "0"));
++    *ON
++}
++
++fn s2_timed() -> bool {
++    static ON: LazyLock<bool> = LazyLock::new(|| std::env::var_os("SCAN_TIME").is_some());
++    *ON
++}
++
++pub fn s2_summary() {
++    let (s, near, c, r, k, memo, fb) = (
++        S2_TOTAL.load(Relaxed::Relaxed),
++        S2_NEAR.load(Relaxed::Relaxed),
++        S2_CANDS.load(Relaxed::Relaxed),
++        S2_REREAD.load(Relaxed::Relaxed),
++        S2_KEPT.load(Relaxed::Relaxed),
++        S2_MEMO.load(Relaxed::Relaxed),
++        S2_FALLBACK.load(Relaxed::Relaxed),
++    );
++    let (ns, nsr) = (S2_NS_TOTAL.load(Relaxed::Relaxed), S2_NS_RADIAL.load(Relaxed::Relaxed));
++    if s > 0 {
++        eprintln!(
++            "SCAN2 scans={s} near/scan={:.1} cands/scan={:.1} reread/scan={:.2} kept/scan={:.1} walk_work={:.4} memo={memo} fallback={fb} capture={:.1}us radial={:.1}us",
++            near as f64 / s as f64,
++            c as f64 / s as f64,
++            r as f64 / s as f64,
++            k as f64 / s as f64,
++            r as f64 / near.max(1) as f64,
++            ns as f64 / s as f64 / 1e3,
++            nsr as f64 / s as f64 / 1e3,
++        );
++    }
++}
++
++/// One body's read outcome at the last scan, with the signature that proves it still holds.
++struct NewsSlot {
++    keep: NewsKeep,
++    until: Tick,
++    ev: Tick,
++    alive: bool,
++}
++
++enum NewsKeep {
++    /// Passed every test: its binding and reach are the tuple a rebuild would push.
++    Accept(Binding, Scalar),
++    /// Rejected by the doll test only (the binding is held for the recheck against the player's doll).
++    Doll(Binding),
++    /// Rejected for a reason that cannot turn (dead, zero reach).
++    Static,
++}
++
++#[derive(Default)]
++struct ScanNews {
++    slots: Vec<Option<NewsSlot>>,
++}
++
++
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub struct Encounter {
+     pub a: usize,
+@@ -61,6 +139,9 @@ pub trait Held: Send + Sync {
+ pub struct PlayerNeighbourhood {
+     /// The last scan taken.
+     last: Mutex<Option<Arc<Scan>>>,
++    /// Run 20261021-1551: the news cache (one slot per body: what the last scan read, and the signature
++    /// that proves it still holds). Not part of the held `Scan`, so the held-scan pin is unchanged.
++    news: Mutex<ScanNews>,
+     /// The test's planted fault: reuse the last scan whatever the tick, the interval and the bodies.
+     sloppy: bool,
+ }
+@@ -102,7 +183,8 @@ fn same(a: &Binding, b: &Binding) -> bool {
+ 
+ impl Default for PlayerNeighbourhood {
+     fn default() -> Self {
+-        Self { last: Mutex::new(None), sloppy: false }
++
++        Self { last: Mutex::new(None), news: Mutex::new(ScanNews::default()), sloppy: false }
+     }
+ }
+ 
+@@ -158,12 +240,13 @@ impl Encounters for PlayerNeighbourhood {
+     fn find(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Vec<Encounter> {
+         self.capture(ctx, body, t, interval).map_or_else(Vec::new, |held| held.answer())
+     }
+-
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let (t0, timed) = (std::time::Instant::now(), s2_timed());
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+         // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
++        let t_radial = std::time::Instant::now();
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
+@@ -171,13 +254,76 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
+-        let mut candidates = Vec::new();
+-        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++        let ns_radial = t_radial.elapsed().as_nanos() as u64;
++        // Run 20261021-1551: the news-fed walk. Membership (radial) and the player's binding are still read
++        // every scan; a body's read outcome is served from the news cache when its signature proves the
++        // rebuild would return the same tuple (see the block comment above). Off (`SCAN_NEWSFED` unset):
++        // the shipped rebuild, walk and all.
++        let mut news = if s2_enabled() { Some(self.news.lock().expect("the news cache")) } else { None };
++        if let Some(n) = news.as_mut() {
++            while n.slots.len() < ctx.bodies.len() {
++                n.slots.push(None);
++            }
++        }
++        let fallback = near.is_none();
++        let ids = near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter()));
++        let (mut candidates, mut kept, mut reread) = (Vec::new(), 0u64, 0u64);
++        let mut near_n = 0u64;
++        for j in ids {
++            near_n += 1;
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
++                continue; // dead and unborn rejections cost one flag read (the shipped cheap test); never cached
++            }
++            if let Some(slot) = news.as_ref().and_then(|n| n.slots[j].as_ref()) {
++                if slot.ev == ctx.bodies.event_time(j)
++                    && slot.alive == ctx.bodies.alive(j)
++                    && t < slot.until
++                    && ctx.bodies.binding_until(j, t) == slot.until
++                {
++                    match &slot.keep {
++                        NewsKeep::Accept(b, reach) if b.doll == me.doll => {
++                            candidates.push((j, b.clone(), *reach));
++                            kept += 1;
++                            continue;
++                        }
++                        NewsKeep::Doll(b) if b.doll != me.doll => {
++                            kept += 1; // still foreign-doll: the rebuild rejects it again
++                            continue;
++                        }
++                        NewsKeep::Static => {
++                            kept += 1; // zero reach: radii do not move
++                            continue;
++                        }
++                        _ => {} // the player's doll changed under an otherwise stable read: fall through
++                    }
++                }
++            }
++            reread += 1;
++            let Some(other) = ctx.bodies.binding_at(j, t) else {
++                if let Some(n) = news.as_mut() {
++                    n.slots[j] = None; // a pruned read is never cacheable
++                }
++                continue;
++            };
++            if let Some(n) = news.as_mut() {
++                let sig = || (ctx.bodies.binding_until(j, t), ctx.bodies.event_time(j));
++                if other.doll != me.doll {
++                    let (until, ev) = sig();
++                    n.slots[j] = Some(NewsSlot { keep: NewsKeep::Doll(other.clone()), until, ev, alive: true });
++                    continue;
++                }
++                let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
++                if reach.is_zero() {
++                    let (until, ev) = sig();
++                    n.slots[j] = Some(NewsSlot { keep: NewsKeep::Static, until, ev, alive: true });
++                    continue;
++                }
++                let (until, ev) = sig();
++                n.slots[j] = Some(NewsSlot { keep: NewsKeep::Accept(other.clone(), reach), until, ev, alive: true });
++                candidates.push((j, other, reach));
+                 continue;
+             }
+-            let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
+             if other.doll != me.doll {
+                 continue;
+             }
+@@ -187,9 +333,21 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        drop(news);
++        S2_TOTAL.fetch_add(1, Relaxed::Relaxed);
++        S2_NEAR.fetch_add(near_n, Relaxed::Relaxed);
++        S2_CANDS.fetch_add(candidates.len() as u64, Relaxed::Relaxed);
++        S2_KEPT.fetch_add(kept, Relaxed::Relaxed);
++        S2_REREAD.fetch_add(reread, Relaxed::Relaxed);
++        S2_FALLBACK.fetch_add(u64::from(fallback), Relaxed::Relaxed);
++        if timed {
++            S2_NS_TOTAL.fetch_add(t0.elapsed().as_nanos() as u64, Relaxed::Relaxed);
++            S2_NS_RADIAL.fetch_add(ns_radial, Relaxed::Relaxed);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
++            S2_MEMO.fetch_add(1, Relaxed::Relaxed);
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+         let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..888ba9b9 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -338,6 +338,16 @@ struct Work<'a, 'c> {
+     new_entry: Option<Arc<Entry>>,
+ }
+ 
++/// Run 20261021-1551: the belt-desync dial (`BELT_DESYNC=D`): every ship's kick cadence × D — ddeb's
++/// belt classes in their cheapest decisive form (the player and the planets keep theirs). A law change
++/// (coarser kick quantization), not a scan change: digests compare scan implementations at the same
++/// dial, never across it.
++fn desync_dial() -> i64 {
++    static DIAL: std::sync::LazyLock<i64> = std::sync::LazyLock::new(|| {
++        std::env::var("BELT_DESYNC").ok().and_then(|v| v.parse::<i64>().ok()).filter(|d| *d > 1).unwrap_or(1)
++    });
++    *DIAL
++}
+ impl Work<'_, '_> {
+     fn doll(&self) -> &crate::world::DollRec {
+         &self.ctx.dolls[self.rec.b.doll as usize]
+@@ -539,6 +549,7 @@ impl Work<'_, '_> {
+ 
+     /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
+     /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
++
+     fn plan_interval(&mut self, t: Tick) -> Res<()> {
+         self.plan_interval_inner(t)?;
+         self.plan_terminal(t)
+@@ -567,6 +578,12 @@ impl Work<'_, '_> {
+         }
+         self.rec.anchor = t;
+         let mut h = aligned(self.rec.step, t);
++        // Run 20261021-1551: the desync dial on the v2 ships' cadence (see `kick_clock` for the clock
++        // bodies): ddeb's belt classes in their cheapest decisive form. The player and the planets
++        // keep their cadence (the scan interval with it: the dial must thin the kick news, not the scans).
++        if desync_dial() > 1 && self.rec.kind == Kind::Ship {
++            h = h.saturating_mul(desync_dial());
++        }
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+@@ -694,15 +711,14 @@ impl Work<'_, '_> {
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+-        if thrusting {
+-            self.project(t)?;
+-        }
+-        // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+-        // kick share it), and its boundary in the middle.
++        // Run 20261021-1551: the desync dial on the clock bodies' cadence (see `plan_interval_inner`).
+         let (x, v) = scalars(&next)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+         let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
++        if desync_dial() > 1 && self.rec.kind == Kind::Ship {
++            full = full.saturating_mul(desync_dial());
++        }
+         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+             full = full.min(self.thrust_step(t)?);
+         }
