@@ -2,110 +2,47 @@ topic: cell-rebind
 status: open
 closed-by:
 valid-while: crates/space@9ce84b67 + 20261018-2312-system-9eeb's patch (orbit.rs served/from_shared, binding.rs:422) + 20261019-1452's patch (both prior patches + timing counter, servetime, ES_QWEAK guard, memo.rs 0.85); census arms: main@f7c3's patch (print-only rebind hook, beltcensus example)
-updated: 20261019-1452-second-20261019-1316-system-f7c3-6e91
+updated: 20261021-0142-q-compile-cell-rebind-4c5b
 
 # The rebind served from the law's quantized cell, exact key carried
 
 ## Current best
 
-**The gold rung is flown and it splits the claim: the gates kill the wiring at 11+11, and the
-belt's rebind CPU was never the wall (20261019-1452-second-…-6e91; both prior patches applied,
-one wall-clock instrument on both arms).** With the served rebind wired (`ES_QMEMO=1`),
-**B13 fails: 46/64 flybys within 1e-2 against the exact arm's 60/64, worst ΔE 5.93e-1 (28× the
-exact arm, 59× the band), deterministic across solo, loaded and strong-branch-guarded runs** —
-the exact arm's own red (60/64, worst 2.12e-2) is bit-identical on a clean stashed tree, i.e.
-this box's pre-existing libm condition (B12's disease, a8cd), so the −14 draws are the serving
-signal. Per-draw: 20 draws outside 1% spread over q = 2.3–44.5 R_p, all alive, and **ΔE ≡ ΔL**
-— a common-mode phase offset through the encounter window; the ≤2⁻¹¹ period shift accumulates
-along the ~300–800-kick approach. The strong-branch exact guard (od 4) does not rescue it
-(47/64: the failing keys are weak-branch). B12 reads text-identical `worst err inf` both arms
-(broken instrument here); B17 times out at the frozen 60 s limit both arms, solo. **The
-measured constants replace the composition:** the belt's own exact compile is **4.95 µs**
-(microbench on its 99,699 genesis keys; live stream 4.87–5.71 µs/call) — not the cited 104 µs
-plane-FIT figure — and the served hit **0.641 µs** (7.8×; live 0.759–0.769 µs/call, hits
-99.1–99.6%); belt rebind rate measured 3.04–3.36e-5/(body·game-s); **10⁹ row: 0.15–0.17 cores
-compiled → 0.019–0.022 cores served** — f7c3's "3.7–4.5 compiled cores" priced the belt at the
-plane scene's compile (20×); the CPU deletion is 7.8×, not ~100×. **The belt stream under
-serving is the exact arm's stream** (belt recurrence 0.9510→0.9509, cells 1,425→1,429, belt
-rebinds 29,097 identical at 10⁴; 0.9913→0.9917 at 10⁵, cells +0.3%; checker, seed 2:
-0.9512→0.9512, cells 1,420→1,419 — whole-plane kick counts are wall-budget-limited, not a
-bit-identical invariant: the author's 167,262/167,262 read 166,985/167,352 on regen), so
-f7c3's O(1) standing-memory core survives
-untouched; the memo.rs guard recalibrated 0.9→0.85 (passes both arms; belt-served 0.95–0.99).
-Successors: serve the belt's keys only (a population B13 never flies), or step the width
-ladder — but if the encounter amplification is linear, B13's band needs ~6 fraction bits
-(11→17); unmeasured (20261019-1452-second-…-6e91).
-
-[Checker 2, 20261019 (grade: gold): clean-tree re-apply reproduced everything decisive
-bit-identically (B13 60/64 → 46/64 → 47/64 QWEAK, controls green). Four attacks: seed 3 belt
-(recurrence 0.9516→0.9510, cells +1.2% — serving still does not move the belt stream);
-microbench at 10⁴ (compile 4.84 µs, hit 0.728 — the 4.95 µs and the 104 µs rebuttal hold at
-both scales); a width probe outside the flown range — 14+14 (8× finer) reads 53/64, worst
-9.31e-2, a 6.4× drop for 8× width, so the error is width-limited and near-linear and od 2's
-11→17 estimate is confirmed in direction; determinism re-run identical. Two notes: "belt
-rebinds 29,097 identical" is structural (9,699 bodies × 3 fires), not bit-identity — the
-recurrence/cells deltas carry the real signal; and the per-draw errors do not correlate with
-kick count (382 kicks → 4.5e-1 vs 844 → 1.8e-2): the amplification is encounter-phase
-alignment, not accumulation length.]
-
-**The belt's census is flown and the cells saturate: the standing set is O(1) in N — the
-f7c3/ef8c record below, now with the CPU half re-priced by 20261019-1452 (4.95 µs compile,
-0.641 µs serve, 7.8×).** [f7c3, live stream: birth cells 1,095 (2,699) → 1,831 (299,699),
-∝ N^0.11; stream = birth cells exactly over 2–3.2 intervals; checker: 2,141 cells at 10⁷,
-2.03 MB, 0.20 B/body, β = 0.083; ceiling 4,096 cells draw-bounded (one gap octave occupied,
-second opens ~3×10⁶). ef8c, key-space: 1,731 cells at 10⁵ / 1,960 at 10⁶, serve error
-4.6e-4/1.6e-4, standing tables 644 B/body → 1.63 MB at 10⁶, and the plane's B9 knot
-invariance does NOT transfer — 0.80–0.82% of belt members sit on a knot-count boundary, the
-knot-guard hazard.]
+**Standing shapes are O(1) in N and the served belt stream is the exact stream; adoption is belt-scoped, because at 11+11 the plane-wide serve fails B13 (6e91 gold; f7c3, ef8c, 9eeb silver).**
+Census, live stream (f7c3): standing cells 1,095 at 2,699 bodies → 1,831 at 299,699 (∝ N^0.11; the stream equals birth cells over 2–3.2 intervals); checker: 2,141 cells at 10⁷ (2.03 MB, 0.20 B/body); hard ceiling 2 exponent × 2,048 = 4,096 cells ≈ 3.4 MB at any N.
+Census, key-space (ef8c): 1,731 cells at 10⁵ / 1,960 at 10⁶, serve error 4.6e-4 / 1.6e-4, standing tables 644 B/body → 1.63 MB at 10⁶.
+Rebind CPU on the belt's own keys (6e91; checker 2 at 10⁴: compile 4.84 µs, hit 0.728): exact compile 4.95 µs (99,699 genesis keys; live 4.87–5.71), served hit 0.641 µs (live 0.759–0.769; hits 99.1–99.6%) = 7.8×; belt rebind rate 3.04–3.36e-5/(body·game-s).
+10⁹ row (6e91, supersedes f7c3's composition): 0.15–0.17 cores compiled → 0.019–0.022 served; f7c3's "3.7–4.5 compiled cores" priced the belt at the plane scene's 104 µs compile (20×) — its served estimate (~0.02–0.04 cores) was right; the deletion is 7.8×, not ~100×.
+The gold rung (6e91): plane-wide serving at 11+11 fails B13 — 46/64 flybys within 1e-2 vs the exact arm's 60/64 (its own worst 2.12e-2 is this box's pre-existing libm red, B12's disease a8cd), worst ΔE 5.93e-1 (59× the band, 28× the exact arm), deterministic solo/loaded/guarded; the −14 draws are the serving signal.
+Mechanism (6e91, checker 2): ΔE ≡ ΔL, a common-mode phase offset through the encounter window — a ≤2⁻¹¹ period shift amplifies along the ~300–800-kick approach; 20 draws outside 1% over q = 2.3–44.5 R_p, all alive; errors do not correlate with kick count (382 → 4.5e-1 vs 844 → 1.8e-2): encounter-phase alignment, not accumulation length.
+Width-limited, near-linear (checker 2, gold): 14+14 (8× finer) reads 53/64, worst 9.31e-2 — a 6.4× drop for 8× width; if linear, B13's band needs ~6 fraction bits (11→17).
+The served belt stream is the exact stream (6e91; seeds 2 and 3 agree within the same noise): belt recurrence 0.9510→0.9509, cells 1,425→1,429; the 29,097 identical belt rebinds are structural (9,699 × 3 fires), not bit-identity; whole-plane kick counts are wall-budget-limited, not an invariant.
+Knot hazard (ef8c): the plane's B9 knot invariance does not transfer — 0.80–0.82% of belt members sit on a knot-count boundary, constant across 10⁴–10⁶ and seeds; serving needs a knot guard (compile on mismatch ≈ 0.8% builds).
+The wiring as measured (9eeb; its adoption half superseded by 6e91): the carried cell serves 96.7% of the plane's rebinds, FIT −64% (2.8×), gates hold on the plane's bands; memo.rs guard 0.9→0.85 (belt-served 0.95–0.99); B12 is a broken instrument here, B17 times out at the frozen 60 s on both arms.
+The carried form is the measured form: the shipped `QuantizedMemo::get` returns `from_shape(decode())` — the exact key is carried, never snapped to the cell (lineage: r2's exact increments; the 5 October correction — an exact memo never hits on distinct kicks).
+Unmeasured successors (6e91): serve the belt's keys only (a population B13 never flies), or measure the amplification vs width before stepping the ladder.
 
 ## Refuted
 
-- **"Adoptable behind the gates" (9eeb/f7c3's adoption half, at 11+11): refuted at B13** —
-  46/64 within 1e-2, worst ΔE 5.93e-1, deterministic; the exact arm's own 60/64 red is this
-  box's libm (clean-tree control bit-identical), so the −14-draw delta is the law change
-  (20261019-1452-second-…-6e91). The belt-scoped memory claim is NOT refuted: the served belt
-  stream is the exact stream.
-- **The strong-branch exact serve as the B13 rescue (od 4's guard): refuted** — with
-  `ES_QWEAK=1` (weak branch only served) B13 reads 47/64, worst 5.92e-1: the failing plane
-  keys are weak-branch (20261019-1452-second-…-6e91).
-- "The plane's B9 knot invariance transfers to the belt": it does not — 0.80–0.82% of belt
-  members land in a cell whose representative compiles a different knot count, constant
-  across 10⁴–10⁶ and seeds (20261019-1316-components-ef8c).
-- The write-back form (the orbit's key snapped to the cell): law.md "re-rounds at every kick, a
-  random walk (principle 13)" — the shipped `QuantizedMemo::get` returns `from_shape(decode())`;
-  the carried form is the one measured (lineage: r2's exact increments, the 5 October
-  correction that an exact memo never hits on distinct kicks).
-- "The belt census is the open measurement / the amortization win's memory half is unproven at
-  scale": measured — cells saturate at O(1), the stream adds ~nothing over 2–3.2 intervals
-  (20261019-1316-system-f7c3); the FIT half of 9eeb's correction stands (2.8× on the plane
-  scene, and 7.8× on the belt's own keys at 20261019-1452).
+- "Adoptable behind the gates" at 11+11, plane-wide (9eeb/f7c3's adoption half): refuted at B13 — 46/64 vs 60/64 within 1e-2, worst ΔE 5.93e-1, deterministic; the belt-scoped memory half is not refuted (6e91).
+- The strong-branch exact serve as the B13 rescue (od 4): `ES_QWEAK=1` (weak branch served) reads 47/64, worst 5.92e-1 — the failing plane keys are weak-branch (6e91).
+- f7c3's "~3.7–4.5 compiled cores at 10⁹" (the 104 µs plane-FIT composition): superseded by 6e91's measurement on the belt's own keys — 4.95 µs a compile, 0.15–0.17 cores; the belt was priced at the plane scene's compile (20×).
+- "The plane's B9 knot invariance transfers to the belt": 0.80–0.82% of belt members land on a knot-count boundary at every scale and seed (ef8c).
+- The write-back form (the orbit's key snapped to the cell): law.md — "re-rounds at every kick, a random walk (principle 13)"; the carried form is the one measured (r2; the 5 October correction).
+- "The belt census is the open measurement / the memory half is unproven at scale": measured — cells saturate O(1), the stream adds ~nothing over 2–3.2 intervals (f7c3); 9eeb's FIT correction stands (2.8× plane scene; 7.8× the belt's own keys, 6e91).
+- "Belt rebinds 29,097 identical at 10⁴" read as bit-identity: structural (9,699 bodies × 3 fires); the recurrence and cell deltas carry the signal (6e91, checker 2).
 
 ## Open directions
 
-1. **The adoption shape, after the gate:** plane-wide serving at 11+11 is dead (B13); the
-   surviving shapes are (a) **belt-scoped serving** — the served belt stream is the exact
-   stream (belt rebinds 29,097 identical at 10⁴, both seeds; whole-plane kicks are
-   wall-budget-limited), and B13 never flies belt keys — or (b) the width ladder
-   re-flown against B13 first. efd4's intern + refcount keyed by cell; eviction optional
-   (4,096 ceiling ≈ 3.4 MB).
-2. **The width ladder, now with its true driver:** the encounter, not the cycle, sets the
-   width — a 2⁻¹¹ period shift amplifies 59× through an assist (ΔE ≡ ΔL, common-mode phase).
-   If linear, B13's band needs ~6 fraction bits (11→17); if superlinear near grazing draws,
-   no width fixes it. Measure the amplification vs width before stepping (20261019-1452).
-3. Compose with Carlson wiring (kick-jet open 1) for the cold builds; at the belt the
-   cold-build share is ≤ 1.1% (f7c3) — Carlson matters only for the locals.
-4. ~~The strong-branch exact serve as a guard~~ **refuted as the B13 rescue** (the failing
-   keys are weak-branch, 20261019-1452); the resonance guard question (a population
-   straddling a mean-motion boundary) stays unmeasured.
-5. Turnover (f7c3's successor): a stirred or burning belt's cold-build turnover is unmeasured
-   past 3 fires (≈0 measured); if turnover approaches the fire rate, CPU returns to the
-   compile ceiling — now known to be 0.15–0.17 cores at 10⁹, not ~4 (20261019-1452).
+1. **Belt-scoped serving** (moves two rows: standing tables ~400× at 10⁶ → the 4,096-cell ≈ 3.4 MB ceiling [macro live set, ~10²–10³]; kick CPU 7.8× [micro kick cost, ~10–10²]): the served belt stream is the exact stream and B13 never flies belt keys — efd4's intern + refcount keyed by cell, eviction optional.
+2. **The width ladder vs B13** (gates any plane-wide return; micro kick row): the encounter, not the cycle, sets the width — a 2⁻¹¹ shift amplifies 59× through an assist; measure the amplification vs width near grazing draws before stepping 11→17 (6e91; checker 2 confirmed the direction).
+3. **Turnover under stirring or burning** (bounds od 1's CPU ceiling): cold-build turnover unmeasured past 3 fires (≈0 measured); if turnover reaches the fire rate, CPU returns to the 0.15–0.17-core compile ceiling at 10⁹, not ~4 (f7c3, 6e91).
+4. **The resonance guard** (a gate risk for od 1): a population straddling a mean-motion boundary is unmeasured (6e91).
+5. **Carlson wiring for cold builds** (≤1.1× on the kick row): the belt's cold-build share is ≤1.1% (f7c3) — Carlson matters only for the locals.
 
 ## Contradictions
 
-- law.md's "Not adopted: a quantized (E, L) memo for kicks" (the write-back reading) vs this
-  page's carried form — resolved by construction and measurement (exact recurrence 0.000,
-  hashes stable), but the law text is its owner's to re-word.
+- law.md's "Not adopted: a quantized (E, L) memo for kicks" (the write-back reading) vs this page's carried form — resolved by construction and measurement (exact recurrence 0.000, hashes stable), but the law text is its owner's to re-word.
 
 ## Runs
 - 20261018-2312-system-9eeb (awaiting grade): the carried cell serves 96.7 % of rebinds (58
@@ -115,3 +52,7 @@ knot-guard hazard.]
 - 20261019-1316-components-ef8c (silver): the belt census — 1,731/1,960 cells at
 - 20261019-1316-system-f7c3 (silver): the belt census — cells saturate (1,095→1,831 over
 - 20261019-1452-second-20261019-1316-system-f7c3-6e91 (this run): the gold rung — B13 kills
+- 20261018-2312-system-9eeb (silver): the carried cell serves 96.7% of the plane's rebinds (58 cold builds serve 1,764); FIT −64%; gates hold.
+- 20261019-1316-components-ef8c (silver): the belt census — 1,731/1,960 cells at 10⁵/10⁶ (key-space), serve error 4.6e-4/1.6e-4; B9 does not transfer.
+- 20261019-1316-system-f7c3 (silver): the belt census — cells saturate 1,095→1,831 over 2,699→299,699 bodies (live stream); ceiling 4,096 ≈ 3.4 MB.
+- 20261019-1452-second-20261019-1316-system-f7c3-6e91 (gold): the gold rung — B13 kills plane-wide 11+11 serving (46/64); belt compile 4.95 µs, serve 0.641 µs (7.8×); belt stream exact.

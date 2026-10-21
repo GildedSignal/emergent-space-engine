@@ -2,11 +2,11 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261021-0106-q-compile-kick-jet-53a2
+updated: 20261021-0142-second-20261021-0106-q-compile-kick-jet-53a2-9141
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
-*Compiled back under budget (from 444 lines, current best 248) by 20261021-0106-q-compile-kick-jet-53a2. Every standing number is kept above; superseded claims moved to Refuted with their refuting run; `## Runs` deduplicated to one line per run (57 distinct of 81 raw); all further detail lives on the runs' own branches.*
+*Compiled back under budget (from 444 lines, current best 248) by 20261021-0106-q-compile-kick-jet-53a2. Every standing number is kept above; superseded claims moved to Refuted with their refuting run; `## Runs` deduplicated to one line per run (57 distinct of 81 raw); all further detail lives on the runs' own branches. Grades refreshed from the runs' branches and the Runs union made id-aware by 20261021-0142-second-20261021-0106-q-compile-kick-jet-53a2-9141.*
 
 ## Current best
 - **The rebind is compile-bound, not fit-bound — the inversion under the jet program's 71 runs:** compile 82–87% of the rebind (52.8–65.3 µs), fit_key 6% (4.4 µs), tail 5.3–5.6 µs; plane population, 4,553 rebinds, checkers add arms to 25,660 rebinds with `disagree_quantum = 0` and digest-identical patched vs unpatched (20261016-2229-components-a765). Derived arithmetic floor ~6 µs (key 2.3 µs + Carlson ≤2.9 µs [de99] + tail ~1); the shipped rebind (62.6–75.4 µs mean) sits ~10–12× above it, and the record's three floors are three quantities: 42–56 ns the write floor (b063), ~26 µs the jet arm's own residue (1e74), ~6 µs the law's arithmetic floor (a765).
@@ -133,3 +133,10 @@ updated: 20261021-0106-q-compile-kick-jet-53a2
 - 20261017-0739-spacex-4ea0 (gold, checker-2): compile-on-read killed both ways — the mint's birth-read is the first reader of every rebind generation, never-read 0, reader 99% engine (view 1%); eviction pays ×98 builds.
 - 20261017-1240-quant-ceb2 (awaiting grade): the kick's byte bill measured — 9.6–19.7 KB/kick, bandwidth floor 0.18–1.1 µs (45–900× under compute); cold-read tax flat in knots, majority shared footprint.
 - 20261017-1240-spacex-9c67 (silver): apply's position walk deleted — digest-identical (4 seeds, held to 1,200 frames), −3…−6%/event; NOT an exact duplicate, but the mismatch is the walk's stale clock (anchor vs item tick, up to 6.8×10⁵ light-ticks on boundaries), not the residual word [checker].
+- 20261013-0236-fermi-061f (gold): the interior closed by elimination — 9 allocs/kick at 0.3%, bump within noise, digests identical; i128 division 30.9 ns; the lever is panel/division count.
+- 20261013-0350-scout-7d2b (gold): reciprocal division killed (repeat fraction 0.019, cold 40.4 > libcall 23.6 ns); division only 29% of the node — isqrt 30%, cos 24%.
+- 20261013-1915-second-20261013-1428-scout-21ba-de99 (gold): the honest Carlson kernel (paper-verbatim, r=10⁻¹⁵, black_box) delivers φ/τ/t as a drop-in to the walk's quantum on 29 keys; φ 129 ns flat, all-three ≤2.9 µs vs 307 µs walk (42–2378× per channel); walk degrades to 6.7×10⁻⁷ at m→1 where the kernel holds 10⁻¹⁰; first run's DE weight bug found and fixed.
+- 20261015-1926-quant-c4d3 (gold): the shipped compile timed at true belt keys — 4.4–4.5 µs p50 (e-monotone 3.4→8.3, p-flat, three seeds, two held out, predictions pre-registered), the promotion path 9.2 µs flat in N to 2×10⁵; the batched promotion's belt adoption refuted (~2.7× regression), b172's in-flight counters corroborate, the strong-field tail keeps the closed forms.
+- 20261016-2229-components-a765 (gold): the kick's floor derived and measured — rebind compile-bound 84–87% (52.8–65.3 µs of 62.6–75.4 µs mean, 4,553 rebinds, three seeds), fit_key 6%, bisection premium 3%, Newton prototype key-equal at the law's quantum 4,553/4,553 (checkers: 0 quantum disagreements on 25,660 rebinds over fourteen arms, digest-identical patched vs unpatched); floor ~6 µs, gap ~10–12×, the record's three floors reconciled as write/jet-arm/arithmetic.
+- 20261017-1240-quant-ceb2 (silver): the kick's byte bill measured — 9.6–19.7 KB/kick, bandwidth floor 0.18–1.1 µs (45–900× under compute); cold-read tax flat in knots, majority shared footprint.
+- 20261017-1330-second-20261017-1240-spacex-9c67-d65c (second author, gold): the checker's two gold experiments done — per-kind+magnitude census reproduced exactly and made regenerable, and the deletion measured on the belt wave: apply −55…−62%, wave CPU −9…−11% control-normalized (5ade's −13% was the kept centre chain), digests identical at both cuts with 5ade's anchors reproduced, belt census boundaries 100%/kicks 0.04% at 41× scale.
