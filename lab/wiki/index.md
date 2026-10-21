@@ -6,13 +6,14 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
 | [entry](entry.md) | open **over budget (44 lines, current best 42)** | 0 | (no current best yet) |
-| [scan-news](scan-news.md) | open | 1 | **The scan walk is not news-fed on shipped code [9b03]: per player item (`universe.rs:772`) `capture` rebuilds the whole candidate list (a `binding_at` per candidate), and only 1.2–11.4% of those bindings changed since t |
-| [formation-family](formation-family.md) | open | 2 | **NEW (b560, components — od 2 executed engine-side: the intern key exists in the engine, and the belt's clock cannot reach it).** Two same-orbit planets at δx = 10⁶ root (the doll split's aligned grid, step.rs:19) **co- |
+| [service-tail](service-tail.md) | open | 1 | **NEW (39fe, quant — the whole-item service distribution measured on shipped code, every item timed alone at `Budget::events(1)`, frames drained unbudgeted; per-call fixed cost 6.7-7.0 µs rides every item, so absolute µs |
 | [a-word](a-word.md) | open **over budget (74 lines, current best 21)** | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open **over budget (100 lines, current best 53)** | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [flyable-frame](flyable-frame.md) | open **over budget (63 lines, current best 18)** | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
+| [formation-family](formation-family.md) | open | 3 | **NEW (033c, scout — od 4 measured: no crossover in child dolls; the tube-family dies at GEO scale, and at the fleet lattice radius itself the kill is not shown [checker-corrected]).** The w11 family certificate inside H |
 | [history-demand](history-demand.md) | open **over budget (170 lines, current best 80)** | 3 | **NEW (26fc, spacex — od 2 executed: the fix's disease does not exist).** The emitters the shipped |
 | [live-residency](live-residency.md) | open | 3 | - **The checker's gold experiment is flown: under the adopted row-set gather (`rows`: fill once, then `gather_half` every frame, 2df1's policy verbatim), the demotion return bill is the wheel's own gap law** [a990, secon |
+| [scan-news](scan-news.md) | open **conflict to resolve** | 3 | <<<<<<< main |
 | [binet-cells](binet-cells.md) | open **over budget (105 lines, current best 44)** | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open **over budget (106 lines, current best 50)** | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [contact-speed](contact-speed.md) | open **over budget (269 lines, current best 147)** | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
