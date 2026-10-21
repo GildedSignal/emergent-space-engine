@@ -1,0 +1,29 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: variable does not need to be mutable
+   --> crates/universe/examples/genesis.rs:116:9
+    |
+116 |     let mut prev: Vec<(usize, Tick, i64)> = census0;
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> crates/universe/examples/genesis.rs:133:13
+    |
+133 |         let mut dues: Vec<f64> = cur.iter().map(|c| c.1 as f64).collect();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: `emergent-universe` (example "genesis") generated 2 warnings (run `cargo fix --example "genesis"` to apply 2 suggestions)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.45s
+excess_source.txt:floor max/mu med 1.375 [p10 1.280, p90 1.470]  measured late med 1.720  p99 1.600 (floor 1.304)
+excess_source.txt:A6_marginal_resample max/μ 1.564 (excess 0.19)  p99/μ 1.493
+excess_source.txt:A0_identity        max/μ 1.707 (excess 0.332)  p99/μ 1.588
+excess_source_11700.txt:floor max/mu med 1.176 [p10 1.138, p90 1.225]  measured late med 2.230  p99 1.940 (floor 1.149)
+excess_source_11700.txt:A6_marginal_resample max/μ 1.904 (excess 0.728)  p99/μ 1.830
+excess_source_11700.txt:A0_identity        max/μ 2.035 (excess 0.859)  p99/μ 1.887
+fire 110 max/mu 1.304 p99/mu 1.280
+fire 120 max/mu 1.304 p99/mu 1.280

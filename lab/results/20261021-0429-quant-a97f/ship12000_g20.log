@@ -1,0 +1,44 @@
+warning: variable does not need to be mutable
+   --> crates/universe/examples/genesis.rs:116:9
+    |
+116 |     let mut prev: Vec<(usize, Tick, i64)> = census0;
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> crates/universe/examples/genesis.rs:133:13
+    |
+133 |         let mut dues: Vec<f64> = cur.iter().map(|c| c.1 as f64).collect();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: `emergent-universe` (example "genesis") generated 2 warnings (run `cargo fix --example "genesis"` to apply 2 suggestions)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/genesis ship 12000 20 1`
+# arm=ship extra=12000 belt=11700 seed=1 step_med=5.713e9 step_max=5.902e9 step_spread_p1p99=0.0779 C50_steps=3.07 dues0_span=3.013e8
+gen g=0 t=2951064819 C50=3.08 C50_steps=3.08 battalion=1 span=9.047e8 spread_p1p99=0.0780 load_max=19.13 load_p99=17.79 drift_p50=6.467e-5 drift_p90=1.385e-4 fc_p50=0.0001 fc_p90=0.0001 settle_s=3.5
+gen g=1 t=9030258346 C50=3.09 C50_steps=3.11 battalion=1 span=1.509e9 spread_p1p99=0.0781 load_max=12.02 load_p99=11.03 drift_p50=1.288e-4 drift_p90=2.759e-4 fc_p50=0.0002 fc_p90=0.0004 settle_s=6.1
+gen g=2 t=15109451873 C50=3.10 C50_steps=3.12 battalion=1 span=2.114e9 spread_p1p99=0.0782 load_max=8.56 load_p99=8.00 drift_p50=1.924e-4 drift_p90=4.122e-4 fc_p50=0.0004 fc_p90=0.0008 settle_s=5.5
+gen g=3 t=21188645400 C50=3.11 C50_steps=3.14 battalion=1 span=2.720e9 spread_p1p99=0.0783 load_max=7.32 load_p99=7.04 drift_p50=2.551e-4 drift_p90=5.473e-4 fc_p50=0.0006 fc_p90=0.0014 settle_s=5.4
+gen g=4 t=27267838927 C50=3.12 C50_steps=3.15 battalion=1 span=3.326e9 spread_p1p99=0.0784 load_max=6.31 load_p99=5.85 drift_p50=3.176e-4 drift_p90=6.811e-4 fc_p50=0.0010 fc_p90=0.0021 settle_s=5.2
+gen g=5 t=33347032454 C50=3.13 C50_steps=3.16 battalion=1 span=3.933e9 spread_p1p99=0.0784 load_max=5.21 load_p99=5.01 drift_p50=3.801e-4 drift_p90=8.147e-4 fc_p50=0.0013 fc_p90=0.0029 settle_s=5.2
+gen g=6 t=39426225981 C50=3.13 C50_steps=3.17 battalion=1 span=4.541e9 spread_p1p99=0.0785 load_max=4.69 load_p99=4.24 drift_p50=4.422e-4 drift_p90=9.467e-4 fc_p50=0.0018 fc_p90=0.0038 settle_s=5.2
+gen g=7 t=45505419508 C50=3.23 C50_steps=3.19 battalion=1 span=5.285e9 spread_p1p99=0.0786 load_max=4.35 load_p99=3.91 drift_p50=5.036e-4 drift_p90=1.079e-3 fc_p50=0.0023 fc_p90=0.0049 settle_s=5.2
+gen g=8 t=51584613036 C50=2.96 C50_steps=3.21 battalion=1 span=5.421e9 spread_p1p99=0.0788 load_max=3.94 load_p99=3.33 drift_p50=5.653e-4 drift_p90=1.211e-3 fc_p50=0.0029 fc_p90=0.0061 settle_s=5.2
+gen g=9 t=57663806563 C50=2.71 C50_steps=3.22 battalion=1 span=5.485e9 spread_p1p99=0.0789 load_max=3.34 load_p99=3.31 drift_p50=6.282e-4 drift_p90=1.349e-3 fc_p50=0.0035 fc_p90=0.0075 settle_s=5.2
+gen g=10 t=63743000090 C50=2.51 C50_steps=3.24 battalion=1 span=5.540e9 spread_p1p99=0.0790 load_max=3.34 load_p99=2.89 drift_p50=6.888e-4 drift_p90=1.480e-3 fc_p50=0.0042 fc_p90=0.0091 settle_s=5.2
+gen g=11 t=69822193617 C50=2.33 C50_steps=3.26 battalion=1 span=5.579e9 spread_p1p99=0.0790 load_max=3.15 load_p99=2.60 drift_p50=7.514e-4 drift_p90=1.615e-3 fc_p50=0.0050 fc_p90=0.0108 settle_s=5.3
+gen g=12 t=75901387144 C50=2.18 C50_steps=3.27 battalion=1 span=5.619e9 spread_p1p99=0.0791 load_max=2.82 load_p99=2.59 drift_p50=8.134e-4 drift_p90=1.752e-3 fc_p50=0.0058 fc_p90=0.0127 settle_s=5.2
+gen g=13 t=81980580671 C50=2.06 C50_steps=3.28 battalion=1 span=5.658e9 spread_p1p99=0.0791 load_max=2.66 load_p99=2.52 drift_p50=8.731e-4 drift_p90=1.927e-3 fc_p50=0.0067 fc_p90=0.0152 settle_s=5.3
+gen g=14 t=88059774198 C50=1.68 C50_steps=3.31 battalion=1 span=5.685e9 spread_p1p99=0.0792 load_max=2.63 load_p99=2.26 drift_p50=9.309e-4 drift_p90=2.069e-3 fc_p50=0.0076 fc_p90=0.0177 settle_s=5.2
+gen g=15 t=94138967726 C50=1.35 C50_steps=3.33 battalion=1 span=5.709e9 spread_p1p99=0.0792 load_max=2.47 load_p99=2.08 drift_p50=9.886e-4 drift_p90=2.219e-3 fc_p50=0.0086 fc_p90=0.0202 settle_s=5.3
+gen g=16 t=100218161253 C50=1.02 C50_steps=3.34 battalion=1 span=5.729e9 spread_p1p99=0.0793 load_max=2.23 load_p99=2.23 drift_p50=1.080e-3 drift_p90=2.349e-3 fc_p50=0.0102 fc_p90=0.0227 settle_s=5.3
+gen g=17 t=106297354780 C50=1.48 C50_steps=3.36 battalion=1 span=5.748e9 spread_p1p99=0.0795 load_max=2.23 load_p99=1.77 drift_p50=1.144e-3 drift_p90=2.470e-3 fc_p50=0.0116 fc_p90=0.0252 settle_s=5.3
+gen g=18 t=112376548307 C50=1.55 C50_steps=3.37 battalion=1 span=5.764e9 spread_p1p99=0.0796 load_max=2.00 load_p99=1.94 drift_p50=1.207e-3 drift_p90=2.597e-3 fc_p50=0.0129 fc_p90=0.0279 settle_s=5.2
+gen g=19 t=118455741834 C50=1.50 C50_steps=3.38 battalion=1 span=5.780e9 spread_p1p99=0.0797 load_max=2.05 load_p99=1.91 drift_p50=1.264e-3 drift_p90=2.718e-3 fc_p50=0.0143 fc_p90=0.0306 settle_s=5.3
+gen g=20 t=124534935361 C50=1.45 C50_steps=3.41 battalion=1 span=5.791e9 spread_p1p99=0.0797 load_max=1.83 load_p99=1.80 drift_p50=1.322e-3 drift_p90=2.840e-3 fc_p50=0.0157 fc_p90=0.0335 settle_s=5.2
+# wall 111.9 s

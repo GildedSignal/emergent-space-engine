@@ -1,0 +1,228 @@
+diff --git a/crates/universe/examples/genesis.rs b/crates/universe/examples/genesis.rs
+new file mode 100644
+index 00000000..2fd6bd4c
+--- /dev/null
++++ b/crates/universe/examples/genesis.rs
+@@ -0,0 +1,187 @@
++//! The genesis train's tail: is the belt's standing dues concentration (C50 ~2.2-3.0x after ~8 fires,
++//! calendar/d520) an attractor of the chained clock, or the birth step distribution showing through —
++//! and does it survive a genesis stagger? Census per generation on the shipped `plane_extra` belt:
++//! next-kick dues, steps, battalions, fixed-window load, per-body step drift and the birth-data forecast.
++//!
++//! cargo run --release -p emergent-universe --example genesis [-- <ship|stagger> [<extra> [<gens>]]]
++use emergent_universe::scenario::{ladder_locals, ladder_ship, plane_extra};
++use emergent_universe::{num::to_f64, Config};
++type Tick = i64;
++
++fn median(v: &mut [f64]) -> f64 {
++    if v.is_empty() {
++        return 0.0;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn pct(v: &mut [f64], p: f64) -> f64 {
++    if v.is_empty() {
++        return 0.0;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[(((v.len() - 1) as f64) * p).round() as usize]
++}
++
++/// Half-mass concentration of a sample: 1/(2 x w50/span), the shortest window holding half the mass
++/// over the sample's own span. Uniform = 1.0; the page's C50.
++fn c50(mut v: Vec<f64>) -> f64 {
++    let n = v.len();
++    if n < 4 {
++        return 0.0;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let span = v[n - 1] - v[0];
++    if span <= 0.0 {
++        return f64::INFINITY;
++    }
++    let half = n / 2;
++    let mut best = v[half - 1] - v[0]; // a window holding `half` sorted points
++    for i in 1..=n - half {
++        best = best.min(v[i + half - 1] - v[i - 1]);
++    }
++    1.0 / (2.0 * best / span)
++}
++
++fn next_kick(rec: &emergent_universe::body::BodyRec) -> Option<Tick> {
++    rec.plan.iter().filter(|it| matches!(it.what, emergent_universe::body::What::Kick(_))).map(|it| it.t).min()
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let arm = args.get(1).cloned().unwrap_or_else(|| "ship".into());
++    let extra: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3000);
++    let gens: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(40);
++    let t0 = std::time::Instant::now();
++    let seed: u64 = std::env::args().nth(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let mut p = plane_extra(Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48, extra).unwrap();
++    let locals = ladder_locals(extra as u64) as usize;
++    let ships = p.ships.clone();
++    let belt: Vec<usize> = ships[ships.len() - (extra - locals)..].to_vec();
++    let home_doll = p.dolls[1];
++    // Birth orbit data: the spec is a pure function of (seed, k), so re-derive a and angle for the mechanism columns.
++    let mut a_au = vec![0.0f64; *belt.last().unwrap_or(&0) + 1];
++    let mut ang = vec![0.0f64; a_au.len()];
++    for (j, &i) in belt.iter().enumerate() {
++        let k = (locals + j) as u64;
++        if let Ok((spec, _)) = ladder_ship(seed, k, extra as u64, home_doll) {
++            let e = spec.e_q48 as f64 / (1u64 << 48) as f64;
++            let per = to_f64(spec.periapsis);
++            a_au[i] = per / (1.0 - e) / emergent_universe::scenario::AU as f64;
++            ang[i] = spec.angle as f64 / (1u64 << 32) as f64;
++        }
++    }
++    // The stagger, before any baseline is taken (the arm's own genesis state is its birth data).
++    let mut step_med = 0.0f64;
++    if arm == "stagger" {
++        let mut pre: Vec<f64> = belt.iter().map(|&i| p.u.rec(i).step as f64).collect();
++        step_med = median(&mut pre);
++        let span = step_med as Tick;
++        p.u.stagger_genesis(span);
++        println!("# stagger span={span:.3e} (one median step, hash(id) draw)");
++    }
++    // Generation 0 census (the genesis train, before any belt fire).
++    let census0: Vec<(usize, Tick, i64)> = belt.iter().map(|&i| {
++        let r = p.u.rec(i);
++        (i, next_kick(&r).unwrap_or(0), r.step)
++    }).collect();
++    let mut d0 = vec![0i64; a_au.len()];
++    let mut s0 = vec![0i64; a_au.len()];
++    for &(i, d, s) in &census0 {
++        d0[i] = d;
++        s0[i] = s;
++    }
++    let d0s: Vec<f64> = census0.iter().map(|c| c.1 as f64).collect();
++    let ss: Vec<f64> = census0.iter().map(|c| c.2 as f64).collect();
++    if step_med == 0.0 {
++        step_med = median(&mut ss.clone());
++    }
++    let step_max = ss.iter().cloned().fold(0.0f64, f64::max);
++    let head = d0s.iter().cloned().fold(0.0f64, f64::max); // the train's head: last first-due
++    let c50_steps = c50(ss.clone());
++    println!(
++        "# arm={arm} extra={extra} belt={} seed={seed} step_med={step_med:.3e} step_max={step_max:.3e} step_spread_p1p99={:.4} C50_steps={c50_steps:.2} dues0_span={:.3e}",
++        belt.len(),
++        (pct(&mut ss.clone(), 0.99) - pct(&mut ss.clone(), 0.01)) / step_med,
++        d0s.iter().cloned().fold(0.0f64, f64::max) - d0s.iter().cloned().fold(f64::INFINITY, f64::min),
++    );
++    // The mechanism at birth: step vs semi-major axis (the U_P landscape's radial term) and vs angle.
++    let mut rows: Vec<String> = Vec::new();
++    for &i in &belt {
++        rows.push(format!("{i}\t{:.6}\t{:.6}\t{}\t{}", a_au[i], ang[i], d0[i], s0[i]));
++    }
++    std::fs::write(format!("genesis_birth_{arm}.tsv"), format!("id\ta_au\tangle_turns\tdue0\tstep0\n{}\n", rows.join("\n"))).unwrap();
++
++    let mut prev: Vec<(usize, Tick, i64)> = census0;
++    for g in 0..=gens {
++        let t_g = (head as f64 + g as f64 * 1.03 * step_max) as Tick;
++        let t_settle = std::time::Instant::now();
++        p.u.settle(t_g);
++        let settle_s = t_settle.elapsed().as_secs_f64();
++        let cur: Vec<(usize, Tick, i64)> = belt.iter().map(|&i| {
++            let r = p.u.rec(i);
++            (i, next_kick(&r).unwrap_or(0), r.step)
++        }).collect();
++        // Full per-ship census for the post-mixing load-tail attribution (this run): id, due, step, a.
++        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(format!("census_{arm}_{extra}_{seed}.tsv")) {
++            use std::io::Write;
++            for &(i, d, s) in &cur {
++                let _ = writeln!(f, "{g}\t{i}\t{d}\t{s}\t{:.9}", a_au.get(i).copied().unwrap_or(0.0));
++            }
++        }
++        let mut dues: Vec<f64> = cur.iter().map(|c| c.1 as f64).collect();
++        let mut steps: Vec<f64> = cur.iter().map(|c| c.2 as f64).collect();
++        // battalion: largest exact shared due
++        let mut byd = std::collections::HashMap::<i64, u32>::new();
++        for &(_, d, _) in &cur {
++            *byd.entry(d).or_default() += 1;
++        }
++        let battalion = byd.values().copied().max().unwrap_or(0);
++        // fixed-window load over [t_g, t_g + step_med): windows of step_med/64
++        let w = (step_med / 64.0) as i64;
++        let lo = t_g;
++        let hi = t_g + step_med as i64;
++        let nwin = ((hi - lo) / w).max(1) as usize;
++        let mut counts = vec![0u32; nwin];
++        for &(_, d, _) in &cur {
++            let k = ((d - lo) / w) as i64;
++            if k >= 0 && (k as usize) < nwin {
++                counts[k as usize] += 1;
++            }
++        }
++        let mu = cur.len() as f64 / nwin as f64;
++        let mut cf: Vec<f64> = counts.iter().map(|&c| c as f64).collect();
++        let load_max = cf.iter().cloned().fold(0.0f64, f64::max) / mu;
++        let load_p99 = pct(&mut cf, 0.99) / mu;
++        // per-body step drift since the previous census; and the birth-data forecast's phase error
++        let mut drift: Vec<f64> = Vec::new();
++        let mut fcerr: Vec<f64> = Vec::new();
++        for (&(i, d, s), &(_, _, sp)) in cur.iter().zip(prev.iter()) {
++            if sp != 0 {
++                drift.push((s - sp).abs() as f64 / sp as f64);
++            }
++            let f = s0[i] as f64;
++            if f > 0.0 {
++                let ph = ((d - d0[i]) as f64 / f).fract().abs();
++                fcerr.push(ph.min(1.0 - ph));
++            }
++        }
++        let span_g = dues.iter().cloned().fold(0.0f64, f64::max) - dues.iter().cloned().fold(f64::INFINITY, f64::min);
++        println!(
++            "gen g={g} t={t_g} C50={:.2} C50_steps={:.2} battalion={battalion} span={span_g:.3e} spread_p1p99={:.4} load_max={load_max:.2} load_p99={load_p99:.2} drift_p50={:.3e} drift_p90={:.3e} fc_p50={:.4} fc_p90={:.4} settle_s={settle_s:.1}",
++            c50(dues),
++            c50(steps.clone()),
++            (pct(&mut steps, 0.99) - pct(&mut steps, 0.01)) / median(&mut steps),
++            median(&mut drift),
++            pct(&mut drift, 0.90),
++            median(&mut fcerr),
++            pct(&mut fcerr, 0.90),
++        );
++        if t0.elapsed().as_secs_f64() > std::env::var("ES_GENESIS_WALL").ok().and_then(|v| v.parse().ok()).unwrap_or(400.0) {
++            println!("# horizon cut at g={g} (wall)");
++            break;
++        }
++    }
++    println!("# wall {:.1} s", t0.elapsed().as_secs_f64());
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..f7c8e314 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1215,6 +1215,30 @@ impl Universe {
+         self.bodies.rec(i)
+     }
+ 
++    /// The genesis stagger (a scene variant for the dues census, not a law change): delay every root-doll ship's
++    /// genesis plan by a per-body hash draw in `[0, span)`. The body drifts exactly until its (later) first kick:
++    /// `kick_clock` reads the state by exact readout at the item's tick, so only the schedule moves. Run once,
++    /// right after `start`.
++    pub fn stagger_genesis(&mut self, span: Tick) {
++        for i in 0..self.bodies.len() {
++            if self.info[i].kind != Kind::Ship {
++                continue;
++            }
++            let mut rec = self.bodies.rec(i);
++            if rec.b.doll != 0 || rec.plan.is_empty() || !rec.plan.iter().any(|it| matches!(it.what, What::Kick(_))) {
++                continue;
++            }
++            let h = (i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
++            let by = ((h >> 24) % span.max(1) as u64) as Tick;
++            for it in rec.plan.iter_mut() {
++                it.t += by;
++            }
++            self.bodies.put(i, rec);
++            self.requeue(i);
++        }
++        self.rekey();
++    }
++
+     /// Key body `i` in `prunable` at the earliest tick its oldest retired binding could be forgotten (never before `after`), or take it
+     /// out when it holds one or none.
+     fn key_prune(&mut self, i: usize, after: Tick) {

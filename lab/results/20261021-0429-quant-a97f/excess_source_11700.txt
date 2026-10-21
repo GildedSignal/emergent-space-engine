@@ -1,0 +1,14 @@
+D4 clumps>=2 2 max 11680 frac_in 1.000 internal_spread 0.051348047085594255
+D5 max/mu by g: 16:2.23 20:1.83
+N=11700 mu=182.8 gens<=20 anchors>=14 horizon=5
+floor max/mu med 1.176 [p10 1.138, p90 1.225]  measured late med 2.230  p99 1.940 (floor 1.149)
+calib 1-fire late: err_p50 6.46e-05 err_p90 1.26e-04 pred_max 2.018 vs meas 2.025
+A6_marginal_resample max/μ 1.904 (excess 0.728)  p99/μ 1.830
+A0_identity        max/μ 2.035 (excess 0.859)  p99/μ 1.887
+A1_step_shuffle    max/μ 1.912 (excess 0.736)  p99/μ 1.827
+A5_phase_shuffle   max/μ 1.917 (excess 0.741)  p99/μ 1.832
+A2_jit1e-5         max/μ 2.040 (excess 0.864)  p99/μ 1.887
+A3_jit1e-3         max/μ 2.035 (excess 0.859)  p99/μ 1.876
+A4_phase_uniform   max/μ 1.182 (excess 0.005)  p99/μ 1.149
+D1 autocorr 0.726  D2 persistent pairs 477417  cf|da| 0.2619 vs rnd 0.2915  cf|ds|/s 3.34e-04 vs rnd 1.36e-02  cf ds<1e-3 0.875 (rnd 0.0430)  exact collisions 0 max mult 1
+wrote ./excess_source.json
