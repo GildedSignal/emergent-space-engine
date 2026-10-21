@@ -1,0 +1,16 @@
+warning: unnecessary parentheses around index expression
+   --> family_hill.rs:136:54
+    |
+136 |     ArmOut { xi_mean: s_xi / cnt as f64, xi_p99: xis[(cnt as usize * 99 / 100)], first_fork, disagree, h_eff: s_heff / cnt as f64, lat_xi...
+    |                                                      ^                       ^
+    |
+    = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+    |
+136 -     ArmOut { xi_mean: s_xi / cnt as f64, xi_p99: xis[(cnt as usize * 99 / 100)], first_fork, disagree, h_eff: s_heff / cnt as f64, lat_xi_mean: s_lat / cnt as f64, lat_first: first_lat }
+136 +     ArmOut { xi_mean: s_xi / cnt as f64, xi_p99: xis[cnt as usize * 99 / 100], first_fork, disagree, h_eff: s_heff / cnt as f64, lat_xi_mean: s_lat / cnt as f64, lat_first: first_lat }
+    |
+
+warning: 1 warning emitted
+
+--- census.csv regenerated (48 arms: 8 domain-radii x 6 separations, K=2^17 kicks each) ---

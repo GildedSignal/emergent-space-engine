@@ -1,0 +1,4 @@
+Working...
+Run complete — all deliverables in `lab/results/20261021-1551-scout-033c/` (predictions.md written pre-run, instrument + 48-arm census, regen.sh verified twice, ~113 s deterministic rebuild, md5 `159c318a…`, dossier, wiki page folding the result into formation-family per schema).
+
+**The claim:** the child-doll family certificate, measured for the first time on the shipped kick formulas at the plane's real constants, closes formation-family od 4 negative — the w11 tube-family forks in ~700 kicks at the plane's own LEO lattice radius and in ≤5 kicks at GEO-scale radii (Ξ ∝ r², 110× per decade, confirmed on three radii), while the Fermi lattice's linear-tide residue runs 20–30× below the family differential at every arm, so no crossover exists inside planets' dolls (the lattice owns them) and the tube-family is a belt/root-doll object with a measured sharing horizon of 160–850 belt orbits at δx 10⁴–10⁵.
