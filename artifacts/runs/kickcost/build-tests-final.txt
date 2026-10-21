@@ -1,0 +1,54 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/Users/julien_laurent/Research/emergent-wt/kickcost/crates/space)
+   Compiling emergent-universe v0.1.0 (/Users/julien_laurent/Research/emergent-wt/kickcost/crates/universe)
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "tail") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 6m 39s
+  Executable unittests src/lib.rs (target/release/deps/emergent_space-854e60a4faac78a9)
+  Executable tests/api.rs (target/release/deps/api-0c8aae9ab07ba8f3)
+  Executable tests/clock.rs (target/release/deps/clock-3536f58b1e9ac6d1)
+  Executable tests/envelope.rs (target/release/deps/envelope-c523852f7412b515)
+  Executable tests/events.rs (target/release/deps/events-e7b73256c29b5dbc)
+  Executable tests/kerr.rs (target/release/deps/kerr-e21f1349b57d3055)
+  Executable tests/lazy_panels.rs (target/release/deps/lazy_panels-24e383157ca5a6cd)
+  Executable tests/light.rs (target/release/deps/light-66a090e4cbeb11d6)
+  Executable tests/near_circular.rs (target/release/deps/near_circular-c7729bf58a287305)
+  Executable tests/plunge.rs (target/release/deps/plunge-23ade48f19fe4103)
+  Executable tests/range.rs (target/release/deps/range-5d3cd54f38142204)
+  Executable tests/range_compat.rs (target/release/deps/range_compat-5d2dfbe2f7d392e8)
+  Executable tests/shape_cache.rs (target/release/deps/shape_cache-e2b4377b6ffd6005)
+  Executable unittests src/lib.rs (target/release/deps/emergent_universe-1502e76ede904de3)
+  Executable tests/clock.rs (target/release/deps/clock-0f46be8830b48018)
+  Executable tests/flight.rs (target/release/deps/flight-893f124d67742656)
+  Executable tests/frame_loop.rs (target/release/deps/frame_loop-129d8a074c769954)
+  Executable tests/lifecycle.rs (target/release/deps/lifecycle-e195ea66f5533520)
+  Executable tests/memo.rs (target/release/deps/memo-fce2f78ada59a6e5)
+  Executable tests/motion.rs (target/release/deps/motion-ceac7deb8c6c659b)
+  Executable tests/n_ladder.rs (target/release/deps/n_ladder-9b9e2e272ba7e8c2)
+  Executable tests/origin.rs (target/release/deps/origin-0ef809932257930d)
+  Executable tests/p1_plunge.rs (target/release/deps/p1_plunge-0662ba24ee5eca04)
+  Executable tests/p2_burn_out.rs (target/release/deps/p2_burn_out-a8b51119d83c8188)
+  Executable tests/plane.rs (target/release/deps/plane-7d0e4bcc602e34e9)
+  Executable tests/plunge.rs (target/release/deps/plunge-b6a4ce418e70e8e2)
+  Executable tests/range_adapter.rs (target/release/deps/range_adapter-41f0489d188f7e01)
+  Executable tests/replay.rs (target/release/deps/replay-d42fa33a93ea9460)
+  Executable tests/t1_burn.rs (target/release/deps/t1_burn-b823d7f820635461)
+  Executable tests/throttle.rs (target/release/deps/throttle-31ef5fefe37f7adc)
+  Executable tests/ties.rs (target/release/deps/ties-9930adf51d1f5613)
+  Executable tests/view.rs (target/release/deps/view-604c46d8dc4d7a7a)

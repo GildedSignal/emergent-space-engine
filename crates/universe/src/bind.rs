@@ -18,7 +18,7 @@ use crate::lorentz::Turn;
 use crate::num::{cross2, dot2, time_of, Error, Res, Tick, V2};
 use crate::world::Unit;
 use emergent_space::{
-    binding::{cartesian, IntegerState, Rebinding, Residual, Trajectory},
+    binding::{cartesian, IntegerState, FittedOrbit, Residual, Trajectory},
     orbit::{OrbitState, Scalar},
     Tube,
 };
@@ -262,8 +262,8 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
     let time = unit.to_tube(time_of(t, clock_exp)?)?;
     let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
     let mut fit = if let Some(surface) = surface {
-        Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
-    } else { Rebinding::from_state(input, time, edge)? };
+        FittedOrbit::ending_at(input, time, edge, unit.to_tube(surface)?)?
+    } else { FittedOrbit::from_state(input, time, edge)? };
     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
     let tube = Tube::new(0, fit.periapsis_angle, peri);
     if let Trajectory::Cycle(orbit) = &mut fit.trajectory { orbit.make_evictable(); }

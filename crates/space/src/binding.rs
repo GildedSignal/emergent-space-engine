@@ -384,6 +384,52 @@ fn root_witness(
         Some((a, b))
     } else { None })
 }
+/// Geometry for adapters which retain the exact input and compute their own residual
+/// after converting the clock, units and orientation. This is not an exact-state
+/// binding by itself; use `Rebinding` when no such adapter owns the residual.
+#[derive(Clone, Debug)]
+pub struct FittedOrbit {
+    pub trajectory: Trajectory,
+    pub periapsis_time: Scalar,
+    pub periapsis_angle: u32,
+    pub clockwise: bool,
+}
+impl FittedOrbit {
+    pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+        let (key, r, clockwise, incoming) = fit_stage!(0, fit_key(state, true))?;
+        let trajectory = if key.periodic() {
+            Trajectory::Cycle(fit_stage!(1, Orbit::compile(key))?)
+        } else {
+            Trajectory::Passage(fit_stage!(1, Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)))?)
+        };
+        let (mut offset, mut sample) = fit_stage!(2, trajectory.at_radius(r))?;
+        if incoming {
+            offset = offset.negate();
+            sample.reflect();
+        }
+        let (p, _) = state.components()?;
+        let at = angle(p[0], p[1])?;
+        let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
+        let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
+        Ok(Self {
+            trajectory,
+            periapsis_time: event_time.sub(offset)?,
+            periapsis_angle,
+            clockwise,
+        })
+    }
+    pub fn ending_at(state: IntegerState, event_time: Scalar, edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
+        match Self::from_state(state, event_time, edge) {
+            Ok(fit) => Ok(fit),
+            Err(Error::NoBoundOrbit) => {
+                let fit = Rebinding::arc_ending_at(state, event_time, edge, surface)?;
+                Ok(Self { trajectory: fit.trajectory, periapsis_time: fit.periapsis_time,
+                    periapsis_angle: fit.periapsis_angle, clockwise: fit.clockwise })
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
 impl Rebinding {
     /// Extend the turning-orbit inverse with the arcs a state that has no periapsis to turn at needs, ending at a body's
     /// surface. A state the turning inverse takes keeps its turning orbit, whatever its periapsis: one that dips under the
@@ -397,6 +443,9 @@ impl Rebinding {
             Err(Error::NoBoundOrbit) => {}
             Err(e) => return Err(e),
         }
+        Self::arc_ending_at(state, event_time, passage_edge, surface)
+    }
+    fn arc_ending_at(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
         let (p, v) = state.components()?;
         if dot(p, v)? > Scalar::ZERO {
             // Going up with no periapsis to turn at (a near-radial state): the leg up and the fall back, one arc.
@@ -434,35 +483,15 @@ impl Rebinding {
         Ok(fit)
     }
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
-        let (key, r, clockwise, incoming) = fit_stage!(0, fit_key(state, true))?;
-        let trajectory = if key.periodic() {
-            Trajectory::Cycle(fit_stage!(1, Orbit::compile(key))?)
-        } else {
-            Trajectory::Passage(fit_stage!(1, Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)))?)
+        let fit = FittedOrbit::from_state(state, event_time, passage_edge)?;
+        let mut bound = Self {
+            trajectory: fit.trajectory, periapsis_time: fit.periapsis_time,
+            periapsis_angle: fit.periapsis_angle, clockwise: fit.clockwise,
+            residual: Residual { position: [0; 2], velocity: [0; 2] },
+            event_time, units: (state.length_exponent, state.velocity_exponent),
         };
-        let (mut offset, mut sample) = fit_stage!(2, trajectory.at_radius(r))?;
-        if incoming {
-            offset = offset.negate();
-            sample.reflect();
-        }
-        let (p, _) = state.components()?;
-        let at = angle(p[0], p[1])?;
-        let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
-        let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
-        let mut fit = Self {
-            trajectory,
-            periapsis_time: event_time.sub(offset)?,
-            periapsis_angle,
-            clockwise,
-            residual: Residual {
-                position: [0; 2],
-                velocity: [0; 2],
-            },
-            event_time,
-            units: (state.length_exponent, state.velocity_exponent),
-        };
-        fit.residual = Residual::between(state, fit_stage!(3, fit.decoded_event())?);
-        Ok(fit)
+        bound.residual = Residual::between(state, fit_stage!(3, bound.decoded_event())?);
+        Ok(bound)
     }
     pub fn decoded_event(&self) -> Result<IntegerState> {
         cartesian(

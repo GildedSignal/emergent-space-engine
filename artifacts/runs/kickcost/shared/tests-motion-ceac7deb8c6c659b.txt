@@ -1,0 +1,119 @@
+state: 2026-10-21 05:42:10 | load averages: 5.90 5.46 5.31 | swap total = 6144.00M used = 5330.81M free = 813.19M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['target/release/deps/motion-ceac7deb8c6c659b', '--test-threads=1']
+
+running 9 tests
+test a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded ... FAILED
+test a_ship_of_the_root_doll_is_never_captured ... ok
+test a_ship_passing_a_planet_keeps_its_jacobi_constant_bounded ... ignored, known failure under any perturbation (chaos): one ship in twelve crosses 1e-4 at a close pass; see a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded
+test a_ships_step_is_the_clocks_step_of_its_state ... FAILED
+test an_isolated_orbit_is_the_compiled_tube_and_costs_nothing ... ok
+test the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump ... FAILED
+test the_readout_between_kicks_is_bounded ... FAILED
+test the_readout_between_kicks_reads_the_boundarys_error ... FAILED
+test the_readout_error_falls_as_the_step_squared ... FAILED
+
+failures:
+
+---- a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded stdout ----
+  ship 0: map error 9.21e-2, 0 kicks refused
+  ship 1: map error 1.45e-3, 0 kicks refused
+  ship 2: map error 9.99e-3, 0 kicks refused
+  ship 3: map error 1.00e-3, 0 kicks refused
+  ship 4: map error 9.50e-3, 0 kicks refused
+  ship 5: map error 5.57e-4, 0 kicks refused
+  ship 6: map error 3.10e-2, 0 kicks refused
+  ship 7: map error 1.05e-2, 0 kicks refused
+  ship 8: map error 1.24e-2, 0 kicks refused
+  ship 9: map error 8.49e-3, 0 kicks refused
+  ship 10: map error 1.08e-2, 0 kicks refused
+  ship 11: map error 1.65e-2, 0 kicks refused
+  ship 12: map error 5.56e-3, 0 kicks refused
+  ship 13: map error 7.47e-3, 0 kicks refused
+  ship 14: map error 3.59e-3, 0 kicks refused
+  ship 15: map error 6.38e-4, 0 kicks refused
+  ship 16: map error 9.25e-3, 0 kicks refused
+  ship 17: map error 3.06e-3, 0 kicks refused
+  ship 18: map error 3.02e-3, 0 kicks refused
+  ship 19: map error 1.51e-4, 0 kicks refused
+  ship 20: map error 1.12e-2, 0 kicks refused
+  ship 21: map error 9.58e-4, 0 kicks refused
+  ship 22: map error 2.13e-3, 0 kicks refused
+  ship 23: map error 6.80e-3, 0 kicks refused
+  ship 24: map error 1.02e-2, 0 kicks refused
+  ship 25: map error 1.06e-2, 0 kicks refused
+  ship 26: map error 5.21e-3, 0 kicks refused
+  ship 27: map error 2.35e-3, 0 kicks refused
+  ship 28: map error 3.63e-3, 0 kicks refused
+  ship 29: map error 3.02e-3, 0 kicks refused
+  ship 30: map error 2.40e-2, 0 kicks refused
+  ship 31: map error 2.56e-2, 0 kicks refused
+  ship 32: map error 1.76e-2, 0 kicks refused
+  ship 33: map error 2.91e-4, 0 kicks refused
+  ship 34: map error 1.12e-3, 0 kicks refused
+  ship 35: map error 7.61e-3, 0 kicks refused
+35 ships never refused of 35 judged (0 refused; 14.4 s): median map error 7.47e-3, p90 2.40e-2, max 9.21e-2; 35 above 1e-4, 31 above 1e-3
+
+thread 'a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded' panicked at crates/universe/tests/motion.rs:275:5:
+median 7.466566114814338e-3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- a_ships_step_is_the_clocks_step_of_its_state stdout ----
+777 steps looked at: the worst departure from Δs·f'(H_D + p_t + c) is 1.99e-11; far from the planet the worst departure from Δs·f'(c) is 0.43; the longest step over the shortest of a ship reaches 20.7
+
+thread 'a_ships_step_is_the_clocks_step_of_its_state' panicked at crates/universe/tests/motion.rs:413:5:
+far from the planet the step is not Δs·f'(c): 0.43128763906883116
+
+---- the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump stdout ----
+28646 boundaries and 28649 kicks looked at: across a kick the largest jump of the position is 1.39e-13 of the radius, of the velocity 6.48e-9 of itself; across a boundary 2.18e-4 of the radius and 6.73e-2 of the velocity
+
+thread 'the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump' panicked at crates/universe/tests/motion.rs:526:5:
+across a boundary the position jumps by 2.176579327216617e-4 of the radius
+
+---- the_readout_between_kicks_is_bounded stdout ----
+worst readout error 2.45e-2
+
+thread 'the_readout_between_kicks_is_bounded' panicked at crates/universe/tests/motion.rs:290:5:
+assertion failed: worst <= 2e-3
+
+---- the_readout_between_kicks_reads_the_boundarys_error stdout ----
+  ship  0: map 2.17e-2, ramped readout 2.17e-2 (1.00x), raw tube 2.20e-2 (1.0x)
+  ship  1: map 2.87e-3, ramped readout 2.87e-3 (1.00x), raw tube 2.90e-3 (1.0x)
+  ship  2: map 2.22e-2, ramped readout 2.22e-2 (1.00x), raw tube 2.21e-2 (1.0x)
+  ship  3: map 9.03e-4, ramped readout 9.02e-4 (1.00x), raw tube 9.28e-4 (1.0x)
+  ship  4: map 5.97e-3, ramped readout 5.97e-3 (1.00x), raw tube 5.87e-3 (1.0x)
+  ship  5: map 1.46e-3, ramped readout 1.46e-3 (1.00x), raw tube 1.47e-3 (1.0x)
+  ship  6: map 8.55e-3, ramped readout 8.55e-3 (1.00x), raw tube 8.64e-3 (1.0x)
+  ship  7: map 3.40e-3, ramped readout 3.40e-3 (1.00x), raw tube 3.52e-3 (1.0x)
+  ship  8: map 2.45e-2, ramped readout 2.45e-2 (1.00x), raw tube 2.46e-2 (1.0x)
+  ship  9: map 9.17e-4, ramped readout 9.15e-4 (1.00x), raw tube 9.14e-4 (1.0x)
+  ship 10: map 1.90e-2, ramped readout 1.90e-2 (1.00x), raw tube 1.89e-2 (1.0x)
+  ship 11: map 5.11e-3, ramped readout 5.11e-3 (1.00x), raw tube 5.18e-3 (1.0x)
+worst readout 2.45e-2 (raw tube 2.46e-2); worst ratio to the map's error 1.00x (9.6 s)
+
+thread 'the_readout_between_kicks_reads_the_boundarys_error' panicked at crates/universe/tests/motion.rs:321:5:
+the control: the raw tube's median ratio to the map's error is 1.0 (raw worst 2.459205005848009e-2)
+
+---- the_readout_error_falls_as_the_step_squared stdout ----
+  ship 0: ramped readout 1.11e-2 -> 8.69e-3 (1.3x), raw tube 1.30e-2 -> 8.82e-3 (1.5x), map output 1.3x
+  ship 1: ramped readout 1.45e-3 -> 8.26e-4 (1.8x), raw tube 1.53e-3 -> 8.50e-4 (1.8x), map output 1.8x
+  ship 2: ramped readout 9.99e-3 -> 2.11e-3 (4.7x), raw tube 1.01e-2 -> 2.11e-3 (4.8x), map output 4.7x
+  ship 3: ramped readout 3.40e-4 -> 2.01e-4 (1.7x), raw tube 3.40e-4 -> 2.01e-4 (1.7x), map output 1.7x
+  ship 4: ramped readout 9.25e-3 -> 6.63e-3 (1.4x), raw tube 9.67e-3 -> 6.54e-3 (1.5x), map output 1.4x
+  ship 5: ramped readout 3.34e-4 -> 4.49e-4 (0.7x), raw tube 3.41e-4 -> 4.55e-4 (0.8x), map output 0.7x
+6 ships judged, 0 with a second-order map (4.3 s); the raw tube falls at most 4.8x
+
+thread 'the_readout_error_falls_as_the_step_squared' panicked at crates/universe/tests/motion.rs:353:5:
+enough ships stay in the star's doll, in the asymptotic regime: 6, 0
+
+
+failures:
+    a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded
+    a_ships_step_is_the_clocks_step_of_its_state
+    the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump
+    the_readout_between_kicks_is_bounded
+    the_readout_between_kicks_reads_the_boundarys_error
+    the_readout_error_falls_as_the_step_squared
+
+test result: FAILED. 2 passed; 6 failed; 1 ignored; 0 measured; 0 filtered out; finished in 43.78s
+
+runner: exit=101 wall_s=44.210

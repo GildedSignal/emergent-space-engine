@@ -1,0 +1,26 @@
+state: 2026-10-21 05:41:56 | load averages: 5.97 5.45 5.30 | swap total = 6144.00M used = 5330.81M free = 813.19M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['target/release/deps/flight-893f124d67742656', '--test-threads=1']
+
+running 4 tests
+test forward_burns_prograde_and_reverse_retrograde ... ok
+test heading_of_inverts_direction ... ok
+test the_hud_warns_of_an_impact_course_and_clears ... FAILED
+test the_nose_starts_along_the_velocity ... ok
+
+failures:
+
+---- the_hud_warns_of_an_impact_course_and_clears stdout ----
+braked 2 frames: Home's surface in 28 min 48 s (tick 351883925, at [-0.804, -0.595], 3.026e-5 c)
+burned forward 1 frames: the warning cleared
+
+thread 'the_hud_warns_of_an_impact_course_and_clears' panicked at crates/universe/tests/flight.rs:195:13:
+frame 4: the countdown fell by -18.61603094793304 s while the game ran 1.666662999191125 s
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    the_hud_warns_of_an_impact_course_and_clears
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.83s
+
+runner: exit=101 wall_s=3.262

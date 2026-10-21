@@ -19,3 +19,5 @@ for n in [0, 100000, 1000000]:
     for flight in ['coast','burn']:
         run(f'n{n}_{flight}', ['target/release/examples/nladder',str(n),flight,'20'])
     run(f'rebind{n}', ['target/release/examples/kickcost',str(n)])
+
+raise SystemExit(subprocess.run([sys.executable, "artifacts/runs/kickcost/evaluate.py", phase]).returncode)

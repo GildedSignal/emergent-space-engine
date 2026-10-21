@@ -1,0 +1,22 @@
+state: 2026-10-21 05:42:09 | load averages: 5.90 5.46 5.31 | swap total = 6144.00M used = 5330.81M free = 813.19M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['target/release/deps/memo-fce2f78ada59a6e5', '--test-threads=1']
+
+running 1 test
+test the_exact_shape_never_recurs_and_the_laws_memo_cell_does ... FAILED
+
+failures:
+
+---- the_exact_shape_never_recurs_and_the_laws_memo_cell_does stdout ----
+796 distinct cycle rebinds: exact shapes 796 (hit 0.000), quantized cells 82 (hit 0.897)
+
+thread 'the_exact_shape_never_recurs_and_the_laws_memo_cell_does' panicked at crates/universe/tests/memo.rs:56:5:
+the law's cell does not recur: 0.897
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    the_exact_shape_never_recurs_and_the_laws_memo_cell_does
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+runner: exit=101 wall_s=0.717

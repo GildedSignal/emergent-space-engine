@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """One child at a time, hard 60 s wall cap, machine state beside every result."""
-import os, pathlib, signal, subprocess, sys, time
+import os, pathlib, re, signal, subprocess, sys, time
 root = pathlib.Path(__file__).resolve().parents[3]
 phase, name, *command = sys.argv[1:]
 out = root / 'artifacts/runs/kickcost' / phase
 out.mkdir(exist_ok=True)
+saved = out / (name + '.txt')
+if saved.exists():
+    completed = re.search(r'runner: exit=(\d+)', saved.read_text())
+    if completed:
+        print(saved, 'retained exit', completed[1])
+        sys.exit(int(completed[1]))
+    raise SystemExit('Incomplete prior evidence; retain it and use a new probe name: ' + str(saved))
 env = dict(os.environ, CARGO_BUILD_JOBS='2', ES_MEMORY_PROBE='1')
 start = time.monotonic()
 with (out / (name + '.txt')).open('x') as log:

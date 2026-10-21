@@ -1,0 +1,161 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index 6bb4b5df..6a0f9a80 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -385,6 +385,15 @@ fn root_witness(
+     } else { None })
+ }
+ impl Rebinding {
++    /// The carried-shape law, retaining the exact input through its residual.
++    pub fn ending_at_carried(state: IntegerState, time: Scalar, edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
++        match Self::from_state_carried(state, time, edge) {
++            Ok(fit) => Ok(fit),
++            Err(Error::NoBoundOrbit) => Self::ending_at(state, time, edge, surface),
++            Err(e) => Err(e),
++        }
++    }
++
+     /// Extend the turning-orbit inverse with the arcs a state that has no periapsis to turn at needs, ending at a body's
+     /// surface. A state the turning inverse takes keeps its turning orbit, whatever its periapsis: one that dips under the
+     /// surface is ended where its tube meets it (the engine's `next_impact`), and the exact interval predicate of the arcs
+@@ -434,9 +443,15 @@ impl Rebinding {
+         Ok(fit)
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        Self::from_state_with(state, event_time, passage_edge, false)
++    }
++    pub fn from_state_carried(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        Self::from_state_with(state, event_time, passage_edge, true)
++    }
++    fn from_state_with(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, carried: bool) -> Result<Self> {
+         let (key, r, clockwise, incoming) = fit_stage!(0, fit_key(state, true))?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(fit_stage!(1, Orbit::compile(key))?)
++            Trajectory::Cycle(fit_stage!(1, if carried { Orbit::compile_carried(key) } else { Orbit::compile(key) })?)
+         } else {
+             Trajectory::Passage(fit_stage!(1, Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)))?)
+         };
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..b246dc46 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -140,7 +140,7 @@ use num::{ONE, atan, cos, isqrt, mul_shr, ratio_sqrt};
+ use tables::{EDGE, PI, W, X};
+ 
+ /// Integer law and boundary-quantization version. Never reuse a memo across law versions.
+-pub const LAW_ID: &str = "space-darwin16-scaled-v6-plunge";
++pub const LAW_ID: &str = "space-darwin16-scaled-v7-carried-shape";
+ pub const LEGACY_LAW_ID: &str = "space-darwin16-v2";
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 78c7ac77..c2e4237f 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -585,6 +585,7 @@ pub fn shape_cache_stats() -> (usize, usize, u64, u64, u64) {
+ pub struct Orbit {
+     key: OrbitKey,
+     shape: Option<Arc<OrbitShape>>,
++    shared: bool,
+     time_scale: Scalar,
+     q: Scalar,
+     speed_scale: Scalar,
+@@ -619,8 +620,7 @@ impl Orbit {
+             return shape.clone();
+         }
+         // Only make_evictable can remove a table, after validating this recipe.
+-        let key = ShapeKey { k: self.key.k, k_exponent: self.key.k_exponent,
+-            compactness: Scalar::ZERO, null: false };
++        let key = self.recipe().expect("previously validated bound recipe");
+         SHAPE_CACHE.with(|cache| {
+             let mut cache = cache.borrow_mut();
+             if let Some(shape) = cache.shapes.get(&key).cloned() {
+@@ -639,7 +639,7 @@ impl Orbit {
+     pub fn make_evictable(&mut self) {
+         let Some(shape) = &self.shape else { return };
+         if !self.key.periodic() || shape.key.null || !shape.key.compactness.is_zero()
+-            || ShapeKey::for_orbit(self.key).ok() != Some(shape.key)
++            || self.recipe().ok() != Some(shape.key)
+             || shape.retained_bytes() > SHAPE_CACHE_BYTES {
+             return;
+         }
+@@ -650,6 +650,29 @@ impl Orbit {
+     pub fn retained_shape_bytes(&self) -> usize {
+         self.shape.as_ref().map_or(0, |s| s.retained_bytes())
+     }
++    fn recipe(&self) -> Result<ShapeKey> {
++        ShapeKey::for_orbit(if self.shared { self.key.memo_key()? } else { self.key })
++    }
++    /// Carried cell readout: the input key and residual stay exact. Only the
++    /// weak bound table is shared; strong fields and passages retain their law.
++    pub fn compile_carried(key: OrbitKey) -> Result<Self> {
++        if !key.periodic() || key.compactness()? > Scalar::power_of_two(WEAK_EXPONENT) {
++            return Self::compile(key);
++        }
++        let recipe = ShapeKey::for_orbit(key.memo_key()?)?;
++        let shape = SHAPE_CACHE.with(|cache| -> Result<Arc<OrbitShape>> {
++            let mut cache = cache.borrow_mut();
++            if let Some(shape) = cache.shapes.get(&recipe).cloned() {
++                cache.hits += 1;
++                return Ok(shape);
++            }
++            cache.misses += 1;
++            let shape = Arc::new(OrbitShape::bound(recipe)?);
++            cache.insert(shape.clone());
++            Ok(shape)
++        })?;
++        Self::from_shared(key, shape)
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+@@ -697,6 +720,7 @@ impl Orbit {
+         Ok(Self {
+             key,
+             shape: Some(shape.clone()),
++            shared: false,
+             time_scale,
+             q: Scalar::ZERO,
+             speed_scale: key.compactness()?.div(k)?.sqrt()?,
+@@ -707,6 +731,18 @@ impl Orbit {
+         if shape.key != ShapeKey::for_orbit(key)? {
+             return Err(Error::Topology);
+         }
++        Self::from_shape_inner(key, shape)
++    }
++    fn from_shared(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
++        if !key.periodic() || key.compactness()? > Scalar::power_of_two(WEAK_EXPONENT)
++            || shape.key != ShapeKey::for_orbit(key.memo_key()?)? {
++            return Err(Error::Topology);
++        }
++        let mut orbit = Self::from_shape_inner(key, shape)?;
++        orbit.shared = true;
++        Ok(orbit)
++    }
++    fn from_shape_inner(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+         let q = key.compactness()?;
+         // Strong shapes were already validated at their actual q. For a bound
+         // Taylor shape, k>1/2 and q<=2^-18 imply 1-qA>0, D>1/2-3q>0
+@@ -737,6 +773,7 @@ impl Orbit {
+         let mut orbit = Self {
+             key,
+             shape: Some(shape.clone()),
++            shared: false,
+             time_scale: if key.null {
+                 key.periapsis
+             } else {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index a38b516d..c16785e1 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -262,8 +262,8 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+     let time = unit.to_tube(time_of(t, clock_exp)?)?;
+     let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
+     let mut fit = if let Some(surface) = surface {
+-        Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
+-    } else { Rebinding::from_state(input, time, edge)? };
++        Rebinding::ending_at_carried(input, time, edge, unit.to_tube(surface)?)?
++    } else { Rebinding::from_state_carried(input, time, edge)? };
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     if let Trajectory::Cycle(orbit) = &mut fit.trajectory { orbit.make_evictable(); }
