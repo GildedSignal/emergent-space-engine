@@ -1,0 +1,41 @@
+error: crates/universe/examples/family_census.rs: already exists in working directory
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: variable does not need to be mutable
+  --> crates/universe/examples/family_census.rs:92:17
+   |
+92 | ...   let mut pd: Vec<Option<i64>> = pair.iter().map(|&p| store.next_time(p).map(|t| (t as i128).min(Tick::MAX as i128) as i64)).collect();
+   |           ----^^
+   |           |
+   |           help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: variable `dN` should have a snake case name
+   --> crates/universe/examples/family_census.rs:134:13
+    |
+134 |         let dN: Vec<i64> = (0..f).map(|m| seq[k * f + m].last().copied().unwrap_or(-1)).collect();
+    |             ^^ help: convert the identifier to snake case: `d_n`
+    |
+    = note: `#[warn(non_snake_case)]` on by default
+
+warning: variable `dN_spread` should have a snake case name
+   --> crates/universe/examples/family_census.rs:135:13
+    |
+135 |         let dN_spread = dN.iter().max().unwrap() - dN.iter().min().unwrap();
+    |             ^^^^^^^^^ help: convert the identifier to snake case: `d_n_spread`
+
+warning: `emergent-universe` (example "family_census") generated 3 warnings (run `cargo fix --example "family_census"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.60s
+lab/results/20261021-0607-components-b560/census-r1au.txt:aligned pair (2 planets, same r/e, dx=1e6): co-fire censuses 25525/25525 (frac 1.0000), stream fork idx None, fires 383/383, steps 34359738368/34359738368
+lab/results/20261021-0607-components-b560/census-r2au.txt:aligned pair (2 planets, same r/e, dx=1e6): co-fire censuses 25526/25526 (frac 1.0000), stream fork idx None, fires 192/192, steps 137438953472/137438953472
+      0 | 350/ 350 | none<350/350>              | 1.0000 |   1.00 | 43991168385 | true | true
+    100 | 300/ 300 | 0/0/0                      | 0.0625 |  16.00 | 44048709528 | false | false
+   1000 | 327/ 327 | 0/0/0                      | 0.0625 |  16.00 | 40395188656 | false | false
+  10000 | 336/ 336 | 0/0/0                      | 0.0625 |  16.00 | 39185133487 | false | false
+ 100000 | 312/ 312 | 0/0/0                      | 0.0625 |  16.00 | 42343376339 | false | false
+arm dx=0 anchor_spread=0 step_spread=0 first_due_spread=0 last_due_spread=0 light_off=0
+arm dx=100 anchor_spread=5241830 step_spread=31417 first_due_spread=18415 last_due_spread=5273281 light_off=1500
+arm dx=1000 anchor_spread=74267587 step_spread=480359 first_due_spread=222514 last_due_spread=74507766 light_off=15000
+arm dx=10000 anchor_spread=277470959 step_spread=1775567 first_due_spread=811365 last_due_spread=279245576 light_off=150000
+arm dx=100000 anchor_spread=9004123751 step_spread=58024651 first_due_spread=29024334 last_due_spread=9062151406 light_off=1500000
+arm dx=1000000 anchor_spread=36134623412 step_spread=389216020 first_due_spread=541987930 last_due_spread=18778040326 light_off=15000000
