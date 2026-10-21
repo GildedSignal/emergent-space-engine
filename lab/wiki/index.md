@@ -7,18 +7,19 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 |---|---|---|---|
 | [entry](entry.md) | open **over budget (44 lines, current best 42)** | 0 | (no current best yet) |
 | [formation-family](formation-family.md) | open | 1 | **NEW (a877 — the board's families row measured: a same-(E,L) family can share one kick stream |
-| [fleet-doll-speed](fleet-doll-speed.md) | open **over budget (149 lines, current best 62)** | 2 | **NEW (4c79, scout — the page's od 3 (coefficient half) and od 4 closed by an exact |
+| [live-residency](live-residency.md) | open | 1 | - **Under the oracle view gather (`gather_cached`, O(N), one gather per 10 s), demotion to the compact store is dead: essentially every belt body's compiled orbit is read** — 4 zero-post-birth generations in 100,032 at 1 |
 | [a-word](a-word.md) | open **over budget (74 lines, current best 21)** | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open **over budget (100 lines, current best 53)** | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [flyable-frame](flyable-frame.md) | open **over budget (63 lines, current best 18)** | 3 | **The ranking is proven end-to-end in the frame the player runs: 2df1's row-set deletion, wired |
 | [history-demand](history-demand.md) | open **over budget (170 lines, current best 80)** | 3 | **NEW (26fc, spacex — od 2 executed: the fix's disease does not exist).** The emitters the shipped |
 | [binet-cells](binet-cells.md) | open **over budget (105 lines, current best 44)** | 4 | **The r1 case set has now been executed end to end (r1v2: the letter plus the named |
 | [decision-log](decision-log.md) | open **over budget (106 lines, current best 50)** | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
-| [calendar](calendar.md) | open **over budget (173 lines, current best 80)** | 5 | **NEW (6b9a, components — the apparatus itself is measured on shipped code, and the |
 | [contact-speed](contact-speed.md) | open **over budget (269 lines, current best 147)** | 5 | **[20261018-2040-second-20261018-1617-spacex-37c1-3ac3] Open direction 1's adoption gates |
+| [fleet-doll-speed](fleet-doll-speed.md) | open | 5 | **NEW (451f, scout, checker-corrected — od 5 half-measured): the exponential-map instrument is |
 | [replay-gate](replay-gate.md) | open **over budget (216 lines, current best 120)** | 5 | **The suite's cross-machine red is decided by mechanism, no M1 rerun needed: the B12 corpus is |
 | [scan-locality](scan-locality.md) | open **over budget (131 lines, current best 68)** | 5 | **NEW (f3db, second author on e9a1 — the named instrumentation flown, and the run's premise correction |
 | [birth-stagger](birth-stagger.md) | open **over budget (214 lines, current best 128)** | 6 | **The stagger's element bill is typed, priced and attributed: it rides the per-body kick-grid shift |
+| [calendar](calendar.md) | open | 6 | **NEW (a97f, quant — od 4 executed: the standing worst-window excess is priced, attributed and bounded; neither of the page's two candidates).** 45c0's genesis census + a per-generation dump (id, due, step, a), shipped ` |
 | [closed-form-kernel](closed-form-kernel.md) | open **over budget (173 lines, current best 96)** | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
 | [order-boundary](order-boundary.md) | open **over budget (274 lines, current best 149)** | 7 | **The circle ratchet's deceleration law is measured and it is diffusion: the minted |
 | [mint-knots](mint-knots.md) | open **over budget (100 lines, current best 35)** | 8 | **The page's 100× conflict is adjudicated (20261020-1729-spacex-65b8, one binary, one |
