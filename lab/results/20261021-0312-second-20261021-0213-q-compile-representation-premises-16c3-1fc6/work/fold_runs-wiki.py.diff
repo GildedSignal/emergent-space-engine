@@ -1,0 +1,163 @@
+diff --git a/lab/wiki.py b/lab/wiki.py
+index d6264606..e1f6bd2f 100644
+--- a/lab/wiki.py
++++ b/lab/wiki.py
+@@ -11,7 +11,7 @@ The certificate: a closed page reopens by itself when any `valid-while` path cha
+ """
+ import os, re, subprocess, sys
+ 
+-WIKI = "lab/wiki"
++WIKI = os.environ.get("LAB_WIKI", "lab/wiki")
+ SKIP = {"index.md", "README.md"}
+ 
+ 
+@@ -68,11 +68,85 @@ def split_runs(text):
+     lines = [l for l in (rest[:end.start()] if end else rest).splitlines() if l.startswith("- ")]
+     return text[:m.start()] + (rest[end.start():] if end else ""), lines
+ 
++def fold_runs(ours, theirs):
++    """The `## Runs` union keyed on run id: one line per run; a re-graded or
++    reworded line replaces its stale variant (later in, i.e. the newer page, wins)."""
++    out = {}
++    for l in ours + theirs:
++        m = re.match(r"^- (\S+)", l)
++        out[m.group(1) if m else l] = l
++    return list(out.values())
++
++
++UNMERGED = "**⚠ unmerged — two versions stand; the next run on this topic resolves them:**"
++MARKERS = (r"^<{7} ", r"^={7}$", r"^>{7} ")
++GIT_WIKI = "lab/wiki"  # pages as addressed inside git (LAB_WIKI may point at a sandbox copy)
++
++
++def has_markers(text):
++    """Any of the three git conflict marker lines (orphan closers count)."""
++    return any(re.search(p, text, re.M) for p in MARKERS)
++
++
++def _side(items):
++    """Render parsed items; nested damage becomes nested labeled versions."""
++    out = []
++    for kind, val in items:
++        if kind == "text":
++            out.append(val)
++        else:  # a conflict block, however malformed
++            label, ours, theirs, closed = val
++            out += ["", UNMERGED, "", f"*Version `{label}` (standing):*", *_side(ours), "",
++                    f"*Version `{closed or '(truncated)'}` (this publish):*", *_side(theirs or []), ""]
++    return out
++
++
++def defuse(text):
++    """Rewrite git conflict blocks as labeled, attributable versions.
++
++    The README's contract keeps conflicts visible for the next run on the topic to
++    resolve; what must not happen is marker syntax landing on main (it nests on the
++    next publish and leaks into the index). Blocks are paired with a stack, so
++    interleaved damage (a block's closer eaten by an earlier publish) binds each
++    `=======`/`>>>>>>>` to its own opener; orphan mid/close lines are syntax debris
++    and are dropped; every captured side — including a truncated tail — renders
++    recursively, so no marker can survive at any depth.
++    """
++    root, blocks = [], []  # blocks: open (block, current-side) refs
++    cur = lambda: blocks[-1][1] if blocks else root
++    for line in text.splitlines():
++        if re.match(MARKERS[0], line):  # <<<<<<< label
++            b = [line[8:], [], None, None]  # label, ours, theirs, closer
++            cur().append(("block", b))
++            blocks.append((b, b[1]))
++        elif re.match(MARKERS[1], line):  # =======
++            if blocks and blocks[-1][0][2] is None:
++                b = blocks.pop()[0]
++                b[2] = []
++                blocks.append((b, b[2]))
++            # else: orphan mid (no block awaiting its separator) — debris, dropped
++        elif re.match(MARKERS[2], line):  # >>>>>>> label
++            if blocks:
++                blocks.pop()[0][3] = line[8:]
++            # else: orphan close — debris, dropped
++        else:
++            cur().append(("text", line))
++    return "\n".join(_side(root))
++
+ 
+ def summary(text):
+-    """The page's first line under '## Current best'."""
+-    m = re.search(r"^## Current best\s*\n+(.+)$", text, re.M)
+-    return m.group(1).strip()[:220] if m else "(no current best yet)"
++    """The page's first line under '## Current best', never marker or label syntax."""
++    m = re.search(r"^## Current best\s*\n", text, re.M)
++    if not m:
++        return "(no current best yet)"
++    for line in text[m.end():].splitlines():
++        s = line.strip()
++        if s.startswith("## "):
++            break
++        if not s or s.startswith(("<<<<<<<", "=======", ">>>>>>>")) or s == UNMERGED or s.startswith("*Version `"):
++            continue
++        return s[:220]
++    return "(no current best yet)"
+ 
+ 
+ def index():
+@@ -83,7 +157,7 @@ def index():
+         text = open(os.path.join(WIKI, name), encoding="utf-8").read()
+         h = header(text)
+         runs = len(re.findall(r"^- \d{8}-\d{4}-", text, re.M))
+-        conflict = " **conflict to resolve**" if "<<<<<<<" in text else ""
++        conflict = " **conflict to resolve**" if has_markers(text) or UNMERGED in text else ""
+         best_lines = len([l for l in split_runs(text)[0].split("## Current best", 1)[-1].split("\n## ", 1)[0].splitlines() if l.strip()])
+         if best_lines > 15 or len(text.splitlines()) > 300:
+             conflict += f" **over budget ({len(text.splitlines())} lines, current best {best_lines})**"
+@@ -117,22 +191,37 @@ def apply(results, base):
+                 continue
+             start = os.path.join(results, run, "base")  # the commit the run started from (run.sh writes it)
+             b = open(start).read().strip() if os.path.isfile(start) else base
+-            old = git("show", f"{b}:{WIKI}/{name}", check=False).stdout
+-            mine, theirs_text = open(ours, encoding="utf-8").read(), open(theirs, encoding="utf-8").read()
+-            # The append-only `## Runs` list is merged as a union; the rest of the page three-way.
++            old = git("show", f"{b}:{GIT_WIKI}/{name}", check=False).stdout
++            # marker-free inputs bound the nesting at depth 1; conflicts stay visible as labeled versions
++            mine, theirs_text = defuse(open(ours, encoding="utf-8").read()), defuse(open(theirs, encoding="utf-8").read())
+             body = {k: split_runs(v) for k, v in (("ours", mine), ("base", old), ("theirs", theirs_text))}
++            if any(l.split(" ")[1:2] == [run] for l in body["ours"][1]):
++                continue  # already folded (the Runs list is the union): re-applying old runs is the amplifier
+             tmp = {k: os.path.join(results, run, f".{k}-{name}") for k in body}
+             for k in body:
+                 open(tmp[k], "w", encoding="utf-8").write(body[k][0])
+             r = subprocess.run(["git", "merge-file", "-p", "-L", "main", "-L", "run start", "-L", run, tmp["ours"], tmp["base"], tmp["theirs"]],
+                                capture_output=True, text=True)
+-            runs = body["ours"][1] + [l for l in body["theirs"][1] if l not in body["ours"][1]]
+-            open(ours, "w", encoding="utf-8").write(r.stdout.rstrip("\n") + "\n\n## Runs\n" + "".join(l + "\n" for l in runs))
++            runs = fold_runs(body["ours"][1], body["theirs"][1])
++            open(ours, "w", encoding="utf-8").write(defuse(r.stdout).rstrip("\n") + "\n\n## Runs\n" + "".join(l + "\n" for l in runs))
+             for f in tmp.values():
+                 os.remove(f)
+             print(f"wiki: {run} merged {name}{' with conflicts' if r.returncode else ''}")
+ 
+ 
++
++def heal():
++    """Rewrite any conflict markers still on pages (one-time cleanup of past publishes)."""
++    for name in sorted(os.listdir(WIKI)):
++        if not name.endswith(".md") or name in SKIP:
++            continue
++        p = os.path.join(WIKI, name)
++        t = open(p, encoding="utf-8").read()
++        if has_markers(t):
++            open(p, "w", encoding="utf-8").write(defuse(t))
++            print(f"wiki: healed {name}")
++
++
+ if __name__ == "__main__":
+     cmd = sys.argv[1:2]
+     if cmd == ["index"]:
+@@ -140,5 +229,8 @@ if __name__ == "__main__":
+     elif cmd == ["apply"] and len(sys.argv) == 4:
+         apply(sys.argv[2], sys.argv[3])
+         index()
++    elif cmd == ["heal"]:
++        heal()
++        index()
+     else:
+         raise SystemExit(__doc__)
