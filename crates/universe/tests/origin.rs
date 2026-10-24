@@ -118,10 +118,13 @@ fn first_kick(u: &Universe, planet: usize, i: usize) -> ([f64; 2], f64, [f64; 2]
         let ext = rec.ext.expect("a ship of the root doll is stepped by the clock");
         let (x, _) = emergent_universe::bind::scalars(&before).unwrap();
         let f = emergent_universe::force::field(&ctx.secondaries(0, t, i).unwrap(), x).unwrap();
-        to_f64(ext.time(ext.y(f.potential).unwrap(), ext.ds).unwrap())
+        // (the step now running: a ship's first is a stub of its phase, 14 October)
+        to_f64(ext.time(ext.y(f.potential).unwrap(), ext.step().unwrap()).unwrap())
     };
-    let (x, _) = emergent_universe::observe::root_state(&ctx, i, t).unwrap();
-    let (xp, _) = emergent_universe::observe::root_state(&ctx, planet, t).unwrap();
+    // Where the kick reads them: the tubes (the drift's state), not the reader's partial step (a ship's first kick is a stub of its
+    // phase, up to half a step from its start, where the partial step's own kick has moved the position by a²·τ²: 14 October).
+    let (x, _) = emergent_universe::observe::root_state_raw(&ctx, i, t).unwrap();
+    let (xp, _) = emergent_universe::observe::root_state_raw(&ctx, planet, t).unwrap();
     let upd = step::process(&ctx, i, rec);
     assert_eq!(upd.kind, step::Resolved::Kick);
     let after = upd.rec.b.readout(t).unwrap();

@@ -1,0 +1,61 @@
+state: 2026-10-21 00:00:43 | load averages: 12.51 12.66 9.32 | swap total = 7168.00M used = 5609.25M free = 1558.75M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+centring: the plane's root doll (Cinder 77.2 d, Home 354.6 d, the Giant 11.00 yr), 100000 belt bodies of the ladder and 7 far bodies; build 2.9 s
+
+1. THE CENSUS: steps per own period (min / median / max) and kicks per body per game-second (mean), by rule
+  the clock of 7 October (2^7 a Cinder period)         belt:   1916 /   3497 /   5178 a period, 3.180e-5 kicks/body/game-s; far (5.5, 7, 10, 15, 20, 30, 40) AU: 12989, 18650, 31845, 58502, 90070, 165470, 254758 a period
+  the law now (heliocentric, each body's own clock)    belt:     60 /    109 /    162 a period, 9.936e-7 kicks/body/game-s; far (5.5, 7, 10, 15, 20, 30, 40) AU: 406, 1166, 1990, 7313, 11259, 41367, 63689 a period
+  the same rule, heliocentric, in f64 (the check)      belt:     60 /    109 /    162 a period, 9.936e-7 kicks/body/game-s; far (5.5, 7, 10, 15, 20, 30, 40) AU: 406, 1166, 1990, 7313, 11259, 41367, 63689 a period
+  Jacobi-centred, the quadrupole at the floor of 4     belt:    120 /    219 /    324 a period, 1.987e-6 kicks/body/game-s; far (5.5, 7, 10, 15, 20, 30, 40) AU: 812, 1166, 1990, 3656, 5629, 10342, 15922 a period
+  Jacobi-centred, the quadrupole by its strength       belt:     16 /     24 /     32 a period, 2.206e-7 kicks/body/game-s; far (5.5, 7, 10, 15, 20, 30, 40) AU: 406, 73, 62, 114, 88, 162, 124 a period
+  a reader's cost: a belt body's own tube read 2.45 us; Cinder's and Home's states at the read's tick (the belt's centre) 4.81 us more (1e12)
+  (the f64 rule differs from the law's Δs on 0 of 100000 belt bodies)
+
+2. THE REPLICA (f64, the law's map, outside the law): 16 belt bodies over 40 years; reference: heliocentric at 2^10 steps a Cinder period (2^9: 1.9 s)
+  the reference at 2^10 against 2^9 (its own error)      32447 / 38787 kicks a period (median / max), 2.861e-4 kicks/body/game-s, 3.8 s
+      t    2.50 yr: |da|/a median 3.60e-12 worst 1.05e-11; |de| median 2.17e-12 worst 7.02e-12
+      t   10.00 yr: |da|/a median 2.21e-12 worst 8.41e-12; |de| median 4.65e-12 worst 3.15e-11
+      t   20.00 yr: |da|/a median 4.63e-12 worst 9.95e-12; |de| median 7.14e-12 worst 2.29e-11
+      t   40.00 yr: |da|/a median 4.41e-12 worst 1.02e-11; |de| median 2.33e-12 worst 2.45e-11
+      growth exponent of the worst: da 0.04, de 0.34; of the median: da 0.11, de 0.23
+  heliocentric, the law's steps (the check: an offset)     127 /   152 kicks a period (median / max), 1.118e-6 kicks/body/game-s, 0.0 s
+      t    2.50 yr: |da|/a median 8.63e-8 worst 2.15e-7; |de| median 4.65e-8 worst 1.40e-7
+      t   10.00 yr: |da|/a median 4.76e-8 worst 1.88e-7; |de| median 9.05e-8 worst 6.86e-7
+      t   20.00 yr: |da|/a median 9.27e-8 worst 1.89e-7; |de| median 1.50e-7 worst 4.96e-7
+      t   40.00 yr: |da|/a median 9.20e-8 worst 2.07e-7; |de| median 4.59e-8 worst 5.42e-7
+      growth exponent of the worst: da 0.04, de 0.34; of the median: da 0.04, de 0.10
+  heliocentric, 2^4 a period (the check: e walks)           22 /    32 kicks a period (median / max), 2.362e-7 kicks/body/game-s, 0.0 s
+      t    2.50 yr: |da|/a median 1.32e-5 worst 5.97e-5; |de| median 1.75e-5 worst 1.50e-4
+      t   10.00 yr: |da|/a median 2.01e-5 worst 1.82e-4; |de| median 1.02e-4 worst 3.07e-4
+      t   20.00 yr: |da|/a median 2.67e-5 worst 1.44e-4; |de| median 8.67e-5 worst 3.00e-4
+      t   40.00 yr: |da|/a median 4.22e-5 worst 3.19e-4; |de| median 1.78e-4 worst 9.72e-4
+      growth exponent of the worst: da 0.48, de 0.67; of the median: da 0.29, de 0.70
+  heliocentric, 2^5 a period (the check: e walks)           43 /    64 kicks a period (median / max), 4.614e-7 kicks/body/game-s, 0.0 s
+      t    2.50 yr: |da|/a median 1.35e-6 worst 5.02e-5; |de| median 9.71e-7 worst 1.63e-4
+      t   10.00 yr: |da|/a median 2.10e-6 worst 5.39e-5; |de| median 5.57e-6 worst 3.92e-4
+      t   20.00 yr: |da|/a median 3.96e-6 worst 1.40e-4; |de| median 4.89e-6 worst 7.54e-4
+      t   40.00 yr: |da|/a median 6.92e-6 worst 6.43e-5; |de| median 1.17e-5 worst 5.03e-4
+      growth exponent of the worst: da 0.66, de 0.68; of the median: da 0.41, de 0.76
+  Jacobi-centred, 2^3 a period                              11 /    16 kicks a period (median / max), 1.138e-7 kicks/body/game-s, 0.0 s
+      t    2.50 yr: |da|/a median 5.02e-6 worst 2.45e-5; |de| median 4.24e-6 worst 2.78e-5
+      t   10.00 yr: |da|/a median 5.38e-6 worst 6.27e-5; |de| median 2.79e-6 worst 4.59e-5
+      t   20.00 yr: |da|/a median 2.63e-6 worst 3.97e-5; |de| median 1.41e-6 worst 9.57e-6
+      t   40.00 yr: |da|/a median 4.74e-6 worst 3.57e-5; |de| median 1.52e-6 worst 1.52e-5
+      growth exponent of the worst: da 0.08, de 0.25; of the median: da 0.00, de 0.00
+  Jacobi-centred, 2^4 a period                              22 /    32 kicks a period (median / max), 2.271e-7 kicks/body/game-s, 0.0 s
+      t    2.50 yr: |da|/a median 1.60e-6 worst 7.45e-6; |de| median 1.29e-6 worst 6.75e-6
+      t   10.00 yr: |da|/a median 1.67e-6 worst 1.36e-5; |de| median 7.29e-7 worst 1.12e-5
+      t   20.00 yr: |da|/a median 1.06e-6 worst 8.42e-6; |de| median 4.74e-7 worst 3.18e-6
+      t   40.00 yr: |da|/a median 8.05e-7 worst 9.79e-6; |de| median 5.23e-7 worst 7.39e-6
+      growth exponent of the worst: da 0.10, de 0.23; of the median: da 0.02, de -0.00
+  Jacobi-centred, 2^5 a period                              43 /    64 kicks a period (median / max), 4.538e-7 kicks/body/game-s, 0.0 s
+      t    2.50 yr: |da|/a median 3.74e-7 worst 1.68e-6; |de| median 3.00e-7 worst 1.71e-6
+      t   10.00 yr: |da|/a median 3.04e-7 worst 3.49e-6; |de| median 2.01e-7 worst 1.88e-6
+      t   20.00 yr: |da|/a median 2.47e-7 worst 1.84e-6; |de| median 1.41e-7 worst 2.48e-6
+      t   40.00 yr: |da|/a median 1.26e-7 worst 2.55e-6; |de| median 9.15e-8 worst 1.72e-6
+      growth exponent of the worst: da 0.03, de 0.21; of the median: da -0.00, de 0.00
+  Jacobi-centred, the rule (quadrupole at the floor)       253 /   303 kicks a period (median / max), 2.234e-6 kicks/body/game-s, 0.0 s
+      t    2.50 yr: |da|/a median 1.67e-8 worst 4.43e-8; |de| median 8.01e-9 worst 3.51e-8
+      t   10.00 yr: |da|/a median 1.55e-8 worst 5.33e-8; |de| median 5.34e-9 worst 4.00e-8
+      t   20.00 yr: |da|/a median 7.18e-9 worst 2.71e-8; |de| median 4.75e-9 worst 1.17e-8
+      t   40.00 yr: |da|/a median 8.79e-9 worst 4.75e-8; |de| median 4.73e-9 worst 1.85e-8
+      growth exponent of the worst: da 0.01, de 0.07; of the median: da -0.00, de 0.07

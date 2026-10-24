@@ -34,8 +34,12 @@ fn spec(angle: u32, phase: u32) -> OrbitSpec {
 
 /// A star, a planet in a doll (so the ships have something to read), and ships made in `order` from `places`
 /// (angle, phase): the ship made k-th has id `1 + k`. Returns the universe and the ids in `places` order.
+///
+/// 14 October: on the clock of 7 October (`own_clock = false`). Each ship's own clock starts its first step at a phase of its id
+/// (no lockstep), so two ships in one state no longer tie by construction, and a ship's history depends on its id, which is now
+/// part of what it is; the claim is the queue's (independent events commute), and the reference clock still ties by construction.
 fn scene(places: &[(u32, u32)], order: &[usize]) -> (Universe, Vec<usize>) {
-    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
+    let mut u = Universe::new(s(STAR_RADIUS), Config { own_clock: false, ..Config::default() });
     let planet = u.add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(SEP), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
     u.add_doll("planet", planet, -10, Scalar::raw(49_000, 10).unwrap()).unwrap();
     let mut ids = vec![0; places.len()];
