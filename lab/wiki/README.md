@@ -22,6 +22,7 @@ This is the lab's memory, so runs stop rediscovering what earlier runs found (Ju
   - `## Contradictions`: unresolved;
   - `## Runs`: one line per run, `- <id> (<grade>): <claim in at most 20 words>`, append-only.
 - **Citations.** Every claim cites its run ids.
+- **Budgets (20 October: the pages had grown to 1.1 MB, one "current best" to 149 KB, none closed).** `## Current best` holds at most 15 lines: the numbers standing now, never their history. A run that supersedes a line *replaces* it, and the old line goes to `## Refuted` as one line with its refuting run. A page holds at most 300 lines in all; `## Runs` keeps one line per run, and the runs' branches keep everything else. `lab/wiki.py index` flags a page over budget, and an over-budget page is compiled back under it before it takes new runs.
 
 ## How it stays true
 

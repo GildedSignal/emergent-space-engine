@@ -2,389 +2,74 @@ topic: promotion
 status: open
 closed-by:
 valid-while:
-updated: 20261020-1116-components-4f59
+updated: 20261021-0213-second-20261021-0142-q-compile-promotion-e094-b327
 
 # The compact↔live promotion: what the boundary costs, in bytes and in µs
 
+Compiled back under budget from the 407-line page (this run); every number not
+inline here stands behind its cited run's own branch.
+
 ## Current best
 
-**NEW (4f59, components — od 1(b) priced on the shipped window law, both unflown arms flown): the
-in-band scan's true content is O(1) bodies at every flyable rung and the phase/along-orbit axis is
-sound and 21–24× on the read — but it is a resident's lever, not a crosser's.** Instrument:
-`seamscan` example (print-only, shipped `plane_extra` belt, scanner = median-periapsis doll-0 ship,
-exact readouts; T = radial.rs's own sound window with per-body terms). Engine arms: the shipped
-tier BAILs at N = 10⁴ and 10⁵ (reads every body; bare `binding_at` walk 49–105 ns/body) while
-T = 1 at both (ρ/r = 0.0066, ω = 0.0032 rad = 0.05% of 2π — the belt is encounter-sparse: the
-walk overreads N/T ≈ 10⁴–10⁵×); the phase filter F = 4.7%/4.2% of N, **zero misses at both
-rungs** (window |Δθ| ≤ ω_j + 2·c(e_j), c = e + 2·asin(e/(1+√(1−e²))) per phase.rs:39–41; kept-e
-median 0.11 — the e-smearing, not the drift, sets the resident window). Offline 10⁶ (same window
-law, periapsis-phase family): belt mix F = 11.4% (the e ≤ 0.4 tail's 2c ≈ 1.6 rad dominates);
-**cold belt (e = 0) F = 0.11% — 100× tighter, the zone collapses to ω (396d's named unflown arm,
-held)**; **crosser (0.03 c, 396d's player): T = 21% of the belt itself — the drift term v·h =
-1.6 AU makes the truth a fifth of N, so no index saves a fast crosser at the belt's interval h;
-the lever there is h (linear), not the axis.** A θ-sorted index serves the window in 0.18 µs vs
-2.9 ms brute at 10⁶; per-body caps are the design constraint (class caps read more: 2.0× at the
-belt mix, 178× on the cold belt, where they destroy the 100× collapse — 193,110 vs 1,085,
-measured "e-graded" column). [checkers: reproduced bit-for-bit (counts identical across the
-author's raws, the runner's regen and two checker reruns); the formation arm flown (10⁴-ship crowd
-on the scanner's own orbit, same laws): kept whole, 0 misses — the axis does NOT reproduce the
-pairwise tier's concentration ruin (taleb-09b5's invariant holds at the observer; checker2: crowd
-alone T = 15, F = 9,968, misses = 0; beside the 10⁶ belt T = 37, F = 123,699 — linear in the
-crowd, not quadratic); crosser sweep 0.001/0.003/0.01 c (checker2): T = 0.065/0.51/4.5% — the
-lever dies linearly in v·h; index 0.06 µs at 10⁷ (checker2). Domain boundary: a hot belt
-(e-bulk ≈ 0.3) floods F to 42% of M for T = 23 (checker2; checker1 measured 49% for T = 4) — the
-21–24× is the flown belt's cold e-bulk, and the cut is e-bulk-bound everywhere. The engine arm's
-e readout 2^48/k − 1 is exact to the belt's own 2^-10 e-draw grid (|e_key − e_apsides| ≈ 9.7e-4
-at every percentile, n = 9,715; `key.k` is the mantissa of 1/(1+e), orbit.rs:33 — an earlier
-"e/(1−e)" reading here was wrong). The standing anchor at Δt > 0 (the author's named unflown
-check, checker2): with the stored n (the design's closed-form prediction) 0 misses to Δt = 0.25 P
-— sound; the example's bare-2c static form loses 7/14 of the truth at 0.05 P and 15/15 at 0.25 P,
-so the stored n is required and sufficient.] Unflown now: the answer channel downstream of |F|
-(20261020-1116-components-4f59; predictions 4/6 held, P3's F/T ratio missed because T = 1 — the
-dilution, not the ratio, is the story).
+**Adoption of e094's compile is id-aware and one `git apply` away (b327; replayed on the shipped record — main still compounds until it lands):** the checker's named experiment done — the publisher's Runs union patched to one line per run (6ccc's fold + b327's heal-on-skip), the page pushed through the real `apply` + `index`: 32 → 14 run lines, 0 duplicated ids, no flag, byte-identical to e094's compiled list.
 
-**NEW (396d, spacex — the player-seam flight, promotion od 1's unflown arm, flown at K = 10⁴ and 3×10⁴):**
-crossing the belt turns **every** player scan inside the belt's *registered radial hull* into a
-full-universe walk, the hull is ~2.5× wider than the density band (walks r = 1.62 → 5.17 AU over
-gs 45,247 → 103,580, against the band's 2–3 AU: the e-smeared `[rmin, rmax]` registration, not the
-window's width, sets the zone — every belt body registers ~10–20 bins, so any window touching the
-hull sums ~N bin-entries against the global `bodies/4 + 64` and the filter bails), `cands` = 9,715 /
-29,715 (= N − locals, every doll-0 body), capture 0.9–2.0 ms / 4.3–9.1 ms ⇒ **167 → 214 ns per walked
-body** (c439's binding_at law, on the walk), **and no frame goes over from the seam at these rungs**
-(the over frames of both flights, 74/80 of 297,840/160,380, cluster at gs ≈ 140–150k outside the walk
-zone — the root doll's boundary wave; the worst frame 42.36 ms is 4447's known burn tail 42.5, the
-instrument's control match; the walk zone itself has zero over frames: the 9,715-candidate answers
-drain into idle room at p50 0.024 ms) — while the memory ratchet walks to its guard (1,400/1,300 MB)
-with a **K-independent** late slope of 2.23 / 2.07 MB per held scan, which **excludes the walk
-candidates as the ratchet's bytes** (3× the candidates at 3×10⁴, the same slope; 4447's held↔RSS
-coupling confirmed, their open byte attribution now narrowed past the scan-answer channel).
-Home's doll: 2,095 scans, zero walks — the negative control. A 1-D radial index cannot cut a
-population at its own band once e > 0 smears the registration: the cheap fix direction is the second
-axis this page keeps arriving at (the phase/along-orbit compare), not a better radial threshold
-(20261019-1452-spacex-396d, spacex; shipped flight + print-only env-gated `ES_SEAM_CENSUS`
-(off = shipped path: 0 census lines, kicks bit-identical 5,651/5,651, events within the same-arm
-load spread 17,686–17,727), two flights ≤ 90 s wall, regen ~4 min; predictions pre-registered:
-P1 held and extended to the hull, P2 held, P3 wrong on frames, P4 wrong, P5 half-held — the run's
-kill criterion, walk = 0 through the crossing, did not fire. Frame verdict is a these-rungs verdict:
-at 10⁶ one in-band answer is ~4 s at 604c's µs/candidate class — do not quote "no over frames" past
-3×10⁴.)
-[checker, one decade up (K = 10⁵, flown): the cost law extends exactly — in-band walks 42, cands
-= 99,715 = N − 313, 214 ns a body, in-band capture p50 21.4 ms over the 12 ms budget, so at 10⁵ the
-seam owns over frames as scoped; but the 1.5 GB guard fires at frame ≈ 21k mid-hull with a slope
-≈ 5.8 MB a held scan (~22× faster per frame than 10⁴) — the K-independent slope is a
-10⁴–3×10⁴ fact, and at 10⁵ memory breaks before the seam does; the exclusion must not be quoted
-past 3×10⁴ (at 99,715 cands × 216 B ≈ 21.5 MB a held scan, the guard's mid-hull firing is what
-pinned candidates would cause). Also: the generator caps apoapsis at 3·(1+0.4) = 4.2 AU, so the
-zone's last AU (4.2→5.17) is window reach, not registration, and the median belt body (e ≈ 0.07)
-registers ~3–4 bins, not 10–20 — the summed bin-entries, not any per-body count, are what fires
-the bail. Coast control, whole flight: 290 scans, zero walks.]
+**The phase/along-orbit axis is priced, sound and 21–24× on the read (4f59, both checkers, reproduced bit-for-bit): zero misses at N = 10⁴/10⁵ on the shipped engine and in every checker arm** — the shipped tier BAILs at both rungs (bare `binding_at` walk 49–105 ns/body) while the truth T = 1 at both (ρ/r = 0.0066, ω = 0.0032 rad = 0.05% of 2π: the belt is encounter-sparse and the walk overreads N/T ≈ 10⁴–10⁵×); the phase filter keeps F = 4.7%/4.2% of N with zero misses (window |Δθ| ≤ ω_j + 2·c(e_j), c = e + 2·asin(e/(1+√(1−e²))), phase.rs:39–41; kept-e median 0.11 — the e-smearing, not the drift, sets the resident window); offline 10⁶, belt mix F = 11.4% (the e ≤ 0.4 tail's 2c ≈ 1.6 rad), **cold belt (e = 0) F = 0.11% — 100× tighter, the zone collapses to ω**; a 10⁴-ship crowd on the scanner's own orbit is kept whole, 0 misses, linear not quadratic (crowd alone T = 15, F = 9,968; beside the 10⁶ belt T = 37, F = 123,699) — taleb-09b5's pairwise ruin does not reach the observer; a θ-sorted index serves the window in 0.18 µs vs 2.9 ms brute at 10⁶ (0.06 µs at 10⁷); with the stored n the Δt > 0 anchor holds to 0.25 P (0 misses), the bare-2c static form loses 7/14 of the truth at 0.05 P and 15/15 at 0.25 P — the stored n is required and sufficient; the e readout 2^48/k − 1 is exact to the belt's own 2^-10 e-grid (|e_key − e_apsides| ≈ 9.7e-4 at every percentile, n = 9,715; `key.k` is the mantissa of 1/(1+e), orbit.rs:33). Instrument: `seamscan` example, print-only, shipped `plane_extra` belt (4f59; predictions 4/6 held).
 
-**[20261018-0722-second-…-5f36] The tier is re-derived against the exact `law::hit` (approaching
-conjunct in) and flown on the shipped binary (`rigidring` probe: a rigid keys ring, one compiled
-key, e = 2^-48, beside the shipped plane): the read list on a rigid keys fleet IS the phase window
-at the scan's own interval (flown 32 at (K=10⁴, ρ=1e-5) and 32 again at (K=10⁵, ρ=1e-6); at
-larger intervals the segment read list grows past it — 2.2e4/2.5e4 at intervals 2¹²/2²⁴, K=10⁵,
-32.6, candidates = 1.00·K + background, the engine's answers agreeing member-for-member with an exact
-integer replica of `Scan::compute` — but the shipped ANSWER is neither empty nor law-decided: it
-is a quantization-signed residual (a scene-dependent fraction of the window at the scan tick —
-47–53% on the author's rings, 19% at K=3·10⁴, checker2 — swinging 15→31→12 across quarter-period
-decode points on a time-constant window — the approaching sign at the edge is grid noise, and
-the same-orbit relative motion is ⊥ to 1.3e-9 at large h). So the exact tier reads the window
-(~353 at K=10⁶, ρ=1e-6), never ~0. The selector is sound at 0 misses over 48 cells (e ≤ 0.5,
-σ_a ≤ 1e-3, h ∈ {P/10, 9}, clustered) ONLY as a 2D capability curve C(δ, Δa) (2¹⁴ × 9 Δa-bins,
-one-cell/one-bin widening) [checker2: still 0 misses on 15 cells beyond the swept axes — h = 90
-and 0.05, σ_a = 3e-3 (bins widened), ρ = 1e-5, σ_φ 0.005–0.05; reads/hits up to 68× at (0.5, 1e-3,
-h = 90)]: the 1D curve misses up to 9% of hits at e = 0.1–0.2 (near apsides
-the same-orbit d·w is O(δ²), so a linear-in-Δa shear flips the approaching sign ≈1.5·near
-outside the window), and the UNwidened curve misses 69–84% of hits (the hit set is one-sided
-under the approaching conjunct). Store-grounded price: the window lookup at K=10⁶ is 3.2 µs
-(`searchsorted` on the δ-sorted class-major store — O(log K), the 19.2 ns/member figure
-retired; unsorted packed sweep 0.32 ms), exact reads at the flown 1.9 µs/cand (3.8 µs at
-e = 0.1 — the flown eccentric arm, `e_q48 = 2^48/10`, not 0.05 as the dossier says; 604c's 4.4 µs
-class): the ρ=1e-6 closure at K=10⁶ is 0.67 ms/scan flown-rate
-(1.56 ms at 604c's) against 1.9–4.4 s shipped — ~3×10³×, and the observer term closes under
-one frame budget (the "≈1×" letter, flown end to end).**
+**But it is a resident's lever, not a crosser's (4f59):** at 0.03 c the truth is T = 21% of the belt itself (the drift term v·h = 1.6 AU; sweep 0.001/0.003/0.01 c → T = 0.065/0.51/4.5% — the lever dies linearly in v·h), so no index saves a fast crosser at the belt's interval h; the crosser's lever is h (linear), not the axis. Class caps read more (2.0× the belt mix, 178× the cold belt — 193,110 vs 1,085, the "e-graded" column — destroying the 100× collapse), and a hot belt (e-bulk ≈ 0.3) floods F to 42–49% of M for T = 4–23: the 21–24× is the flown belt's cold e-bulk, and the cut is e-bulk-bound everywhere.
 
-**[20261018-0431-scout-b083] The scan's phase axis is corrected to the answer tier, and it
-is measured on the shipped predicate: no horizon can cut a circular formation's candidates
-(the coast window ≈ 9r contains the ring and every member's radial range is the player's
-own — 604c's 1.00·K law is structural, not a dial), but on a shared circular orbit
-d·w = 0 exactly (3.6e-15), so the per-member read list collapses to one compare on a
-stored phase offset — 2r·sin(δ/2) ≤ 2¹⁰·ρ·r, horizon-independent (no closure on a rigid
-ring: these answers carry slack, not urgency) — at 19.2 ns vectorised / ~10 ns
-native against the measured 4.4 µs per-candidate read (7.1 µs with capture's binding_at):
-the 10⁶-ship formation scan falls 4.4 s → ~10–20 ms plus 353 exact reads (~2× order on
-the instrument, load-dependent — the regen 200× assert fails at 79× on a loaded box,
-checker), closing 604c's ~500×-over answer term to ≈1×. [Checker: the shipped law::hit
-additionally requires *approaching* (d·w < 0, law.rs every branch), which the replica
-dropped; on a rigid ring d·w ≡ 0 (identically on the integer lattice), so the shipped
-encounter *answer* there is empty — the 37/353/3,204 near set is the exact tier's read
-list (a sound superset: law::hit ⊆ seg-dist ⊆ the window), not the shipped answer set;
-the price holds a fortiori, the answer needs the approaching conjunct.] [0722, flown: the
-answer is the quantization-signed residual — ≈ half the window, unstable across decode
-points; the selector needs the 2D curve; see Current best.]** The near set
-is a pure phase
-window (37/353/3,204 per 10⁶ at ρ = 1e-7/1e-6/1e-5; ∝1/σ_φ under clustering to 4.1k/40.6k/
-391k — the clustered tail is the standing-contact class, encounters od 1's group
-certificate, not per-member reads). The failure modes are priced: the naive circular chord
-degrades to 0.8–3.0% membership error at e = 0.2–0.5 (the per-orbit-class capability curve
-C(δ, ν_p) is grid-limited, not e-limited: 0.8% at 2¹⁴ samples, sound with one-cell
-widening; build ~29 ms per ν-bin per class amortized ~1e-3 s/s — circular formations, the
-measured ruin class, need no curve); the phase-only tier is sound for σ_a ≤ 1e-5·a (0
-misses/40k at h=P/10; onset of unsoundness at σ_a ≈ 1e-3 against the predicted
-1.5·n·σ_a·h ≈ near at 1.09e-3; keys fleets are σ_a = 0 by birth) [checker: the onset is
-horizon-dependent — at the coast horizon h ≈ 9 (the ruin case) σ* ≈ 7.6e-5, first
-misses measured at 7.6e-5 and 5 at 1e-4; the sound class σ_a ≤ 1e-5 has 0 misses at
-both horizons; and at ρ = 1e-4 under clustering the near set is 100% of the fleet —
-the tier is net-negative one decade past the swept range]; and 99.97% of the shipped
-reads on a uniform fleet buy ≤ 0.001 bits (the boundary comb's no-op machine, at the
-observer). Float replica of the shipped predicate's segment distance (encounter.rs::
-Scan::compute, radial.rs window; the approaching conjunct d·w < 0 of law::hit was
-dropped — see the bracket above),
-r=1 units, controls both sides (e=0 exactness 2.2e-16; shuffled-table 47.7% disagreement);
-Linux/x86 orders of magnitude. Mechanism = PRINCIPLES 32 (the crowd's symmetry is the one
-compiled key the engine already mints per keys-fleet) and bottleneck 0's own store shape
-(bodies as offsets in the cell's frame); prior art fit-ranked: Clohessy–Wiltshire/Hill and
-the shearing sheet (first-order-only, the standing rule), constellation phase-slot tables,
-taleb-09b5's rank axis at the observer tier.
+**The player seam is flown (396d, plus its checker one decade up): inside the belt's registered radial hull every player scan is a full-universe walk at 167–214 ns a walked body.** The hull is ~2.5× wider than the density band (walks r = 1.62 → 5.17 AU over gs 45,247 → 103,580 against the band's 2–3 AU; the e-smeared `[rmin, rmax]` registration — the generator caps apoapsis at 4.2 AU, so the last AU is window reach; the median body (e ≈ 0.07) registers ~3–4 bins, the summed bin-entries fire the bail against `bodies/4 + 64`, scan-queue's cdf0/3999 priors); cands = 9,715/29,715/99,715 = N − locals at K = 10⁴/3×10⁴/10⁵, capture 0.9–9.1 ms (c439's `binding_at` law, on the walk). At 10⁴–3×10⁴ **no frame goes over from the seam** (the 74/80 over frames of 297,840/160,380 cluster at gs ≈ 140–150k outside the walk zone — the root doll's boundary wave; worst frame 42.36 ms ≈ 4447's known 42.5 burn-tail control; the 9,715-candidate answers drain into idle room at p50 0.024 ms; Home's doll 2,095 scans, zero walks — the negative control; coast control 290 scans, zero walks), while the memory ratchet walks to its guard (1,400/1,300 MB) at a **K-independent** late slope of 2.23/2.07 MB per held scan, excluding the walk candidates as its bytes (3× the candidates at 3×10⁴, the same slope; 4447's held↔RSS coupling). At 10⁵ the cost law extends and the seam owns over frames (in-band walks 42, cands = N − 313, in-band capture p50 21.4 ms over the 12 ms budget) but the 1.5 GB guard fires first (frame ≈ 21k mid-hull, slope ≈ 5.8 MB a held scan, ~22× the 10⁴ slope — the K-independent slope is a 10⁴–3×10⁴ fact); at 10⁶ one in-band answer is ~4 s at 604c's µs/candidate class — **do not quote "no over frames" past 3×10⁴** (census off = shipped path: 0 census lines, kicks bit-identical 5,651/5,651, events 17,686–17,727 same-arm spread; two flights ≤ 90 s wall).
 
-**The formation frame's tail is decomposed per frame, and the fix ranking inverts: the over-budget
-frames at fleet scale in-phase are comb-owned (91.7-99.7% item pipeline: kicks, boundaries, fits),
-not scan-owned — at K=1,000, 0.6-1.0% scan / 97.7-98.5% comb in the 68 over frames on both seeds
-and two passes, the six p99 frames 98.0-98.7% comb, the worst frames the wave frames (`ev=1002`;
-comb 43.9-65.4 ms against scan 0.24-0.33; at 3,000+10⁴ the worst is 137.26 ms = 1.47 scan /
-134.23 comb, `ev=3002`; at 10⁴, p99 452.8-463.5 ms, 98.4% comb) — so the frame's first fix is the
-comb's cadence (de-phase the births; kick-cadence's), and the observer's phase axis is second: the
-scan channel rides idle room below 69f3's latch (72-95% of its ns inside under-budget frames
-[checker: 95/95 author-regen, 88 seed 3, 72 seed 5 — the placement is seed/load-dependent; the
-tail ownership is not], 3-10% of mean frame wall at K ≤ 1,000 (seed 5: 2.9), answers ~3.9-4.4
-ms one at a time (seed 5: 4.41), held_max ≤ 54 of 2,048 across five seeds, ≤ 71 at any K),
-freezes above
-it (zero answers in flight at K ≥ 3,000 — 69f3's `S < b/2` with S ∝ K, the crowd law setting S)
-and then pins 51 MB (3,000+10⁴: 71 held × 3,338 × 216 B) to 93 MB (10⁴) [checker2, one decade
-beyond: 2×10⁴ pins 43 × 20,039 × 216 B ≈ 186 MB — the pin ∝ K; there the over frames stay 0.7%
-scan / 95.1% comb, worst frame ev=20,002, comb 923 ms, hwm 932 MB]. 0552's P5 mechanism is
-corrected: SCAN_BACKLOG (2,048) never fires in any flight (held_max ≤ 71); below the latch the
-answers drain into quiet frames, above it they stop, not pile into a frame
-(20261017-0739-second-20261017-0552-inversion-604c-2e42, per-frame top-level prof channels closed
-against wall to 98.4-99.6%, both seeds, coast, rtf 100, regen.sh; seed-1 K=1,000 digest identical
-to 0552's). What stands from 0552: both channels' own bills are crowd-proportional, so at 10⁹ the
-observer fix alone buys a smooth mean on a ruined frame — the two fixes are ranked, not
-alternatives.**
+**A 1-D radial index cannot cut a population at its own band once e > 0 smears the registration** — the fixes are the second axis (priced above) or an e-graded registration that bins by periapsis-class rather than the hull, not a better radial threshold (396d; 4f59: the truth is O(1) — the bail is honest work for the shipped 1-D index, which is why the local-bail fix is superseded).
 
+**On a rigid keys ring the exact read list IS the phase window at the scan's own interval (5f36, flown beside the shipped plane on the `rigidring` probe): 32 at (K = 10⁴, ρ = 1e-5) and 32 at (K = 10⁵, ρ = 1e-6), ~353 at (10⁶, ρ = 1e-6) — and the shipped ANSWER is neither empty nor law-decided but a quantization-signed residual:** 47–53% of the window on the author's rings, 19% at K = 3·10⁴, 50% at e = 0.3, swinging 15→31→12 across quarter-period decode points on a constant window (10→32→0 at e = 0.3, 18→66→12 at 3·10⁴) — the exact tier reads the window, never ~0; at larger intervals the segment read list grows past it (2.2e4/2.5e4 at intervals 2¹²/2²⁴, K = 10⁵, 32.6), candidates = 1.00·K + background, the engine's answers agreeing member-for-member with an exact integer replica of `Scan::compute`.
 
-**The observer half's "bounded near set" is measured on the game's own crowd and it is crowd-proportional:
-the radial filter bails on 100% of the plane's own coast scans (28 bodies, no formation: 87/87, the window
-at coast covers every radius from zero — reach ≈ 9·r from h = 1.1e12 doll units × speed_cap 9.76e-3, and
-the bail's numerator counts bin-entries, 1,947 mean against 71 registered, so `hit ≫ bodies/4 + 64` at
-plane scale), a fleet formation on the player's circle adds 1.00 candidates a ship (37.7 + 1.00·K:
-87.7 at 50, 1,037.9 at 1,000; capture 382 µs and one answer 4.53 ms a scan at K=1,000, 4.4 µs a
-candidate), 1,000 ships put the p99 at 52.5 ms (68/600 frames over the 12-ms budget, 23% of game time
-lost; beside the comb: 128 events a frame, 9× the spread-10³ class), and 200 ships beside a 10⁴ belt
-switch the whole universe's scans back to full walks (78/84 bailed, 9,549 binding_at a scan, 51× the
-census's 186) — the filter's on/off decided by other dolls' populations (the belt inflates `self.bodies`,
-the bail's denominator), a nonlocal coupling against PRINCIPLES 15 (20261017-0552-inversion-604c,
-inversion; coast, rtf 100, seed 1, print-only `radial::scanstat` census bit-stable across reruns,
-`prof` stages, regen.sh; at 10⁹ a 10⁶-ship fleet ≈ 0.36 s capture + 4.4 s answer a scan ≈ ~500× over
-at rtf 100, and a held scan pins candidates × 216 B).** The census's own numbers reproduce on the same
-binary at form=0 (201.1 / 199.5 candidates at 10⁴ / 10⁵, zero bails): the O(1) verdict is a property of
-the ladder's population (locals capped at 300, none in the player's band, the belt in another doll), not
-of the filter. [20261017-0739: the tier beside a 10⁵ belt is off (0 bails, 387 candidates) — the "200
-ships" crossing is population-pair-dependent, as 0552's checker measured.] [396d: the seam flight —
-the player itself inside the belt's band — is now flown; see Current best. The 0552 crossing (200 ships
-beside a belt switching the scans to walks) and the seam are the same law read from two sides: the
-registration's width defeats the 1-D filter at the population's own band.] Fixes to price: the bail's
-numerator in bodies (dedup) and its threshold local to the window's population; a phase axis for
-co-orbital crowds (taleb-09b5's rank-along-orbit invariant, the encounters gold, applied to the
-observer); the comb channel is kick-cadence's. [4f59: the phase axis is now priced at the seam — see
-Current best.]
+**The selector is sound only as the 2D capability curve C(δ, Δa) (2¹⁴ × 9 Δa-bins, one-cell/one-bin widening): 0 misses over 48 cells (e ≤ 0.5, σ_a ≤ 1e-3, h ∈ {P/10, 9}, clustered) and on 15 checker cells beyond the swept axes (h = 90 and 0.05, σ_a = 3e-3, ρ = 1e-5, σ_φ 0.005–0.05; reads/hits up to 68× at (0.5, 1e-3, h = 90))** — the 1D curve misses up to 9% of hits at e = 0.1–0.2 (near apsides the same-orbit d·w is O(δ²), so a linear-in-Δa shear flips the approaching sign), the unwidened curve 69–84%; the naive circular chord degrades to 0.8–3.0% membership error at e = 0.2–0.5 (the curve is grid-limited, not e-limited: 0.8% at 2¹⁴; build ~29 ms a ν-bin a class, amortized ~1e-3 s/s; circular formations need no curve) (5f36).
 
-Provenance (checker): the plane-scale fallback and the `bodies/4 + 64` mechanism are scan-queue's
-priors (cdf0 20261016-1120: Home's doll trips the N-relative rule exactly at the plane's flown N,
-95% of coast captures; 3999: the belt-band every-N disease) — this run's new content is the
-co-orbital formation itself (the page's named unflown direction), the 1.00/ship crowd law, the
-coast window covering every radius with a bin-entry numerator, so the bail never turns off under
-concentration (100% still at 10⁴ in-band bodies, checker — cdf0's "small-N disease" scoping
-corrected), the c439 inversion, and the frame cost. [20261017-0739 adds the per-frame channel
-decomposition and the ranking.]
+**Store-grounded price at K = 10⁶ (5f36): the window lookup is 3.2 µs (`searchsorted` on the δ-sorted class-major store, O(log K); the 19.2 ns/member figure retired; unsorted packed sweep 0.32 ms), exact reads 1.9 µs a candidate flown (3.8 µs at e = 0.1 — the flown arm `e_q48 = 2^48/10`; 4.4 µs at 604c's class), so the ρ = 1e-6 closure is 0.67 ms/scan at flown rate (1.56 ms at 604c's) against 1.9–4.4 s shipped — ~3×10³×, the observer term under one frame budget, flown end to end** (b083's "≈1×" letter, now measured).
 
-Prior best retained: **the read stream is censused on shipped code and the 10⁹ premise is corrected: the engine's
-read demand is O(1) in N on the ladder's flights — every reader's absolute count identical
-at N=1e4 and 1e5 (scan candidates 148,996 at both; totals 188,181 vs 188,227) — the player's
-scan reads a bounded near set (70.0 candidates a scan at burn, 184 at coast's wider window;
-the radial apsidal filter cuts the belt), and the only N-linear reads ride the kick cadence
-at 2.9–4.3 reads an event (state_of 0.9–1.6 + root_state_raw 1.4–1.8 + rec 0.6–0.9;
-misses 0, history hits ≤4.3%) (20261017-0428-quant-c439, `prof::reads` census behind the
-prof feature, digest-identical plain vs prof `d1822b88…`, regen.sh).** So the "~6 cores of
-pure hit-path ε (lock+clone)" never materializes as an observer demand: at 10⁹ rtf 100 the
-observer reads are ~7.7×10³/s and the event-riding reads between ~4×10³/s and ~10⁷/s
-(≤ ~1 core at the measured 67–129 ns a `binding_at`, 192 B; rec 114–167 ns, 464 B) — a
-term of the kick bill (kick-cadence's, ladder break 1), not a separate knee. The ~7×10⁶/s
-figure is the wave-window per-body extrapolation (checker2: events themselves are O(1) in
-N over 20 s windows — 16,212/16,215/16,215 at 1e4/1e5/1e6 — and grow only ~2.4× a decade
-through the wave, 65,154→155,092 events 1e4→1e5, so no per-body × 10⁹ term exists on
-these flights; checker2's wave arm at 1e5: 4.70 reads an event). 8792's b = 11.48
-reads/body/20k gs
-reconciles as the kicks' own mint-path reads (~3.9 kicks/body in that window × ~4.3), which
-an N-linear counter records when a mint counts as a read. The dwell cliff's hot set is,
-as an inference (never flown together: the census runs on main, the cliff on 8792's
-retention patch), the scan's near set (~70 bodies read at ~1.1 scans/gs at burn, 88 on
-seed 2 — checker; 144 on seed 3 at coast and 70.2 at N=1e6, O(1) a decade up — checker2;
-clustered in bursts): a pin of the near set is the proposed deletion
-of the cliff's observer half, unflown, and the set's size is realisation-dependent.
-Domain: the ladder's
-flights (player near Home / the root doll at 1 AU, seed 1, 1 thread); a flight into the
-belt at density (radial returns None, the player seam) and the page's per-frame O(N) view
-gather are outside it. [396d: the seam is inside it now — flown, see Current best.]
+**On a shared circular orbit d·w = 0 exactly (3.6e-15), so the per-member read list collapses to one compare on the stored phase offset — 2r·sin(δ/2) ≤ 2¹⁰·ρ·r, horizon-independent, 19.2 ns vectorised / ~10 ns native against the measured 4.4 µs a read (7.1 µs with capture's `binding_at`); no horizon can cut a circular formation's candidates (the coast window ≈ 9r contains the ring — 604c's 1.00·K law is structural, not a dial)**; the phase-only tier is sound for σ_a ≤ 1e-5·a (0 misses/40k at h = P/10) with a horizon-dependent onset (σ* ≈ 7.6e-5 at the coast horizon h ≈ 9, first misses at 7.6e-5, five at 1e-4; predicted 1.5·n·σ_a·h ≈ near at 1.09e-3 at h = P/10); at ρ = 1e-4 under clustering the near set is 100% of the fleet — net-negative one decade past the swept range; the near set is 37/353/3,204 per 10⁶ at ρ = 1e-7/1e-6/1e-5, ∝ 1/σ_φ to 4.1k/40.6k/391k under clustering (the standing-contact class, encounters od 1's group certificate); 99.97% of the shipped reads on a uniform fleet buy ≤ 0.001 bits (the boundary comb's no-op machine); controls: e = 0 exactness 2.2e-16, shuffled-table 47.7% disagreement; prior art first-order-only by the standing rule (Clohessy–Wiltshire/Hill, the shearing sheet), constellation phase-slot tables, taleb-09b5's rank axis (b083 + checkers).
 
-Prior best retained: the standalone mint+demote measured on the flown store — 3.7–5.3 µs
-p50 (mint = the compile: 3.7–4.7 on seam/retain/100/1000, 5.2–5.6 on the re-mint-storm arm
-dwell-17 burn 10⁵; demote = the Arc drop, 0.04–0.08), across coast and burn, four dwell
-classes and two N — the ledger's CPU half holds with ≥4.4× margin against the 23.1 µs
-4-core budget at 10⁹ rtf 100 (composed ÷8+delete = 0.78–0.85 cores; ÷8 alone = 2.0–2.2, so
-cadence alone meets the mint budget), and its 44 µs bind/refit pricing is corrected: the
-settle hands the promotion an exact key, so the promotion never refits — b29a's 21 µs
-`from_state` is the kick's own settle bill, already inside the kick Ĉ (b063). The memory
-half is coast-scoped: the dwell dial (`ES_RETAIN_DWELL`) collapses coast's standing resident
-100,819→288–329 at +1% re-mints, N-independent — but on burn it fails at 10⁹ as stated
-below (8792; 24 flights, one frozen binary, digests bit for bit; anchors regenerate
-exactly: 131,053/763,888/100,788,130,187). The re-ranking stands, sharpened: diet = 10⁶
-lever; ÷8 = the mint-budget lever; delete = the event-stream lever; burn-10⁹ memory = the
-kick cadence's mint bill plus bytes/body, no separate read-stream term.
+**At fleet scale in-phase the over-budget frames are comb-owned, not scan-owned (2e42 + checker2, per-frame prof channels closed against wall to 98.4–99.6%, both seeds): 91.7–99.7% item pipeline (kicks, boundaries, fits) against 0.6–1.0% scan at K = 200–10⁴** (K = 1,000: 97.7–98.5% comb in the 68 over frames, the six p99 frames 98.0–98.7%, worst `ev=1002` comb 43.9–65.4 ms vs scan 0.24–0.33; 3,000+10⁴ worst 137.26 ms = 1.47 scan / 134.23 comb; 10⁴ p99 452.8–463.5 ms, 98.4% comb; 2×10⁴ worst `ev=20,002` comb 923 ms, 95.1%, hwm 932 MB) — the frame's first fix is the comb's cadence (de-phase the births; kick-cadence's), the observer's phase axis second: below 69f3's latch (`S < b/2`, S ∝ K) the answers drain into quiet frames' idle room (72–95% of scan ns inside under-budget frames — 95/95 author-regen, 88 seed 3, 72 seed 5, seed/load-dependent; 3–10% of mean frame wall at K ≤ 1,000, seed 5: 2.9; answers ~3.9–4.4 ms one at a time, seed 5: 4.41; **SCAN_BACKLOG (2,048) never fires** — held_max ≤ 54 across five seeds, ≤ 71 at any K, correcting 0552's P5), above it they freeze (zero answers in flight at K ≥ 3,000) and pin 51 MB (3,000+10⁴: 71 held × 3,338 × 216 B) → 93 MB (10⁴) → 186 MB (2×10⁴: 43 × 20,039 × 216 B) — the pin ∝ K; at 10⁹ the observer fix alone buys a smooth mean on a ruined frame — the fixes are ranked, not alternatives.
+
+**The near set is crowd-proportional on the game's own crowd (604c + checkers): a fleet formation on the player's circle adds 1.00 candidates a ship (37.7 + 1.00·K: 87.7 at 50, 1,037.9 at 1,000; capture 382 µs, one answer 4.53 ms = 4.4 µs a candidate at K = 1,000), and the radial filter bails on 100% of the plane's own coast scans (28 bodies, no formation: 87/87 — the coast window covers every radius from zero, reach ≈ 9·r from h = 1.1e12 doll units × speed_cap 9.76e-3, and the bail's bin-entry numerator counts 1,947 mean against 71 registered, so hit ≫ bodies/4 + 64), and the bail never turns off under concentration (100% still at 10⁴ in-band bodies); the filter's on/off is decided by other dolls' populations** (200 ships beside a 10⁴ belt switch the whole universe's scans to full walks: 78/84 bailed, 9,549 `binding_at` a scan, 51× the census's 186; beside a 10⁵ belt: off, 0 bails, 387 candidates — population-pair-dependent) — a nonlocal coupling against PRINCIPLES 15; at K = 1,000 the p99 is 52.5 ms (68/600 frames over the 12-ms budget, 23% of game time; the comb: 128 events a frame, 9× the spread-10³ class); at 10⁹ a 10⁶-ship fleet ≈ 0.36 s capture + 4.4 s answer a scan ≈ ~500× over at rtf 100, and a held scan pins candidates × 216 B; the census's O(1) (201.1/199.5 candidates at 10⁴/10⁵, zero bails, form = 0) is a property of the ladder's population (locals capped at 300, none in the player's band), not of the filter.
+
+**The engine's read demand is O(1) in N on the ladder's flights (c439 + two checkers; domain: player near Home / the root doll at 1 AU, seed 1, 1 thread — the seam flight is inside the domain now): every reader's absolute count identical at N = 1e4 and 1e5 (scan candidates 148,996 at both; totals 188,181 vs 188,227), the player's scan reads a bounded near set (70.0 candidates a scan at burn, 184 at coast; 88 seed 2, 144 seed 3 at coast, 70.2 at N = 1e6 — O(1) a decade up, clustered in bursts), events themselves O(1) in N over 20 s (16,212/16,215/16,215 at 1e4/1e5/1e6, growing only ~2.4× a decade through the wave, 65,154→155,092; checker2's wave arm 4.70 reads an event), and the only N-linear reads ride the kick cadence at 2.9–4.3 an event (state_of 0.9–1.6 + root_state_raw 1.4–1.8 + rec 0.6–0.9; misses 0, history hits ≤ 4.3%)** — at 10⁹ rtf 100 the observer reads are ~7.7×10³/s and the event-riding reads ~4×10³–10⁷/s (≤ ~1 core at the measured 67–129 ns a `binding_at`, 192 B; rec 114–167 ns, 464 B): a term of the kick bill (kick-cadence's), not a separate knee; 8792's b = 11.48 reads/body/20k gs reconciles as the kicks' own mint-path reads (~3.9 kicks/body × ~4.3); the "~6 cores of hit-path ε" never materializes (`prof::reads` census, digest-identical plain vs prof `d1822b88…`).
+
+**Standalone mint+demote on the flown store (8792; 24 flights, one frozen binary, digests bit for bit, anchors regenerating exactly — 131,053/763,888/100,788,130,187): mint (the compile) 3.7–5.6 µs p50 (3.7–4.7 on seam/retain/100/1000, 5.2–5.6 on the re-mint-storm arm dwell-17 burn 10⁵), demote (the Arc drop) 0.04–0.08 µs, across coast and burn, four dwell classes, two N — ≥ 4.4× margin against the 23.1 µs 4-core budget at 10⁹ rtf 100 (composed ÷8+delete = 0.78–0.85 cores; ÷8 alone = 2.0–2.2, so cadence alone meets the mint budget); the settle hands the promotion an exact key, so the promotion never refits — b29a's 21 µs `from_state` is the kick's own settle bill, already inside the kick Ĉ (b063).**
+
+**The memory half is coast-scoped: the dwell dial (`ES_RETAIN_DWELL`) collapses coast's standing resident 100,819 → 288–329 at +1% re-mints, N-independent (saturating ≈ N beyond ~2000 gs: standing 115,276 ≈ N at dwell 10000, re-mints exactly 1.00× retain's), but on burn at 10⁹ it fails — the miss cliff is real (73% → 14% between dwell 17 and 100; cliff between 80 and 100 gs, miss 72–75% flat from dwell 5 through 80; seed 2 within 6%, seed 3 at 14.0% on the cliff's right side; reads linear at 2×10⁵ to 0.13%) and its owner is now named: the scan's near-set bursts plus the kick mints (the near-set clause is crowd-scoped — under a formation the set is K-sized, 604c); the ranking: diet = the 10⁶ lever (75–615× on the ladder wall; at 10⁹ it only lifts dwell* — CPU unchanged and CPU is the bind), ÷8 = the mint-budget lever, delete = the event-stream lever, burn-10⁹ memory = the cadence's mint bill plus bytes/body; the ledger's P6 cell (diet binds memory for dwell ∈ (2,808, 28,141] gs at shipped rate) is coast-only (cbc5, 8792, c439, 604c).**
 
 ## Refuted
-- **"The phase axis is the seam's fix" (this page's own od 1(b) letter, unqualified): half-right —
-  it is a resident's fix (21–24× at the flown mix, 100× on a cold belt, zero misses) and a
-  non-fix for the crosser the seam actually flies (T = 21% of the belt at 0.03 c: the window is
-  drift-bound, v·h = 1.6 AU; the binding term is the scan interval, not the candidate axis)
-  (20261020-1116-components-4f59).**
-- **"The shipped answer on a rigid keys fleet is empty" (b083's checker's idealization, and
-  b083's caveat iii read hopefully)**: flown, the answer is a residual (a scene-dependent
-  fraction of the window — 47–53% on the author's rings, 19% at K=3·10⁴, 50% at e = 0.3,
-  checker2) and the residual is not stable — 15→31→12 across quarter-period decode points on a
-  constant window of 32 (10→32→0 at e = 0.3, 18→66→12 at K=3·10⁴); the exact tier reads
-  the window, never ~0 (20261018-0722-second-…-5f36).
-- **"The per-orbit-class capability curve C(δ) + shear drift is a sound selector"** (b083's
-  e > 0 form): misses up to 9% of hits at e = 0.1–0.2, σ_a ≥ 1e-5 — the approaching conjunct's
-  window edge moves under the Δa-shear near apsides; the sound form is the 2D curve C(δ, Δa),
-  0 misses over the full sweep (20261018-0722-second-…-5f36).
-- **"The observer half is free / pin the ~70-body near set" (this page's own open direction 1, and
-  the census's c439 reading)**: on the game's own crowd the near set is crowd-proportional (1.00
-  candidates a ship), the filter bails on 100% of the plane's own scans, and at K=1,000 one answer
-  is 4.53 ms — the observer alone is ~500× over at rtf 100 for a 10⁶-ship fleet
-  (20261017-0552-inversion-604c). [20261017-0739: the observer's own bill stands, but the frame's
-  ruin is not its — the over-budget frames are 98.5% comb on both seeds; see Current best.]
-- **"The radial apsidal filter cuts the belt" (c439's letter, as a property of the filter)**: at
-  coast the window covers every radius from zero (reach ≈ 9·r); what cuts the belt is the doll
-  partition, and the filter's own viability hangs on the belt inflating the bail's denominator —
-  at plane scale it bails always (20261017-0552-inversion-604c). [396d, stronger and flown: at
-  the population's own band the filter bails on every scan for the belt's whole registered hull —
-  the e-smear, not the window's width, sets the zone (20261019-1452-spacex-396d).]
-- **"The burn read stream is an N-linear observer demand at 10⁹"** (8792's open direction 1
-  as stated, "~6 cores of hit-path ε"): on shipped main the engine's read demand is O(1) in
-  N on the ladder's flights — identical absolute counts 1e4↔1e5, 70 candidates a scan — and
-  the N-linear reads are the kicks' own (4.3 an event through the wave), i.e. the mint bill
-  the cadence owns (20261017-0428-quant-c439).
-- **"The seam's cost lands on the frame at ladder K" (396d's own pre-registered P3/P4)**: at
-  10⁴ and 3×10⁴ the walk zone's frames stay inside the 12 ms budget (answers drain into idle
-  room at p50 0.024 ms); the over frames are the root's boundary wave, and the ratchet's
-  MB/held slope is K-independent (2.23/2.07 MB) where the walk candidates differ 3× — the
-  seam is a these-rungs per-item tax (167–214 ns × N per player item) and a 10⁶-frame
-  extrapolation must price the answer channel (~4.4 µs × N), not the observed frames
-  (20261019-1452-spacex-396d).
-- **"The smallest promotion is a byte question"** (the board's framing under nladder):
-  bytes only buy dwell headroom; the binding terms are dwell (memory) and mint cost
-  (CPU) (20261016-2327-library-cbc5).
-- **"The record diet moves 10⁹"**: it moves the 10⁶ ladder wall (its 75–615× is real
-  there); at 10⁹ the diet only lifts dwell* — CPU is unchanged, and CPU is the bind
-  (20261016-2327-library-cbc5).
-- **"Mint+demote = 84% of kick cost (44 µs)"** — the ledger's pricing: the promotion on
-  the flown store never refits (the settle's key is exact), so mint+demote = compile + Arc
-  drop = 3.7–5.3 µs measured; the refit is inside the kick bill, and pricing it again
-  on the promotion side double-counts (20261017-0005-…-8792).
-- **"Dwell is the memory dial at 10⁹"** as stated: coast-true, burn-false — the miss cliff
-  (73%→14% between dwell 17 and 100) is real but its owner is now named: the scan's ~70-body
-  near set read in bursts (the observer half) plus the kick mints (the cadence half); with
-  the near set pinned, what's left of the cliff is the cadence's
-  (20261017-0005-…-8792; c439). [20261017-0552: the "near set pinned" clause is
-  crowd-scoped — under a formation the set is K-sized, not 70.]
-- **"A phase/along-orbit axis makes fleet scenes cheap for the scan" (this page's od 1b,
-  the candidate-side reading): measured wrong at coast and unnecessary — the window
-  contains the ring and the radial representation is degenerate on it (candidates =
-  1.00·K at every horizon for circular formations; eccentric rings are cut only at
-  burn-class windows, 0.15% at e = 0.5); the cheap answer is the offset compare, not a
-  shorter candidate list (20261018-0431-scout-b083).**
-- **"The observer's crowd bill needs a new index" (any candidate-side structure): the
-  shipped predicate's own geometry (d ⊥ w on a shared circular orbit) already carries the
-  read list per member in one compare on the stored phase word (the answer adds the
-  approaching conjunct d·w < 0 — empty on a rigid ring, checker); the index is the store's
-  existing class-major layout (calendar od 3) (20261018-0431-scout-b083).**
+
+- **"The phase axis is the seam's fix," unqualified (this page's od 1(b) letter):** half-right — a resident's fix (21–24× at the flown mix, 100× cold, 0 misses) and a non-fix for the crosser the seam flies (T = 21% of the belt at 0.03 c, drift-bound v·h = 1.6 AU; the lever is the interval h) (4f59).
+- **"The shipped answer on a rigid keys fleet is empty" (b083's checker's idealization, and b083's caveat iii read hopefully):** flown, the answer is a quantization-signed residual (47–53% author rings, 19% at 3·10⁴, 50% at e = 0.3), unstable across decode points (15→31→12); the exact tier reads the window, never ~0 (5f36).
+- **"C(δ) + shear drift is a sound selector" (b083's e > 0 form):** the 1D curve misses up to 9% of hits at e = 0.1–0.2; the sound form is the 2D curve C(δ, Δa), 0 misses over the full sweep (5f36).
+- **"The window lookup is 19.2 ns a member" (b083's sweep figure):** retired — at K = 10⁶ the lookup is `searchsorted` on the δ-sorted store, 3.2 µs, O(log K) (the 19.2 ns compare itself stands, above) (5f36).
+- **"The observer half is free / pin the ~70-body near set" (this page's old od 1, and c439's reading):** on the game's own crowd the set is crowd-proportional (1.00 a ship), the filter bails on 100% of the plane's scans, one answer 4.53 ms — the observer alone ~500× over at rtf 100 for a 10⁶ fleet (604c; 2e42: the observer's own bill stands, but the frame's ruin is the comb's).
+- **"The radial apsidal filter cuts the belt" (c439's letter, as a property of the filter):** what cuts the belt is the doll partition; at plane scale the filter bails always, and at the population's own band it bails on every scan for the belt's whole registered hull — the e-smear, not the window's width, sets the zone (604c; 396d).
+- **"The burn read stream is an N-linear observer demand at 10⁹" (8792's od 1, "~6 cores of hit-path ε"):** on shipped main the read demand is O(1) in N on the ladder's flights (identical absolute counts 1e4↔1e5); the N-linear reads are the kicks' own mint-path reads (c439).
+- **"The seam's cost lands on the frame at ladder K" (396d's pre-registered P3/P4):** at 10⁴–3×10⁴ the seam is a per-item tax (167–214 ns × N a player item) draining into idle frames, and a 10⁶ extrapolation must price the answer channel (~4.4 µs × N), not the observed frames; at 10⁵ the seam does own over frames as scoped (396d + checker).
+- **"The smallest promotion is a byte question" (the board's framing under nladder):** bytes only buy dwell headroom; the binding terms are dwell (memory) and mint cost (CPU) (cbc5).
+- **"The record diet moves 10⁹":** it moves the 10⁶ ladder wall (its 75–615× is real there); at 10⁹ the diet only lifts dwell* — CPU is unchanged, and CPU is the bind (cbc5).
+- **"Mint+demote = 84% of kick cost (44 µs)" (the ledger's pricing):** the promotion on the flown store never refits (the settle's key is exact), so mint+demote = compile + Arc drop = 3.7–5.3 µs; the refit is inside the kick bill — pricing it again on the promotion side double-counts (8792).
+- **"Dwell is the memory dial at 10⁹," as stated:** coast-true, burn-false — the cliff's owner is the scan's near-set bursts plus the kick mints, and the "near set pinned" clause is crowd-scoped (8792; c439; 604c).
+- **"A phase/along-orbit axis makes fleet scenes cheap for the scan" (the candidate-side reading of od 1b):** wrong at coast and unnecessary — the window contains the ring and the radial representation is degenerate on it (candidates = 1.00·K at every horizon for circular formations; eccentric rings cut only at burn-class windows, 0.15% at e = 0.5); the cheap answer is the offset compare, not a shorter candidate list (b083).
+- **"The observer's crowd bill needs a new index" (any candidate-side structure):** the shipped predicate's own geometry (d ⊥ w on a shared circular orbit) carries the read list in one compare on the stored phase word (the answer adds the approaching conjunct d·w < 0); the index is the store's existing class-major layout (b083).
 
 ## Open directions
-1. **The scan's representation under concentration** (this run's handback): price (a) the bail made
-   local (numerator in bodies — dedup the bin-entries — and threshold against the window's own
-   population, not the universe's `bodies/4`), and (b) a phase/along-orbit axis for co-orbital
-   crowds (taleb-09b5's invariant on the observer's side), which is the only representation that
-   makes fleet scenes cheap for the scan; measure both against this run's matrix (regen.sh). The
-   old "pin the near set" is refuted above; the player-seam flight (into the belt at density,
-   radial None) stays unflown. [20261017-0739 ranks it: the phase axis is the observer's own bill
-   (mean share ~10% at K ≤ 1,000, the pin 51-93 MB above the latch), second to the comb's cadence
-   for the frame's tail.] [396d: the seam is flown — see Current best; the flight prices (a) as
-   insufficient at the band (the hull's bin-entries are ~N at ANY local threshold once e smears
-   the registration: the zone's bail is honest work for a 1-D index, and the fix is (b), the
-   phase compare, or an e-graded registration that bins by periapsis-class rather than the hull).
-   Unflown now: the seam's answer channel at 10⁵-10⁶ (frame ruin by arithmetic, ~4.4 µs × N a
-   scan), and the seam under a cold (e ≈ 0) population, where the zone should collapse to the
-   band.] [4f59: (b) is now PRICED — sound (0 misses, engine + every checker arm), 21–24×
-   resident, 100× cold, crosser-bounded by h; the local bail (a) is superseded (the second axis
-   answers what the bail approximated); the cold arm is flown (the zone collapses to ω); the
-   formation arm is flown (a 10⁴ crowd on the scanner's orbit is kept whole, 0 misses, linear —
-   no pairwise-tier ruin at the observer); the Δt > 0 standing-index anchor is flown offline
-   (checker2: sound to Δt = 0.25 P with the stored n, unsound by 0.05 P without it — the n term
-   is required); remaining: the note-time anchor cost (one readout + inverse-Kepler per binding
-   change, the mean-longitude anchor halving the 2c widening), the answer channel at 10⁵–10⁶
-   downstream of the filter (|F| exact `hit` tests — now the priced-next question), and the
-   interval-h lever for crossers (a shorter scan interval shrinks the window linearly).]
-2. The comb channel of the formation scene (1,000 ships at one period: 128 events a frame, p99
-   52.5 ms) is kick-cadence's page, not this one; the formation matrix is the ready instrument.
-   [20261017-0739: the comb owns the over-budget frames (91.7-99.7% at K = 200-10⁴, and 95.1% at
-   2×10⁴ — checker2) — the cadence fix (de-phased births) is the frame's first; the interaction
-   (de-phased waves moving work into the quiet frames where the answers drain) is unmeasured.
-   Checker2: rtf 25 does not de-phase the wave — the worst frame still resolves all ev=1002 in
-   one frame (comb 54.1 ms) and only the over count drops (68→21), so the de-phasing must come
-   from the births'/cadence phase, not from the time knob.]
-3. Cliff position, seed stability and N-linearity are flown (checkers: cliff between 80
-and 100 gs with miss 72–75% flat from dwell 5 through 80; seed 2 within 6% and seed 3 at
-14.0% on the cliff's right side, digest-identical to its own ctl; reads linear at 2×10⁵
-to 0.13%). The coast dial saturates at ~N beyond ~2000 gs (dwell 10000: standing
-115,276 ≈ N, re-mints exactly 1.00× retain's — checker2). Remaining: the formation scene's
-dwell behaviour (the burst scale the cliff hangs on is now measured crowd-proportional, so
-the cliff's observer half is a fleet term — unflown together) and the sub-frame dwell class.
-4. ES_SECULAR's promotion-skip coverage (1a46) prices the event stream only — its effect
-   on the read stream is unmeasured.
-5. The stagger's recurrence gate (≥3 intervals, the unprinted second spell,
-   9e75-checker2) before idle-time compute-ahead is considered at all.
+
+1. **The seam's answer channel at 10⁵–10⁶, downstream of |F|** (4f59's priced-next): exact `hit` tests on the filtered set at 604c's 4.4 µs class — frame ruin by arithmetic at 10⁶ (~4 s a scan); moves the live-set/families rows (the ~500× observer overage at a 10⁶ fleet).
+2. **The interval-h lever for crossers** (4f59): a shorter scan interval shrinks the drift window linearly (T dies linearly in v·h) — the only crosser lever; same rows at the seam.
+3. **The comb's de-phased births** (2e42; kick-cadence's row, ~10³ at stake): the comb owns 91.7–99.7% of the frame tail, and de-phasing must come from the births'/cadence phase, not the time knob (rtf 25 does not de-phase the wave: worst frame still 54.1 ms, only the over count drops 68→21); the interaction (de-phased waves moving work into the quiet frames where answers drain) is unmeasured.
+4. **The note-time anchor cost** (4f59): one readout + inverse-Kepler a binding change, the mean-longitude anchor halving the 2c widening — tightens F where the e-bulk binds (42–49% hot); families row.
+5. **e-graded registration** (396d): bin by periapsis-class rather than the `[rmin, rmax]` hull — the 1-D alternative to the second axis; the local-bail variant is superseded (4f59).
+6. **The formation scene's dwell behaviour** (8792's od 3): the cliff's observer half is now a fleet term (the burst scale is crowd-proportional) and near-set × dwell is unflown together; plus the sub-frame dwell class; live-set row (~10²–10³).
+7. **ES_SECULAR's promotion-skip on the read stream** (1a46): its event-stream price is flown, its read-stream effect unmeasured; per-body-state row.
+8. **The stagger's recurrence gate** (≥ 3 intervals, the unprinted second spell, 9e75-checker2) before idle-time compute-ahead is considered at all.
 
 ## Contradictions
-Resolved by 8792: 0619's burn knee vs the ledger's λ×dwell identity (different
-instruments; the standing resident is burst-structured, not λ×dwell). Reconciled by c439:
-8792's b = 11.48 reads/body/20k gs is the mint-path reads riding ~3.9 kicks/body, not
-observer re-reads — their N-linearity and the census's O(1) observers measure the same
-flight's two halves. Standing watch: the ledger's P6 cell (diet at shipped rate binds
-memory for dwell ∈ (2,808, 28,141] gs) is coast-only. New, named: c439's "70 candidates a
-scan" and this run's "crowd-proportional, bail always at plane scale" measure the same
-filter on different populations — reconciled above (the cap and the belt's denominator), no
-live conflict. Resolved by 20261017-0739: 0552's P5 mechanism (a 4.5-ms answer forced into a
-frame by SCAN_BACKLOG) against the measurement — SCAN_BACKLOG never fires (held_max ≤ 71
-of 2,048); below 69f3's latch the answers drain into quiet frames' idle room, above it they
-freeze and pin. The frame's over-budget tail is comb-owned on both seeds. New (396d), carried
-as a domain note, not a conflict: 0552's "200 ships beside a 10⁴ belt switch the scans to
-full walks" and 396d's "no over frames from the seam's own walks at 10⁴-3×10⁴" measure
-different channels of the same bail (0552: the candidate/answer bill in a formation's tight
-frames; 396d: the capture bill in a burn's idle-rich frames) — the bail's cost is
-frame-context-dependent, the bail itself is not. (4f59 adds none: its T = 1 at flyable N and
-396d's "the zone is honest work for a 1-D index" agree — the bail is honest work for the
-SHIPPED 1-D index; the truth it approximates is O(1).)
+
+None standing. Resolved along the way: 0619's burn knee vs the ledger's λ×dwell identity (8792 — different instruments; the standing resident is burst-structured); 8792's b = 11.48 vs the census's O(1) (c439 — the same flight's two halves: mint-path vs observer); 0552's SCAN_BACKLOG mechanism (2e42 — it never fires; answers drain below the latch, freeze and pin above it); 0552's "200 ships switch the scans to walks" vs 396d's "no over frames from the seam" (same bail, different channels and frame contexts — the bail itself is not in conflict); 4f59's T = 1 vs 396d's "the zone is honest work for a 1-D index" (the bail is honest work for the shipped index; the truth it approximates is O(1)). Standing watch, a domain note rather than a conflict: the ledger's P6 diet-binding window is coast-only.
 
 ## Runs
 - 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger):
@@ -405,3 +90,19 @@ SHIPPED 1-D index; the truth it approximates is O(1).)
 - 20261018-0722-second-20261018-0431-scout-b083-5f36 (second author): the tier
 - 20261019-1452-spacex-396d (spacex, awaiting grade): the player-seam flown — walks = N over the
 - 20261020-1116-components-4f59 (components, awaiting grade): the phase axis priced — sound (0 misses, N = 10⁴/10⁵
+- 20261014-0450-scout-b29a (silver, prior art on nladder, uncited by the ledger): the smallest promotion's `from_state` = 21 µs — the kick's own settle bill, not the promotion's.
+- 20261015-0250-scout-760f (silver, prior art, uncited): promotion = one 4.6 µs compile, bit-identical.
+- 20261015-1926-quant-c4d3 (gold, prior art, uncited): shipped `add_body` promotion path 9.2 µs p50, flat.
+- 20261015-1338-quant-1d52 … 0757, 20261015-1615-quant-0619 (prior art, uncited): demotion/retention built.
+- 20261016-2327-library-cbc5 (silver): the promotion ledger — dwell is the memory dial, mint cost the CPU bind; diet moves 10⁶ only.
+- 20261017-0005-second-20261016-2327-library-cbc5-8792 (second author): 24 flights; the promotion never refits; burn-10⁹ memory = mint bill + bytes/body.
+- 20261017-0428-quant-c439 (this run): the read census — read demand O(1) in N on the ladder's flights; the N-linear reads are the kicks'.
+- 20261017-0552-inversion-604c (this run): the formation scene flown — the filter bails 100% at plane scale, the crowd 1.00 a ship, p99 52.5 ms.
+- 20261017-0739-second-20261017-0552-inversion-604c-2e42 (this run, second author): per-frame channels — the over frames comb-owned 91.7–99.7%; answers drain or freeze at the latch.
+- 20261018-0431-scout-b083 (scout, silver): the phase axis on the answer tier — one compare on the stored phase word; no horizon cuts a ring.
+- 20261018-0722-second-20261018-0431-scout-b083-5f36 (second author): the tier re-derived on `law::hit` — the answer is a quantization-signed residual; the 2D curve is required.
+- 20261019-1452-spacex-396d (spacex, silver): the player seam flown — in-band scans walk the whole universe at 167–214 ns a body.
+- 20261020-1116-components-4f59 (components, gold): the phase axis priced — sound, 0 misses, 21–24× resident, 100× cold, crosser h-bound.
+- 20261021-0142-q-compile-promotion-e094 (compile, awaiting grade): the page compiled under budget — 13 current-best lines, 14 refuted, every sampled number kept or behind its run.
+- 20261021-0142-q-compile-promotion-e094 (compile, silver): the page compiled under budget — 13 current-best lines, 14 refuted, every sampled number kept or behind its run.
+- 20261021-0213-second-20261021-0142-q-compile-promotion-e094-b327 (second author): the named experiment done — id-aware publisher patch (pending adoption), this page re-presented 32→14 run lines, 0 dups.

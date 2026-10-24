@@ -84,6 +84,9 @@ def index():
         h = header(text)
         runs = len(re.findall(r"^- \d{8}-\d{4}-", text, re.M))
         conflict = " **conflict to resolve**" if "<<<<<<<" in text else ""
+        best_lines = len([l for l in split_runs(text)[0].split("## Current best", 1)[-1].split("\n## ", 1)[0].splitlines() if l.strip()])
+        if best_lines > 15 or len(text.splitlines()) > 300:
+            conflict += f" **over budget ({len(text.splitlines())} lines, current best {best_lines})**"
         rows.append((certificate(h), name, runs, summary(text), conflict))
     out = ["# Lab wiki: index", "",
            "Written by `lab/wiki.py index` after every publish; never edited by hand. Open and reopened topics take new runs;",
