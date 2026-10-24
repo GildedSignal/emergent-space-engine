@@ -43,6 +43,10 @@ pub trait Encounters: Send + Sync {
 /// is given (the bodies' histories may have moved on, been pruned, or the bodies died since).
 pub trait Held: Send + Sync {
     fn answer(&self) -> Vec<Encounter>;
+    /// Bodies the scan holds a binding of (a measure of what it keeps alive).
+    fn held(&self) -> usize {
+        0
+    }
 }
 
 /// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
@@ -122,6 +126,9 @@ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
 impl Held for Scan {
     fn answer(&self) -> Vec<Encounter> {
         self.found.get_or_init(|| self.compute()).clone()
+    }
+    fn held(&self) -> usize {
+        self.candidates.len()
     }
 }
 

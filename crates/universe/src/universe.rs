@@ -38,12 +38,13 @@ use crate::fleet::{Fleet, Leaver};
 use crate::num::{Error, Res, Tick};
 use crate::step::{self, Resolved, Update};
 use crate::world::{DollRec, Mass, Unit};
+use crate::calendar::{heap_bytes, Prunable, Queue, Ticks, Wheel};
 use emergent_space::{
     binding::Trajectory,
-    events::Calendar,
     orbit::{Orbit, OrbitKey, Scalar},
     Tube,
 };
+use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
@@ -206,17 +207,20 @@ pub struct Universe {
     bodies: Box<dyn BodyStore>,
     cat: Catalogue,
     pub fleets: Vec<Fleet>,
-    queue: Option<Calendar>,
-    /// Every ship's next tick (its slot is the body id, its key the tick: the order is `(tick, id)`), whatever its place in the queue:
-    /// the minimum is the ship the player's scan must wait for ([`Universe::pull_ships`]), and the ships due by the target are the ones
-    /// the queue holds ([`Universe::requeue`]). Kept by [`Universe::apply`], the one place a body's plan changes.
-    ship_ticks: Calendar,
-    /// The same, for the ships of a planet's doll only (not the root's): the ones the player's scan must wait for when the player is in a
-    /// planet's doll ([`Universe::pull_ships`]). Kept by [`Universe::apply`].
-    child_ticks: Calendar,
-    /// The ships that are not in the queue (their next tick is after the target), keyed by that tick: [`Universe::rekey`] moves the
-    /// ones the target reaches into the queue, once ([`Universe::requeue`] keeps every ship in exactly one of the two).
-    waiting: Calendar,
+    /// What a frame may resolve, by deadline ([`crate::calendar::Queue`]): the planets, the moons, the player, the fleets, the next
+    /// hand-out, and the ships the target reaches. None until the universe starts.
+    queue: Option<Queue>,
+    /// The ships' calendar ([`crate::calendar::Wheel`]): every ship whose next tick is after what it has handed out
+    /// (`wheel.drained()`), filed by the class its own next tick puts it in. [`Universe::rekey`] hands out the ones the target reaches.
+    wheel: Wheel,
+    /// The ships the calendar handed out and not resolved yet, by `(tick, id)`: those of the root doll (0) and those of a planet's
+    /// doll (1). The minimum is the ship the player's scan must wait for ([`Universe::pull_ships`]). Lazy: an entry holds while the
+    /// ship's next tick is its tick.
+    due: [Ticks; 2],
+    /// Of them, those whose tick is after the target (the player's own pull can hand out past it): queued when the target reaches them.
+    parked: Ticks,
+    /// What the calendar handed out last (reused).
+    out: Vec<usize>,
     /// How far the observer has moved since the start (root units, rounded up at each frame): the queue's keys are a deadline plus the
     /// `moved` of when it was computed, so `key - moved` is never later than the deadline the present observer gives (a light distance
     /// changes by at most the observer's displacement), and an entry need not be re-keyed when the observer moves.
@@ -226,13 +230,11 @@ pub struct Universe {
     radial: crate::radial::Radial,
     /// The bodies whose history holds more than one retired binding (the only ones [`Universe::prune`] can shorten), keyed by the
     /// earliest tick it could: the end of the oldest one plus what is kept behind the present (twice the light distance, and a margin).
-    prunable: Calendar,
+    prunable: Prunable,
     /// The presented time of the last frame, and the position of the player used for deadlines.
     pub now: Tick,
     player: Option<usize>,
     observer: [f64; 2],
-    /// Cached positions in root units (for deadlines only; never an outcome).
-    pos: Vec<[f64; 2]>,
     pub stats: Stats,
     pub inputs: Vec<(Tick, u8)>,
     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
@@ -295,17 +297,17 @@ impl Universe {
             cat: Catalogue::default(),
             fleets: Vec::new(),
             queue: None,
-            ship_ticks: Calendar::new(0),
-            child_ticks: Calendar::new(0),
-            waiting: Calendar::new(0),
+            wheel: Wheel::new(0, 0, 0, 0),
+            due: Default::default(),
+            parked: Ticks::new(),
+            out: Vec::new(),
             moved: 0,
             observed: false,
             radial: crate::radial::Radial::default(),
-            prunable: Calendar::new(0),
+            prunable: Prunable::default(),
             now: 0,
             player: None,
             observer: [0.0; 2],
-            pos: Vec::new(),
             stats: Stats::default(),
             inputs: Vec::new(),
             handouts: VecDeque::new(),
@@ -337,13 +339,20 @@ impl Universe {
         self.grid.as_deref()
     }
 
-    /// Bytes the schedule holds for the bodies, by allocation: the five calendars (each a slot index and a heap reserved for
-    /// every entity) and the deadline position cache.
+    /// Bytes the schedule holds, by allocation: the calendar (a link a ship, the classes' cursors, the front), the hot set's heaps
+    /// (the due ships, the parked ones, the deadline queue, the bodies whose history can be shortened) and one bit a body.
     pub fn schedule_bytes(&self) -> usize {
-        let slots = self.body_cap + self.fleets.len();
-        let cal = slots * (std::mem::size_of::<u32>() + std::mem::size_of::<(Scalar, u32)>());
-        let queue = if self.queue.is_some() { cal } else { 0 };
-        queue + 4 * cal + self.pos.capacity() * std::mem::size_of::<[f64; 2]>()
+        self.wheel.bytes()
+            + self.due.iter().map(heap_bytes).sum::<usize>()
+            + heap_bytes(&self.parked)
+            + self.out.capacity() * std::mem::size_of::<usize>()
+            + self.queue.as_ref().map_or(0, Queue::bytes)
+            + self.prunable.bytes()
+    }
+
+    /// The hot set now: ships handed out and not resolved, in the calendar's front, and entities queued.
+    pub fn hot(&self) -> (usize, usize, usize) {
+        (self.due.iter().map(|h| h.len()).sum(), self.wheel.front_len(), self.queue.as_ref().map_or(0, Queue::len))
     }
 
 
@@ -365,6 +374,19 @@ impl Universe {
     /// Scans the player's items took that idle time has not answered yet ([`Universe::digest`] counts them as answered).
     pub fn held_scans(&self) -> usize {
         self.scans.len()
+    }
+    /// The bindings the held scans keep (a scan reused by the next one is counted once), and their bytes.
+    pub fn held_scan_bindings(&self) -> (usize, usize) {
+        let mut seen: Vec<*const ()> = Vec::new();
+        let mut n = 0;
+        for s in &self.scans {
+            let p = Arc::as_ptr(s) as *const ();
+            if !seen.contains(&p) {
+                seen.push(p);
+                n += s.held();
+            }
+        }
+        (n, n * std::mem::size_of::<(usize, Binding, Scalar)>())
     }
     /// Answer every held scan now (what the count, the log and the hash read once nothing is held; `settle` does it too).
     pub fn flush_scans(&mut self) {
@@ -543,19 +565,27 @@ impl Universe {
     pub fn start(&mut self) -> Res<()> {
         let n = self.bodies.len();
         self.lanes = Lanes { planets: self.kinds(Kind::Planet), moons: self.kinds(Kind::Moon) };
-        self.pos = vec![[0.0; 2]; n];
         self.body_cap = n + self.fleets.iter().map(|f| f.n_members).sum::<usize>();
-        self.ship_ticks = Calendar::new(self.body_cap + self.fleets.len());
-        self.child_ticks = Calendar::new(self.body_cap + self.fleets.len());
-        self.waiting = Calendar::new(self.body_cap + self.fleets.len());
-        self.prunable = Calendar::new(self.body_cap + self.fleets.len());
+        let slots = self.body_cap + self.fleets.len();
+        self.prunable = Prunable::new(slots);
         for i in 0..n {
             let rec = self.bodies.rec(i);
             let upd = step::replan(&self.ctx(), i, rec, 0);
             self.apply(i, upd);
         }
-        self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
-        // Every ship waits for the target to reach its tick (none is due at the start).
+        // The calendar's classes: a ring of them (one class for every four ships or so, at most 2^16) over the ships' median step, so
+        // that a ship's next item is mostly within one lap. A schedule only: no choice here reaches an outcome.
+        let mut steps: Vec<i64> = (0..n).filter(|&i| self.info[i].kind == Kind::Ship).map(|i| self.bodies.step(i)).filter(|&s| s > 0).collect();
+        let ring_log2 = (usize::BITS - steps.len().max(1).leading_zeros()).saturating_sub(2).clamp(6, 16);
+        let span = if steps.is_empty() {
+            1 << 24
+        } else {
+            let m = steps.len() / 2;
+            *steps.select_nth_unstable(m).1
+        };
+        self.wheel = Wheel::new(slots, 0, Wheel::shift_for(span, ring_log2), ring_log2);
+        self.queue = Some(Queue::default());
+        // Every ship waits in the calendar for the target to reach its tick.
         for i in 0..n {
             if self.info[i].kind == Kind::Ship {
                 self.requeue(i);
@@ -620,11 +650,23 @@ impl Universe {
         } else {
             match self.entity_fleet(e) {
                 Some(f) if e >= self.bodies.len() => self.fleets[f].root_position(),
-                _ => self.pos[e],
+                _ => self.position(e),
             }
         };
         let (dx, dy) = (p[0] - self.observer[0], p[1] - self.observer[1]);
         (dx * dx + dy * dy).sqrt().min(4e18) as Tick
+    }
+
+    /// Where body `i` is in root units at its binding's event, for its deadline (a scheduling heuristic only, never an outcome):
+    /// the walk of its doll chain at that tick, or, if a centre's history no longer reaches back to it, where its doll's centre is.
+    fn position(&self, i: usize) -> [f64; 2] {
+        let t0 = crate::prof::t();
+        let p = match crate::observe::root_state_raw(&self.ctx(), i, self.bodies.event_time(i)) {
+            Ok((p, _)) => p,
+            Err(_) => self.dolls[self.bodies.doll(i) as usize].centre.map_or([0.0; 2], |c| self.position(c)),
+        };
+        crate::prof::add(crate::prof::ROOT, t0);
+        p
     }
 
     /// The deadline of an entity's next item: when its light reaches the player.
@@ -633,32 +675,83 @@ impl Universe {
     }
 
     /// Put entity `e` in the queue at its deadline (its key is the deadline plus `moved`: see [`Universe::moved`]). **A ship whose next
-    /// item is after the frame's target is not in the queue** but `waiting`, by its tick: the queue holds what can be resolved now, in
-    /// the order of its deadlines (when its light reaches the player), and a ship that nothing is due for costs nothing a frame (it was
-    /// popped, set aside and put back every frame before: N pops and N sets a frame, whatever happened). The presentable horizon cannot
-    /// depend on it: its deadline is its tick plus its distance, after the target. It enters the queue when the target reaches its tick
-    /// ([`Universe::rekey`]) or when its own item gives it a tick the target already covers.
+    /// item is after the frame's target is not in the queue** but in the calendar ([`crate::calendar::Wheel`]), by its tick: the queue
+    /// holds what can be resolved now, in the order of its deadlines (when its light reaches the player), and a ship that nothing is due
+    /// for costs nothing a frame. The presentable horizon cannot depend on it: its deadline is its tick plus its distance, after the
+    /// target. It enters the queue when the target reaches its tick ([`Universe::rekey`]) or when its own item gives it a tick the
+    /// calendar has already handed out.
     fn requeue(&mut self, e: usize) {
         let t0 = crate::prof::t();
-        let ship = e < self.bodies.len() && self.info[e].kind == Kind::Ship;
-        let key = self.key_of(e);
-        let (queued, waiting) = if ship && key.is_some_and(|k| k.0 > self.target) {
-            (None, key.map(|k| k.0))
+        if e < self.bodies.len() && self.info[e].kind == Kind::Ship {
+            match self.bodies.next_time(e) {
+                Some(t) if t > self.wheel.drained() => {
+                    if let Some(q) = self.queue.as_mut() {
+                        q.set(e, None);
+                    }
+                    self.wheel.file(e, t);
+                }
+                Some(t) => self.hand_out(e, t),
+                None => {
+                    if let Some(q) = self.queue.as_mut() {
+                        q.set(e, None);
+                    }
+                }
+            }
         } else {
-            (self.deadline_of(e).map(|d| d.saturating_add(self.moved)), None)
-        };
-        if let Some(q) = self.queue.as_mut() {
-            let _ = q.set(e, queued.map(Scalar::integer));
-        }
-        if ship {
-            let _ = self.waiting.set(e, waiting.map(Scalar::integer));
+            let key = self.deadline_of(e).map(|d| d.saturating_add(self.moved));
+            if let Some(q) = self.queue.as_mut() {
+                q.set(e, key);
+            }
         }
         crate::prof::add(crate::prof::REQUEUE, t0);
     }
 
+    /// Ship `i`, due at `t` (a tick the calendar has handed out): among the due ships, and queued if the target reaches it (parked
+    /// until it does if not).
+    fn hand_out(&mut self, i: usize, t: Tick) {
+        self.due[(self.bodies.doll(i) != 0) as usize].push(Reverse((t, i as u32)));
+        let key = if t <= self.target {
+            self.deadline_of(i).map(|d| d.saturating_add(self.moved))
+        } else {
+            self.parked.push(Reverse((t, i as u32)));
+            None
+        };
+        if let Some(q) = self.queue.as_mut() {
+            q.set(i, key);
+        }
+    }
+
+    /// Hand out every ship of the calendar whose tick is at or before `to`.
+    fn drain_ships(&mut self, to: Tick) {
+        let mut out = std::mem::take(&mut self.out);
+        {
+            let bodies = &*self.bodies;
+            self.wheel.drain(to, |i| bodies.next_time(i), &mut out);
+        }
+        for &i in &out {
+            if let Some(t) = self.bodies.next_time(i) {
+                self.hand_out(i, t);
+            }
+        }
+        out.clear();
+        self.out = out;
+    }
+
+    /// The first current entry among the due ships of the root doll (0) or of a planet's doll (1); stale entries are dropped.
+    fn due_top(&mut self, c: usize) -> Option<(Tick, usize)> {
+        while let Some(&Reverse((t, i))) = self.due[c].peek() {
+            let i = i as usize;
+            if self.bodies.next_time(i) == Some(t) && (self.bodies.doll(i) != 0) as usize == c && !self.wheel.holds(i) {
+                return Some((t, i));
+            }
+            self.due[c].pop();
+        }
+        None
+    }
+
     /// The deadline a queue key stands for: never later than the one the present observer gives.
-    fn deadline_of_key(&self, key: Scalar) -> Tick {
-        (key.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick).saturating_sub(self.moved)
+    fn deadline_of_key(&self, key: Tick) -> Tick {
+        key.saturating_sub(self.moved)
     }
 
     /// Recompute the deadline of the few that are always queued from the player's present position (a scheduling heuristic only): the
@@ -687,11 +780,20 @@ impl Universe {
         if let Some(p) = self.player {
             self.requeue(p);
         }
-        while let Some((t, i)) = self.waiting.peek() {
-            if t.fixed(0).unwrap_or(i128::MAX) > self.target as i128 {
+        // The ships the target reaches: handed out by the calendar, and the parked ones.
+        self.drain_ships(self.target);
+        while let Some(&Reverse((t, i))) = self.parked.peek() {
+            if t > self.target {
                 break;
             }
-            self.requeue(i);
+            self.parked.pop();
+            let i = i as usize;
+            if self.bodies.next_time(i) == Some(t) && !self.wheel.holds(i) {
+                let key = self.deadline_of(i).map(|d| d.saturating_add(self.moved));
+                if let Some(q) = self.queue.as_mut() {
+                    q.set(i, key);
+                }
+            }
         }
         for f in 0..self.fleets.len() {
             self.requeue(self.fleet_entity(f));
@@ -723,7 +825,6 @@ impl Universe {
             Resolved::Refused => self.stats.refused += 1,
         }
         self.resolved += 1;
-        let t = upd.rec.b.event_time;
         self.radial.note(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), &upd.rec.b);
         // The step is chosen at a root ship's kick and at the boundary of a ship of a planet's doll.
         let chosen = if upd.rec.ext.is_some() { upd.kind == Resolved::Kick } else { upd.kind == Resolved::Boundary };
@@ -755,22 +856,6 @@ impl Universe {
             }
         }
         self.bodies.put(i, upd.rec);
-        if self.info[i].kind == Kind::Ship {
-            let next = self.bodies.next_time(i);
-            let _ = self.ship_ticks.set(i, next.map(Scalar::integer));
-            let child = next.filter(|_| self.bodies.doll(i) != 0);
-            let _ = self.child_ticks.set(i, child.map(Scalar::integer));
-        }
-        // The position cache is read by `light_distance` and nothing else, and the player's light distance is zero by
-        // definition (`rekey` reads the observer from the player's own state): its walk of the doll chain, the dearest
-        // thing `apply` did after a player item, bought nothing.
-        if Some(i) != self.player {
-            let t_walk = crate::prof::t();
-            if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
-                self.pos[i] = p;
-            }
-            crate::prof::add(crate::prof::ROOT, t_walk);
-        }
         if retired {
             self.key_prune(i, Tick::MIN);
         }
@@ -781,17 +866,25 @@ impl Universe {
         ids.iter().filter_map(|&i| self.key_of(i)).min()
     }
 
-    /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
-    /// with `children_only`, the items of the ships of a planet's doll only.
+    /// Resolve every ship item with a key below `key`, in key order (the calendar hands out every ship up to the key's tick first; the
+    /// due ships' minimum is the first entry of their heaps: no walk over the ships); with `children_only`, the items of the ships of
+    /// a planet's doll only.
     fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
+        self.drain_ships(key.0);
         loop {
-            let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
-            let Some((t, i)) = ticks.peek() else { break };
-            if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {
+            let root = if children_only { None } else { self.due_top(0) };
+            let first = match (root, self.due_top(1)) {
+                (Some(a), Some(b)) => a.min(b),
+                (a, b) => match a.or(b) {
+                    Some(k) => k,
+                    None => break,
+                },
+            };
+            if first >= key {
                 break;
             }
-            self.resolve_body(i);
-            self.requeue(i);
+            self.resolve_body(first.1);
+            self.requeue(first.1);
         }
     }
 
@@ -885,7 +978,7 @@ impl Universe {
                 // that deadline, less one), so a canonical cut finds every frame at the cut.
                 let dist = self.light_distance(e);
                 let second = self.queue.as_mut().and_then(|q| {
-                    let _ = q.set(e, None);
+                    q.set(e, None);
                     q.peek()
                 });
                 let cap = second.map_or(Tick::MAX, |(d, _)| self.deadline_of_key(d).saturating_sub(dist));
@@ -989,7 +1082,6 @@ impl Universe {
             let radius = Scalar::raw(l.radius as i128, -20 + self.dolls[doll as usize].shift as i32)?;
             let i = self.bodies.push(rec);
             self.info.push(BodyInfo { kind: Kind::Ship, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: Some((f as u16, l.member as u16)), born: l.tick });
-            self.pos.push([0.0; 2]);
             Ok(i)
         })();
         match made {
@@ -1028,14 +1120,18 @@ impl Universe {
         let t0 = Instant::now();
         let cap = self.threads * 4;
         let mut wave = vec![first];
-        let _ = self.queue.as_mut().map(|q| q.set(first, None));
+        if let Some(q) = self.queue.as_mut() {
+            q.set(first, None);
+        }
         while wave.len() < cap {
-            let Some((_, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+            let Some((_, e)) = self.queue.as_mut().and_then(|q| q.peek()) else { break };
             let ok = self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) && self.key_of(e).is_some_and(|k| k.0 <= target);
             if !ok {
                 break;
             }
-            let _ = self.queue.as_mut().map(|q| q.set(e, None));
+            if let Some(q) = self.queue.as_mut() {
+                q.set(e, None);
+            }
             wave.push(e);
         }
         let mut keyed: Vec<((Tick, usize), usize)> = wave.iter().filter_map(|&e| self.key_of(e).map(|k| (k, e))).collect();
@@ -1088,15 +1184,19 @@ impl Universe {
             let t_due = crate::prof::t();
             self.take_due(target);
             crate::prof::add(crate::prof::TAKE_DUE, t_due);
-            let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+            let Some((dl, e)) = self.queue.as_mut().and_then(|q| q.peek()) else { break };
             let dl = self.deadline_of_key(dl);
             let Some((t, _)) = self.key_of(e) else {
-                let _ = self.queue.as_mut().map(|q| q.set(e, None));
+                if let Some(q) = self.queue.as_mut() {
+                    q.set(e, None);
+                }
                 continue;
             };
             if t > target {
                 // Beyond this frame: set aside until the frame is done.
-                let _ = self.queue.as_mut().map(|q| q.set(e, None));
+                if let Some(q) = self.queue.as_mut() {
+                    q.set(e, None);
+                }
                 deferred.push(e);
                 continue;
             }
@@ -1127,7 +1227,7 @@ impl Universe {
         }
         // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
         let mut horizon = target;
-        if let Some((dl, _)) = self.queue.as_ref().and_then(|q| q.peek()) {
+        if let Some((dl, _)) = self.queue.as_mut().and_then(|q| q.peek()) {
             horizon = horizon.min(self.deadline_of_key(dl) - 1);
         }
         for e in deferred {
@@ -1315,7 +1415,7 @@ impl Universe {
     /// out when it holds one or none.
     fn key_prune(&mut self, i: usize, after: Tick) {
         let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(2 * self.light_distance(i) + (1 << 26)).max(after));
-        let _ = self.prunable.set(i, at.map(Scalar::integer));
+        self.prunable.set(i, at);
     }
 
     /// Forget history the view can no longer need: older than twice the body's light distance (plus a
@@ -1325,7 +1425,8 @@ impl Universe {
     /// one the oldest item holds back, or whose light distance grew, is visited again at the next call. When a binding is forgotten
     /// changes no outcome (only what may be forgotten is): nothing at or after the oldest item reads what ended before it.
     pub fn prune(&mut self) {
-        // The oldest item any body still has to resolve (the planets, the moons and the player by a walk of those few, the ships by the minimum of `ship_ticks`).
+        // The oldest item any body still has to resolve (the planets, the moons and the player by a walk of those few, the ships by the
+        // first of the due ones: a ship in the calendar has a tick after what it handed out, which is not before the present).
         let mut oldest = self.now;
         let few = self.lanes.planets.iter().chain(&self.lanes.moons).copied().chain(self.player);
         for i in few {
@@ -1333,13 +1434,12 @@ impl Universe {
                 oldest = oldest.min(t);
             }
         }
-        if let Some((t, _)) = self.ship_ticks.peek() {
-            oldest = oldest.min(t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick);
-        }
-        while let Some((at, i)) = self.prunable.peek() {
-            if at.fixed(0).unwrap_or(i128::MAX) > self.now as i128 {
-                break;
+        for c in 0..2 {
+            if let Some((t, _)) = self.due_top(c) {
+                oldest = oldest.min(t);
             }
+        }
+        while let Some(i) = self.prunable.pop_due(self.now) {
             let keep = 2 * self.light_distance(i) + (1 << 26);
             if self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26))) > 0 {
                 // what a reader can still ask for shrank: so does where the body is registered

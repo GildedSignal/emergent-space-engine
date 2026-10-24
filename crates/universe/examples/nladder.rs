@@ -58,6 +58,8 @@ fn main() {
     let mut stage_ns = [0u64; emergent_universe::prof::N];
     let mut stage_calls = [0u64; emergent_universe::prof::N];
     let (mut held_max, mut truncated) = (0usize, false);
+    let mut held_bytes_max = (0usize, 0usize); // the held scans' bindings, sampled each second of wall
+    let mut hot_max = (0usize, 0usize, 0usize); // the schedule's hot set (due, front, queued), the most after any frame
     let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
     let mut last_stats = p.u.stats;
     let mut alive = true;
@@ -89,6 +91,14 @@ fn main() {
         }
         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
         held_max = held_max.max(p.u.held_scans());
+        let h = p.u.hot();
+        hot_max = (hot_max.0.max(h.0), hot_max.1.max(h.1), hot_max.2.max(h.2));
+        if f % 60 == 0 {
+            let (b, by) = p.u.held_scan_bindings();
+            if by > held_bytes_max.1 {
+                held_bytes_max = (b, by);
+            }
+        }
         last_stats = p.u.stats;
         ran += 1;
         let rec = p.u.rec(p.player);
@@ -174,11 +184,12 @@ fn main() {
     };
     // (the engine's marginal footprint is foot_build_mb at N against the same at N = 0: (footprint(N) - footprint(0))/N)
     let sched = p.u.schedule_bytes();
-    println!("schedule: {sched} B by allocation ({:.1} B a body)", sched as f64 / bodies as f64);
+    println!("schedule: {sched} B by allocation ({:.1} B a body); hot set (due, front, queued) at most {hot_max:?} after a frame, {:?} at the end", sched as f64 / bodies as f64, p.u.hot());
+    println!("held scans: at most {} bindings ({:.0} MB) held at once (sampled each second)", held_bytes_max.0, held_bytes_max.1 as f64 / 1e6);
     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
     println!(
-        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1} ev_mean={ev_mean:.2} ev_max_over_mean={:.2} hot={hot} fired={seen} step_items={gw} sched_b={:.1}",
+        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1} ev_mean={ev_mean:.2} ev_max_over_mean={:.2} hot={hot} fired={seen} step_items={gw} sched_b={:.1} hot_due={} hot_front={} hot_queued={}",
         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64(),
-        if ev_mean > 0.0 { ev_max / ev_mean } else { 0.0 }, sched as f64 / bodies as f64
+        if ev_mean > 0.0 { ev_max / ev_mean } else { 0.0 }, sched as f64 / bodies as f64, hot_max.0, hot_max.1, hot_max.2
     );
 }
