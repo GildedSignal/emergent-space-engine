@@ -1,0 +1,33 @@
+state: 2026-10-24 14:10:39 | load averages: 5.81 5.28 5.35 | swap total = 8192.00M used = 6739.44M free = 1452.56M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+rung N=1000000 (1000028 bodies), coast, rtf 100, 20 s of wall time, engine budget 12 ms; build 31.40 s, peak footprint 2390 MB (now 2390 MB)
+frames after 1 s: 1140  engine ms p50 0.390 p90 2.352 p99 7.961 max 22.822; over 12 ms: 2; frames behind: 79, worst lag 1.667 s; events/frame p50 8 p99 153 max 246; scans held max 1
+game 1779.5 s after the first second: kicks 7365 (4.139e-6/body/game-s), events 16395 (9.213e-6/body/game-s), stats {opens 32, boundaries 5212, handoffs 0, lost 18, refused 0, slices 3786}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 2390 MB at the build's end, 2442 MB at the flight's end (now 2442 MB); 2389 B a body from the build; dashboard bytes/body 1201; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 1000071 entries
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                       65.6     1.00      65635
+    position walk (root_state_raw)            58.5    10.85       5388
+  apply (whole)                              243.0    11.00      22089
+  requeue                                     62.1    40.82       1522
+  process (whole)                            424.5    10.97      38689
+    fit: bind_surface (kicks, hand-outs)     140.0     6.41      21835
+  take_due                                     0.3    16.01         22
+  prune                                        7.4     1.00       7450
+  encounters: capture (cheap half)            21.7     0.15     144034
+  encounters: held scans answered            104.7     0.15     694248
+  item: kick (Wisdom-Holman)                 183.6     2.92      62796
+  item: kick (clock)                         189.2     3.46      54651
+  item: boundary                              52.1     4.57      11386
+  item: crash                                  0.1     0.02       4000
+  fleet: battle run_to                        11.1     3.32       3332
+  fleet: advance (whole item)                 14.7     3.32       4430
+  hand-out (a member made a body)              9.5     0.03     338074
+    hand-out: pull planets and moons           0.0     0.03         44
+    hand-out: bind (the member as a tube)       7.3     0.03     261691
+    hand-out: first plan (replan)              1.9     0.03      66417
+    fit again: the coarser word (bind_surface)       3.2     0.01     211485
+frames over the budget (first 12): [359, 428]; the player's doll (frame, doll): [(0, 2)]
+events a frame after 1 s: mean 14.32, p50 8, max 246, max/mean 17.18
+grid (after 1 s): root ships' kicks 0 (step changed at 0), planet-doll ships' boundaries 3150 (changed at 3); bodies with an item 212, off their grid at least once 3; |dS|/S 2^-0:3; |dS| ticks 2^28:1 2^29:2
+schedule: 172011676 B by allocation (172.0 B a body)
+worst frames (frame, ms, events, lag s): (428, 22.82, 24, 0.000) (359, 22.33, 4, 0.000) (502, 11.68, 116, 0.000) (501, 11.45, 188, 0.000) (63, 11.42, 59, 1.448)
+ladder: n=1000000 bodies=1000028 flight=coast rtf=100 frames=1200 build_s=31.40 foot_build_mb=2390 foot_end_mb=2442 b_per_body=2389 p50_ms=0.390 p99_ms=7.961 max_ms=22.822 over=2 lag_s=1.667 kicks_per_body_gs=4.139e-6 events_per_body_gs=9.213e-6 refusals=0 dead=0 held_max=1 view_ms=-1.0 truncated=false wall_s=34.3 ev_mean=14.32 ev_max_over_mean=17.18 hot=3 fired=212 step_items=3150 sched_b=172.0

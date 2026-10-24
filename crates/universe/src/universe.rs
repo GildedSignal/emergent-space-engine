@@ -79,6 +79,9 @@ const SCAN_MARGIN_NS: u64 = 750_000;
 /// frame resolves anything else once this many are waiting, the oldest first, so the memory they hold is bounded.
 const SCAN_BACKLOG: usize = 2048;
 
+/// Positions remembered for deadlines ([`Universe::position`]).
+const POSITION_MEMO: usize = 256;
+
 /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
 const FRAME_TAIL_NS: u64 = 50_000;
 
@@ -221,6 +224,8 @@ pub struct Universe {
     parked: Ticks,
     /// What the calendar handed out last (reused).
     out: Vec<usize>,
+    /// The last positions walked for deadlines, by `(body, event)` ([`Universe::position`]).
+    pos_memo: Vec<(u32, Tick, [f64; 2])>,
     /// How far the observer has moved since the start (root units, rounded up at each frame): the queue's keys are a deadline plus the
     /// `moved` of when it was computed, so `key - moved` is never later than the deadline the present observer gives (a light distance
     /// changes by at most the observer's displacement), and an entry need not be re-keyed when the observer moves.
@@ -301,6 +306,7 @@ impl Universe {
             due: Default::default(),
             parked: Ticks::new(),
             out: Vec::new(),
+            pos_memo: Vec::new(),
             moved: 0,
             observed: false,
             radial: crate::radial::Radial::default(),
@@ -640,7 +646,7 @@ impl Universe {
         }
     }
 
-    fn light_distance(&self, e: usize) -> Tick {
+    fn light_distance(&mut self, e: usize) -> Tick {
         if Some(e) == self.player {
             return 0;
         }
@@ -653,25 +659,47 @@ impl Universe {
                 _ => self.position(e),
             }
         };
+        self.distance_to(p)
+    }
+
+    /// The light distance from the observer to `p` (root units), in ticks.
+    fn distance_to(&self, p: [f64; 2]) -> Tick {
         let (dx, dy) = (p[0] - self.observer[0], p[1] - self.observer[1]);
         (dx * dx + dy * dy).sqrt().min(4e18) as Tick
     }
 
     /// Where body `i` is in root units at its binding's event, for its deadline (a scheduling heuristic only, never an outcome):
     /// the walk of its doll chain at that tick, or, if a centre's history no longer reaches back to it, where its doll's centre is.
-    fn position(&self, i: usize) -> [f64; 2] {
+    /// The walk costs microseconds and a body's binding changes only at its own items, so the last few are remembered by
+    /// `(body, event)` (the planets and the moons are queued again every frame).
+    fn position(&mut self, i: usize) -> [f64; 2] {
+        let t = self.bodies.event_time(i);
+        let slot = i % POSITION_MEMO;
+        if let Some(&(j, tj, p)) = self.pos_memo.get(slot) {
+            if j == i as u32 && tj == t {
+                return p;
+            }
+        }
         let t0 = crate::prof::t();
-        let p = match crate::observe::root_state_raw(&self.ctx(), i, self.bodies.event_time(i)) {
+        let p = match crate::observe::root_state_raw(&self.ctx(), i, t) {
             Ok((p, _)) => p,
-            Err(_) => self.dolls[self.bodies.doll(i) as usize].centre.map_or([0.0; 2], |c| self.position(c)),
+            Err(_) => match self.dolls[self.bodies.doll(i) as usize].centre {
+                Some(c) => self.position(c),
+                None => [0.0; 2],
+            },
         };
         crate::prof::add(crate::prof::ROOT, t0);
+        if self.pos_memo.len() < POSITION_MEMO {
+            self.pos_memo.resize(POSITION_MEMO, (u32::MAX, 0, [0.0; 2]));
+        }
+        self.pos_memo[slot] = (i as u32, t, p);
         p
     }
 
     /// The deadline of an entity's next item: when its light reaches the player.
-    fn deadline_of(&self, e: usize) -> Option<Tick> {
-        self.key_of(e).map(|(t, _)| t.saturating_add(self.light_distance(e)))
+    fn deadline_of(&mut self, e: usize) -> Option<Tick> {
+        let (t, _) = self.key_of(e)?;
+        Some(t.saturating_add(self.light_distance(e)))
     }
 
     /// Put entity `e` in the queue at its deadline (its key is the deadline plus `moved`: see [`Universe::moved`]). **A ship whose next
@@ -1414,8 +1442,9 @@ impl Universe {
     /// Key body `i` in `prunable` at the earliest tick its oldest retired binding could be forgotten (never before `after`), or take it
     /// out when it holds one or none.
     fn key_prune(&mut self, i: usize, after: Tick) {
-        let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(2 * self.light_distance(i) + (1 << 26)).max(after));
-        self.prunable.set(i, at);
+        // The light distance is read when the body is visited ([`Universe::prune`]): keyed at the earliest it could be shortened.
+        let at = self.bodies.droppable_until(i).map(|u| u.saturating_add(1 << 26).max(after));
+        self.prunable.set(i, at, None);
     }
 
     /// Forget history the view can no longer need: older than twice the body's light distance (plus a
@@ -1439,13 +1468,20 @@ impl Universe {
                 oldest = oldest.min(t);
             }
         }
-        while let Some(i) = self.prunable.pop_due(self.now) {
-            let keep = 2 * self.light_distance(i) + (1 << 26);
+        while let Some((i, at)) = self.prunable.pop_due(self.now) {
+            // Where the body was when it was keyed (or now, the first time), against where the observer is now.
+            let p = match at {
+                Some(p) => p,
+                None if Some(i) == self.player => self.observer,
+                None => self.position(i),
+            };
+            let keep = 2 * self.distance_to(p) + (1 << 26);
             if self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26))) > 0 {
                 // what a reader can still ask for shrank: so does where the body is registered
                 self.radial.rebuild(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), self.bodies.bindings_of(i).iter());
             }
-            self.key_prune(i, self.now + 1);
+            let next = self.bodies.droppable_until(i).map(|u| u.saturating_add(keep).max(self.now + 1));
+            self.prunable.set(i, next, Some(p));
         }
     }
 

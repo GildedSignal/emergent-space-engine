@@ -256,11 +256,35 @@ impl Queue {
     }
 }
 
+/// One body keyed for pruning: when, and where it was when keyed (none: not read yet).
+#[derive(Clone, Copy, Debug)]
+struct Keyed {
+    at: Tick,
+    i: u32,
+    pos: Option<[f64; 2]>,
+}
+impl PartialEq for Keyed {
+    fn eq(&self, o: &Self) -> bool {
+        (self.at, self.i) == (o.at, o.i)
+    }
+}
+impl Eq for Keyed {}
+impl PartialOrd for Keyed {
+    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(o))
+    }
+}
+impl Ord for Keyed {
+    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+        (self.at, self.i).cmp(&(o.at, o.i))
+    }
+}
+
 /// The bodies whose history holds more than one retired binding, by the earliest tick it could be shortened: a heap of those
-/// bodies and one bit a body (whether it has an entry).
+/// bodies (each with where it was, for its light distance) and one bit a body (whether it has an entry).
 #[derive(Default)]
 pub struct Prunable {
-    heap: Ticks,
+    heap: BinaryHeap<Reverse<Keyed>>,
     marks: Vec<u64>,
 }
 
@@ -283,36 +307,37 @@ impl Prunable {
         }
     }
 
-    /// Key body `i` at `at`, or take it out (None). A body already keyed keeps its key: it is visited then, and keyed again.
-    pub fn set(&mut self, i: usize, at: Option<Tick>) {
+    /// Key body `i` at `at` (with where it is, if known), or take it out (None). A body already keyed keeps its key: it is
+    /// visited then, and keyed again.
+    pub fn set(&mut self, i: usize, at: Option<Tick>, pos: Option<[f64; 2]>) {
         match at {
             Some(at) => {
                 if !self.marked(i) {
                     self.mark(i, true);
-                    self.heap.push(Reverse((at, i as u32)));
+                    self.heap.push(Reverse(Keyed { at, i: i as u32, pos }));
                 }
             }
             None => self.mark(i, false),
         }
     }
 
-    /// The next body keyed at or before `now`, taken out.
-    pub fn pop_due(&mut self, now: Tick) -> Option<usize> {
-        while let Some(&Reverse((at, i))) = self.heap.peek() {
-            if at > now {
+    /// The next body keyed at or before `now`, taken out, with where it was when keyed.
+    pub fn pop_due(&mut self, now: Tick) -> Option<(usize, Option<[f64; 2]>)> {
+        while let Some(&Reverse(k)) = self.heap.peek() {
+            if k.at > now {
                 return None;
             }
             self.heap.pop();
-            if self.marked(i as usize) {
-                self.mark(i as usize, false);
-                return Some(i as usize);
+            if self.marked(k.i as usize) {
+                self.mark(k.i as usize, false);
+                return Some((k.i as usize, k.pos));
             }
         }
         None
     }
 
     pub fn bytes(&self) -> usize {
-        heap_bytes(&self.heap) + self.marks.capacity() * size_of::<u64>()
+        self.heap.capacity() * size_of::<Reverse<Keyed>>() + self.marks.capacity() * size_of::<u64>()
     }
 }
 
