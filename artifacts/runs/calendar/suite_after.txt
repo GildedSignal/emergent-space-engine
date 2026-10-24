@@ -1,4 +1,4 @@
-state: 2026-10-24 13:55:18 | load averages: 3.18 3.23 5.41 | swap total = 8192.00M used = 6802.25M free = 1389.75M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+state: 2026-10-24 14:21:15 | load averages: 3.77 4.50 4.89 | swap total = 8192.00M used = 6965.88M free = 1226.12M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
 warning: failed to auto-clean cache data
 
 failed to clean entries from the global cache
@@ -8,7 +8,6 @@ Caused by:
 
 Caused by:
   Permission denied (os error 13)
-   Compiling emergent-space v0.1.0 (/Users/julien_laurent/Research/emergent-wt/calendar/crates/space)
    Compiling emergent-universe v0.1.0 (/Users/julien_laurent/Research/emergent-wt/calendar/crates/universe)
 warning: value assigned to `horizon` is never read
   --> crates/universe/examples/tail.rs:26:17
@@ -20,14 +19,14 @@ warning: value assigned to `horizon` is never read
    = note: `#[warn(unused_assignments)]` on by default
 
 warning: `emergent-universe` (example "tail") generated 1 warning
-    Finished `release` profile [optimized + debuginfo] target(s) in 7m 13s
+    Finished `release` profile [optimized + debuginfo] target(s) in 5m 48s
      Running unittests src/lib.rs (target/release/deps/emergent_space-854e60a4faac78a9)
 
 running 10 tests
-test binding::tests::root_witness_certifies_skipped_signs_including_small_root_gaps ... ok
 test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
-test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
 test scaled::tests::exponents_change_range_without_changing_relative_information ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test binding::tests::root_witness_certifies_skipped_signs_including_small_root_gaps ... ok
 test scaled::tests::outward_clock_rounding_contains_the_exact_dyadic_for_both_signs ... ok
 test num::tests::isqrt_is_the_exact_floor ... ok
 test orbit::quadrature_tests::native_panels_obey_the_real_two_point_remainder_and_integer_rounding_allowance ... ok
@@ -58,16 +57,16 @@ test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 running 12 tests
 test exponent_ladder_has_identical_shapes_and_positive_resolved_precession ... ok
-test exact_parabolic_and_unstable_circle_ties_are_generators ... ok
 test public_tube_has_key_orientation_and_one_time_and_carries_its_inverse_rounding ... ok
-test unbound_inverse_preserves_incoming_and_outgoing_integer_states ... ok
+test exact_parabolic_and_unstable_circle_ties_are_generators ... ok
 test strong_field_and_near_separatrix_match_gr_and_velocity ... ok
-test hyperbolic_and_parabolic_passages_have_finite_times_and_symmetric_readouts ... ok
-test passage_phase_keeps_relative_information_beyond_a_fixed_word ... ok
-test packed_keys_round_trip_and_shared_shapes_do_not_alias_different_inputs ... ok
+test unbound_inverse_preserves_incoming_and_outgoing_integer_states ... ok
 test inverse_resolves_the_certified_whirl_gap ... ok
-test weak_field_sweep_preserves_advance_and_kepler_plus_1pn ... ok
+test packed_keys_round_trip_and_shared_shapes_do_not_alias_different_inputs ... ok
+test passage_phase_keeps_relative_information_beyond_a_fixed_word ... ok
+test hyperbolic_and_parabolic_passages_have_finite_times_and_symmetric_readouts ... ok
 test strong_passages_match_an_independent_binet_ode_including_time ... ok
+test weak_field_sweep_preserves_advance_and_kepler_plus_1pn ... ok
 test inverse_with_residual_is_an_exact_identity_through_repeated_event_frame_changes ... ok
 
 test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
@@ -78,16 +77,16 @@ running 17 tests
 test c_quarter_refusal_keeps_subquantum_transverse_speed_and_overflow_is_explicit ... ok
 test dense_c_quarter_guard_uses_the_exact_dyadic_product ... ok
 test dense_readout_reduces_phase_before_rotation_and_preserves_length ... ok
+test logarithmic_mass_and_soi_do_not_have_an_absolute_radius_cap ... ok
 test arc_work_uses_the_compiled_path_and_kicks_preserve_position ... ok
 test compact_records_use_native_shapes_at_planetary_and_extreme_scale ... ok
-test logarithmic_mass_and_soi_do_not_have_an_absolute_radius_cap ... ok
-test derived_clock_never_undershoots_at_planetary_scale ... ok
 test edge_is_the_first_outgoing_population_tick ... ok
 test resonance_comes_from_the_compiled_frequencies ... ok
-test tide_selector_and_full_parent_force_have_the_expected_limits ... ok
 test queue_and_nested_clocks_use_scaled_root_deadlines ... ok
-test dense_order_is_independent_of_observation_and_keeps_the_full_tide ... ok
+test tide_selector_and_full_parent_force_have_the_expected_limits ... ok
 test signed_sigma_delta_conserves_every_native_increment ... ok
+test derived_clock_never_undershoots_at_planetary_scale ... ok
+test dense_order_is_independent_of_observation_and_keeps_the_full_tide ... ok
 test physical_evolution_consumes_the_remainder_before_the_next_binding ... ok
 test native_handoffs_reconstruct_after_repeated_translations_and_kicks ... ok
 test binary_test_mass_limit_is_exact_and_clock_map_uses_the_same_energy ... ok
@@ -98,12 +97,12 @@ test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
      Running tests/kerr.rs (target/release/deps/kerr-e21f1349b57d3055)
 
 running 9 tests
-test circular_stability_and_critical_capture_are_dynamical ... ok
 test small_spin_near_circular_and_near_separatrix_limits_are_continuous ... ok
-test windowed_plunges_match_direct_coordinate_time_integration ... ok
+test circular_stability_and_critical_capture_are_dynamical ... ok
 test spin_reflection_lt_scaling_and_memo_identity ... ok
 test bound_cycles_match_direct_hamiltonian_vectors ... ok
 test zero_spin_reuses_every_old_cycle_readout_bit ... ok
+test windowed_plunges_match_direct_coordinate_time_integration ... ok
 test negative_energy_is_future_directed_only_inside_and_split_conserves ... ok
 test cycle_readout_obeys_metric_and_repeats_without_evolution ... ok
 test finite_massive_photon_and_plunge_readouts_share_the_metric ... ok
@@ -116,8 +115,8 @@ running 5 tests
 test moving_lenses_do_not_erase_subquantum_bends ... ok
 test captured_light_has_native_exterior_readout_and_the_radial_schwarzschild_clock ... ok
 test photons_have_zero_length_and_follow_the_null_metric_at_retarded_times ... ok
-test aberration_is_a_reversible_lorentz_map_and_preserves_null_directions ... ok
 test capture_and_weak_bending_retain_information_across_exponents ... ok
+test aberration_is_a_reversible_lorentz_map_and_preserves_null_directions ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
@@ -137,8 +136,8 @@ test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 7 tests
 test a_turning_orbit_inside_the_star_stays_a_turning_orbit ... ok
 test horizon_is_finite_in_falling_clocks_and_not_in_schwarzschild_time ... ok
-test a_surface_deadline_does_not_set_the_motion_scale ... ok
 test null_capture_uses_the_exact_existing_predicate_and_has_zero_proper_time ... ok
+test a_surface_deadline_does_not_set_the_motion_scale ... ok
 test near_radial_sign_and_whole_interval_barriers ... ok
 test rest_fall_has_an_exact_surface_event_and_the_schwarzschild_radial_clock ... ok
 test energy_and_angular_momentum_hold_on_the_inward_arc ... ok
@@ -159,25 +158,25 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 1 test
 test retained_domain_fingerprint ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running unittests src/lib.rs (target/release/deps/emergent_universe-1502e76ede904de3)
 
 running 12 tests
-test lorentz::tests::a_centre_is_at_rest_in_its_own_frame ... ok
 test calendar::tests::the_queue_orders_by_key_then_id_and_forgets_what_is_taken_out ... ok
+test lorentz::tests::a_centre_is_at_rest_in_its_own_frame ... ok
 test lorentz::tests::mulshr_is_a_floor_of_the_exact_product ... ok
 test step::tests::a_captured_ship_is_seen_with_the_relativistic_velocity ... ok
 test lorentz::tests::rotations_round_trip_exactly_through_every_angle ... ok
 test lorentz::tests::the_turn_is_exactly_invertible_and_within_two_quanta_of_the_rotation ... ok
 test calendar::tests::the_wheel_hands_out_what_is_due_and_nothing_else ... ok
-test step::tests::a_thousand_handoff_round_trips_do_not_drift ... ok
 test lorentz::tests::the_boost_is_exactly_invertible_and_is_lorentz ... ok
+test step::tests::a_thousand_handoff_round_trips_do_not_drift ... ok
 test step::tests::a_ship_captured_and_released_returns_the_identical_integer_state_at_every_speed ... ok
 test step::tests::a_passages_exit_by_its_inverse_is_the_exit_by_bisection ... ok
 test lorentz::tests::a_handoff_out_and_back_is_the_identity ... ok
 
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.55s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.36s
 
      Running tests/cadence.rs (target/release/deps/cadence-12dddac0493fafc4)
 
@@ -186,7 +185,7 @@ test ships_that_can_meet_the_planet_keep_its_cadence ... ok
 test a_ship_is_stepped_by_what_forces_it ... ok
 test ships_born_together_never_kick_together ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
 
      Running tests/clock.rs (target/release/deps/clock-0f46be8830b48018)
 
@@ -195,7 +194,7 @@ test c1_to_the_leave_at_levels_8_and_15 ... ignored
 test c1_level_15_the_tubes_clock_is_the_ships_to_gamma_130 ... ok
 test c1_level_8_the_tubes_clock_is_the_ships_to_gamma_4 ... ok
 
-test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 11.92s
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 10.17s
 
      Running tests/flight.rs (target/release/deps/flight-893f124d67742656)
 
@@ -205,7 +204,7 @@ test the_nose_starts_along_the_velocity ... ok
 test forward_burns_prograde_and_reverse_retrograde ... ok
 test the_hud_warns_of_an_impact_course_and_clears ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.54s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.44s
 
      Running tests/frame_loop.rs (target/release/deps/frame_loop-129d8a074c769954)
 
@@ -214,7 +213,7 @@ test the_controls_can_fail ... ok
 test scans_wait_for_idle_time_and_a_digest_counts_them ... ok
 test the_repeat_and_the_idle_scans_find_what_the_brute_force_finds ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.03s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.48s
 
      Running tests/lifecycle.rs (target/release/deps/lifecycle-e195ea66f5533520)
 
@@ -226,14 +225,14 @@ test the_origin_takes_the_dolls_kicks_like_a_ship ... ok
 test a_dissolved_battle_costs_nothing ... ok
 test the_digest_is_the_same_through_a_frames_whole_life ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.88s
 
      Running tests/memo.rs (target/release/deps/memo-fce2f78ada59a6e5)
 
 running 1 test
 test the_exact_shape_never_recurs_and_the_laws_memo_cell_does ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
 
      Running tests/motion.rs (target/release/deps/motion-ceac7deb8c6c659b)
 
@@ -248,7 +247,7 @@ test the_readout_between_kicks_reads_the_boundarys_error ... ok
 test the_readout_between_kicks_is_bounded ... ok
 test a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded ... ok
 
-test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 51.52s
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 44.70s
 
      Running tests/n_ladder.rs (target/release/deps/n_ladder-9b9e2e272ba7e8c2)
 
@@ -260,7 +259,7 @@ test the_plane_with_no_extra_ships_is_the_plane ... ok
 test the_radial_range_holds_every_readout ... ok
 test the_radial_index_is_the_brute_force_through_the_belt ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.29s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.36s
 
      Running tests/origin.rs (target/release/deps/origin-0ef809932257930d)
 
@@ -270,7 +269,7 @@ test a_mass_with_a_mantissa_is_in_the_law ... ok
 test one_kick_carries_the_fall_against_a_float_restricted_problem ... ok
 test far_from_the_planet_a_ship_keeps_its_orbit ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
 
      Running tests/p1_plunge.rs (target/release/deps/p1_plunge-0662ba24ee5eca04)
 
@@ -278,7 +277,7 @@ running 2 tests
 test the_oracle_is_the_geodesic_and_not_newton ... ok
 test a_ship_at_rest_falls_to_the_surface_by_the_exact_infall ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 
      Running tests/p2_burn_out.rs (target/release/deps/p2_burn_out-a8b51119d83c8188)
 
@@ -287,7 +286,7 @@ test a_toss_from_a_given_state_matches_the_exact_geodesic ... ok
 test a_burn_out_leaves_the_planet_and_is_alive_in_the_stars_doll ... ok
 test a_toss_rises_to_its_apoapsis_and_falls_back_to_the_surface ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.58s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.52s
 
      Running tests/plane.rs (target/release/deps/plane-7d0e4bcc602e34e9)
 
@@ -299,7 +298,7 @@ test observation_never_changes_the_digest ... ok
 test the_same_digest_at_every_budget_and_thread_count ... ok
 test the_fleets_battle_is_bit_identical_across_steppers ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.20s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.74s
 
      Running tests/plunge.rs (target/release/deps/plunge-b6a4ce418e70e8e2)
 
@@ -323,7 +322,7 @@ test a_key_held_for_a_thousand_frames_is_one_decision ... ok
 test the_controls_can_fail ... ok
 test one_log_and_one_cut_give_one_digest_on_any_schedule ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
 
      Running tests/t1_burn.rs (target/release/deps/t1_burn-b823d7f820635461)
 
@@ -337,14 +336,14 @@ test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; fini
 running 8 tests
 test the_word_keeps_the_keys_and_the_levels_are_powers_of_two_of_a_third_of_a_g ... ok
 test a_ship_braked_to_rest_falls_with_no_refusal_and_keeps_a_view ... ok
-test the_view_shows_the_throttle_and_the_two_frames ... ok
 test a_lost_ship_says_why_and_keeps_its_readings ... ok
+test the_view_shows_the_throttle_and_the_two_frames ... ok
 test the_time_factor_changes_when_and_never_what ... ok
 test the_burn_does_the_work_at_every_level ... ok
 test a_log_with_throttle_changes_replays_to_one_digest ... ok
 test a_ship_burning_at_the_top_level_reaches_beta_0_999_without_a_refusal ... ok
 
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.38s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.26s
 
      Running tests/ties.rs (target/release/deps/ties-9930adf51d1f5613)
 
@@ -353,7 +352,7 @@ test a_same_epoch_three_body_contact_is_one_batch ... ok
 test a_ship_that_ties_with_a_planet_reads_it_in_the_order_of_their_keys ... ok
 test independent_events_commute ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.07s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s
 
      Running tests/view.rs (target/release/deps/view-604c46d8dc4d7a7a)
 
@@ -364,7 +363,7 @@ test holding_forward_changes_the_velocity_on_the_next_frame ... ok
 test a_crossing_is_a_property_of_the_state_and_not_of_the_cache ... ok
 test relativistic_content_is_found_exactly_and_in_about_one_readout ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
 
    Doc-tests emergent_space
 
@@ -378,4 +377,4 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-cargo test --release -p emergent-space -p emergent-universe -j 2 2>&1  1023.65s user 53.12s system 192% cpu 9:19.15 total
+cargo test --release -p emergent-space -p emergent-universe -j 2 2>&1  827.59s user 45.90s system 191% cpu 7:36.52 total

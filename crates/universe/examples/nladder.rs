@@ -59,6 +59,7 @@ fn main() {
     let mut stage_calls = [0u64; emergent_universe::prof::N];
     let (mut held_max, mut truncated) = (0usize, false);
     let mut held_bytes_max = (0usize, 0usize); // the held scans' bindings, sampled each second of wall
+    let mut slow: Vec<String> = Vec::new(); // with --features prof: the stages of the first frames over the budget
     let mut hot_max = (0usize, 0usize, 0usize); // the schedule's hot set (due, front, queued), the most after any frame
     let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
     let mut last_stats = p.u.stats;
@@ -83,6 +84,11 @@ fn main() {
         let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
         let took = start.elapsed();
         let (ns, calls) = emergent_universe::prof::take();
+        if emergent_universe::prof::ENABLED && f >= 60 && took.as_secs_f64() * 1e3 > budget_ms && slow.len() < 6 {
+            // what a frame over the budget spent its time on (the stages over 1 ms)
+            let parts: Vec<String> = (0..emergent_universe::prof::N).filter(|&k| ns[k] > 1_000_000).map(|k| format!("{} {:.1} ms/{}", emergent_universe::prof::NAMES[k].trim(), ns[k] as f64 / 1e6, calls[k])).collect();
+            slow.push(format!("frame {f} {:.2} ms: {}", took.as_secs_f64() * 1e3, parts.join(", ")));
+        }
         if f >= 60 {
             for k in 0..emergent_universe::prof::N {
                 stage_ns[k] += ns[k];
@@ -161,6 +167,9 @@ fn main() {
             }
         }
     }
+    for l in &slow {
+        println!("  over the budget: {l}");
+    }
     let mut worst: Vec<_> = late.clone();
     worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     let mut over_at: Vec<usize> = late.iter().filter(|r| r.1 > budget_ms).map(|r| r.0).collect();
@@ -186,6 +195,7 @@ fn main() {
     let sched = p.u.schedule_bytes();
     println!("schedule: {sched} B by allocation ({:.1} B a body); hot set (due, front, queued) at most {hot_max:?} after a frame, {:?} at the end", sched as f64 / bodies as f64, p.u.hot());
     println!("held scans: at most {} bindings ({:.0} MB) held at once (sampled each second)", held_bytes_max.0, held_bytes_max.1 as f64 / 1e6);
+    println!("frames behind (frame, ms, events, lag s; first 8): {}", late.iter().filter(|r| r.3 > 0.0).take(8).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
     println!(
         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1} ev_mean={ev_mean:.2} ev_max_over_mean={:.2} hot={hot} fired={seen} step_items={gw} sched_b={:.1} hot_due={} hot_front={} hot_queued={}",
