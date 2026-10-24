@@ -74,6 +74,7 @@ fn main() {
                 let _ = p.u.input(t, word(1, 8));
             }
             late_stats = Some((p.u.stats, p.u.now));
+            p.u.watch_grid();
             let _ = emergent_universe::prof::take();
         }
         let start = Instant::now();
@@ -155,9 +156,29 @@ fn main() {
     let mut over_at: Vec<usize> = late.iter().filter(|r| r.1 > budget_ms).map(|r| r.0).collect();
     over_at.truncate(12);
     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+    // The schedule's bytes (the calendar job): by allocation, and the footprint it holds (dropped at the end, measured both sides).
+    let ev_mean = if late.is_empty() { 0.0 } else { late.iter().map(|r| r.2 as f64).sum::<f64>() / late.len() as f64 };
+    let ev_max = late.iter().map(|r| r.2).max().unwrap_or(0) as f64;
+    println!("events a frame after 1 s: mean {ev_mean:.2}, p50 {}, max {ev_max:.0}, max/mean {:.2}", pct(&ev, 0.5), if ev_mean > 0.0 { ev_max / ev_mean } else { 0.0 });
+    let (hot, seen, gw) = match p.u.grid_watch() {
+        Some(g) => {
+            let rel: Vec<String> = g.rel_log2.iter().enumerate().filter(|x| *x.1 > 0).map(|(k, c)| format!("2^-{k}:{c}")).collect();
+            let abs: Vec<String> = g.abs_log2.iter().enumerate().filter(|x| *x.1 > 0).map(|(k, c)| format!("2^{k}:{c}")).collect();
+            println!(
+                "grid (after 1 s): root ships' kicks {} (step changed at {}), planet-doll ships' boundaries {} (changed at {}); bodies with an item {}, off their grid at least once {}; |dS|/S {}; |dS| ticks {}",
+                g.items[0], g.off[0], g.items[1], g.off[1], g.seen_bodies(), g.off_bodies(), rel.join(" "), abs.join(" ")
+            );
+            (g.off_bodies(), g.seen_bodies(), g.items[0] + g.items[1])
+        }
+        None => (0, 0, 0),
+    };
+    // (the engine's marginal footprint is foot_build_mb at N against the same at N = 0: (footprint(N) - footprint(0))/N)
+    let sched = p.u.schedule_bytes();
+    println!("schedule: {sched} B by allocation ({:.1} B a body)", sched as f64 / bodies as f64);
     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
     println!(
-        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
-        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1} ev_mean={ev_mean:.2} ev_max_over_mean={:.2} hot={hot} fired={seen} step_items={gw} sched_b={:.1}",
+        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64(),
+        if ev_mean > 0.0 { ev_max / ev_mean } else { 0.0 }, sched as f64 / bodies as f64
     );
 }

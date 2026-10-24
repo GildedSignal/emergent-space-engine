@@ -136,6 +136,52 @@ impl Stats {
     }
 }
 
+/// A measurement of how far the ships' items stay on their own grid (next = last + its step): off unless
+/// [`Universe::watch_grid`] turns it on. A ship's item is **off its grid** when the step it plans differs from the step it had
+/// (the next item is not where the previous step put it); a body's first item (a root ship's stub) is not counted.
+#[derive(Clone, Debug)]
+pub struct GridWatch {
+    /// Items of ships watched at which the step is chosen (a root ship's kick on its own clock; the boundary of a ship of a
+    /// planet's doll on the split), by clock (0 and 1).
+    pub items: [u64; 2],
+    /// Of them, those after which the step changed.
+    pub off: [u64; 2],
+    /// `|ΔS|/S` of the off items: bucket `k` counts `2^-(k+1) < r ≤ 2^-k` (63: smaller).
+    pub rel_log2: [u64; 64],
+    /// `|ΔS|` of the off items in ticks: bucket `k` counts `2^k ≤ |ΔS| < 2^(k+1)`.
+    pub abs_log2: [u64; 64],
+    /// Bodies with at least one off item, and bodies with at least one item, while watched (bitsets).
+    off_bodies: Vec<u64>,
+    seen: Vec<u64>,
+    /// A root ship's own grid, fixed at its first watched kick: (that kick's tick, the step it planned).
+    first: Vec<(i64, i64)>,
+    /// How far a root ship's kick is from that grid (`|t − (t0 + n·S0)|`, ticks): bucket `k` counts `2^k ≤ d < 2^(k+1)`; 0 counts `d ≤ 1`.
+    pub drift_log2: [u64; 64],
+}
+
+impl Default for GridWatch {
+    fn default() -> Self {
+        Self { items: [0; 2], off: [0; 2], rel_log2: [0; 64], abs_log2: [0; 64], off_bodies: Vec::new(), seen: Vec::new(), first: Vec::new(), drift_log2: [0; 64] }
+    }
+}
+
+impl GridWatch {
+    fn mark(set: &mut Vec<u64>, i: usize) {
+        if set.len() <= i / 64 {
+            set.resize(i / 64 + 1, 0);
+        }
+        set[i / 64] |= 1 << (i % 64);
+    }
+    /// Bodies with at least one off item while watched (the hot set over the window).
+    pub fn off_bodies(&self) -> usize {
+        self.off_bodies.iter().map(|w| w.count_ones() as usize).sum()
+    }
+    /// Bodies with at least one item while watched.
+    pub fn seen_bodies(&self) -> usize {
+        self.seen.iter().map(|w| w.count_ones() as usize).sum()
+    }
+}
+
 /// How a body is made: a tube of a doll from its orbit.
 #[derive(Clone, Copy, Debug)]
 pub struct OrbitSpec {
@@ -221,6 +267,8 @@ pub struct Universe {
     /// Entity ids below this are bodies (those made, and the room for every member a fleet can hand out);
     /// a fleet's entity id is `body_cap + its index`.
     body_cap: usize,
+    /// The hot-set measurement ([`GridWatch`]), when on.
+    grid: Option<Box<GridWatch>>,
 }
 
 #[derive(Default)]
@@ -277,8 +325,27 @@ impl Universe {
             resolved: 0,
             frames: 0,
             body_cap: 0,
+            grid: None,
         }
     }
+
+    /// Start (or restart) measuring the ships' items against their own grid ([`GridWatch`]).
+    pub fn watch_grid(&mut self) {
+        self.grid = Some(Box::default());
+    }
+    pub fn grid_watch(&self) -> Option<&GridWatch> {
+        self.grid.as_deref()
+    }
+
+    /// Bytes the schedule holds for the bodies, by allocation: the five calendars (each a slot index and a heap reserved for
+    /// every entity) and the deadline position cache.
+    pub fn schedule_bytes(&self) -> usize {
+        let slots = self.body_cap + self.fleets.len();
+        let cal = slots * (std::mem::size_of::<u32>() + std::mem::size_of::<(Scalar, u32)>());
+        let queue = if self.queue.is_some() { cal } else { 0 };
+        queue + 4 * cal + self.pos.capacity() * std::mem::size_of::<[f64; 2]>()
+    }
+
 
     pub fn ctx(&self) -> Ctx<'_> {
         Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
@@ -658,6 +725,35 @@ impl Universe {
         self.resolved += 1;
         let t = upd.rec.b.event_time;
         self.radial.note(i, self.info[i].kind, crate::num::to_f64(self.info[i].radius), &upd.rec.b);
+        // The step is chosen at a root ship's kick and at the boundary of a ship of a planet's doll.
+        let chosen = if upd.rec.ext.is_some() { upd.kind == Resolved::Kick } else { upd.kind == Resolved::Boundary };
+        if let Some(g) = self.grid.as_deref_mut().filter(|_| self.info[i].kind == Kind::Ship && upd.rec.events > 1 && chosen) {
+            let (old, new) = (self.bodies.step(i), upd.rec.step);
+            let c = (upd.rec.ext.is_none()) as usize;
+            g.items[c] += 1;
+            GridWatch::mark(&mut g.seen, i);
+            if let (0, Some(t_item)) = (c, self.bodies.next_time(i)) {
+                if g.first.len() <= i {
+                    g.first.resize(i + 1, (0, 0));
+                }
+                let (t0, s0) = g.first[i];
+                if s0 == 0 {
+                    g.first[i] = (t_item, new);
+                } else {
+                    let n = ((t_item - t0) as f64 / s0 as f64).round() as i64;
+                    let d = (t_item - t0 - n * s0).unsigned_abs();
+                    g.drift_log2[if d <= 1 { 0 } else { 63 - d.leading_zeros() as usize }] += 1;
+                }
+            }
+            if old != 0 && new != old {
+                g.off[c] += 1;
+                GridWatch::mark(&mut g.off_bodies, i);
+                let d = (new - old).unsigned_abs();
+                g.abs_log2[63 - d.leading_zeros() as usize] += 1;
+                let r = d as f64 / old.unsigned_abs().max(1) as f64;
+                g.rel_log2[((-r.log2()).floor().max(0.0) as usize).min(63)] += 1;
+            }
+        }
         self.bodies.put(i, upd.rec);
         if self.info[i].kind == Kind::Ship {
             let next = self.bodies.next_time(i);

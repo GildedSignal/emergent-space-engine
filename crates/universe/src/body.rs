@@ -101,6 +101,10 @@ pub trait BodyStore: Send + Sync {
     /// The current binding's event time (the body's committed tick).
     fn event_time(&self, i: usize) -> Tick;
     fn next_time(&self, i: usize) -> Option<Tick>;
+    /// The body's step now (`BodyRec::step`), read without the whole record.
+    fn step(&self, i: usize) -> i64 {
+        self.rec(i).step
+    }
     fn alive(&self, i: usize) -> bool;
     /// The doll the body's current tube is in.
     fn doll(&self, i: usize) -> u16 {
@@ -172,6 +176,9 @@ impl BodyStore for PlainBodies {
     }
     fn alive(&self, i: usize) -> bool {
         self.recs[i].alive
+    }
+    fn step(&self, i: usize) -> i64 {
+        self.recs[i].step
     }
     fn doll(&self, i: usize) -> u16 {
         self.recs[i].b.doll
