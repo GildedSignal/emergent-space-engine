@@ -1,6 +1,7 @@
 //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
 pub mod bind;
 pub mod body;
+pub mod calendar;
 pub mod ctx;
 pub mod dash;
 pub mod encounter;

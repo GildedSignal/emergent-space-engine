@@ -58,6 +58,9 @@ fn main() {
     let mut stage_ns = [0u64; emergent_universe::prof::N];
     let mut stage_calls = [0u64; emergent_universe::prof::N];
     let (mut held_max, mut truncated) = (0usize, false);
+    let mut held_bytes_max = (0usize, 0usize); // the held scans' bindings, sampled each second of wall
+    let mut slow: Vec<String> = Vec::new(); // with --features prof: the stages of the first frames over the budget
+    let mut hot_max = (0usize, 0usize, 0usize); // the schedule's hot set (due, front, queued), the most after any frame
     let mut late_stats: Option<(emergent_universe::universe::Stats, i64)> = None;
     let mut last_stats = p.u.stats;
     let mut alive = true;
@@ -74,12 +77,18 @@ fn main() {
                 let _ = p.u.input(t, word(1, 8));
             }
             late_stats = Some((p.u.stats, p.u.now));
+            p.u.watch_grid();
             let _ = emergent_universe::prof::take();
         }
         let start = Instant::now();
         let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
         let took = start.elapsed();
         let (ns, calls) = emergent_universe::prof::take();
+        if emergent_universe::prof::ENABLED && f >= 60 && took.as_secs_f64() * 1e3 > budget_ms && slow.len() < 6 {
+            // what a frame over the budget spent its time on (the stages over 1 ms)
+            let parts: Vec<String> = (0..emergent_universe::prof::N).filter(|&k| ns[k] > 1_000_000).map(|k| format!("{} {:.1} ms/{}", emergent_universe::prof::NAMES[k].trim(), ns[k] as f64 / 1e6, calls[k])).collect();
+            slow.push(format!("frame {f} {:.2} ms: {}", took.as_secs_f64() * 1e3, parts.join(", ")));
+        }
         if f >= 60 {
             for k in 0..emergent_universe::prof::N {
                 stage_ns[k] += ns[k];
@@ -88,6 +97,14 @@ fn main() {
         }
         rows.push((f, took.as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
         held_max = held_max.max(p.u.held_scans());
+        let h = p.u.hot();
+        hot_max = (hot_max.0.max(h.0), hot_max.1.max(h.1), hot_max.2.max(h.2));
+        if f % 60 == 0 {
+            let (b, by) = p.u.held_scan_bindings();
+            if by > held_bytes_max.1 {
+                held_bytes_max = (b, by);
+            }
+        }
         last_stats = p.u.stats;
         ran += 1;
         let rec = p.u.rec(p.player);
@@ -150,14 +167,39 @@ fn main() {
             }
         }
     }
+    for l in &slow {
+        println!("  over the budget: {l}");
+    }
     let mut worst: Vec<_> = late.clone();
     worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     let mut over_at: Vec<usize> = late.iter().filter(|r| r.1 > budget_ms).map(|r| r.0).collect();
     over_at.truncate(12);
     println!("frames over the budget (first 12): {over_at:?}; the player's doll (frame, doll): {doll_at:?}");
+    // The schedule's bytes (the calendar job): by allocation, and the footprint it holds (dropped at the end, measured both sides).
+    let ev_mean = if late.is_empty() { 0.0 } else { late.iter().map(|r| r.2 as f64).sum::<f64>() / late.len() as f64 };
+    let ev_max = late.iter().map(|r| r.2).max().unwrap_or(0) as f64;
+    println!("events a frame after 1 s: mean {ev_mean:.2}, p50 {}, max {ev_max:.0}, max/mean {:.2}", pct(&ev, 0.5), if ev_mean > 0.0 { ev_max / ev_mean } else { 0.0 });
+    let (hot, seen, gw) = match p.u.grid_watch() {
+        Some(g) => {
+            let rel: Vec<String> = g.rel_log2.iter().enumerate().filter(|x| *x.1 > 0).map(|(k, c)| format!("2^-{k}:{c}")).collect();
+            let abs: Vec<String> = g.abs_log2.iter().enumerate().filter(|x| *x.1 > 0).map(|(k, c)| format!("2^{k}:{c}")).collect();
+            println!(
+                "grid (after 1 s): root ships' kicks {} (step changed at {}), planet-doll ships' boundaries {} (changed at {}); bodies with an item {}, off their grid at least once {}; |dS|/S {}; |dS| ticks {}",
+                g.items[0], g.off[0], g.items[1], g.off[1], g.seen_bodies(), g.off_bodies(), rel.join(" "), abs.join(" ")
+            );
+            (g.off_bodies(), g.seen_bodies(), g.items[0] + g.items[1])
+        }
+        None => (0, 0, 0),
+    };
+    // (the engine's marginal footprint is foot_build_mb at N against the same at N = 0: (footprint(N) - footprint(0))/N)
+    let sched = p.u.schedule_bytes();
+    println!("schedule: {sched} B by allocation ({:.1} B a body); hot set (due, front, queued) at most {hot_max:?} after a frame, {:?} at the end", sched as f64 / bodies as f64, p.u.hot());
+    println!("held scans: at most {} bindings ({:.0} MB) held at once (sampled each second)", held_bytes_max.0, held_bytes_max.1 as f64 / 1e6);
+    println!("frames behind (frame, ms, events, lag s; first 8): {}", late.iter().filter(|r| r.3 > 0.0).take(8).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
     println!("worst frames (frame, ms, events, lag s): {}", worst.iter().take(5).map(|r| format!("({}, {:.2}, {}, {:.3})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
     println!(
-        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
-        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+        "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1} ev_mean={ev_mean:.2} ev_max_over_mean={:.2} hot={hot} fired={seen} step_items={gw} sched_b={:.1} hot_due={} hot_front={} hot_queued={}",
+        rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64(),
+        if ev_mean > 0.0 { ev_max / ev_mean } else { 0.0 }, sched as f64 / bodies as f64, hot_max.0, hot_max.1, hot_max.2
     );
 }
