@@ -361,7 +361,6 @@ impl Universe {
         (self.due.iter().map(|h| h.len()).sum(), self.wheel.front_len(), self.queue.as_ref().map_or(0, Queue::len))
     }
 
-
     pub fn ctx(&self) -> Ctx<'_> {
         Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, radial: &self.radial }
     }
