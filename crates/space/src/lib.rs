@@ -140,7 +140,9 @@ use num::{ONE, atan, cos, isqrt, mul_shr, ratio_sqrt};
 use tables::{EDGE, PI, W, X};
 
 /// Integer law and boundary-quantization version. Never reuse a memo across law versions.
-pub const LAW_ID: &str = "space-darwin16-scaled-v7-interpolated-shape";
+pub const LAW_ID: &str = "space-darwin16-scaled-v6-plunge";
+/// Explicit shared-shape candidate; never reuse an exact-law memo for this readout.
+pub const INTERPOLATED_LAW_ID: &str = "space-darwin16-scaled-v10-normalized-linear15";
 pub const LEGACY_LAW_ID: &str = "space-darwin16-v2";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

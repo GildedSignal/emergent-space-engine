@@ -1,0 +1,14 @@
+state: 2026-10-25 10:07:26 | load averages: 3.79 3.66 4.29 | swap total = 6144.00M used = 5233.25M free = 910.75M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+command: ['target/release/examples/nladder', '0', 'coast', '20']
+rung N=0 (28 bodies), coast, rtf 100, 20 s of wall time, engine budget 12 ms; build 0.00 s, peak footprint 1 MB (now 1 MB)
+memory_progress: frame=0 game_s=1.666663 current=1278720 peak=1278720 kicks=0 wall_s=0.003
+memory_progress: frame=600 game_s=868.684201 current=3752704 peak=3752704 kicks=658 wall_s=0.448
+shape_cache: (94, 641280, 1100580, 67, 0)
+memory: n=0 build_peak=1262336 end_peak=3982080 end_current=3982080 initial_records=28 records=71 alive=50 pending=50 changed=55 history=139 resident_game_s=1867.015338 min_record_residency_gs=1704.325662 tube_age_min_gs=7.704763 tube_age_max_gs=1867.015338
+frames after 1 s: 1140  engine ms p50 0.028 p90 1.789 p99 4.324 max 39.985; over 12 ms: 1; frames behind: 84, worst lag 1.667 s; events/frame p50 2 p99 36 max 51; scans held max 1
+game 1767.3 s after the first second: kicks 1022 (2.065e-2/body/game-s), events 5752 (1.162e-1/body/game-s), stats {opens 32, boundaries 925, handoffs 0, lost 18, refused 0, slices 3773}; refusals held 0, dead 21, alive(player) true
+memory: peak footprint 1 MB at the build's end, 4 MB at the flight's end (now 4 MB); 262144 B a body from the build; dashboard bytes/body 2134; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 71 entries
+frames over the budget (first 12): [220]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (220, 39.99, 1, 1.667) (218, 11.65, 10, 0.091) (63, 11.42, 16, 1.667) (62, 11.11, 18, 1.448) (232, 10.21, 10, 1.510)
+ladder: n=0 bodies=28 flight=coast rtf=100 frames=1200 build_s=0.00 foot_build_mb=1 foot_end_mb=4 b_per_body=262144 p50_ms=0.028 p99_ms=4.324 max_ms=39.985 over=1 lag_s=1.667 kicks_per_body_gs=2.065e-2 events_per_body_gs=1.162e-1 refusals=0 dead=21 held_max=1 view_ms=-1.0 truncated=false wall_s=0.6
+runner: exit=0 wall_s=1.231

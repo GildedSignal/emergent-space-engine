@@ -3,7 +3,7 @@ use emergent_space::{
     binding::{cartesian, Rebinding, Trajectory},
     orbit::{clear_shape_cache, Orbit, OrbitKey, Scalar, ShapeGrid},
 };
-const GRID: ShapeGrid = ShapeGrid { bits: 10, order: 1 };
+const GRID: ShapeGrid = ShapeGrid { bits: 15, order: 1 };
 
 #[test]
 fn exact_geometry_survives_the_circle_and_parabolic_grid_edges() {

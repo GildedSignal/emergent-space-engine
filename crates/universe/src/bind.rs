@@ -262,8 +262,8 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
     let time = unit.to_tube(time_of(t, clock_exp)?)?;
     let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
     let mut fit = if let Some(surface) = surface {
-        FittedOrbit::ending_at(input, time, edge, unit.to_tube(surface)?)?
-    } else { FittedOrbit::from_state(input, time, edge)? };
+        FittedOrbit::ending_at_grid(input, time, edge, unit.to_tube(surface)?, emergent_space::orbit::READOUT_GRID)?
+    } else { FittedOrbit::from_state_grid(input, time, edge, emergent_space::orbit::READOUT_GRID)? };
     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
     let tube = Tube::new(0, fit.periapsis_angle, peri);
     if let Trajectory::Cycle(orbit) = &mut fit.trajectory { orbit.make_evictable(); }

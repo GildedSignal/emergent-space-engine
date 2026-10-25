@@ -396,7 +396,7 @@ pub struct FittedOrbit {
 }
 impl FittedOrbit {
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
-        Self::from_state_grid(state, event_time, passage_edge, crate::orbit::READOUT_GRID)
+        Self::from_state_grid(state, event_time, passage_edge, None)
     }
     pub fn from_state_grid(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, grid: Option<crate::orbit::ShapeGrid>) -> Result<Self> {
         let (key, r, clockwise, incoming) = fit_stage!(0, fit_key(state, true))?;
@@ -422,7 +422,11 @@ impl FittedOrbit {
         })
     }
     pub fn ending_at(state: IntegerState, event_time: Scalar, edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
-        match Self::from_state(state, event_time, edge) {
+        Self::ending_at_grid(state, event_time, edge, surface, None)
+    }
+    /// Select a versioned readout explicitly; the retained exact API stays exact.
+    pub fn ending_at_grid(state: IntegerState, event_time: Scalar, edge: Option<Scalar>, surface: Scalar, grid: Option<crate::orbit::ShapeGrid>) -> Result<Self> {
+        match Self::from_state_grid(state, event_time, edge, grid) {
             Ok(fit) => Ok(fit),
             Err(Error::NoBoundOrbit) => {
                 let fit = Rebinding::arc_ending_at(state, event_time, edge, surface)?;
@@ -486,7 +490,7 @@ impl Rebinding {
         Ok(fit)
     }
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
-        Self::from_state_grid(state, event_time, passage_edge, crate::orbit::READOUT_GRID)
+        Self::from_state_grid(state, event_time, passage_edge, None)
     }
     pub fn from_state_grid(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, grid: Option<crate::orbit::ShapeGrid>) -> Result<Self> {
         let fit = FittedOrbit::from_state_grid(state, event_time, passage_edge, grid)?;
