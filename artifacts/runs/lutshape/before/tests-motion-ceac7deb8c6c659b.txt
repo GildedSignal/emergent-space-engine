@@ -1,0 +1,19 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-24 11:56:58 | load averages: 5.28 7.61 8.01 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/deps/motion-ceac7deb8c6c659b', '--test-threads=1']
+
+running 9 tests
+test a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded ... ok
+test a_ship_of_the_root_doll_is_never_captured ... ok
+test a_ship_passing_a_planet_keeps_its_jacobi_constant_bounded ... ignored, known failure under any perturbation (chaos): one ship in twelve crosses 1e-4 at a close pass; see a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded
+test a_ships_step_is_the_clocks_step_of_its_state ... ok
+test an_isolated_orbit_is_the_compiled_tube_and_costs_nothing ... ok
+test the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump ... ok
+test the_readout_between_kicks_is_bounded ... ok
+test the_readout_between_kicks_reads_the_boundarys_error ... ok
+test the_readout_error_falls_as_the_step_squared ... ok
+
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 56.69s
+
+runner: exit=0 wall_s=57.098

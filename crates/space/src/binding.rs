@@ -396,9 +396,12 @@ pub struct FittedOrbit {
 }
 impl FittedOrbit {
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+        Self::from_state_grid(state, event_time, passage_edge, crate::orbit::READOUT_GRID)
+    }
+    pub fn from_state_grid(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, grid: Option<crate::orbit::ShapeGrid>) -> Result<Self> {
         let (key, r, clockwise, incoming) = fit_stage!(0, fit_key(state, true))?;
         let trajectory = if key.periodic() {
-            Trajectory::Cycle(fit_stage!(1, Orbit::compile(key))?)
+            Trajectory::Cycle(fit_stage!(1, match grid { Some(grid) => Orbit::compile_interpolated(key, grid), None => Orbit::compile(key) })?)
         } else {
             Trajectory::Passage(fit_stage!(1, Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)))?)
         };
@@ -483,7 +486,10 @@ impl Rebinding {
         Ok(fit)
     }
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
-        let fit = FittedOrbit::from_state(state, event_time, passage_edge)?;
+        Self::from_state_grid(state, event_time, passage_edge, crate::orbit::READOUT_GRID)
+    }
+    pub fn from_state_grid(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, grid: Option<crate::orbit::ShapeGrid>) -> Result<Self> {
+        let fit = FittedOrbit::from_state_grid(state, event_time, passage_edge, grid)?;
         let mut bound = Self {
             trajectory: fit.trajectory, periapsis_time: fit.periapsis_time,
             periapsis_angle: fit.periapsis_angle, clockwise: fit.clockwise,

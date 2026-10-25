@@ -1,0 +1,291 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index 912cbc56..6cacdb19 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -396,9 +396,12 @@ pub struct FittedOrbit {
+ }
+ impl FittedOrbit {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        Self::from_state_grid(state, event_time, passage_edge, crate::orbit::READOUT_GRID)
++    }
++    pub fn from_state_grid(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, grid: Option<crate::orbit::ShapeGrid>) -> Result<Self> {
+         let (key, r, clockwise, incoming) = fit_stage!(0, fit_key(state, true))?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(fit_stage!(1, Orbit::compile(key))?)
++            Trajectory::Cycle(fit_stage!(1, match grid { Some(grid) => Orbit::compile_interpolated(key, grid), None => Orbit::compile(key) })?)
+         } else {
+             Trajectory::Passage(fit_stage!(1, Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)))?)
+         };
+@@ -483,7 +486,10 @@ impl Rebinding {
+         Ok(fit)
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let fit = FittedOrbit::from_state(state, event_time, passage_edge)?;
++        Self::from_state_grid(state, event_time, passage_edge, crate::orbit::READOUT_GRID)
++    }
++    pub fn from_state_grid(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, grid: Option<crate::orbit::ShapeGrid>) -> Result<Self> {
++        let fit = FittedOrbit::from_state_grid(state, event_time, passage_edge, grid)?;
+         let mut bound = Self {
+             trajectory: fit.trajectory, periapsis_time: fit.periapsis_time,
+             periapsis_angle: fit.periapsis_angle, clockwise: fit.clockwise,
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..6052b60c 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -140,7 +140,7 @@ use num::{ONE, atan, cos, isqrt, mul_shr, ratio_sqrt};
+ use tables::{EDGE, PI, W, X};
+ 
+ /// Integer law and boundary-quantization version. Never reuse a memo across law versions.
+-pub const LAW_ID: &str = "space-darwin16-scaled-v6-plunge";
++pub const LAW_ID: &str = "space-darwin16-scaled-v7-interpolated-shape";
+ pub const LEGACY_LAW_ID: &str = "space-darwin16-v2";
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 78c7ac77..15e3e01b 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -184,6 +184,12 @@ impl ShapeKey {
+ 
+ #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+ struct Integral([Scalar; 5]);
++
++/// Relative grid in the bound gap 2k-1; order is 1 (linear) or 3 (cubic).
++#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
++pub struct ShapeGrid { pub bits: u8, pub order: u8 }
++/// Candidate integration setting; exact compilation remains the control.
++pub const READOUT_GRID: Option<ShapeGrid> = Some(ShapeGrid { bits: 10, order: 1 });
+ impl Integral {
+     fn add(self, rhs: Self) -> Result<Self> {
+         let mut out = self;
+@@ -223,6 +229,7 @@ pub struct OrbitShape {
+     knots: Vec<Knot>,
+     sums: Prefix,
+     lazy: bool,
++    grid: Option<ShapeGrid>,
+     crossings: Vec<usize>,
+     k: i128,
+     q: i128,
+@@ -246,8 +253,12 @@ impl OrbitShape {
+     }
+     /// Panels actually integrated so far (diagnostics only).
+     pub fn integrated_panels(&self) -> usize { self.sums.0.lock().unwrap().len() - 1 }
++    fn searchable_panels(&self) -> usize {
++        if self.grid.is_some() { self.knots.len() - 1 } else { self.integrated_panels() }
++    }
+     fn integral(&self, index: usize) -> Result<Integral> {
+         if index >= self.knots.len() { return Err(Error::Range); }
++        if let Some(grid) = self.grid { return grid.sample(self.key.k, self.knots[index].psi as i128); }
+         let mut sums = self.sums.0.lock().unwrap();
+         while sums.len() <= index {
+             let i = sums.len();
+@@ -320,6 +331,7 @@ impl OrbitShape {
+             knots: vec![Knot { psi: 0 }],
+             sums: Prefix(Mutex::new(vec![Integral::default()])),
+             lazy: false,
++            grid: None,
+             crossings: vec![],
+             k,
+             q,
+@@ -374,7 +386,15 @@ impl OrbitShape {
+         };
+         Ok(Integral([excess, t, tau, dt, dtau]))
+     }
++    fn primitive(&self, psi: i128) -> Result<Integral> {
++        if let Some(grid) = self.grid { return grid.sample(self.key.k, psi); }
++        let i = self.knots.partition_point(|k| k.psi as i128 <= psi).saturating_sub(1);
++        self.integral(i)?.add(self.quad(self.knots[i].psi as i128, psi)?)
++    }
+     fn quad(&self, lo: i128, hi: i128) -> Result<Integral> {
++        if let Some(grid) = self.grid {
++            return grid.sample(self.key.k, hi)?.subtract(grid.sample(self.key.k, lo)?);
++        }
+         let h = hi - lo;
+         if h == 0 {
+             return Ok(Integral::default());
+@@ -545,14 +565,61 @@ impl OrbitShape {
+     }
+ }
+ 
++impl ShapeGrid {
++    fn validate(self) -> Result<()> {
++        if !(2..=16).contains(&self.bits) || ![1, 3].contains(&self.order) { return Err(Error::Range); }
++        Ok(())
++    }
++    fn sample(self, k: u64, psi: i128) -> Result<Integral> {
++        if psi == 0 { return Ok(Integral::default()); }
++        let gap = 2 * k - UNIT;
++        let exponent = 63 - gap.leading_zeros();
++        // The Q48 domain has no finer input below a gap of two quanta.
++        let step = 1u64 << exponent.saturating_sub(self.bits as u32).max(1);
++        let count = self.order as usize + 1;
++        let base = if self.order == 1 { gap / step * step }
++            else { (gap / step).saturating_sub(1) * step };
++        let base = base.max(2).min(UNIT - self.order as u64 * step);
++        let mut values = [Integral::default(); 4];
++        for (j, value) in values.iter_mut().enumerate().take(count) {
++            let node_gap = base + j as u64 * step;
++            let key = ShapeKey { k: (UNIT + node_gap) / 2, k_exponent: 0,
++                compactness: Scalar::ZERO, null: false };
++            let shape = SHAPE_CACHE.with(|cache| -> Result<Arc<OrbitShape>> {
++                let mut cache = cache.borrow_mut();
++                if let Some(shape) = cache.shapes.get(&(key, None)).cloned() {
++                    cache.hits += 1;
++                    return Ok(shape);
++                }
++                cache.misses += 1;
++                let shape = Arc::new(OrbitShape::bound(key)?);
++                cache.insert(shape.clone());
++                Ok(shape)
++            })?;
++            *value = shape.primitive(psi)?;
++        }
++        // Newton forward polynomial, normalized dyadic x. Arithmetic and rounding
++        // are fixed; cache contents and query history cannot select an answer.
++        let x = Scalar::raw(gap as i128 - base as i128, -(step.trailing_zeros() as i32))?;
++        let mut result = values[0];
++        let mut weight = Scalar::ONE;
++        for degree in 1..count {
++            for j in 0..count-degree { values[j] = values[j+1].subtract(values[j])?; }
++            weight = weight.mul(x.sub(Scalar::integer(degree as i64 - 1))?)?.div(Scalar::integer(degree as i64))?;
++            for i in 0..5 { result.0[i] = result.0[i].add(weight.mul(values[0].0[i])?)?; }
++        }
++        Ok(result)
++    }
++}
++
+ /// Exact weak-bound table cache. These limits bound retained table bytes and metadata,
+ /// independently of the number of bodies and historical bindings. FIFO affects cost only.
+ const SHAPE_CACHE_BYTES: usize = 8 * 1024 * 1024;
+ const SHAPE_CACHE_ENTRIES: usize = 4096;
+ #[derive(Default)]
+ struct ShapeCache {
+-    shapes: HashMap<ShapeKey, Arc<OrbitShape>>,
+-    order: VecDeque<ShapeKey>,
++    shapes: HashMap<(ShapeKey, Option<ShapeGrid>), Arc<OrbitShape>>,
++    order: VecDeque<(ShapeKey, Option<ShapeGrid>)>,
+     bytes: usize,
+     hits: u64,
+     misses: u64,
+@@ -560,7 +627,8 @@ struct ShapeCache {
+ }
+ impl ShapeCache {
+     fn insert(&mut self, shape: Arc<OrbitShape>) {
+-        if self.shapes.contains_key(&shape.key) { return; }
++        let id = (shape.key, shape.grid);
++        if self.shapes.contains_key(&id) { return; }
+         let bytes = shape.retained_bytes();
+         if bytes > SHAPE_CACHE_BYTES { return; }
+         while self.bytes + bytes > SHAPE_CACHE_BYTES || self.shapes.len() >= SHAPE_CACHE_ENTRIES {
+@@ -569,8 +637,8 @@ impl ShapeCache {
+             self.evictions += 1;
+         }
+         self.bytes += bytes;
+-        self.order.push_back(shape.key);
+-        self.shapes.insert(shape.key, shape);
++        self.order.push_back(id);
++        self.shapes.insert(id, shape);
+     }
+ }
+ thread_local! { static SHAPE_CACHE: RefCell<ShapeCache> = RefCell::new(ShapeCache::default()); }
+@@ -585,6 +653,7 @@ pub fn shape_cache_stats() -> (usize, usize, u64, u64, u64) {
+ pub struct Orbit {
+     key: OrbitKey,
+     shape: Option<Arc<OrbitShape>>,
++    grid: Option<ShapeGrid>,
+     time_scale: Scalar,
+     q: Scalar,
+     speed_scale: Scalar,
+@@ -623,12 +692,14 @@ impl Orbit {
+             compactness: Scalar::ZERO, null: false };
+         SHAPE_CACHE.with(|cache| {
+             let mut cache = cache.borrow_mut();
+-            if let Some(shape) = cache.shapes.get(&key).cloned() {
++            if let Some(shape) = cache.shapes.get(&(key, self.grid)).cloned() {
+                 cache.hits += 1;
+                 return shape;
+             }
+             cache.misses += 1;
+-            let shape = Arc::new(OrbitShape::bound(key).expect("previously compiled exact bound shape"));
++            let mut shape = OrbitShape::bound(key).expect("previously compiled exact bound shape");
++            shape.grid = self.grid;
++            let shape = Arc::new(shape);
+             cache.insert(shape.clone());
+             shape
+         })
+@@ -650,6 +721,16 @@ impl Orbit {
+     pub fn retained_shape_bytes(&self) -> usize {
+         self.shape.as_ref().map_or(0, |s| s.retained_bytes())
+     }
++    /// Candidate readout: interpolate integrals, never the body's geometry or key.
++    pub fn compile_interpolated(key: OrbitKey, grid: ShapeGrid) -> Result<Self> {
++        grid.validate()?;
++        if !key.periodic() || key.compactness()? > Scalar::power_of_two(WEAK_EXPONENT) {
++            return Self::compile(key);
++        }
++        let mut shape = OrbitShape::bound(ShapeKey::for_orbit(key)?)?;
++        shape.grid = Some(grid);
++        Self::from_shape(key, Arc::new(shape))
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+@@ -697,6 +778,7 @@ impl Orbit {
+         Ok(Self {
+             key,
+             shape: Some(shape.clone()),
++            grid: shape.grid,
+             time_scale,
+             q: Scalar::ZERO,
+             speed_scale: key.compactness()?.div(k)?.sqrt()?,
+@@ -737,6 +819,7 @@ impl Orbit {
+         let mut orbit = Self {
+             key,
+             shape: Some(shape.clone()),
++            grid: shape.grid,
+             time_scale: if key.null {
+                 key.periapsis
+             } else {
+@@ -871,7 +954,7 @@ impl Orbit {
+             .partition_point(|k| k.psi as i128 <= psi)
+             .saturating_sub(1);
+         let base = &shape.knots[i];
+-        let sum = shape.integral(i)?.add(shape.quad(base.psi as i128, psi)?)?;
++        let sum = if shape.grid.is_some() { shape.primitive(psi)? } else { shape.integral(i)?.add(shape.quad(base.psi as i128, psi)?)? };
+         Ok((
+             self.time(sum)?.mul(self.time_scale)?,
+             self.read(0, psi, true, sum)?,
+@@ -887,7 +970,7 @@ impl Orbit {
+     // A period is needed only after the reader actually reaches the half-cycle.
+     fn prefix_covers(&self, target: Scalar) -> Result<bool> {
+         let s = self.shape();
+-        let first = s.integrated_panels();
++        let first = s.searchable_panels();
+         for i in first..s.knots.len() {
+             if self.time(s.integral(i)?)? >= target { return Ok(true); }
+         }
+@@ -896,7 +979,7 @@ impl Orbit {
+     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
+         let s = self.shape();
+         let mut lo_i = 0;
+-        let mut hi_i = s.integrated_panels() + 1;
++        let mut hi_i = s.searchable_panels() + 1;
+         while lo_i < hi_i {
+             let mid = (lo_i + hi_i) / 2;
+             if self.time(s.integral(mid)?)? <= target {
+@@ -929,7 +1012,7 @@ impl Orbit {
+                 Scalar::ZERO
+             })?;
+         for iteration in 0..72 {
+-            let sum = base_sum.add(s.quad(a, psi)?)?;
++            let sum = if s.grid.is_some() { s.primitive(psi)? } else { base_sum.add(s.quad(a, psi)?)? };
+             let t = self.time(sum)?;
+             if t.sub(target)?.abs() <= quantum || hi - lo <= 1 {
+                 return Ok((psi, sum));
+@@ -1393,3 +1476,6 @@ impl Passage {
+ #[cfg(test)]
+ #[path = "quadrature_tests.rs"]
+ mod quadrature_tests;
++
++/// Clear this thread's memo (cost only); useful for controlled cold-build measurements.
++pub fn clear_shape_cache() { SHAPE_CACHE.with(|c| *c.borrow_mut() = ShapeCache::default()); }

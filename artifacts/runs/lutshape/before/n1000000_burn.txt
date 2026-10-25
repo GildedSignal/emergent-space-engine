@@ -1,0 +1,16 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-24 11:59:57 | load averages: 6.95 7.84 8.06 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/examples/nladder', '1000000', 'burn', '20']
+rung N=1000000 (1000028 bodies), burn, rtf 100, 20 s of wall time, engine budget 12 ms; build 43.62 s, peak footprint 1059 MB (now 1059 MB)
+memory_progress: frame=0 game_s=1.666663 current=1059327104 peak=1059327104 kicks=0 wall_s=43.637
+memory_progress: frame=600 game_s=945.287387 current=1082264832 peak=1082264832 kicks=2368 wall_s=44.404
+shape_cache: (2621, 8364944, 37796090, 1000977, 2001420)
+memory: n=1000000 build_peak=1059310720 end_peak=1117769024 end_current=1117769024 initial_records=1000028 records=1000071 alive=1000051 pending=1000051 changed=259 history=700 resident_game_s=1613.194539 min_record_residency_gs=1450.504864 tube_age_min_gs=1.792041 tube_age_max_gs=1613.194539
+frames after 1 s: 1140  engine ms p50 0.406 p90 3.402 p99 11.510 max 76.098; over 12 ms: 11; frames behind: 279, worst lag 1.667 s; events/frame p50 4 p99 126 max 217; scans held max 1807
+game 1513.2 s after the first second: kicks 4242 (2.803e-6/body/game-s), events 13226 (8.740e-6/body/game-s), stats {opens 329, boundaries 3233, handoffs 1, lost 17, refused 0, slices 5421}; refusals held 0, dead 20, alive(player) true
+memory: peak footprint 1059 MB at the build's end, 1118 MB at the flight's end (now 1118 MB); 1058 B a body from the build; dashboard bytes/body 528; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 1000071 entries
+frames over the budget (first 12): [200, 424, 524, 652, 682, 755, 767, 775, 776, 816, 1025]; the player's doll (frame, doll): [(0, 2), (1179, 0)]
+worst frames (frame, ms, events, lag s): (775, 76.10, 2, 1.505) (776, 36.92, 2, 1.586) (424, 26.09, 78, 0.234) (682, 23.84, 64, 1.586) (767, 20.34, 2, 1.667)
+ladder: n=1000000 bodies=1000028 flight=burn rtf=100 frames=1200 build_s=43.62 foot_build_mb=1059 foot_end_mb=1118 b_per_body=1058 p50_ms=0.406 p99_ms=11.510 max_ms=76.098 over=11 lag_s=1.667 kicks_per_body_gs=2.803e-6 events_per_body_gs=8.740e-6 refusals=0 dead=20 held_max=1807 view_ms=-1.0 truncated=false wall_s=46.3
+runner: exit=0 wall_s=46.662

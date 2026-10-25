@@ -1,0 +1,20 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-24 11:56:12 | load averages: 7.39 8.25 8.24 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/deps/emergent_space-854e60a4faac78a9', '--test-threads=1']
+
+running 10 tests
+test binding::tests::root_witness_certifies_skipped_signs_including_small_root_gaps ... ok
+test binding::tests::witnessed_fit_keeps_the_full_search_key_at_kicks_and_boundaries ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test num::tests::word_division_matches_wide_division_at_digit_corrections ... ok
+test orbit::quadrature_tests::native_panels_obey_the_real_two_point_remainder_and_integer_rounding_allowance ... ok
+test scaled::tests::exponents_change_range_without_changing_relative_information ... ok
+test scaled::tests::native_products_and_quotients_keep_signed_normalized_words ... ok
+test scaled::tests::outward_clock_rounding_contains_the_exact_dyadic_for_both_signs ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+runner: exit=0 wall_s=0.552

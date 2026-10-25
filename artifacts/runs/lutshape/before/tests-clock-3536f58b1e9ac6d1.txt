@@ -1,0 +1,14 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-24 11:56:13 | load averages: 7.39 8.25 8.24 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/deps/clock-3536f58b1e9ac6d1', '--test-threads=1']
+
+running 4 tests
+test the_gap_is_carried_only_where_the_first_order_clock_is_not_good_enough ... ok
+test the_gap_moves_the_proper_clock_and_nothing_else ... ok
+test the_tube_clock_is_e_at_every_energy_up_to_a_million ... ok
+test without_the_gap_the_old_clock_fails ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+runner: exit=0 wall_s=0.392

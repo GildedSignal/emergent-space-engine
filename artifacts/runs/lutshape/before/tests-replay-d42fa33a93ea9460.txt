@@ -1,0 +1,13 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-24 11:58:39 | load averages: 8.66 8.28 8.23 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/deps/replay-d42fa33a93ea9460', '--test-threads=1']
+
+running 3 tests
+test a_key_held_for_a_thousand_frames_is_one_decision ... ok
+test one_log_and_one_cut_give_one_digest_on_any_schedule ... ok
+test the_controls_can_fail ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s
+
+runner: exit=0 wall_s=1.685

@@ -1,0 +1,16 @@
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+state: 2026-10-24 11:59:17 | load averages: 7.97 8.14 8.18 | swap  | 'AC Power' | Error:Failed to get thermal warning level with error code 0xe00002bc Error: Failed to get performance warning level with error code 0xe00002bc Error: No CPU power status with error code 0xe00002bc  | 
+command: ['target/release/examples/nladder', '1000000', 'coast', '20']
+rung N=1000000 (1000028 bodies), coast, rtf 100, 20 s of wall time, engine budget 12 ms; build 39.81 s, peak footprint 1068 MB (now 1068 MB)
+memory_progress: frame=0 game_s=1.666663 current=1068256448 peak=1068256448 kicks=0 wall_s=39.808
+memory_progress: frame=600 game_s=881.063511 current=1077284032 peak=1077284032 kicks=1839 wall_s=40.172
+shape_cache: (2920, 8369696, 37808618, 1000976, 2001563)
+memory: n=1000000 build_peak=1068223680 end_peak=1082576064 end_current=1082576064 initial_records=1000028 records=1000071 alive=1000050 pending=1000050 changed=259 history=639 resident_game_s=1879.394648 min_record_residency_gs=1716.704973 tube_age_min_gs=9.754570 tube_age_max_gs=1879.394648
+frames after 1 s: 1140  engine ms p50 0.027 p90 1.075 p99 5.173 max 39.052; over 12 ms: 2; frames behind: 76, worst lag 1.667 s; events/frame p50 2 p99 127 max 240; scans held max 157
+game 1779.4 s after the first second: kicks 3419 (1.921e-6/body/game-s), events 10459 (5.878e-6/body/game-s), stats {opens 32, boundaries 3236, handoffs 0, lost 18, refused 0, slices 3772}; refusals held 0, dead 21, alive(player) true
+memory: peak footprint 1068 MB at the build's end, 1083 MB at the flight's end (now 1083 MB); 1067 B a body from the build; dashboard bytes/body 528; view gather -1.0 ms cold, -1.0 ms warm (0 seen); catalogue 1000071 entries
+frames over the budget (first 12): [150, 151]; the player's doll (frame, doll): [(0, 2)]
+worst frames (frame, ms, events, lag s): (150, 39.05, 7, 1.663) (151, 22.22, 2, 1.666) (99, 11.85, 172, 0.000) (149, 9.63, 14, 1.665) (148, 9.20, 111, 0.419)
+ladder: n=1000000 bodies=1000028 flight=coast rtf=100 frames=1200 build_s=39.81 foot_build_mb=1068 foot_end_mb=1083 b_per_body=1067 p50_ms=0.027 p99_ms=5.173 max_ms=39.052 over=2 lag_s=1.667 kicks_per_body_gs=1.921e-6 events_per_body_gs=5.878e-6 refusals=0 dead=21 held_max=157 view_ms=-1.0 truncated=false wall_s=40.5
+runner: exit=0 wall_s=40.738
