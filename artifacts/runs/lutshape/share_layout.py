@@ -103,6 +103,8 @@ s=s.replace('let sum = shape.integral(i)?.add(shape.quad(base.psi as i128, psi)?
 s=s.replace('outbound, shape.integral(index)?)','outbound, self.integral(&shape, index)?)')
 s=s.replace('self.time(s.integral(i)?)?', 'self.time(self.integral(&s, i)?)?')
 s=s.replace('self.time(s.integral(mid)?)?', 'self.time(self.integral(&s, mid)?)?')
+s=s.replace('let first = s.integrated_panels();', 'let first = if self.grid.is_some() { s.knots.len() - 1 } else { s.integrated_panels() };')
+s=s.replace('let mut hi_i = s.integrated_panels() + 1;', 'let mut hi_i = if self.grid.is_some() { s.knots.len() } else { s.integrated_panels() + 1 };')
 s=s.replace('let base_sum = s.integral(index)?;', 'let base_sum = self.integral(&s, index)?;')
 s=s.replace('self.time(s.integral(index + 1)?)?', 'self.time(self.integral(&s, index + 1)?)?')
 s=s.replace('let sum = base_sum.add(s.quad(a, psi)?)?;', '''let sum = if let Some(grid) = self.grid { grid.sample(self.key.k, psi)? }
